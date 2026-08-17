@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import styles from './Sidebar.module.scss';
 import { CustomTooltip } from './CustomTooltip';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 interface SidebarProps {
   activeTab: '3d-view' | 'settings' | 'developer';
@@ -131,18 +131,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
       y: 0,
       scale: 1,
       transition: {
-        delay: i * 0.05,
-        duration: 0.4,
+        delay: i * 0.04,
+        duration: 0.3,
         ease: [0.16, 1, 0.3, 1]
       }
     }),
     hidden: (i: number) => ({
       opacity: 0,
-      y: 8 + i * 1,
-      scale: 0.98,
+      y: 15 + i * 1,
+      scale: 0.95,
       transition: {
-        delay: i * 0.06,
-        duration: 0.4,
+        delay: i * 0.03,
+        duration: 0.25,
         ease: [0.25, 1, 0.5, 1]
       }
     })
@@ -219,10 +219,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         className={clsx(styles.toolbar, styles.bottomToolbar)}
         initial={false}
         animate={isPreviewActive ? {
-          x: [0, 0, 380],
-          width: ["auto", "auto", "50px"],
-          height: ["44px", "44px", "420px"],
-          borderRadius: ["22px", "22px", "24px"]
+          x: [0, 0, window.innerWidth / 2 - 120],
+          width: ["auto", "auto", "auto", "48px"],
+          height: ["44px", "44px", "44px", "400px"],
+          borderRadius: ["22px", "22px", "22px", "24px"]
         } : {
           x: 0,
           width: "auto",
@@ -230,8 +230,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           borderRadius: "22px"
         }}
         transition={{
-          duration: 1.1,
-          times: [0, 0.6, 1],
+          duration: 1.2,
+          times: [0, 0.4, 0.75, 1],
           ease: [0.25, 1, 0.5, 1]
         }}
         style={{ originX: 0.5, originY: 0.5 }}
