@@ -20,7 +20,7 @@
   background: rgba(10, 15, 26, 0.2);
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: none;
   box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.15);
 }
 
@@ -74,7 +74,7 @@
 .sliceButton {
   background: rgba(0, 240, 255, 0.15);
   color: #00f0ff;
-  border: 1px solid rgba(0, 240, 255, 0.3);
+  border: none;
   
   &:hover {
     background: rgba(0, 240, 255, 0.25) !important;
