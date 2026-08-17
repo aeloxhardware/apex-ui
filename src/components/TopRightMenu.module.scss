@@ -1,11 +1,11 @@
 .container {
   position: fixed;
-  top: 20px;
-  right: 24px;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  gap: 12px;
+  align-items: center;
   z-index: 1000;
   pointer-events: none;
 }
@@ -13,49 +13,33 @@
 .toolbar {
   display: flex;
   align-items: center;
+  justify-content: center;
   pointer-events: auto;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   
-  background: rgba(10, 15, 26, 0.25);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  background: rgba(10, 15, 26, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border: none;
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
-  padding: 8px 20px;
-  border-radius: 22px;
+  padding: 10px 24px;
+  border-radius: 20px;
   width: auto;
-  min-width: 293px;
-  max-width: 600px;
-  min-height: 52px;
+  max-width: 90vw;
+  white-space: nowrap;
 }
 
 .secondaryToolbar {
-  min-height: 104px;
-  padding: 12px 20px;
-  border-radius: 26px;
-  align-items: flex-start;
-  width: 293px;
-}
-
-.infoDisplayTop {
-  font-family: 'Orbitron', sans-serif !important;
-  font-size: 21.9px;
-  font-weight: 800;
-  color: #00f0ff;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  width: 100%;
+  min-height: 44px;
 }
 
 .infoDisplayBottom {
-  font-size: 14.3px;
-  font-weight: 400;
-  color: rgba(255, 255, 255, 0.85);
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
+  font-family: 'Oxanium', sans-serif !important;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+  white-space: nowrap;
   overflow: hidden;
-  width: 100%;
+  text-overflow: ellipsis;
+  text-align: center;
 }

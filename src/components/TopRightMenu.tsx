@@ -6,11 +6,11 @@ export const TopRightMenu: React.FC = () => {
   const [tooltipDesc, setTooltipDesc] = useState("Survolez n'importe quel élément interactif de l'interface pour afficher sa description détaillée en temps réel.");
 
   useEffect(() => {
-    if (!document.getElementById('google-font-orbitron')) {
+    if (!document.getElementById('google-font-oxanium')) {
       const link = document.createElement('link');
-      link.id = 'google-font-orbitron';
+      link.id = 'google-font-oxanium';
       link.rel = 'stylesheet';
-      link.href = 'https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;800;900&display=swap';
+      link.href = 'https://fonts.googleapis.com/css2?family=Oxanium:wght@400;500;600;700&display=swap';
       document.head.appendChild(link);
     }
 
@@ -35,7 +35,6 @@ export const TopRightMenu: React.FC = () => {
 
   return (
     <div className={styles.container}>
-      {/* Panneau du bas : Description détaillée (hauteur 2.5x sans le titre du haut) */}
       <div className={clsx(styles.toolbar, styles.secondaryToolbar)}>
         <div className={styles.infoDisplayBottom}>
           {tooltipDesc}
