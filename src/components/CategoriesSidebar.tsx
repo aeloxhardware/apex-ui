@@ -19,10 +19,11 @@ import styles from './CategoriesSidebar.module.scss';
 export interface CategoryItem {
   id: string;
   title: string;
+  description: string;
   icon: React.ReactNode;
   sections: {
     title: string;
-    items: { label: string; defaultValue: string }[];
+    items: { label: string; defaultValue: string; description: string }[];
   }[];
 }
 
@@ -30,29 +31,30 @@ const CATEGORIES: CategoryItem[] = [
   {
     id: 'geometry',
     title: '1. Géométrie & Extrusion',
+    description: 'Configurez la hauteur des couches, la précision géométrique et la résolution de dépôt de matière pour chaque passe.',
     icon: <Layers size={20} />,
     sections: [
       { 
         title: 'Hauteur & Première couche', 
         items: [
-          { label: 'Hauteur de couche (Layer height)', defaultValue: '0.2 mm' },
-          { label: 'Première couche (First layer height)', defaultValue: '0.24 mm' },
-          { label: 'Débit première couche', defaultValue: '105%' }
+          { label: 'Hauteur de couche (Layer height)', defaultValue: '0.2 mm', description: 'Définit la résolution verticale de la pièce. Plus la valeur est faible, plus le détail est fin mais l\'impression est longue.' },
+          { label: 'Première couche (First layer height)', defaultValue: '0.24 mm', description: 'Épaisseur de la première couche imprimée sur le plateau. Une couche plus épaisse améliore l\'adhérence.' },
+          { label: 'Débit première couche', defaultValue: '105%', description: 'Quantité de plastique extrudé en surplus sur la première couche pour maximiser l\'écrasement et l\'adhésion.' }
         ] 
       },
       { 
         title: 'Largeurs d\'extrusion', 
         items: [
-          { label: 'Largeur des murs (Line width)', defaultValue: '0.45 mm' },
-          { label: 'Largeur du remplissage', defaultValue: '0.45 mm' },
-          { label: 'Largeur des supports', defaultValue: '0.40 mm' }
+          { label: 'Largeur des murs (Line width)', defaultValue: '0.45 mm', description: 'Largeur nominale des lignes de contour extrudées par la buse pour garantir la solidité des parois.' },
+          { label: 'Largeur du remplissage', defaultValue: '0.45 mm', description: 'Largeur du trait pour les structures internes de remplissage de la pièce.' },
+          { label: 'Largeur des supports', defaultValue: '0.40 mm', description: 'Largeur des lignes générées pour les structures de support amovibles.' }
         ] 
       },
       { 
         title: 'Parois', 
         items: [
-          { label: 'Ordre d\'impression des parois (Inner/Outer)', defaultValue: 'Interne d\'abord' },
-          { label: 'Compensation de contour', defaultValue: 'Activée' }
+          { label: 'Ordre d\'impression des parois', defaultValue: 'Interne d\'abord', description: 'Détermine si les parois intérieures ou extérieures sont imprimées en premier pour optimiser l\'état de surface.' },
+          { label: 'Compensation de contour', defaultValue: 'Activée', description: 'Ajuste mathématiquement les trajectoires pour compenser le foisonnement du polymère.' }
         ] 
       }
     ]
@@ -60,21 +62,22 @@ const CATEGORIES: CategoryItem[] = [
   {
     id: 'resistance',
     title: '2. Résistance & Remplissage',
+    description: 'Ajustez la densité interne, les motifs de structure et le nombre de coques pour garantir la robustesse mécanique.',
     icon: <ShieldAlert size={20} />,
     sections: [
       { 
         title: 'Remplissage', 
         items: [
-          { label: 'Densité de remplissage (%)', defaultValue: '15%' },
-          { label: 'Motifs (Grid, Gyroid, Lightning)', defaultValue: 'Gyroid' },
-          { label: 'Angle du remplissage', defaultValue: '45°' }
+          { label: 'Densité de remplissage (%)', defaultValue: '15%', description: 'Pourcentage de matière à l\'intérieur de la pièce. 15% offre un excellent compromis poids/solidité.' },
+          { label: 'Motifs (Gyroid, Grid, Lightning)', defaultValue: 'Gyroid', description: 'Géométrie interne 3D. Le motif Gyroid offre une résistance isotrope exceptionnelle dans toutes les directions.' },
+          { label: 'Angle du remplissage', defaultValue: '45°', description: 'Orientation des lignes de remplissage par rapport aux axes du plateau.' }
         ] 
       },
       { 
         title: 'Parois & Coques', 
         items: [
-          { label: 'Nombre de parois / contours (Wall loops)', defaultValue: '3' },
-          { label: 'Couches supérieures et inférieures (Top/Bottom shell layers)', defaultValue: '4' }
+          { label: 'Nombre de parois (Wall loops)', defaultValue: '3', description: 'Nombre de périmètres extérieurs solides. Plus il y en a, plus la pièce est rigide et étanche.' },
+          { label: 'Couches supérieures et inférieures', defaultValue: '4', description: 'Nombre de couches pleines formant le plafond et le plancher de la pièce imprimée.' }
         ] 
       }
     ]
@@ -82,22 +85,23 @@ const CATEGORIES: CategoryItem[] = [
   {
     id: 'kinematics',
     title: '3. Cinématique & Vitesse',
+    description: 'Pilotez les vitesses d\'accélération, les limites de déplacement et les dynamiques de mouvement de l\'imprimante.',
     icon: <Gauge size={20} />,
     sections: [
       { 
         title: 'Vitesses', 
         items: [
-          { label: 'Vitesse d\'impression des parois', defaultValue: '120 mm/s' },
-          { label: 'Vitesse de remplissage', defaultValue: '200 mm/s' },
-          { label: 'Vitesse de déplacement (Travel)', defaultValue: '300 mm/s' }
+          { label: 'Vitesse des parois', defaultValue: '120 mm/s', description: 'Vitesse d\'impression des contours visibles. Réduire cette valeur améliore la netteté des détails extérieurs.' },
+          { label: 'Vitesse de remplissage', defaultValue: '200 mm/s', description: 'Vitesse d\'exécution des structures internes invisibles pour maximiser le débit global.' },
+          { label: 'Vitesse de déplacement (Travel)', defaultValue: '300 mm/s', description: 'Vitesse de la tête lorsqu\'elle se déplace sans extruder de matière d\'un point à un autre.' }
         ] 
       },
       { 
         title: 'Accélération & Temps', 
         items: [
-          { label: 'Accélération & Jerk / Junction Deviation', defaultValue: '5000 mm/s²' },
-          { label: 'Temps minimum de couche', defaultValue: '5.0 s' },
-          { label: 'Ralentissement automatique', defaultValue: 'Activé' }
+          { label: 'Accélération & Jerk', defaultValue: '5000 mm/s²', description: 'Taux d\'augmentation de la vitesse et tolérance de saut brusque aux intersections de trajectoire.' },
+          { label: 'Temps minimum de couche', defaultValue: '5.0 s', description: 'Temps syndical minimal par couche pour laisser le temps au plastique chaud de refroidir correctement.' },
+          { label: 'Ralentissement automatique', defaultValue: 'Activé', description: 'Réduit dynamiquement la vitesse sur les petites structures pour éviter la déformation thermique.' }
         ] 
       }
     ]
@@ -105,20 +109,21 @@ const CATEGORIES: CategoryItem[] = [
   {
     id: 'thermal',
     title: '4. Thermique & Refroidissement',
+    description: 'Maîtrisez les températures de fusion du filament, la chauffe du plateau et la puissance de ventilation.',
     icon: <Flame size={20} />,
     sections: [
       { 
         title: 'Températures', 
         items: [
-          { label: 'Température de la buse (Hotend)', defaultValue: '210°C' },
-          { label: 'Température du plateau (Bed)', defaultValue: '60°C' }
+          { label: 'Température de la buse (Hotend)', defaultValue: '210°C', description: 'Température de fusion de la buse chauffante adaptée au PLA ou aux thermoplastiques standards.' },
+          { label: 'Température du plateau (Bed)', defaultValue: '60°C', description: 'Température de chauffe du plateau en verre ou acier magnétique pour éviter le warping (décollement).' }
         ] 
       },
       { 
         title: 'Ventilation', 
         items: [
-          { label: 'Ventilation du composant (Part cooling fan %)', defaultValue: '100%' },
-          { label: 'Ventilation ponts et surplombs (Overhang/Bridge fan)', defaultValue: '80%' }
+          { label: 'Ventilation du composant (Part cooling)', defaultValue: '100%', description: 'Vitesse des turbines soufflant directement sur le polymère fraîchement déposé pour figer les surplombs.' },
+          { label: 'Ventilation ponts et surplombs', defaultValue: '80%', description: 'Augmentation instantanée du flux d\'air lors du franchissement de vides ou de ponts.' }
         ] 
       }
     ]
@@ -126,20 +131,21 @@ const CATEGORIES: CategoryItem[] = [
   {
     id: 'filament',
     title: '5. Gestion Filaments & Rétraction',
+    description: 'Paramétrez les distances de recul du filament pour éliminer les fils d\'ange et suintements.',
     icon: <RotateCcw size={20} />,
     sections: [
       { 
         title: 'Rétraction', 
         items: [
-          { label: 'Distance et vitesse de rétraction', defaultValue: '0.8 mm / 35 mm/s' },
-          { label: 'Z-Hop / Lift (décalage vertical)', defaultValue: '0.4 mm' },
-          { label: 'Pressure Advance / Linear Advance', defaultValue: '0.035' }
+          { label: 'Distance et vitesse de rétraction', defaultValue: '0.8 mm / 35 mm/s', description: 'Longueur de filament tirée en arrière hors de la zone de fusion lors des déplacements aériens.' },
+          { label: 'Z-Hop / Lift (décalage vertical)', defaultValue: '0.4 mm', description: 'Soulèvement vertical de la tête d\'impression pendant la rétraction pour éviter de frotter sur les parois.' },
+          { label: 'Pressure Advance / Linear Advance', defaultValue: '0.035', description: 'Anticipation de la pression dans la buse lors des accélérations et décélérations.' }
         ] 
       },
       { 
         title: 'Débit', 
         items: [
-          { label: 'Facteur de débit (Flow ratio / Extrusion multiplier)', defaultValue: '0.98' }
+          { label: 'Facteur de débit (Extrusion multiplier)', defaultValue: '0.98', description: 'Multiplicateur global du volume de matière expulsée pour corriger la tolérance du diamètre du fil.' }
         ] 
       }
     ]
@@ -147,20 +153,21 @@ const CATEGORIES: CategoryItem[] = [
   {
     id: 'supports',
     title: '6. Structures de Support & Adhérence',
+    description: 'Générez des échafaudages intelligents pour soutenir les surplombs et optimiser l\'ancrage sur le plateau.',
     icon: <Cpu size={20} />,
     sections: [
       { 
         title: 'Supports', 
         items: [
-          { label: 'Types de supports (Standard vs Tree/Arachne)', defaultValue: 'Arachne (Organique)' },
-          { label: 'Distance d\'interface Z/XY', defaultValue: '0.2 mm' },
-          { label: 'Motif des interfaces de support', defaultValue: 'Rectiligne' }
+          { label: 'Types de supports (Arachne vs Organique)', defaultValue: 'Arachne (Organique)', description: 'Supports ramifiés en forme d\'arbres nécessitant moins de matière et faciles à détacher manuellement.' },
+          { label: 'Distance d\'interface Z/XY', defaultValue: '0.2 mm', description: 'Espace d\'air entre le support et la pièce pour permettre un décollement propre sans marquer l\'objet.' },
+          { label: 'Motif des interfaces de support', defaultValue: 'Rectiligne', description: 'Trame géométrique de la couche de contact directe sous la pièce.' }
         ] 
       },
       { 
         title: 'Adhérence', 
         items: [
-          { label: 'Adhérence au plateau (Brim, Raft, Skirt)', defaultValue: 'Brim (Ligne auto)' }
+          { label: 'Adhérence au plateau (Brim, Skirt)', defaultValue: 'Brim (Ligne auto)', description: 'Ajout d\'une collerette plate autour de la première couche pour augmenter la surface de contact au sol.' }
         ] 
       }
     ]
@@ -168,19 +175,20 @@ const CATEGORIES: CategoryItem[] = [
   {
     id: 'surface',
     title: '7. Qualité de Surface & Finition',
+    description: 'Optimisez l\'esthétique visuelle, le lissage des dessus de pièces et la précision dimensionnelle.',
     icon: <Sparkles size={20} />,
     sections: [
       { 
         title: 'Finition', 
         items: [
-          { label: 'Lissage de la couche supérieure (Ironing)', defaultValue: 'Désactivé' },
-          { label: 'Masquage des coutures Z (Seam position, Scarf seam)', defaultValue: 'Aléatoire' }
+          { label: 'Lissage de la couche supérieure (Ironing)', defaultValue: 'Désactivé', description: 'Passage à chaud de la buse sans extrusion sur la dernière couche pour polir et éliminer les stries.' },
+          { label: 'Masquage des coutures Z (Scarf seam)', defaultValue: 'Aléatoire', description: 'Position de départ de la couche pour dissimuler la micro-cicatrice verticale de raccord.' }
         ] 
       },
       { 
         title: 'Tolérances', 
         items: [
-          { label: 'Compensation d\'élasticité et tolérances X/Y', defaultValue: '0.0 mm' }
+          { label: 'Compensation d\'élasticité X/Y', defaultValue: '0.0 mm', description: 'Ajustement dimensionnel pour compenser le retrait thermique des pièces techniques emboîtables.' }
         ] 
       }
     ]
@@ -188,19 +196,20 @@ const CATEGORIES: CategoryItem[] = [
   {
     id: 'multimaterial',
     title: '8. Multi-Matériaux & Couleur (AMS)',
+    description: 'Pilotez les changements de bobines automatiques, les tours de purge et les matériaux de support solubles.',
     icon: <Palette size={20} />,
     sections: [
       { 
         title: 'Purge & Rinçage', 
         items: [
-          { label: 'Volumes de purge et tour de rinçage (Flush volumes)', defaultValue: '600 mm³' },
-          { label: 'Changements d\'outils et températures de veille', defaultValue: '220°C' }
+          { label: 'Volumes de purge et tour de rinçage', defaultValue: '600 mm³', description: 'Quantité de plastique purgée lors d\'un changement de couleur pour éviter les teintes baveuses.' },
+          { label: 'Changements d\'outils et températures', defaultValue: '220°C', description: 'Gestion des consignes thermiques lors du basculement entre filaments de natures différentes.' }
         ] 
       },
       { 
         title: 'Matériaux spéciaux', 
         items: [
-          { label: 'Matériaux d\'interface de support dédiés (PVA / Support W)', defaultValue: 'Support W' }
+          { label: 'Matériaux d\'interface solubles (PVA / W)', defaultValue: 'Support W', description: 'Utilisation d\'un polymère soluble dans l\'eau pour les interfaces de supports complexes.' }
         ] 
       }
     ]
@@ -208,14 +217,15 @@ const CATEGORIES: CategoryItem[] = [
   {
     id: 'advanced',
     title: '9. Dynamique & Algorithmes Avancés',
+    description: 'Activez les algorithmes mathématiques de pointe pour accélérer le calcul et lisser les trajectoires.',
     icon: <Workflow size={20} />,
     sections: [
       { 
         title: 'Algorithmes', 
         items: [
-          { label: 'Générateur de parois (Arachne vs Classic)', defaultValue: 'Arachne' },
-          { label: 'Arc Fitting (G2/G3 interpolation)', defaultValue: 'Activé' },
-          { label: 'Compensation de vibration (Input Shaping)', defaultValue: 'MZV (X/Y)' }
+          { label: 'Générateur de parois (Arachne vs Classic)', defaultValue: 'Arachne', description: 'Moteur de calcul à épaisseur de trait variable pour remplir parfaitement les détails fins.' },
+          { label: 'Arc Fitting (G2/G3 interpolation)', defaultValue: 'Activé', description: 'Convertit les micro-segments droits en véritables arcs de cercle pour fluidifier le G-code.' },
+          { label: 'Compensation de vibration (Input Shaping)', defaultValue: 'MZV (X/Y)', description: 'Filtre anti-résonance supprimant l\'effet d\'echo (ringing) sur les parois à haute vitesse.' }
         ] 
       }
     ]
@@ -223,19 +233,20 @@ const CATEGORIES: CategoryItem[] = [
   {
     id: 'gcode',
     title: '10. G-code Custom & Intégration',
+    description: 'Personnalisez les scripts d\'initialisation, de fin de course et l\'intégration avec vos fermes d\'impression.',
     icon: <Terminal size={20} />,
     sections: [
       { 
         title: 'Scripts G-code', 
         items: [
-          { label: 'G-code de début / fin / pause', defaultValue: 'Standard Klipper' },
-          { label: 'Dimensions et limites physiques du volume', defaultValue: '256x256x256 mm' }
+          { label: 'G-code de début / fin / pause', defaultValue: 'Standard Klipper', description: 'Séquences de commandes brutes exécutées au démarrage, à l\'arrêt ou en cas de pause.' },
+          { label: 'Dimensions du volume d\'impression', defaultValue: '256x256x256 mm', description: 'Limites physiques et coordonnées de sécurité des axes X, Y et Z de la machine.' }
         ] 
       },
       { 
         title: 'Intégration', 
         items: [
-          { label: 'Gestion des caméras / Time-lapse', defaultValue: 'Smooth (Exturder Sync)' }
+          { label: 'Gestion des caméras / Time-lapse', defaultValue: 'Smooth (Extruder Sync)', description: 'Synchronisation des prises de vue vidéo à chaque fin de couche montante.' }
         ] 
       }
     ]
@@ -341,7 +352,7 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
           {CATEGORIES.map((cat) => {
             const isActive = activeCategory === cat.id;
             return (
-              <CustomTooltip key={cat.id} content={cat.title}>
+              <CustomTooltip key={cat.id} content={cat.title} description={cat.description}>
                 <button
                   ref={(el) => (iconRefs.current[cat.id] = el)}
                   className={clsx(styles.categoryButton, { [styles.active]: isActive })}
@@ -391,21 +402,22 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
                     <h4 className={styles.sectionTitle}>{section.title}</h4>
                     <ul className={styles.itemsList}>
                       {section.items.map((item, iIdx) => (
-                        <li key={iIdx} className={styles.itemRow}>
-                          <span className={styles.itemName}>{item.label}</span>
-                          <input 
-                            type="text" 
-                            defaultValue={item.defaultValue} 
-                            className={styles.itemInput} 
-                          />
-                        </li>
+                        <CustomTooltip key={iIdx} content={item.label} description={item.description}>
+                          <li className={styles.itemRow}>
+                            <span className={styles.itemName}>{item.label}</span>
+                            <input 
+                              type="text" 
+                              defaultValue={item.defaultValue} 
+                              className={styles.itemInput} 
+                            />
+                          </li>
+                        </CustomTooltip>
                       ))}
                     </ul>
                   </div>
                 ))}
               </div>
 
-              {/* Curseur de défilement externe interactif avec maintien d'extension pendant le clic */}
               {hasScroll && (
                 <div 
                   className={clsx(styles.externalScrollThumb, { [styles.dragging]: isDragging })}

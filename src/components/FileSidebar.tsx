@@ -18,7 +18,7 @@ export const FileSidebar: React.FC<FileSidebarProps> = ({
   return (
     <div className={styles.container}>
       <div className={styles.toolbar}>
-        <CustomTooltip content="Open Model">
+        <CustomTooltip content="Ouvrir un Projet" description="Chargez un projet 3D enregistré précédemment avec ses configurations complètes.">
           <button
             className={clsx(styles.button)}
             onClick={onOpenModel}
@@ -27,7 +27,7 @@ export const FileSidebar: React.FC<FileSidebarProps> = ({
           </button>
         </CustomTooltip>
 
-        <CustomTooltip content="Save Project">
+        <CustomTooltip content="Sauvegarder le Projet" description="Enregistrez l'état actuel de votre plateau et vos réglages dans un fichier de projet.">
           <button
             className={clsx(styles.button)}
             onClick={onSaveProject}
@@ -38,7 +38,7 @@ export const FileSidebar: React.FC<FileSidebarProps> = ({
 
         <div className={styles.separator} />
 
-        <CustomTooltip content="Printer: Prusa MK4 | Filament: PLA">
+        <CustomTooltip content="Configuration Imprimante & Filament" description="Imprimante active : Prusa MK4 | Filament sélectionné : PLA Premium 1.75mm. Cliquez pour modifier.">
           <button
             className={clsx(styles.button, styles.configButton)}
             onClick={onOpenSettings}

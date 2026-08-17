@@ -69,8 +69,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div ref={topToolbarRef} className={clsx(styles.toolbar, styles.topToolbar)}>
         <div className={styles.activeIndicator} style={indicatorStyle}></div>
 
-        {/* Logo and App Title */}
-        <CustomTooltip content="Apex Slicer v1.0.0">
+        <CustomTooltip content="Apex Slicer Studio" description="Logiciel de préparation et de découpe 3D haute performance pour l'impression additive professionnelle.">
           <div className={styles.logoContainer}>
             <img src="/logo.webp" alt="Logo" className={styles.logoImg} />
           </div>
@@ -78,8 +77,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         <div className={styles.topSeparator} />
 
-        {/* Navigation Tabs */}
-        <CustomTooltip content="Perspective 3D View">
+        <CustomTooltip content="Vue 3D Perspective" description="Basculez sur l'espace de travail principal pour inspecter et manipuler vos modèles sur le plateau d'impression.">
           <button
             ref={(el) => { if (el) buttonRefs.current.set('box', el); }}
             className={clsx(styles.button, styles.topButton, {
@@ -91,7 +89,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </CustomTooltip>
         
-        <CustomTooltip content="Configuration Settings">
+        <CustomTooltip content="Paramètres de Configuration" description="Accédez aux réglages globaux de la machine, du extrudeur et des profils de matériaux.">
           <button
             ref={(el) => { if (el) buttonRefs.current.set('settings', el); }}
             className={clsx(styles.button, styles.topButton, {
@@ -103,7 +101,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </CustomTooltip>
 
-        <CustomTooltip content="Developer Settings">
+        <CustomTooltip content="Console Développeur" description="Inspectez les flux G-code générés en temps réel et les journaux de diagnostic système.">
           <button
             ref={(el) => { if (el) buttonRefs.current.set('developer', el); }}
             className={clsx(styles.button, styles.topButton, {
@@ -118,7 +116,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Bottom Toolbar (Action, Manipulation 3D) */}
       <div className={clsx(styles.toolbar, styles.bottomToolbar)}>
-        <CustomTooltip content="Select Tool">
+        <CustomTooltip content="Outil de Sélection" description="Cliquez sur n'importe quel modèle 3D sur le plateau pour le sélectionner et afficher ses propriétés.">
           <button
             className={clsx(styles.button, styles.bottomButton, {
               [styles.active]: activeTool === 'select',
@@ -132,7 +130,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </CustomTooltip>
 
-        <CustomTooltip content="Move Tool">
+        <CustomTooltip content="Outil de Déplacement (Move)" description="Affichez les gizmos directionnels pour repositionner précisément l'objet sur le plateau d'impression.">
           <button
             className={clsx(styles.button, styles.bottomButton, {
               [styles.active]: activeTool === 'move',
@@ -146,7 +144,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </CustomTooltip>
 
-        <CustomTooltip content="Rotate Tool">
+        <CustomTooltip content="Outil de Rotation" description="Faites pivoter le modèle selon les axes X, Y et Z pour optimiser son orientation de contact.">
           <button
             className={clsx(styles.button, styles.bottomButton, {
               [styles.active]: activeTool === 'rotate',
@@ -160,7 +158,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </CustomTooltip>
 
-        <CustomTooltip content="Slice Layers">
+        <CustomTooltip content="Analyseur de Couches (Layer Viewer)" description="Visualisez la simulation couche par couche du parcours de la buse avant l'impression.">
           <button
             className={clsx(styles.button, styles.bottomButton, {
               [styles.active]: activeTool === 'layers',
@@ -173,8 +171,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         <div className={styles.separator} />
 
-        {/* View tools */}
-        <CustomTooltip content="Reset Camera View">
+        <CustomTooltip content="Réinitialiser la Caméra" description="Remettez la caméra dans sa position isométrique par défaut face au plateau.">
           <button
             className={clsx(styles.button, styles.bottomButton)}
             onClick={() => window.dispatchEvent(new CustomEvent('apex-reset-camera'))}
@@ -183,7 +180,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </CustomTooltip>
 
-        <CustomTooltip content="Fit to Screen">
+        <CustomTooltip content="Ajuster à l'Écran (Fit)" description="Zoomez et recentrez la vue automatiquement sur le modèle sélectionné.">
           <button
             className={clsx(styles.button, styles.bottomButton)}
             onClick={() => window.dispatchEvent(new CustomEvent('apex-fit-screen'))}
@@ -194,7 +191,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         <div className={styles.separator} />
 
-        <CustomTooltip content="Import 3D File (.stl)">
+        <CustomTooltip content="Importer un Modèle 3D (.stl)" description="Ouvrez le sélecteur de fichiers pour charger un nouveau fichier STL 3D sur le plateau.">
           <button
             className={clsx(styles.button, styles.bottomButton, styles.uploadActionButton)}
             onClick={handleUploadClick}

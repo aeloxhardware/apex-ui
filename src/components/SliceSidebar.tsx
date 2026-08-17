@@ -12,7 +12,7 @@ export const SliceSidebar: React.FC<SliceSidebarProps> = ({ onSlice }) => {
   return (
     <div className={styles.container}>
       <div className={styles.toolbar}>
-        <CustomTooltip content="Slice Plate">
+        <CustomTooltip content="Lancer le Slicing (Découpe)" description="Lancez le calcul complet du G-code pour transformer votre modèle 3D en trajectoires d'impression exploitables.">
           <button
             className={clsx(styles.button, styles.sliceButton)}
             onClick={onSlice}
