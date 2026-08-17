@@ -37,6 +37,7 @@ export const ModelStatusBox: React.FC = () => {
         }
       } else {
         setSelectedModelName(null);
+        // Si aucun modèle n'est sélectionné via clic simple, on vide la liste s'il n'y a plus de modèles sélectionnés, ou on gère la suppression si aucun modèle n'est présent.
       }
     };
 
@@ -47,14 +48,30 @@ export const ModelStatusBox: React.FC = () => {
       }
     };
 
+    const handleMeshDeleted = (e: CustomEvent<{ name?: string }>) => {
+      const deletedName = e.detail?.name;
+      if (deletedName) {
+        setModels(prev => prev.filter(m => m.name !== deletedName));
+        if (selectedModelName === deletedName) {
+          setSelectedModelName(null);
+        }
+      } else {
+        // Si aucun nom n'est spécifié, on vide tout (suppression générale)
+        setModels([]);
+        setSelectedModelName(null);
+      }
+    };
+
     window.addEventListener('apex-mesh-selected', handleMeshSelected as EventListener);
     window.addEventListener('apex-import-model', handleImportModel as EventListener);
+    window.addEventListener('apex-mesh-deleted', handleMeshDeleted as EventListener);
 
     return () => {
       window.removeEventListener('apex-mesh-selected', handleMeshSelected as EventListener);
       window.removeEventListener('apex-import-model', handleImportModel as EventListener);
+      window.removeEventListener('apex-mesh-deleted', handleMeshDeleted as EventListener);
     };
-  }, []);
+  }, [selectedModelName]);
 
   return (
     <div className={styles.container}>

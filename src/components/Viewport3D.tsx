@@ -202,7 +202,6 @@ export const Viewport3D = () => {
       }
     };
 
-    // Simulation de chute libre avec accélération gravitationnelle et amortissement à l'impact
     const handleDragEnd = () => {
       const selection = selectedMeshesRef.current;
       if (selection.size === 0) return;
@@ -213,12 +212,11 @@ export const Viewport3D = () => {
       const minHeight = boundingInfo.min.y;
       const targetY = (activeMesh.position.y - minHeight) > 0 ? (activeMesh.position.y - minHeight) : 0;
 
-      // Si l'objet est relâché en l'air au-dessus du plateau
       if (activeMesh.position.y > targetY + 1) {
         let currentY = activeMesh.position.y;
         let velocityY = 0;
-        const gravity = 0.8; // Accélération de la chute
-        const restitution = 0.25; // Facteur de rebond amorti
+        const gravity = 0.8;
+        const restitution = 0.25;
 
         const observer = scene.onBeforeRenderObservable.add(() => {
           if (!activeMesh || activeMesh.isDisposed()) {
@@ -232,7 +230,7 @@ export const Viewport3D = () => {
           if (currentY <= targetY) {
             currentY = targetY;
             if (Math.abs(velocityY) > 1.5) {
-              velocityY = -velocityY * restitution; // Rebond amorti sans rappel élastique
+              velocityY = -velocityY * restitution;
             } else {
               activeMesh.position.y = targetY;
               scene.onBeforeRenderObservable.remove(observer);
@@ -392,8 +390,10 @@ export const Viewport3D = () => {
           if (confirmed) {
             selection.forEach(mesh => {
               if (mesh && !mesh.isDisposed()) {
+                const meshName = mesh.name;
                 modelsRef.current.delete(mesh);
                 mesh.dispose();
+                window.dispatchEvent(new CustomEvent('apex-mesh-deleted', { detail: { name: meshName } }));
               }
             });
             selection.clear();
