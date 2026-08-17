@@ -348,6 +348,20 @@ export const Viewport3D = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
 
+    // Fonction utilitaire robuste pour remonter au modèle racine (root) enregistré dans modelsRef
+    const getRootModel = (mesh: BABYLON.AbstractMesh): BABYLON.AbstractMesh => {
+      let curr: BABYLON.AbstractMesh | null = mesh;
+      let lastValid: BABYLON.AbstractMesh = mesh;
+      while (curr) {
+        if (modelsRef.current.has(curr)) {
+          return curr;
+        }
+        lastValid = curr;
+        curr = curr.parent as BABYLON.AbstractMesh;
+      }
+      return lastValid;
+    };
+
     const pointerObserver = scene.onPointerObservable.add((pointerInfo) => {
       const excluded: BABYLON.AbstractMesh[] = [plate, outline, topOutline];
 
@@ -359,13 +373,7 @@ export const Viewport3D = () => {
         if (pick?.hit && pick.pickedMesh) {
           let hoveredMesh = pick.pickedMesh;
           if (currentToolRef.current !== 'texture') {
-            let root = hoveredMesh;
-            while (root.parent && modelsRef.current.has(root.parent as BABYLON.AbstractMesh) === false) {
-              root = root.parent as BABYLON.AbstractMesh;
-            }
-            if (modelsRef.current.has(root)) {
-              hoveredMesh = root;
-            }
+            hoveredMesh = getRootModel(hoveredMesh);
           }
           const hasTexture = hoveredMesh.material && hoveredMesh.material.name !== "boundaryMat";
           window.dispatchEvent(
@@ -395,13 +403,7 @@ export const Viewport3D = () => {
           
           // CRITIQUE : Si l'outil n'est PAS 'texture', on remonte TOUJOURS au modèle racine complet.
           if (currentToolRef.current !== 'texture') {
-            let root = targetMesh;
-            while (root.parent && modelsRef.current.has(root.parent as BABYLON.AbstractMesh) === false) {
-              root = root.parent as BABYLON.AbstractMesh;
-            }
-            if (modelsRef.current.has(root)) {
-              targetMesh = root;
-            }
+            targetMesh = getRootModel(targetMesh);
           }
           
           if (selectedMeshesRef.current.has(targetMesh)) {
