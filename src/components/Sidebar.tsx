@@ -27,10 +27,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenModel
 }) => {
   const [activeTool, setActiveTool] = useState<'select' | 'move' | 'rotate' | 'layers'>('select');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const topToolbarRef = useRef<HTMLDivElement>(null);
   const buttonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [indicatorStyle, setIndicatorStyle] = useState<React.CSSProperties>({});
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
 
   const handleTopTabClick = (tabName: 'box' | 'settings' | 'developer') => {
     onTabChange(tabName);
@@ -189,11 +194,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <CustomTooltip content="Importer un Modèle 3D (.stl)" description="Ouvrez le sélecteur de fichiers pour charger un nouveau fichier STL 3D sur le plateau.">
           <button
             className={clsx(styles.button, styles.bottomButton, styles.uploadActionButton)}
-            onClick={onOpenModel}
+            onClick={handleUploadClick}
           >
             <Upload size={16} />
           </button>
         </CustomTooltip>
+
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          style={{ display: 'none' }} 
+          accept=".stl" 
+          onChange={(e) => {
+            if (e.target.files?.[0]) {
+              window.dispatchEvent(
+                new CustomEvent('apex-import-model', {
+                  detail: e.target.files[0], 
+                })
+              );
+            }
+          }}
+        />
       </div>
     </div>
   );
