@@ -11,7 +11,8 @@ import {
   Code, 
   Maximize2, 
   Eye, 
-  Palette 
+  Palette,
+  Layers
 } from 'lucide-react';
 import styles from './Sidebar.module.scss';
 import { CustomTooltip } from './CustomTooltip';
@@ -27,7 +28,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onTabChange, 
   onOpenModel
 }) => {
-  const [activeTool, setActiveTool] = useState<'select' | 'move' | 'rotate' | 'scale' | 'texture'>('select');
+  const [activeTool, setActiveTool] = useState<'select' | 'move' | 'rotate' | 'scale' | 'texture' | 'layers'>('select');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const topToolbarRef = useRef<HTMLDivElement>(null);
@@ -44,6 +45,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const handleToolClick = (tool: 'select' | 'move' | 'rotate' | 'scale' | 'texture') => {
     const newTool = activeTool === tool ? 'select' : tool;
+    setActiveTool(newTool);
+    window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: newTool } }));
+  };
+
+  const handleLayerClick = () => {
+    const newTool = activeTool === 'layers' ? 'select' : 'layers';
     setActiveTool(newTool);
     window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: newTool } }));
   };
@@ -131,6 +138,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => handleTopTabClick('box')}
           >
             <Box size={22} />
+          </button>
+        </CustomTooltip>
+
+        <CustomTooltip content="Prévisualisation" description="Visualisez le parcours de la buse et ajustez différents paramètres si cela ne vous convient pas.">
+          <button
+            className={clsx(styles.button, styles.topButton, {
+              [styles.active]: activeTool === 'layers',
+            })}
+            onClick={handleLayerClick}
+          >
+            <Layers size={22} />
           </button>
         </CustomTooltip>
         
