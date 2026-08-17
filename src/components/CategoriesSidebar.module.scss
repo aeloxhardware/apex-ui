@@ -146,7 +146,7 @@
   }
 }
 
-/* Curseur externe flottant ancré à gauche à l'extérieur : grandit uniquement vers la droite (extérieur) */
+/* Curseur externe flottant ancré à gauche à l'extérieur : grandit uniquement vers la droite (extérieur) sans lueur externe */
 .externalScrollThumb {
   position: absolute;
   left: calc(100% + 8px);
@@ -155,16 +155,16 @@
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   border-radius: 999px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  box-shadow: none;
   pointer-events: auto;
   cursor: pointer;
   z-index: 1002;
-  transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease, box-shadow 0.2s ease;
+  transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease;
 
   &:hover {
     width: 12px;
     background: rgba(255, 255, 255, 0.35);
-    box-shadow: 0 0 10px rgba(0, 240, 255, 0.4), 0 4px 16px rgba(0, 0, 0, 0.6);
+    box-shadow: none;
   }
 }
 
