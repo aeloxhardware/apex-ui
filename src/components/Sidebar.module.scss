@@ -1,13 +1,13 @@
 .container {
-  position: absolute;
-  top: 16px;
+  position: fixed;
+  top: 20px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  z-index: 50;
+  gap: 10px;
+  z-index: 1000;
   pointer-events: none;
 }
 
@@ -17,24 +17,25 @@
   pointer-events: auto;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   
-  background: rgba(10, 15, 26, 0.75);
+  // Glass effect replacements for the shader
+  background: rgba(10, 15, 26, 0.45);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
 }
 
 .topToolbar {
-  padding: 6px 14px;
-  border-radius: 28px;
-  gap: 8px;
+  padding: 8px 18px;
+  border-radius: 33px;
+  gap: 12px;
   position: relative;
 }
 
 .bottomToolbar {
-  padding: 5px 8px;
-  border-radius: 18px;
-  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 22px;
+  gap: 5px;
 }
 
 .button {
@@ -62,13 +63,13 @@
 }
 
 .topButton {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+  width: 50px;
+  height: 50px;
+  border-radius: 16px;
 
   svg {
-    width: 20px;
-    height: 20px;
+    width: 25px;
+    height: 25px;
   }
 
   &.active {
@@ -80,25 +81,25 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  padding: 2px;
+  width: 50px;
+  height: 50px;
+  padding: 3px;
 
   .logoImg {
-    width: 28px;
-    height: 28px;
+    width: 36px;
+    height: 36px;
     object-fit: contain;
   }
 }
 
 .bottomButton {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
 
   svg {
-    width: 15px;
-    height: 15px;
+    width: 16px;
+    height: 16px;
     transition: transform 0.2s ease;
   }
 
@@ -117,11 +118,31 @@
   box-shadow: 
     0 0 14px rgba(0, 240, 255, 0.25), 
     inset 0 0 10px rgba(0, 240, 255, 0.15);
-  border-radius: 12px;
+  border-radius: 16px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: none;
   z-index: 1;
   opacity: 0;
+}
+
+.uploadButtonContainer {
+  background: rgba(10, 15, 26, 0.45);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  
+  &:hover {
+    border-color: rgba(0, 240, 255, 0.3);
+    box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+  }
 }
 
 .uploadActionButton {
@@ -137,14 +158,14 @@
 
 .separator {
   width: 1px;
-  height: 16px;
+  height: 18px;
   background: rgba(255, 255, 255, 0.15);
   margin: 0 2px;
 }
 
 .topSeparator {
   width: 1px;
-  height: 20px;
+  height: 25px;
   background: rgba(255, 255, 255, 0.15);
-  margin: 0 2px;
+  margin: 0 4px;
 }
