@@ -138,11 +138,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }),
     hidden: (i: number) => ({
       opacity: 0,
-      y: 12 + i * 1.5,
+      y: 15,
       scale: 0.95,
       transition: {
-        delay: i * 0.04,
-        duration: 0.35,
+        delay: i * 0.05,
+        duration: 0.25,
         ease: [0.25, 1, 0.5, 1]
       }
     })
@@ -219,9 +219,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         className={clsx(styles.toolbar, styles.bottomToolbar)}
         initial={false}
         animate={isPreviewActive ? {
-          x: [0, 0, 420],
+          x: [0, 0, 420, 420],
           width: ["auto", "auto", "auto", "48px"],
-          height: ["44px", "44px", "44px", "400px"],
+          height: ["44px", "44px", "44px", "380px"],
           borderRadius: ["22px", "22px", "22px", "24px"]
         } : {
           x: 0,
@@ -230,7 +230,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           borderRadius: "22px"
         }}
         transition={{
-          duration: 1.6,
+          duration: 1.8,
           times: [0, 0.45, 0.75, 1],
           ease: [0.25, 1, 0.5, 1]
         }}
