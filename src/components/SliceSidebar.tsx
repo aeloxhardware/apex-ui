@@ -17,8 +17,8 @@ export const SliceSidebar: React.FC<SliceSidebarProps> = ({ onSlice }) => {
             className={clsx(styles.button, styles.sliceButton)}
             onClick={onSlice}
           >
-            <Play size={16} className="fill-current mr-2 z-10 relative" />
-            <span className="font-semibold text-xs tracking-wide z-10 relative">SLICE</span>
+            <Play size={16} className="fill-current mr-2" />
+            <span className="font-semibold text-xs tracking-wide">SLICE</span>
           </button>
         </CustomTooltip>
       </div>
