@@ -274,9 +274,38 @@ export const Viewport3D = () => {
     topOutline.parent = volumeRoot;
 
     const pointerObserver = scene.onPointerObservable.add((pointerInfo) => {
+      const excluded: BABYLON.AbstractMesh[] = [plate, outline, topOutline];
+
+      if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERMOVE) {
+        const pick = pointerInfo.pickInfo;
+        const clientX = pointerInfo.event.clientX;
+        const clientY = pointerInfo.event.clientY;
+
+        if (pick?.hit && pick.pickedMesh && !excluded.includes(pick.pickedMesh) && !pick.pickedMesh.name.includes("Gizmo")) {
+          const hoveredMesh = pick.pickedMesh;
+          const hasTexture = hoveredMesh.material && hoveredMesh.material.name !== "boundaryMat";
+          window.dispatchEvent(
+            new CustomEvent('apex-model-hover', {
+              detail: {
+                visible: true,
+                x: clientX,
+                y: clientY,
+                modelName: hoveredMesh.name || "Modèle 3D",
+                hasTexture: !!hasTexture,
+              }
+            })
+          );
+        } else {
+          window.dispatchEvent(
+            new CustomEvent('apex-model-hover', {
+              detail: { visible: false, x: 0, y: 0, modelName: '', hasTexture: false }
+            })
+          );
+        }
+      }
+
       if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERUP) {
         const pick = pointerInfo.pickInfo;
-        const excluded: BABYLON.AbstractMesh[] = [plate, outline, topOutline];
         if (pick?.hit && pick.pickedMesh && !excluded.includes(pick.pickedMesh) && !pick.pickedMesh.name.includes("Gizmo")) {
           const topMesh = pick.pickedMesh;
           
@@ -352,7 +381,6 @@ export const Viewport3D = () => {
           
           r.position.set(0, size.y / 2, 0);
 
-          // Apply default boundary material only if it's an STL (keep textures for GLB/GLTF)
           if (!isGlbOrGltf) {
             r.material = createBoundaryMaterial(scene);
           }
@@ -382,7 +410,7 @@ export const Viewport3D = () => {
             gizmoManager.positionGizmoEnabled = false;
             gizmoManager.rotationGizmoEnabled = false;
             gizmoManager.scaleGizmoEnabled = true;
-            gizmoManager.attachToMesh(r);
+            gizmoManager.attachIdToMesh && gizmoManager.attachToMesh(r);
           }
         }
       } catch (err) {

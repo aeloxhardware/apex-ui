@@ -7,6 +7,8 @@ import { SliceSidebar } from '@/components/SliceSidebar';
 import { CategoriesSidebar } from '@/components/CategoriesSidebar';
 import { TopRightMenu } from '@/components/TopRightMenu';
 import { ModelStatusBox } from '@/components/ModelStatusBox';
+import { ModelHoverTooltip } from '@/components/ModelHoverTooltip';
+import { TextureEditorModal } from '@/components/TextureEditorModal';
 import { Viewport3D } from '@/components/Viewport3D';
 import { Box, Layers, Activity } from 'lucide-react';
 import { showSuccess } from '@/utils/toast';
@@ -20,7 +22,7 @@ const Index = () => {
   };
 
   const handleOpenModel = () => {
-    showSuccess("Select an STL file or click import to add a model.");
+    showSuccess("Select an STL or GLB file to add a model.");
   };
 
   const handleSaveProject = () => {
@@ -39,6 +41,8 @@ const Index = () => {
       />
 
       <ModelStatusBox />
+      <ModelHoverTooltip />
+      <TextureEditorModal />
 
       <Sidebar 
         activeTab={activeTab} 

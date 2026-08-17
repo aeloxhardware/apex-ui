@@ -11,7 +11,8 @@ import {
   Upload,
   Code,
   Maximize2,
-  Eye
+  Eye,
+  Palette
 } from 'lucide-react';
 import styles from './Sidebar.module.scss';
 import { CustomTooltip } from './CustomTooltip';
@@ -27,7 +28,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onTabChange, 
   onOpenModel
 }) => {
-  const [activeTool, setActiveTool] = useState<'select' | 'move' | 'rotate' | 'scale' | 'layers'>('select');
+  const [activeTool, setActiveTool] = useState<'select' | 'move' | 'rotate' | 'scale' | 'texture' | 'layers'>('select');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const topToolbarRef = useRef<HTMLDivElement>(null);
@@ -170,6 +171,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }}
           >
             <Maximize size={16} />
+          </button>
+        </CustomTooltip>
+
+        <CustomTooltip content="Outil Texture & Matériau" description="Sélectionnez et éditez les textures et propriétés de matériaux du modèle actif.">
+          <button
+            className={clsx(styles.button, styles.bottomButton, {
+              [styles.active]: activeTool === 'texture',
+            })}
+            onClick={() => {
+              setActiveTool('texture');
+              window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'texture' } }));
+            }}
+          >
+            <Palette size={16} />
           </button>
         </CustomTooltip>
 
