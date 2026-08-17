@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import styles from './ModelStatusBox.module.scss';
-import { Box, ChevronRight, Play } from 'lucide-react';
-import { CustomTooltip } from './CustomTooltip';
+import { Box, ChevronRight } from 'lucide-react';
 
 interface SubMeshItem {
   id: string;
@@ -57,13 +56,9 @@ export const ModelStatusBox: React.FC = () => {
     };
   }, []);
 
-  const handleSlice = () => {
-    window.dispatchEvent(new CustomEvent('apex-start-slice'));
-  };
-
   return (
     <div className={styles.container}>
-      <div className={styles.toolbar} style={{ flexDirection: 'column', alignItems: 'stretch', gap: '12px' }}>
+      <div className={styles.toolbar}>
         <div className={styles.content}>
           {models.length === 0 ? (
             <div className={styles.emptyText}>Aucun modèle sur le plateau</div>
@@ -99,19 +94,6 @@ export const ModelStatusBox: React.FC = () => {
               })}
             </ul>
           )}
-        </div>
-
-        {/* Bouton SLICE intégré en dessous */}
-        <div className="w-full pt-2 border-t border-white/10">
-          <CustomTooltip content="Lancer le Slicing (Découpe)" description="Lancez le calcul complet du G-code pour transformer votre modèle 3D en trajectoires d'impression exploitables.">
-            <button
-              className="flex items-center justify-center bg-[rgba(0,240,255,0.12)] hover:bg-[rgba(0,240,255,0.22)] text-[#00f0ff] py-2.5 px-4 rounded-xl border-none w-full cursor-pointer transition-all duration-200 shadow-sm hover:shadow-[0_0_12px_rgba(0,240,255,0.25)]"
-              onClick={handleSlice}
-            >
-              <Play size={16} className="fill-current mr-2 shrink-0" />
-              <span className="font-semibold text-xs tracking-wide">SLICE</span>
-            </button>
-          </CustomTooltip>
         </div>
       </div>
     </div>
