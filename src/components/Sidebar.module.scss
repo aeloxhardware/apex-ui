@@ -17,12 +17,11 @@
   pointer-events: auto;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   
-  /* Filtre clair plus léger */
   background: rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
   border: none;
-  box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.15);
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.35), 0 4px 16px 0 rgba(0, 0, 0, 0.25);
 }
 
 .topToolbar {
