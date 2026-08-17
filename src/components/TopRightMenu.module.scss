@@ -10,45 +10,6 @@
   pointer-events: none;
 }
 
-.infoBox {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  width: 254px;
-  min-height: 44px;
-  background: rgba(10, 15, 26, 0.35);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  border: none;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
-  padding: 8px 14px;
-  border-radius: 16px;
-  pointer-events: auto;
-  transition: all 0.2s ease;
-  text-align: right;
-}
-
-.infoTitle {
-  font-size: 12px;
-  font-weight: 600;
-  color: #00f0ff;
-  line-height: 1.2;
-}
-
-.infoDesc {
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.75);
-  line-height: 1.3;
-  margin-top: 2px;
-}
-
-.infoPlaceholder {
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.4);
-  font-style: italic;
-  text-align: center;
-}
-
 .toolbar {
   display: flex;
   align-items: center;
@@ -63,7 +24,7 @@
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
   padding: 8px 16px;
   border-radius: 22px;
-  width: 254px;
+  width: 254px; /* Largeur fixe identique pour les deux barres */
 }
 
 .secondaryToolbar {
