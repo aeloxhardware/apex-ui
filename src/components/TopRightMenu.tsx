@@ -32,7 +32,7 @@ export const TopRightMenu: React.FC = () => {
     <div className={styles.container}>
       {/* Panneau du haut : Titre en grand */}
       <div className={styles.toolbar}>
-        <div className={styles.infoDisplayTop}>
+        <div className={styles.infoDisplayTop} style={{ fontFamily: "'Orbitron', sans-serif" }}>
           {tooltipTitle}
         </div>
       </div>
