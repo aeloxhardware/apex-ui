@@ -3,11 +3,9 @@ import clsx from 'clsx';
 import styles from './TopRightMenu.module.scss';
 
 export const TopRightMenu: React.FC = () => {
-  const [tooltipTitle, setTooltipTitle] = useState("Apex");
-  const [tooltipDesc, setTooltipDesc] = useState("Survolez n'importe quel élément interactif de l'interface pour afficher son titre et sa description détaillée en temps réel.");
+  const [tooltipDesc, setTooltipDesc] = useState("Survolez n'importe quel élément interactif de l'interface pour afficher sa description détaillée en temps réel.");
 
   useEffect(() => {
-    // Inject Orbitron font link into document head if not present
     if (!document.getElementById('google-font-orbitron')) {
       const link = document.createElement('link');
       link.id = 'google-font-orbitron';
@@ -18,14 +16,12 @@ export const TopRightMenu: React.FC = () => {
 
     const handleGlobalTooltip = (e: CustomEvent<{ title: string; desc: string }>) => {
       if (e.detail) {
-        setTooltipTitle(e.detail.title);
         setTooltipDesc(e.detail.desc);
       }
     };
 
     const handleResetTooltip = () => {
-      setTooltipTitle("Apex");
-      setTooltipDesc("Survolez n'importe quel élément interactif de l'interface pour afficher son titre et sa description détaillée en temps réel.");
+      setTooltipDesc("Survolez n'importe quel élément interactif de l'interface pour afficher sa description détaillée en temps réel.");
     };
 
     window.addEventListener('apex-set-tooltip', handleGlobalTooltip as EventListener);
@@ -39,14 +35,7 @@ export const TopRightMenu: React.FC = () => {
 
   return (
     <div className={styles.container}>
-      {/* Panneau du haut : Titre en grand */}
-      <div className={styles.toolbar}>
-        <div className={styles.infoDisplayTop} style={{ fontFamily: "'Orbitron', sans-serif !important" }}>
-          {tooltipTitle}
-        </div>
-      </div>
-
-      {/* Panneau du bas : Description détaillée (hauteur 2.5x) */}
+      {/* Panneau du bas : Description détaillée (hauteur 2.5x sans le titre du haut) */}
       <div className={clsx(styles.toolbar, styles.secondaryToolbar)}>
         <div className={styles.infoDisplayBottom}>
           {tooltipDesc}
