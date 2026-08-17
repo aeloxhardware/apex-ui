@@ -161,7 +161,6 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
   };
 
   useEffect(() => {
-    // Recalculate on category change
     if (activeCategory) {
       setTimeout(handleScroll, 50);
     }
@@ -240,17 +239,15 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
                 ))}
               </div>
 
-              {/* Curseur de défilement externe indépendant */}
+              {/* Curseur de défilement externe flottant pur */}
               {hasScroll && (
-                <div className={styles.externalScrollTrack}>
-                  <div 
-                    className={styles.externalScrollThumb}
-                    style={{
-                      height: `${thumbHeight}px`,
-                      transform: `translateY(${thumbTop}px)`
-                    }}
-                  />
-                </div>
+                <div 
+                  className={styles.externalScrollThumb}
+                  style={{
+                    height: `${thumbHeight}px`,
+                    transform: `translateY(${thumbTop}px)`
+                  }}
+                />
               )}
             </motion.div>
           </>
