@@ -202,20 +202,21 @@ export const Viewport3D = () => {
       }
     };
 
-    // Animation de rebond vertical quand on lâche l'objet au-dessus du plateau (y > 0)
+    // Fonction de retour au sol avec rebond quand on lâche l'objet au-dessus du plateau
     const handleDragEnd = () => {
       const selection = selectedMeshesRef.current;
       if (selection.size === 0) return;
       const activeMesh = Array.from(selection)[selection.size - 1];
       if (!activeMesh || activeMesh.isDisposed()) return;
 
-      // Si l'objet est soulevé au-dessus du plateau (y > 2 par exemple)
+      const boundingInfo = activeMesh.getHierarchyBoundingVectors(true);
+      const minHeight = boundingInfo.min.y;
+      const originalHeightAtZero = (activeMesh.position.y - minHeight) > 0 ? (activeMesh.position.y - minHeight) : 0;
+      
+      // Si l'objet est soulevé au-dessus du plateau (y > 2)
       if (activeMesh.position.y > 2) {
-        const boundingInfo = activeMesh.getHierarchyBoundingVectors(true);
-        const minHeight = boundingInfo.min.y;
-        const targetY = activeMesh.position.y - minHeight; // Hauteur initiale au sol
+        const targetY = originalHeightAtZero || 0;
 
-        // Animation de rebond élastique vers y = targetY
         const anim = new BABYLON.Animation(
           "bounceBack",
           "position.y",
@@ -226,28 +227,33 @@ export const Viewport3D = () => {
 
         const keys = [
           { frame: 0, value: activeMesh.position.y },
-          { frame: 15, value: targetY - 1.5 }, // l'impact et compression
-          { frame: 25, value: targetY + 1.2 }, // petit rebond
-          { frame: 35, value: targetY - 0.4 },
-          { frame: 45, value: targetY + 0.3 },
-          { frame: 60, value: targetY }       // stabilisation au sol
+          { frame: 12, value: targetY - 1.2 }, 
+          { frame: 22, value: targetY + 1.0 }, 
+          { frame: 32, value: targetY - 0.3 },
+          { frame: 45, value: targetY }       
         ];
 
         anim.setKeys(keys);
         activeMesh.animations = [anim];
-        scene.beginAnimation(activeMesh, 0, 60, false, 1.5, () => {
+        scene.beginAnimation(activeMesh, 0, 45, false, 1.5, () => {
           updateSelectedPosition();
         });
+      }
+    };
+
+    // Observer les événements de fin de glissement sur les gizmos de position
+    const setupGizmoDragEnd = () => {
+      const posGizmo = gizmoManager.gizmos.positionGizmo;
+      if (posGizmo) {
+        posGizmo.yGizmo?.dragBehavior.onDragEndObservable.add(handleDragEnd);
+        posGizmo.xGizmo?.dragBehavior.onDragEndObservable.add(handleDragEnd);
+        posGizmo.zGizmo?.dragBehavior.onDragEndObservable.add(handleDragEnd);
       }
     };
 
     gizmoManager.gizmos.positionGizmo?.xGizmo.dragBehavior.onDragObservable.add(updateSelectedPosition);
     gizmoManager.gizmos.positionGizmo?.yGizmo.dragBehavior.onDragObservable.add(updateSelectedPosition);
     gizmoManager.gizmos.positionGizmo?.zGizmo.dragBehavior.onDragObservable.add(updateSelectedPosition);
-
-    gizmoManager.gizmos.positionGizmo?.xGizmo.dragBehavior.onDragEndObservable.add(handleDragEnd);
-    gizmoManager.gizmos.positionGizmo?.yGizmo.dragBehavior.onDragEndObservable.add(handleDragEnd);
-    gizmoManager.gizmos.positionGizmo?.zGizmo.dragBehavior.onDragEndObservable.add(handleDragEnd);
 
     gizmoManager.gizmos.rotationGizmo?.xGizmo.dragBehavior.onDragObservable.add(updateSelectedRotation);
     gizmoManager.gizmos.rotationGizmo?.yGizmo.dragBehavior.onDragObservable.add(updateSelectedRotation);
@@ -267,6 +273,7 @@ export const Viewport3D = () => {
           gizmoManager.positionGizmoEnabled = true;
           applyCustomGizmoColors();
           gizmoManager.attachToMesh(activeMesh);
+          setupGizmoDragEnd();
         }
       } else if (currentToolRef.current === 'rotate' && selection.size > 0) {
         const activeMesh = Array.from(selection)[0];
@@ -503,6 +510,7 @@ export const Viewport3D = () => {
             gizmoManager.positionGizmoEnabled = true;
             applyCustomGizmoColors();
             gizmoManager.attachToMesh(targetMesh);
+            setupGizmoDragEnd();
           } else if (currentToolRef.current === 'rotate') {
             gizmoManager.positionGizmoEnabled = false;
             gizmoManager.scaleGizmoEnabled = false;
@@ -593,8 +601,9 @@ export const Viewport3D = () => {
             gizmoManager.positionGizmoEnabled = true;
             applyCustomGizmoColors();
             gizmoManager.attachToMesh(r);
+            setupGizmoDragEnd();
           } else if (currentToolRef.current === 'rotate') {
-            gizmoManager.positionGizmoEnabled = false;
+            gizmoManager.rotationGizmoEnabled = false;
             gizmoManager.scaleGizmoEnabled = false;
             gizmoManager.rotationGizmoEnabled = true;
             applyCustomGizmoColors();
