@@ -51,11 +51,11 @@
 }
 
 .fusionMenuContainer {
-  position: fixed;
-  left: 82px;
-  top: 50%;
+  position: absolute;
+  left: 58px;
+  top: 0;
   width: 320px;
-  max-height: calc(100vh - 80px);
+  max-height: calc(100vh - 120px);
   border: none;
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
   border-radius: 16px;
@@ -63,7 +63,6 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  position: relative;
   isolation: isolate;
 
   /* Calque d'arrière-plan du conteneur avec flou normal (4px) identique aux sidebars */
@@ -155,10 +154,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.03);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: none;
+  border: 1px solid rgba(255, 255, 255, 0.05);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
   padding: 8px 10px;
   border-radius: 8px;
@@ -167,10 +166,10 @@
   transition: all 0.2s ease;
 
   &:hover {
-    background: transparent;
+    background: rgba(255, 255, 255, 0.08);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border: none;
+    border-color: rgba(0, 240, 255, 0.25);
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
   }
 }
