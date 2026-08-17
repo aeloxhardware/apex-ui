@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef } from 'react';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -129,8 +129,6 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
   onSelectCategory,
 }) => {
   const iconRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
-  const contentRef = useRef<HTMLDivElement>(null);
-  const [scrollProgress, setScrollProgress] = useState(0);
 
   const handleCategoryClick = (catId: string) => {
     if (activeCategory === catId) {
@@ -138,12 +136,6 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
     } else {
       onSelectCategory(catId);
     }
-  };
-
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const target = e.currentTarget;
-    const progress = target.scrollTop / (target.scrollHeight - target.clientHeight);
-    setScrollProgress(isNaN(progress) ? 0 : progress);
   };
 
   const activeCatData = CATEGORIES.find(c => c.id === activeCategory);
@@ -189,45 +181,35 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
             </motion.div>
 
             <motion.div 
-              className={styles.fusionMenuWrapper}
+              className={styles.fusionMenuContainer}
               initial={{ opacity: 0, scale: 0.95, x: -10, y: 20 }}
               animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, x: -10, y: 20 }}
               transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
             >
-              <div 
-                ref={contentRef}
-                className={styles.fusionMenuContainer}
-                onScroll={handleScroll}
+              <motion.div 
+                className={styles.fusionMenuContent}
+                layout
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
               >
-                <div className={styles.fusionMenuContent}>
-                  {activeCatData.sections.map((section, idx) => (
-                    <div key={idx} className={styles.sectionGroup}>
-                      <h4 className={styles.sectionTitle}>{section.title}</h4>
-                      <ul className={styles.itemsList}>
-                        {section.items.map((item, iIdx) => (
-                          <li key={iIdx} className={styles.itemRow}>
-                            <span className={styles.itemName}>{item}</span>
-                            <input 
-                              type="text" 
-                              defaultValue="Auto" 
-                              className={styles.itemInput} 
-                            />
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Barre de défilement externe flottante */}
-              <div className={styles.externalScrollbarTrack}>
-                <div 
-                  className={styles.externalScrollbarThumb}
-                  style={{ top: `${scrollProgress * 75}%` }}
-                />
-              </div>
+                {activeCatData.sections.map((section, idx) => (
+                  <div key={idx} className={styles.sectionGroup}>
+                    <h4 className={styles.sectionTitle}>{section.title}</h4>
+                    <ul className={styles.itemsList}>
+                      {section.items.map((item, iIdx) => (
+                        <li key={iIdx} className={styles.itemRow}>
+                          <span className={styles.itemName}>{item}</span>
+                          <input 
+                            type="text" 
+                            defaultValue="Auto" 
+                            className={styles.itemInput} 
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </motion.div>
             </motion.div>
           </>
         )}
