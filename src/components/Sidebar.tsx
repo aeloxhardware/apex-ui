@@ -220,9 +220,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         initial={false}
         animate={isPreviewActive ? {
           x: [0, 0, 480, 480],
-          width: ["auto", "auto", "auto", "auto"],
-          height: ["44px", "44px", "44px", "380px"],
-          borderRadius: ["22px", "22px", "22px", "24px"]
+          width: ["auto", "auto", "auto", "56px"],
+          height: ["44px", "44px", "44px", "340px"],
+          borderRadius: ["22px", "22px", "22px", "20px"]
         } : {
           x: 0,
           width: "auto",
