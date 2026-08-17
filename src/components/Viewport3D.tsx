@@ -95,7 +95,10 @@ export const Viewport3D = () => {
     cameraRef.current = camera;
 
     new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
-    const hl = new BABYLON.HighlightLayer("hl1", scene); hlRef.current = hl;
+    const hl = new BABYLON.HighlightLayer("hl1", scene);
+    hl.blurHorizontalSize = 0.5;
+    hl.blurVerticalSize = 0.5;
+    hlRef.current = hl;
 
     const gizmoManager = new BABYLON.GizmoManager(scene); 
     gizmoManagerRef.current = gizmoManager; 
@@ -105,6 +108,16 @@ export const Viewport3D = () => {
     gizmoManager.scaleGizmoEnabled = false;
 
     let currentTool = "select";
+
+    const updateHighlight = () => {
+      if (!hlRef.current) return;
+      hlRef.current.removeAllMeshes();
+      selectedMeshesRef.current.forEach((mesh) => {
+        if (mesh && !mesh.isDisposed()) {
+          hlRef.current?.addMesh(mesh as BABYLON.Mesh, new BABYLON.Color3(1, 0, 0));
+        }
+      });
+    };
 
     const applyCustomGizmoColors = () => {
       const setGizmoColor = (axisGizmo: any, color: BABYLON.Color3) => {
@@ -269,6 +282,7 @@ export const Viewport3D = () => {
           selectedMeshesRef.current.clear();
           selectedMeshesRef.current.add(topMesh);
           setSelectedMeshName(topMesh.name || "Modèle 3D");
+          updateHighlight();
           updateSelectedPosition();
           updateSelectedRotation();
           window.dispatchEvent(new CustomEvent('apex-mesh-selected', { detail: { name: topMesh.name || "Modèle 3D" } }));
@@ -326,6 +340,7 @@ export const Viewport3D = () => {
           selectedMeshesRef.current.clear();
           selectedMeshesRef.current.add(r);
           setSelectedMeshName(r.name || "Modèle 3D");
+          updateHighlight();
           updateSelectedPosition();
           updateSelectedRotation();
           window.dispatchEvent(new CustomEvent('apex-mesh-selected', { detail: { name: r.name || "Modèle 3D" } }));
