@@ -49,7 +49,7 @@ const Index = () => {
 
         {/* Bottom status / stats overlay */}
         <div className="absolute bottom-4 left-4 right-24 z-20 flex items-center justify-between pointer-events-none">
-          <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/80 rounded-lg px-3 py-2 text-xs text-zinc-300 flex items-center space-x-4 pointer-events-auto shadow-xl">
+          <div className="bg-zinc-900/85 backdrop-blur-md border border-zinc-800/80 rounded-lg px-3 py-2 text-xs text-zinc-300 flex items-center space-x-4 pointer-events-auto shadow-xl">
             <span className="flex items-center"><Box className="w-3.5 h-3.5 mr-1.5 text-blue-400" /> Benchy_v3.stl</span>
             <span className="text-zinc-600">|</span>
             <span>Dimensions: 60.0 x 31.0 x 48.0 mm</span>
@@ -57,7 +57,7 @@ const Index = () => {
             <span className="text-emerald-400 font-medium">Ready to slice</span>
           </div>
 
-          <div className="bg-zinc-900/80 backdrop-blur-md border border-zinc-800/80 rounded-lg px-3 py-2 text-xs text-zinc-300 flex items-center space-x-3 pointer-events-auto shadow-xl">
+          <div className="bg-zinc-900/85 backdrop-blur-md border border-zinc-800/80 rounded-lg px-3 py-2 text-xs text-zinc-300 flex items-center space-x-3 pointer-events-auto shadow-xl">
             <Activity className="w-3.5 h-3.5 text-primary" />
             <span>Est. Time: 2h 14m</span>
             <span className="text-zinc-600">|</span>
