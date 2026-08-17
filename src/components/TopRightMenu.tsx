@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import clsx from 'clsx';
 import { 
   HelpCircle, 
@@ -12,107 +12,87 @@ import {
   Zap 
 } from 'lucide-react';
 import styles from './TopRightMenu.module.scss';
-import { CustomTooltip } from './CustomTooltip';
 import { showSuccess } from '@/utils/toast';
 
+interface MenuItemData {
+  id: string;
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  isLarge?: boolean;
+}
+
 export const TopRightMenu: React.FC = () => {
+  const [hoveredTitle, setHoveredTitle] = useState("Sélectionnez ou survolez un outil");
+  const [hoveredDesc, setHoveredDesc] = useState("Les détails s'afficheront ici en temps réel.");
+
+  const topItems = [
+    { id: 'dashboard', title: 'Tableau de bord', desc: 'Consultez les statistiques et rapports globaux de fabrication.', icon: <LayoutDashboard size={18} /> },
+    { id: 'share', title: 'Partager le projet', desc: 'Générez et copiez un lien d\'accès rapide pour collaborer.', icon: <Share2 size={18} /> },
+    { id: 'notif', title: 'Notifications', desc: 'Visualisez les alertes de maintenance et alertes système.', icon: <Bell size={18} /> },
+    { id: 'help', title: 'Aide & Documentation', desc: 'Accédez aux manuels d\'utilisation et guides de dépannage.', icon: <HelpCircle size={18} /> },
+    { id: 'profile', title: 'Profil utilisateur', desc: 'Gérez vos préférences de compte et jetons d\'authentification.', icon: <User size={18} /> },
+  ];
+
+  const bottomItems = [
+    { id: 'sliders', title: 'Réglages rapides', desc: 'Modifiez instantanément les paramètres d\'impression courants.', icon: <Sliders size={26} /> },
+    { id: 'cpu', title: 'Processeur & IA', desc: 'Surveillez la charge de calcul neuronale et l\'optimisation des trajectoires.', icon: <Cpu size={26} /> },
+    { id: 'layers', title: 'Profils Multicouches', desc: 'Configurez les variations d\'épaisseur et liaisons inter-couches.', icon: <Layers size={26} /> },
+    { id: 'turbo', title: 'Turbo Boost Slicing', desc: 'Accélérez la génération des passes G-code par calcul parallèle.', icon: <Zap size={26} /> },
+  ];
+
+  const handleReset = () => {
+    setHoveredTitle("Sélectionnez ou survolez un outil");
+    setHoveredDesc("Les détails s'afficheront ici en temps réel.");
+  };
+
   return (
     <div className={styles.container}>
-      {/* Menu principal d'origine */}
-      <div className={styles.toolbar}>
-        <CustomTooltip content="Dashboard / Statistiques">
-          <button 
-            className={styles.button}
-            onClick={() => showSuccess("Ouverture du tableau de bord")}
-          >
-            <LayoutDashboard size={18} />
-          </button>
-        </CustomTooltip>
-
-        <CustomTooltip content="Partager le projet">
-          <button 
-            className={styles.button}
-            onClick={() => showSuccess("Lien de partage copié dans le presse-papier !")}
-          >
-            <Share2 size={18} />
-          </button>
-        </CustomTooltip>
-
+      {/* Menu du haut : Affiche le titre en grand au survol */}
+      <div className={styles.toolbar} onMouseLeave={handleReset}>
+        <div className={styles.infoDisplayTop}>
+          {hoveredTitle}
+        </div>
         <div className={styles.separator} />
-
-        <CustomTooltip content="Notifications">
-          <button 
-            className={styles.button}
-            onClick={() => showSuccess("Aucune nouvelle notification")}
-          >
-            <Bell size={18} />
-          </button>
-        </CustomTooltip>
-
-        <CustomTooltip content="Aide & Documentation">
-          <button 
-            className={styles.button}
-            onClick={() => showSuccess("Ouverture de l'aide en ligne")}
-          >
-            <HelpCircle size={18} />
-          </button>
-        </CustomTooltip>
-
-        <div className={styles.separator} />
-
-        <CustomTooltip content="Profil utilisateur">
-          <button 
-            className={styles.button}
-            onClick={() => showSuccess("Connecté en tant qu'Utilisateur Apex")}
-          >
-            <User size={18} />
-          </button>
-        </CustomTooltip>
+        {topItems.map((item, idx) => (
+          <React.Fragment key={item.id}>
+            <button 
+              className={styles.button}
+              onMouseEnter={() => {
+                setHoveredTitle(item.title);
+                setHoveredDesc(item.desc);
+              }}
+              onClick={() => showSuccess(`${item.title} action exécutée`)}
+            >
+              {item.icon}
+            </button>
+            {idx < topItems.length - 1 && idx !== 1 && idx !== 3 && <div className={styles.separator} />}
+          </React.Fragment>
+        ))}
       </div>
 
-      {/* Second menu en dessous avec hauteur 2.5x */}
-      <div className={clsx(styles.toolbar, styles.secondaryToolbar)}>
-        <CustomTooltip content="Paramètres Rapides">
-          <button 
-            className={clsx(styles.button, styles.largeButton)}
-            onClick={() => showSuccess("Paramètres rapides ouverts")}
-          >
-            <Sliders size={28} />
-            <span>Réglages</span>
-          </button>
-        </CustomTooltip>
-
-        <CustomTooltip content="Processeur & IA">
-          <button 
-            className={clsx(styles.button, styles.largeButton)}
-            onClick={() => showSuccess("Module IA actif")}
-          >
-            <Cpu size={28} />
-            <span>Processeur</span>
-          </button>
-        </CustomTooltip>
-
-        <div className={styles.largeSeparator} />
-
-        <CustomTooltip content="Profils Multicouches">
-          <button 
-            className={clsx(styles.button, styles.largeButton)}
-            onClick={() => showSuccess("Profils de couches avancés")}
-          >
-            <Layers size={28} />
-            <span>Couches</span>
-          </button>
-        </CustomTooltip>
-
-        <CustomTooltip content="Turbo Boost Slicing">
-          <button 
-            className={clsx(styles.button, styles.largeButton)}
-            onClick={() => showSuccess("Mode Turbo Boost activé")}
-          >
-            <Zap size={28} />
-            <span>Turbo</span>
-          </button>
-        </CustomTooltip>
+      {/* Second menu en dessous : Affiche la description au survol */}
+      <div className={clsx(styles.toolbar, styles.secondaryToolbar)} onMouseLeave={handleReset}>
+        <div className={styles.infoDisplayBottom}>
+          {hoveredDesc}
+        </div>
+        <div className={styles.separator} />
+        {bottomItems.map((item, idx) => (
+          <React.Fragment key={item.id}>
+            <button 
+              className={clsx(styles.button, styles.largeButton)}
+              onMouseEnter={() => {
+                setHoveredTitle(item.title);
+                setHoveredDesc(item.desc);
+              }}
+              onClick={() => showSuccess(`${item.title} activé`)}
+            >
+              {item.icon}
+              <span>{item.title.split(' ')[0]}</span>
+            </button>
+            {idx < bottomItems.length - 1 && <div className={styles.largeSeparator} />}
+          </React.Fragment>
+        ))}
       </div>
     </div>
   );
