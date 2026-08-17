@@ -13,6 +13,7 @@
 .toolbar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   pointer-events: auto;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   
@@ -23,13 +24,12 @@
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
   padding: 8px 16px;
   border-radius: 22px;
-  gap: 8px;
+  width: 254px; /* Largeur fixe identique pour les deux barres */
 }
 
 .secondaryToolbar {
   padding: 12px 16px;
   border-radius: 26px;
-  gap: 8px;
 }
 
 .button {
@@ -71,12 +71,10 @@
   width: 1px;
   height: 18px;
   background: rgba(255, 255, 255, 0.15);
-  margin: 0 4px;
 }
 
 .largeSeparator {
   width: 1px;
   height: 60px;
   background: rgba(255, 255, 255, 0.15);
-  margin: 0 4px;
 }
