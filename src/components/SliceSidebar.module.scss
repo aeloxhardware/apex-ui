@@ -11,6 +11,7 @@
 .toolbar {
   display: flex;
   align-items: center;
+  justify-content: center;
   pointer-events: auto;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   
@@ -21,6 +22,7 @@
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
   padding: 8px 16px;
   border-radius: 16px;
+  width: 140px;
 }
 
 .button {
@@ -32,6 +34,7 @@
   cursor: pointer;
   transition: all 0.2s ease;
   outline: none;
+  width: 100%;
 }
 
 .sliceButton {
@@ -40,6 +43,8 @@
   padding: 8px 16px;
   border-radius: 12px;
   border: none;
+  width: 100%;
+  justify-content: center;
   
   &:hover {
     background: rgba(0, 240, 255, 0.22) !important;
