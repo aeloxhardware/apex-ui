@@ -114,7 +114,8 @@ export const Viewport3D = () => {
       hlRef.current.removeAllMeshes();
       selectedMeshesRef.current.forEach((mesh) => {
         if (mesh && !mesh.isDisposed()) {
-          hlRef.current?.addMesh(mesh as BABYLON.Mesh, new BABYLON.Color3(1, 0, 0));
+          // Blue highlight color (#00f0ff)
+          hlRef.current?.addMesh(mesh as BABYLON.Mesh, new BABYLON.Color3(0, 0.94, 1));
         }
       });
     };
@@ -279,6 +280,20 @@ export const Viewport3D = () => {
         const excluded: BABYLON.AbstractMesh[] = [plate, outline, topOutline];
         if (pick?.hit && pick.pickedMesh && !excluded.includes(pick.pickedMesh) && !pick.pickedMesh.name.includes("Gizmo")) {
           const topMesh = pick.pickedMesh;
+          
+          // Toggle selection if clicking the same mesh again
+          if (selectedMeshesRef.current.has(topMesh)) {
+            selectedMeshesRef.current.clear();
+            setSelectedMeshName(null);
+            updateHighlight();
+            gizmoManager.positionGizmoEnabled = false;
+            gizmoManager.rotationGizmoEnabled = false;
+            gizmoManager.scaleGizmoEnabled = false;
+            gizmoManager.attachToMesh(null);
+            window.dispatchEvent(new CustomEvent('apex-mesh-selected', { detail: { name: null } }));
+            return;
+          }
+
           selectedMeshesRef.current.clear();
           selectedMeshesRef.current.add(topMesh);
           setSelectedMeshName(topMesh.name || "Modèle 3D");
