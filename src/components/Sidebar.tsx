@@ -43,6 +43,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onTabChange(tabName);
   };
 
+  const handleToolClick = (tool: 'select' | 'move' | 'rotate' | 'scale' | 'texture' | 'layers') => {
+    const newTool = activeTool === tool ? 'select' : tool;
+    setActiveTool(newTool);
+    window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: newTool } }));
+  };
+
   useEffect(() => {
     if (topToolbarRef.current && buttonRefs.current.size > 0) {
       const activeButtonKey = activeTab === '3d-view' ? 'box' : activeTab;
@@ -123,10 +129,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className={clsx(styles.button, styles.bottomButton, {
               [styles.active]: activeTool === 'select',
             })}
-            onClick={() => {
-              setActiveTool('select');
-              window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'select' } }));
-            }}
+            onClick={() => handleToolClick('select')}
           >
             <MousePointer2 size={16} />
           </button>
@@ -137,10 +140,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className={clsx(styles.button, styles.bottomButton, {
               [styles.active]: activeTool === 'move',
             })}
-            onClick={() => {
-              setActiveTool('move');
-              window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'move' } }));
-            }}
+            onClick={() => handleToolClick('move')}
           >
             <Move size={16} />
           </button>
@@ -151,10 +151,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className={clsx(styles.button, styles.bottomButton, {
               [styles.active]: activeTool === 'rotate',
             })}
-            onClick={() => {
-              setActiveTool('rotate');
-              window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'rotate' } }));
-            }}
+            onClick={() => handleToolClick('rotate')}
           >
             <RotateCw size={16} />
           </button>
@@ -165,10 +162,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className={clsx(styles.button, styles.bottomButton, {
               [styles.active]: activeTool === 'scale',
             })}
-            onClick={() => {
-              setActiveTool('scale');
-              window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'scale' } }));
-            }}
+            onClick={() => handleToolClick('scale')}
           >
             <Maximize size={16} />
           </button>
@@ -179,10 +173,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className={clsx(styles.button, styles.bottomButton, {
               [styles.active]: activeTool === 'texture',
             })}
-            onClick={() => {
-              setActiveTool('texture');
-              window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'texture' } }));
-            }}
+            onClick={() => handleToolClick('texture')}
           >
             <Palette size={16} />
           </button>
@@ -193,7 +184,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className={clsx(styles.button, styles.bottomButton, {
               [styles.active]: activeTool === 'layers',
             })}
-            onClick={() => setActiveTool('layers')}
+            onClick={() => handleToolClick('layers')}
           >
             <Layers size={16} />
           </button>
