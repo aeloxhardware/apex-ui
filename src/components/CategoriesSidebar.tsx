@@ -163,14 +163,14 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
 
       <AnimatePresence>
         {activeCatData && (
-          <motion.div 
-            className={styles.fusionMenuContainer}
-            initial={{ opacity: 0, scale: 0.95, x: -10, y: '-50%' }}
-            animate={{ opacity: 1, scale: 1, x: 0, y: '-50%' }}
-            exit={{ opacity: 0, scale: 0.95, x: -10, y: '-50%' }}
-            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          >
-            <div className={styles.fusionMenuHeader}>
+          <>
+            <motion.div 
+              className={styles.fusionTitleContainer}
+              initial={{ opacity: 0, scale: 0.95, x: -10, y: -20 }}
+              animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, x: -10, y: -20 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            >
               <span className={styles.fusionMenuTitle}>{activeCatData.title}</span>
               <button 
                 className={styles.fusionCloseBtn}
@@ -178,32 +178,40 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
               >
                 ✕
               </button>
-            </div>
+            </motion.div>
 
             <motion.div 
-              className={styles.fusionMenuContent}
-              layout
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className={styles.fusionMenuContainer}
+              initial={{ opacity: 0, scale: 0.95, x: -10, y: 20 }}
+              animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, x: -10, y: 20 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
             >
-              {activeCatData.sections.map((section, idx) => (
-                <div key={idx} className={styles.sectionGroup}>
-                  <h4 className={styles.sectionTitle}>{section.title}</h4>
-                  <ul className={styles.itemsList}>
-                    {section.items.map((item, iIdx) => (
-                      <li key={iIdx} className={styles.itemRow}>
-                        <span className={styles.itemName}>{item}</span>
-                        <input 
-                          type="text" 
-                          defaultValue="Auto" 
-                          className={styles.itemInput} 
-                        />
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
+              <motion.div 
+                className={styles.fusionMenuContent}
+                layout
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              >
+                {activeCatData.sections.map((section, idx) => (
+                  <div key={idx} className={styles.sectionGroup}>
+                    <h4 className={styles.sectionTitle}>{section.title}</h4>
+                    <ul className={styles.itemsList}>
+                      {section.items.map((item, iIdx) => (
+                        <li key={iIdx} className={styles.itemRow}>
+                          <span className={styles.itemName}>{item}</span>
+                          <input 
+                            type="text" 
+                            defaultValue="Auto" 
+                            className={styles.itemInput} 
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </motion.div>
             </motion.div>
-          </motion.div>
+          </>
         )}
       </AnimatePresence>
     </>
