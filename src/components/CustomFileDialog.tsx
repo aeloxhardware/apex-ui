@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import clsx from 'clsx';
-import { Folder, FileText, HardDrive, Download, X } from 'lucide-react';
+import { Folder, FileText, HardDrive, Download, Image, X } from 'lucide-react';
 import styles from './CustomFileDialog.module.scss';
+import { CustomTooltip } from './CustomTooltip';
 
 interface CustomFileDialogProps {
   isOpen: boolean;
