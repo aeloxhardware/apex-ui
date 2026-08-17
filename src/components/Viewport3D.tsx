@@ -20,7 +20,7 @@ export const Viewport3D = () => {
   const HEIGHT = 130;
   const HOLE_RADIUS = 20; 
 
-  const createBoundaryMaterial = (scene: BABYLON.Scene) => {
+  const createBoundaryMaterial = (scene: BABYLON.Scene, isBlurred: boolean = false) => {
     BABYLON.Effect.ShadersStore["boundaryVertexShader"] = `
       precision highp float;
       attribute vec3 position;
@@ -36,7 +36,24 @@ export const Viewport3D = () => {
           vNormalW = normalize(vec3(world * vec4(normal, 0.0)));
       }
     `;
-    BABYLON.Effect.ShadersStore["boundaryFragmentShader"] = `
+    
+    // Si isBlurred est vrai, on assombrit/atténue légèrement le matériau pour simuler le flou visuel
+    const fragShader = isBlurred ? `
+      precision highp float;
+      varying vec3 vPositionW;
+      varying vec3 vNormalW;
+      uniform float radius;
+      uniform float height;
+      uniform vec3 cameraPosition;
+      void main(void) {
+          float dist = sqrt(vPositionW.x * vPositionW.x + vPositionW.z * vPositionW.z);
+          vec3 lightDir = normalize(vec3(0.5, 1.0, 0.3));
+          float diffuse = max(dot(vNormalW, lightDir), 0.3);
+          vec3 neutralGrey = vec3(0.3, 0.3, 0.3);
+          // Effet assombri / estompé pour les modèles non sélectionnés
+          gl_FragColor = vec4(neutralGrey * diffuse * 0.6, 0.7);
+      }
+    ` : `
       precision highp float;
       varying vec3 vPositionW;
       varying vec3 vNormalW;
@@ -68,11 +85,22 @@ export const Viewport3D = () => {
           }
       }
     `;
-    const mat = new BABYLON.ShaderMaterial("boundaryMat", scene, { vertex: "boundary", fragment: "boundary" }, { attributes: ["position", "normal"], uniforms: ["worldViewProjection", "world", "radius", "height", "cameraPosition"] });
+
+    BABYLON.Effect.ShadersStore[isBlurred ? "blurBoundaryFragmentShader" : "boundaryFragmentShader"] = fragShader;
+
+    const mat = new BABYLON.ShaderMaterial(
+      isBlurred ? "blurMat" : "boundaryMat", 
+      scene, 
+      { vertex: "boundary", fragment: isBlurred ? "blurBoundary" : "boundary" }, 
+      { attributes: ["position", "normal"], uniforms: ["worldViewProjection", "world", "radius", "height", "cameraPosition"] }
+    );
     mat.setFloat("radius", RADIUS);
     mat.setFloat("height", HEIGHT);
     mat.backFaceCulling = true;
     mat.forceDepthWrite = true;
+    if (isBlurred) {
+      mat.alpha = 0.85;
+    }
     return mat;
   };
 
@@ -109,13 +137,25 @@ export const Viewport3D = () => {
 
     let currentTool = "select";
 
-    const updateHighlight = () => {
+    const updateMaterialsAndHighlight = () => {
       if (!hlRef.current) return;
       hlRef.current.removeAllMeshes();
-      selectedMeshesRef.current.forEach((mesh) => {
+
+      const hasSelection = selectedMeshesRef.current.size > 0;
+
+      modelsRef.current.forEach((mesh) => {
         if (mesh && !mesh.isDisposed()) {
-          // Blue highlight color (#00f0ff)
-          hlRef.current?.addMesh(mesh as BABYLON.Mesh, new BABYLON.Color3(0, 0.94, 1));
+          const isSelected = selectedMeshesRef.current.has(mesh);
+          if (isSelected) {
+            hlRef.current?.addMesh(mesh as BABYLON.Mesh, new BABYLON.Color3(0, 0.94, 1));
+            mesh.material = createBoundaryMaterial(scene, false);
+          } else {
+            if (hasSelection) {
+              mesh.material = createBoundaryMaterial(scene, true);
+            } else {
+              mesh.material = createBoundaryMaterial(scene, false);
+            }
+          }
         }
       });
     };
@@ -285,7 +325,7 @@ export const Viewport3D = () => {
           if (selectedMeshesRef.current.has(topMesh)) {
             selectedMeshesRef.current.clear();
             setSelectedMeshName(null);
-            updateHighlight();
+            updateMaterialsAndHighlight();
             gizmoManager.positionGizmoEnabled = false;
             gizmoManager.rotationGizmoEnabled = false;
             gizmoManager.scaleGizmoEnabled = false;
@@ -297,7 +337,7 @@ export const Viewport3D = () => {
           selectedMeshesRef.current.clear();
           selectedMeshesRef.current.add(topMesh);
           setSelectedMeshName(topMesh.name || "Modèle 3D");
-          updateHighlight();
+          updateMaterialsAndHighlight();
           updateSelectedPosition();
           updateSelectedRotation();
           window.dispatchEvent(new CustomEvent('apex-mesh-selected', { detail: { name: topMesh.name || "Modèle 3D" } }));
@@ -350,12 +390,12 @@ export const Viewport3D = () => {
           
           r.position.set(0, size.y / 2, 0);
 
-          r.material = createBoundaryMaterial(scene);
+          r.material = createBoundaryMaterial(scene, false);
           modelsRef.current.add(r);
           selectedMeshesRef.current.clear();
           selectedMeshesRef.current.add(r);
           setSelectedMeshName(r.name || "Modèle 3D");
-          updateHighlight();
+          updateMaterialsAndHighlight();
           updateSelectedPosition();
           updateSelectedRotation();
           window.dispatchEvent(new CustomEvent('apex-mesh-selected', { detail: { name: r.name || "Modèle 3D" } }));
