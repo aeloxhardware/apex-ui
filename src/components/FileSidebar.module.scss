@@ -1,0 +1,59 @@
+.container {
+  position: fixed;
+  top: 20px;
+  left: 24px;
+  display: flex;
+  align-items: center;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  pointer-events: auto;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  background: rgba(10, 15, 26, 0.65);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+  padding: 6px 10px;
+  border-radius: 22px;
+  gap: 6px;
+}
+
+.button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+
+  &:hover:not(:disabled) {
+    color: rgba(255, 255, 255, 0.95);
+    background: rgba(255, 255, 255, 0.08);
+  }
+}
+
+.configButton {
+  color: #a78bfa;
+  &:hover {
+    background: rgba(167, 139, 250, 0.15) !important;
+  }
+}
+
+.separator {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.15);
+  margin: 0 4px;
+}

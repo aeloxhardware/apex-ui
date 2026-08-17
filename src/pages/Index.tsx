@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Sidebar } from '@/components/Sidebar';
+import { FileSidebar } from '@/components/FileSidebar';
 import { Viewport3D } from '@/components/Viewport3D';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Box, Layers, Activity } from 'lucide-react';
@@ -15,7 +16,7 @@ const Index = () => {
   };
 
   const handleOpenModel = () => {
-    showSuccess("Select an STL file from the bottom toolbar to import.");
+    showSuccess("Select an STL file or click import to add a model.");
   };
 
   const handleSaveProject = () => {
@@ -24,12 +25,17 @@ const Index = () => {
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-background select-none relative">
+      <FileSidebar 
+        onOpenModel={handleOpenModel}
+        onSaveProject={handleSaveProject}
+        onOpenSettings={() => setActiveTab('settings')}
+      />
+
       <Sidebar 
         activeTab={activeTab} 
         onTabChange={(tab) => setActiveTab(tab === 'box' ? '3d-view' : tab)}
         onSlice={handleSlice}
         onOpenModel={handleOpenModel}
-        onSaveProject={handleSaveProject}
       />
 
       <main className="flex-1 flex flex-col relative overflow-hidden bg-zinc-950">

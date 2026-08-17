@@ -9,10 +9,7 @@ import {
   Layers, 
   Upload,
   Code,
-  FolderOpen,
-  Save,
   Play,
-  Printer,
   Maximize2,
   Eye
 } from 'lucide-react';
@@ -23,15 +20,13 @@ interface SidebarProps {
   onTabChange: (tab: 'box' | 'settings' | 'developer') => void;
   onSlice?: () => void;
   onOpenModel?: () => void;
-  onSaveProject?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
   activeTab, 
   onTabChange, 
   onSlice, 
-  onOpenModel, 
-  onSaveProject 
+  onOpenModel
 }) => {
   const [activeTool, setActiveTool] = useState<'select' | 'move' | 'rotate' | 'layers'>('select');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -118,7 +113,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </button>
       </div>
 
-      {/* Bottom Toolbar (Action, Manipulation 3D & File Actions) */}
+      {/* Bottom Toolbar (Action, Manipulation 3D & Slice) */}
       <div className={clsx(styles.toolbar, styles.bottomToolbar)}>
         <button
           className={clsx(styles.button, styles.bottomButton, {
@@ -190,34 +185,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         <div className={styles.separator} />
 
-        {/* Project & File Actions moved from top */}
-        <button
-          className={clsx(styles.button, styles.bottomButton)}
-          onClick={onOpenModel || handleUploadClick}
-          title="Open Model"
-        >
-          <FolderOpen size={16} />
-        </button>
-
-        <button
-          className={clsx(styles.button, styles.bottomButton)}
-          onClick={onSaveProject}
-          title="Save Project"
-        >
-          <Save size={16} />
-        </button>
-
-        <div className={styles.separator} />
-
-        {/* Printer & Slice Actions moved from top */}
-        <button
-          className={clsx(styles.button, styles.bottomButton, styles.configButton)}
-          title="Printer: Prusa MK4 | Filament: PLA (0.20mm)"
-          onClick={() => onTabChange('settings')}
-        >
-          <Printer size={16} />
-        </button>
-
+        {/* Slice Action */}
         <button
           className={clsx(styles.button, styles.bottomButton, styles.sliceButton)}
           onClick={onSlice}
