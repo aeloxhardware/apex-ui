@@ -151,7 +151,7 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
     }
     setHasScroll(true);
     
-    const padding = 16; // top and bottom padding of content
+    const padding = 16;
     const availableHeight = clientHeight - (padding * 2);
     const calculatedHeight = Math.max(30, (clientHeight / scrollHeight) * availableHeight);
     
