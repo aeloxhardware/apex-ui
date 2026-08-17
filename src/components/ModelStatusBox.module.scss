@@ -1,51 +1,73 @@
 .container {
   position: fixed;
-  bottom: 80px;
-  right: 24px;
-  width: 350px;
-  max-height: 280px;
+  top: 80px;
+  left: 24px;
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
   z-index: 1000;
-  pointer-events: auto;
+  pointer-events: none;
 }
 
 .toolbar {
   display: flex;
   flex-direction: column;
-  background: rgba(10, 15, 26, 0.35);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  pointer-events: auto;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  background: rgba(10, 15, 26, 0.25);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   border: none;
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
-  border-radius: 16px;
   padding: 12px 16px;
+  border-radius: 22px;
+  width: 293px;
+  min-height: 120px;
+  max-height: 280px;
+  gap: 8px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 6px;
+}
+
+.title {
+  font-family: 'Orbitron', sans-serif !important;
+  font-size: 13px;
+  font-weight: 700;
+  color: #00f0ff;
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .content {
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
-  max-height: 240px;
+  max-height: 200px;
   padding-right: 4px;
 
   &::-webkit-scrollbar {
-    width: 4px;
-  }
-  &::-webkit-scrollbar-track {
-    background: transparent;
+    width: 3px;
   }
   &::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.2);
     border-radius: 4px;
   }
 }
 
 .emptyText {
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 12px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
   text-align: center;
-  padding: 8px 0;
-  font-weight: 500;
+  padding: 12px 0;
 }
 
 .treeList {
@@ -54,7 +76,7 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .treeNode {
@@ -65,25 +87,27 @@
 .nodeRow {
   display: flex;
   align-items: center;
+  gap: 6px;
   padding: 6px 8px;
   border-radius: 8px;
   cursor: pointer;
-  transition: background 0.2s ease;
+  background: rgba(255, 255, 255, 0.03);
+  transition: background 0.2s;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.08);
   }
 
   &.selectedNode {
-    background: rgba(0, 240, 255, 0.1);
+    background: rgba(0, 240, 255, 0.12);
+    border: 1px solid rgba(0, 240, 255, 0.3);
   }
 }
 
 .nodeName {
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  margin-left: 6px;
+  color: rgba(255, 255, 255, 0.9);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -92,24 +116,33 @@
 .childList {
   list-style: none;
   padding-left: 20px;
-  margin: 4px 0 0 0;
+  margin: 2px 0 6px 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  border-left: 1px solid rgba(255, 255, 255, 0.1);
-  margin-left: 10px;
+  gap: 2px;
 }
 
 .childRow {
   display: flex;
   align-items: center;
+  gap: 6px;
   padding: 3px 6px;
-  border-radius: 6px;
+  border-radius: 4px;
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.6);
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.9);
+  }
+}
+
+.childDot {
+  color: #00f0ff;
+  font-size: 12px;
 }
 
 .childName {
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 11px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
