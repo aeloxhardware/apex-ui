@@ -5,6 +5,7 @@ import { Sidebar } from '@/components/Sidebar';
 import { FileSidebar } from '@/components/FileSidebar';
 import { SliceSidebar } from '@/components/SliceSidebar';
 import { Viewport3D } from '@/components/Viewport3D';
+import { BackgroundAnimation } from '@/components/BackgroundAnimation';
 import { Box, Layers, Activity } from 'lucide-react';
 import { showSuccess } from '@/utils/toast';
 
@@ -24,11 +25,8 @@ const Index = () => {
   };
 
   return (
-    <div 
-      className="flex flex-col h-screen w-screen overflow-hidden select-none relative bg-cover bg-center"
-      style={{ backgroundImage: `url('/background.jpg')` }}
-    >
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] pointer-events-none" />
+    <div className="flex flex-col h-screen w-screen overflow-hidden select-none relative bg-[#070913]">
+      <BackgroundAnimation />
 
       <FileSidebar 
         onOpenModel={handleOpenModel}
