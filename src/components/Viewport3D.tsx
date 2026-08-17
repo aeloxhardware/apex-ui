@@ -274,9 +274,28 @@ export const Viewport3D = () => {
     topOutline.parent = volumeRoot;
 
     const pointerObserver = scene.onPointerObservable.add((pointerInfo) => {
+      const pick = pointerInfo.pickInfo;
+      const excluded: BABYLON.AbstractMesh[] = [plate, outline, topOutline];
+
+      if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERMOVE) {
+        if (pick?.hit && pick.pickedMesh && !excluded.includes(pick.pickedMesh) && !pick.pickedMesh.name.includes("Gizmo")) {
+          const mesh = pick.pickedMesh;
+          const hasTex = mesh.material && (mesh.material as any).diffuseTexture;
+          window.dispatchEvent(
+            new CustomEvent('apex-mesh-hover', {
+              detail: {
+                name: mesh.name || "Modèle 3D",
+                type: hasTex ? "Modèle texturé (GLB/GLTF)" : "Modèle standard (STL)",
+                details: hasTex ? "Texture PBR active détectée (Albedo/Normal)." : "Géométrie pure sans texture associée."
+              }
+            })
+          );
+        } else {
+          window.dispatchEvent(new CustomEvent('apex-mesh-leave'));
+        }
+      }
+
       if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERUP) {
-        const pick = pointerInfo.pickInfo;
-        const excluded: BABYLON.AbstractMesh[] = [plate, outline, topOutline];
         if (pick?.hit && pick.pickedMesh && !excluded.includes(pick.pickedMesh) && !pick.pickedMesh.name.includes("Gizmo")) {
           const topMesh = pick.pickedMesh;
           
@@ -352,7 +371,6 @@ export const Viewport3D = () => {
           
           r.position.set(0, size.y / 2, 0);
 
-          // Apply default boundary material only if it's an STL (keep textures for GLB/GLTF)
           if (!isGlbOrGltf) {
             r.material = createBoundaryMaterial(scene);
           }

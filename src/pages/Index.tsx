@@ -7,6 +7,7 @@ import { SliceSidebar } from '@/components/SliceSidebar';
 import { CategoriesSidebar } from '@/components/CategoriesSidebar';
 import { TopRightMenu } from '@/components/TopRightMenu';
 import { ModelStatusBox } from '@/components/ModelStatusBox';
+import { TextureInspector } from '@/components/TextureInspector';
 import { Viewport3D } from '@/components/Viewport3D';
 import { Box, Layers, Activity } from 'lucide-react';
 import { showSuccess } from '@/utils/toast';
@@ -40,6 +41,8 @@ const Index = () => {
 
       <ModelStatusBox />
 
+      <TextureInspector />
+
       <Sidebar 
         activeTab={activeTab} 
         onTabChange={(tab) => setActiveTab(tab === 'box' ? '3d-view' : tab)}
@@ -61,7 +64,7 @@ const Index = () => {
         </div>
 
         {/* Bottom status / stats overlay */}
-        <div className="absolute bottom-4 left-4 right-24 z-20 flex items-center justify-between pointer-events-none">
+        <div className="absolute bottom-4 left-[330px] right-24 z-20 flex items-center justify-between pointer-events-none">
           <div className="bg-[rgba(10,15,26,0.25)] backdrop-blur-[4px] -webkit-backdrop-blur-[4px] border-none rounded-lg px-3 py-2 text-xs text-zinc-300 flex items-center space-x-4 pointer-events-auto shadow-[0_8px_32px_0_rgba(0,0,0,0.4),0_2px_8px_0_rgba(0,0,0,0.3)]">
             <span className="flex items-center"><Box className="w-3.5 h-3.5 mr-1.5 text-blue-400" /> Benchy_v3.stl</span>
             <span className="text-zinc-600">|</span>
