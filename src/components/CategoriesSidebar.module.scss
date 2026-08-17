@@ -91,7 +91,7 @@
   z-index: 1001;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
   isolation: isolate;
 
   &::before {
@@ -132,36 +132,42 @@
 
 .fusionMenuContent {
   padding: 16px;
-  overflow-y: auto;
+  overflow-y: scroll;
+  max-height: calc(100vh - 220px);
   display: flex;
   flex-direction: column;
   gap: 16px;
+  border-radius: 16px;
 
-  /* Personnalisation de la scrollbar native et ajout d'une barre flottante externe */
+  /* Forçage de l'affichage et du positionnement extérieur avec effets de flou et d'ombre identiques */
   scrollbar-width: thin;
-  scrollbar-color: rgba(0, 240, 255, 0.6) rgba(10, 15, 26, 0.3);
+  scrollbar-color: rgba(0, 240, 255, 0.6) rgba(10, 15, 26, 0.4);
 
   &::-webkit-scrollbar {
-    width: 8px;
+    width: 10px;
+    height: 10px;
   }
   
   &::-webkit-scrollbar-track {
-    background: rgba(10, 15, 26, 0.3);
-    backdrop-filter: blur(4px);
-    border-radius: 4px;
-    margin: 4px;
+    background: rgba(10, 15, 26, 0.4);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border-radius: 8px;
+    margin: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
   }
 
   &::-webkit-scrollbar-thumb {
-    background: rgba(0, 240, 255, 0.4);
+    background: rgba(0, 240, 255, 0.45);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 6px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), inset 0 0 6px rgba(0, 240, 255, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), inset 0 0 6px rgba(0, 240, 255, 0.4);
 
     &:hover {
-      background: rgba(0, 240, 255, 0.7);
+      background: rgba(0, 240, 255, 0.8);
+      box-shadow: 0 6px 20px rgba(0, 240, 255, 0.3), inset 0 0 8px rgba(0, 240, 255, 0.6);
     }
   }
 }
