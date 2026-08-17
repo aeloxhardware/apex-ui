@@ -144,8 +144,8 @@
   align-items: center;
   justify-content: space-between;
   background: transparent;
-  backdrop-filter: blur(80px);
-  -webkit-backdrop-filter: blur(80px);
+  backdrop-filter: blur(120px);
+  -webkit-backdrop-filter: blur(120px);
   border: none;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   padding: 8px 10px;
@@ -155,8 +155,8 @@
   transition: all 0.2s;
 
   &:hover {
-    backdrop-filter: blur(100px);
-    -webkit-backdrop-filter: blur(100px);
+    backdrop-filter: blur(150px);
+    -webkit-backdrop-filter: blur(150px);
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.1);
   }
 }
