@@ -7,7 +7,6 @@ import {
   Move, 
   RotateCw, 
   Maximize, 
-  Layers, 
   Upload, 
   Code, 
   Maximize2, 
@@ -28,7 +27,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onTabChange, 
   onOpenModel
 }) => {
-  const [activeTool, setActiveTool] = useState<'select' | 'move' | 'rotate' | 'scale' | 'texture' | 'layers'>('select');
+  const [activeTool, setActiveTool] = useState<'select' | 'move' | 'rotate' | 'scale' | 'texture'>('select');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const topToolbarRef = useRef<HTMLDivElement>(null);
@@ -43,7 +42,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onTabChange(tabName);
   };
 
-  const handleToolClick = (tool: 'select' | 'move' | 'rotate' | 'scale' | 'texture' | 'layers') => {
+  const handleToolClick = (tool: 'select' | 'move' | 'rotate' | 'scale' | 'texture') => {
     const newTool = activeTool === tool ? 'select' : tool;
     setActiveTool(newTool);
     window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: newTool } }));
@@ -51,7 +50,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignorer si l'utilisateur tape dans un input ou textarea
       if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) {
         return;
       }
@@ -215,17 +213,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => handleToolClick('texture')}
           >
             <Palette size={16} />
-          </button>
-        </CustomTooltip>
-
-        <CustomTooltip content="Analyseur de Couches (Layer Viewer)" description="Visualisez la simulation couche par couche du parcours de la buse avant l'impression.">
-          <button
-            className={clsx(styles.button, styles.bottomButton, {
-              [styles.active]: activeTool === 'layers',
-            })}
-            onClick={() => handleToolClick('layers')}
-          >
-            <Layers size={16} />
           </button>
         </CustomTooltip>
 
