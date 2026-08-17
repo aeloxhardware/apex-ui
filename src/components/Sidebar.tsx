@@ -31,7 +31,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const topToolbarRef = useRef<HTMLDivElement>(null);
   const buttonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
-  const [indicatorStyle, setIndicatorStyle] = useState<React.CSSProperties>({});
+  const [indicatorStyle, setIndicatorStyle] = React.useState<React.CSSProperties>({});
 
   const handleUploadClick = () => {
     fileInputRef.current?.click();
@@ -71,7 +71,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         <CustomTooltip content="Apex Slicer Studio" description="Logiciel de préparation et de découpe 3D haute performance pour l'impression additive professionnelle.">
           <div className={styles.logoContainer}>
-            <img src="/logo.webp" alt="Logo" className={styles.logoImg} />
+            <img src="/logo.svg" alt="Logo" className={styles.logoImg} />
           </div>
         </CustomTooltip>
 
