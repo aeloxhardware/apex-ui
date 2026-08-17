@@ -3,7 +3,9 @@
   top: 80px;
   left: 330px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 12px;
   z-index: 1000;
   animation: slideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -25,6 +27,26 @@
   width: 320px;
   padding: 16px;
   gap: 14px;
+}
+
+.sidePanel {
+  display: flex;
+  flex-direction: column;
+  background: rgba(10, 15, 26, 0.45);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: none;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 20px rgba(0, 0, 0, 0.5);
+  border-radius: 20px;
+  width: 280px;
+  padding: 16px;
+  gap: 14px;
+  animation: slideInRight 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(-15px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 .header {
