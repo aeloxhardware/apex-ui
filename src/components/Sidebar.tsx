@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import styles from './Sidebar.module.scss';
 import { CustomTooltip } from './CustomTooltip';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface SidebarProps {
   activeTab: '3d-view' | 'settings' | 'developer';
@@ -215,7 +215,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Bottom Toolbar (Action, Manipulation 3D) */}
-      <div className={clsx(styles.toolbar, styles.bottomToolbar)}>
+      <motion.div 
+        className={clsx(styles.toolbar, styles.bottomToolbar)}
+        initial={false}
+        animate={isPreviewActive ? {
+          x: [0, 0, 380],
+          width: ["auto", "auto", "50px"],
+          height: ["44px", "44px", "420px"],
+          borderRadius: ["22px", "22px", "24px"]
+        } : {
+          x: 0,
+          width: "auto",
+          height: "44px",
+          borderRadius: "22px"
+        }}
+        transition={{
+          duration: 1.1,
+          times: [0, 0.6, 1],
+          ease: [0.25, 1, 0.5, 1]
+        }}
+        style={{ originX: 0.5, originY: 0.5 }}
+      >
         <motion.div custom={0} variants={iconVariants} animate={isPreviewActive ? "hidden" : "visible"} initial="visible" className="flex items-center">
           <CustomTooltip content="Outil de Sélection" description="Cliquez sur n'importe quel modèle 3D sur le plateau pour le sélectionner et afficher ses propriétés.">
             <button
@@ -337,7 +357,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }
           }}
         />
-      </div>
+      </motion.div>
     </div>
   );
 };
