@@ -131,18 +131,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
       y: 0,
       scale: 1,
       transition: {
-        delay: i * 0.04,
-        duration: 0.3,
+        delay: i * 0.05,
+        duration: 0.4,
         ease: [0.16, 1, 0.3, 1]
       }
     }),
     hidden: (i: number) => ({
       opacity: 0,
-      y: 40 + i * 5,
-      scale: 0.9,
+      y: 15 + i * 2,
+      scale: 0.95,
       transition: {
-        delay: i * 0.05,
-        duration: 0.25,
+        delay: i * 0.06,
+        duration: 0.4,
         ease: [0.25, 1, 0.5, 1]
       }
     })
