@@ -6,7 +6,6 @@ import {
   MousePointer2, 
   Move, 
   RotateCw, 
-  Maximize, 
   Layers, 
   Upload,
   Code,
@@ -27,7 +26,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onTabChange, 
   onOpenModel
 }) => {
-  const [activeTool, setActiveTool] = useState<'select' | 'move' | 'rotate' | 'scale' | 'layers'>('select');
+  const [activeTool, setActiveTool] = useState<'select' | 'move' | 'rotate' | 'layers'>('select');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const topToolbarRef = useRef<HTMLDivElement>(null);
@@ -158,20 +157,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }}
           >
             <RotateCw size={16} />
-          </button>
-        </CustomTooltip>
-
-        <CustomTooltip content="Scale Tool">
-          <button
-            className={clsx(styles.button, styles.bottomButton, {
-              [styles.active]: activeTool === 'scale',
-            })}
-            onClick={() => {
-              setActiveTool('scale');
-              window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'scale' } }));
-            }}
-          >
-            <Maximize size={16} />
           </button>
         </CustomTooltip>
 
