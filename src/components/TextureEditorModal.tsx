@@ -42,9 +42,7 @@ export const TextureEditorModal: React.FC = () => {
     };
 
     const handleMeshSelected = (e: CustomEvent<{ name: string | null; subMeshes: { id: string; name: string; color: string }[] }>) => {
-      // Lorsque l'on clique sur une sous-partie en mode texture, on sélectionne automatiquement sa texture/matériau associé
       if (e.detail?.subMeshes && e.detail.subMeshes.length > 0) {
-        // On cherche si un material/texture correspond au nom de la sous-partie ou on prend le premier
         const targetName = e.detail.name;
         if (targetName) {
           const matched = textures.find(t => t.name.toLowerCase().includes(targetName.toLowerCase()));
@@ -103,23 +101,30 @@ export const TextureEditorModal: React.FC = () => {
           <div className={styles.section}>
             <span className={styles.sectionLabel}>Textures récupérées du modèle :</span>
             <div className={styles.textureGrid}>
-              {textures.map(tex => (
-                <div 
-                  key={tex.id}
-                  className={`${styles.textureCard} ${selectedTexture === tex.name ? styles.selectedCard : ''}`}
-                  onClick={() => setSelectedTexture(tex.name)}
-                >
-                  <span 
-                    className="w-3.5 h-3.5 rounded-full shrink-0 shadow-sm" 
-                    style={{ backgroundColor: tex.color || '#00f0ff' }} 
-                  />
-                  <div className={styles.cardInfo}>
-                    <span className={styles.cardName}>{tex.name}</span>
-                    <span className={styles.cardMeta}>{tex.type} • {tex.res}</span>
+              {textures.map(tex => {
+                const isSelected = selectedTexture === tex.name;
+                return (
+                  <div 
+                    key={tex.id}
+                    className={styles.textureCard}
+                    style={isSelected ? {
+                      backgroundColor: `${tex.color}22`,
+                      boxShadow: `0 0 16px ${tex.color}55`
+                    } : {}}
+                    onClick={() => setSelectedTexture(tex.name)}
+                  >
+                    <span 
+                      className="w-3.5 h-3.5 rounded-full shrink-0 shadow-sm" 
+                      style={{ backgroundColor: tex.color || '#00f0ff' }} 
+                    />
+                    <div className={styles.cardInfo}>
+                      <span className={styles.cardName}>{tex.name}</span>
+                      <span className={styles.cardMeta}>{tex.type} • {tex.res}</span>
+                    </div>
+                    {isSelected && <Check size={14} style={{ color: tex.color }} className="ml-auto" />}
                   </div>
-                  {selectedTexture === tex.name && <Check size={14} className="text-[#00f0ff] ml-auto" />}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
