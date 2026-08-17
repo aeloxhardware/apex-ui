@@ -277,11 +277,11 @@ export const Viewport3D = () => {
       const excluded: BABYLON.AbstractMesh[] = [plate, outline, topOutline];
 
       if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERMOVE) {
-        const pick = pointerInfo.pickInfo;
+        const pick = scene.pick(scene.pointerX, scene.pointerY, (mesh) => !excluded.includes(mesh) && !mesh.name.includes("Gizmo"));
         const clientX = pointerInfo.event.clientX;
         const clientY = pointerInfo.event.clientY;
 
-        if (pick?.hit && pick.pickedMesh && !excluded.includes(pick.pickedMesh) && !pick.pickedMesh.name.includes("Gizmo")) {
+        if (pick?.hit && pick.pickedMesh) {
           const hoveredMesh = pick.pickedMesh;
           const hasTexture = hoveredMesh.material && hoveredMesh.material.name !== "boundaryMat";
           window.dispatchEvent(
@@ -305,8 +305,8 @@ export const Viewport3D = () => {
       }
 
       if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERUP) {
-        const pick = pointerInfo.pickInfo;
-        if (pick?.hit && pick.pickedMesh && !excluded.includes(pick.pickedMesh) && !pick.pickedMesh.name.includes("Gizmo")) {
+        const pick = scene.pick(scene.pointerX, scene.pointerY, (mesh) => !excluded.includes(mesh) && !mesh.name.includes("Gizmo"));
+        if (pick?.hit && pick.pickedMesh) {
           const topMesh = pick.pickedMesh;
           
           if (selectedMeshesRef.current.has(topMesh)) {
@@ -370,6 +370,7 @@ export const Viewport3D = () => {
 
         const r = res.meshes[0];
         if (r) {
+          r.name = file.name;
           r.computeWorldMatrix(true);
           const boundingInfo = r.getHierarchyBoundingVectors(true);
           const center = boundingInfo.min.add(boundingInfo.max).scale(0.5);
@@ -410,7 +411,7 @@ export const Viewport3D = () => {
             gizmoManager.positionGizmoEnabled = false;
             gizmoManager.rotationGizmoEnabled = false;
             gizmoManager.scaleGizmoEnabled = true;
-            gizmoManager.attachIdToMesh && gizmoManager.attachToMesh(r);
+            gizmoManager.attachToMesh(r);
           }
         }
       } catch (err) {
