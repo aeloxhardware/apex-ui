@@ -146,7 +146,7 @@
   }
 }
 
-/* Curseur externe flottant ancré à gauche à l'extérieur : grandit au survol ou lors du clic/drag */
+/* Curseur externe flottant avec curseur pointeur standard (default) */
 .externalScrollThumb {
   position: absolute;
   left: calc(100% + 4px);
@@ -157,7 +157,7 @@
   border-radius: 999px;
   box-shadow: none;
   pointer-events: auto;
-  cursor: pointer;
+  cursor: default;
   z-index: 1002;
   transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease;
 
