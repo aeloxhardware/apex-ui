@@ -131,7 +131,7 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
   const iconRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
   const contentRef = useRef<HTMLDivElement>(null);
   const [thumbHeight, setThumbHeight] = useState(40);
-  const [thumbTop, setThumbTop] = useState(0);
+  const [thumbTop, setThumbTop] = useState(8);
   const [hasScroll, setHasScroll] = useState(false);
 
   const isDraggingRef = useRef(false);
@@ -155,9 +155,9 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
     }
     setHasScroll(true);
     
-    const margin = 6;
+    const margin = 8;
     const trackHeight = clientHeight - (margin * 2);
-    const calculatedHeight = Math.max(30, (clientHeight / scrollHeight) * trackHeight);
+    const calculatedHeight = Math.max(32, (clientHeight / scrollHeight) * trackHeight);
     
     const maxScrollTop = scrollHeight - clientHeight;
     const maxThumbTop = trackHeight - calculatedHeight;
@@ -182,7 +182,7 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
     if (!isDraggingRef.current || !contentRef.current) return;
     const deltaY = e.clientY - startYRef.current;
     const { scrollHeight, clientHeight } = contentRef.current;
-    const margin = 6;
+    const margin = 8;
     const trackHeight = clientHeight - (margin * 2);
     const maxThumbTop = trackHeight - thumbHeight;
     const maxScrollTop = scrollHeight - clientHeight;
@@ -282,14 +282,14 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
                 ))}
               </div>
 
-              {/* Curseur de défilement externe interactif avec proportionnalité stricte */}
+              {/* Curseur de défilement externe interactif avec positionnement direct top */}
               {hasScroll && (
                 <div 
                   className={styles.externalScrollThumb}
                   onMouseDown={handleMouseDown}
                   style={{
                     height: `${thumbHeight}px`,
-                    transform: `translateY(${thumbTop}px)`
+                    top: `${thumbTop}px`
                   }}
                 />
               )}
