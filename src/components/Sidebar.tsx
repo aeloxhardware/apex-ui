@@ -72,7 +72,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <div className={styles.container}>
-      {/* Top Toolbar (Navigation & Main Actions) */}
+      {/* Top Toolbar (Navigation & Main Views) */}
       <div ref={topToolbarRef} className={clsx(styles.toolbar, styles.topToolbar)}>
         <div className={styles.activeIndicator} style={indicatorStyle}></div>
 
@@ -116,48 +116,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         >
           <Code size={22} />
         </button>
-
-        <div className={styles.topSeparator} />
-
-        {/* Project & File Actions */}
-        <button
-          className={clsx(styles.button, styles.topButton)}
-          onClick={onOpenModel || handleUploadClick}
-          title="Open Model"
-        >
-          <FolderOpen size={20} />
-        </button>
-
-        <button
-          className={clsx(styles.button, styles.topButton)}
-          onClick={onSaveProject}
-          title="Save Project"
-        >
-          <Save size={20} />
-        </button>
-
-        <div className={styles.topSeparator} />
-
-        {/* Printer & Filament Config triggers */}
-        <button
-          className={clsx(styles.button, styles.topButton, styles.configButton)}
-          title="Printer: Prusa MK4 | Filament: PLA (0.20mm)"
-          onClick={() => onTabChange('settings')}
-        >
-          <Printer size={20} />
-        </button>
-
-        {/* Slice Plate Action Button */}
-        <button
-          className={clsx(styles.button, styles.topButton, styles.sliceButton)}
-          onClick={onSlice}
-          title="Slice Plate"
-        >
-          <Play size={20} className="fill-current" />
-        </button>
       </div>
 
-      {/* Bottom Toolbar (Action & Manipulation 3D) */}
+      {/* Bottom Toolbar (Action, Manipulation 3D & File Actions) */}
       <div className={clsx(styles.toolbar, styles.bottomToolbar)}>
         <button
           className={clsx(styles.button, styles.bottomButton, {
@@ -210,7 +171,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         <div className={styles.separator} />
 
-        {/* Extra view tools moved from top/header */}
+        {/* View tools */}
         <button
           className={clsx(styles.button, styles.bottomButton)}
           onClick={() => window.dispatchEvent(new CustomEvent('apex-reset-camera'))}
@@ -225,6 +186,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
           title="Fit to Screen"
         >
           <Maximize2 size={16} />
+        </button>
+
+        <div className={styles.separator} />
+
+        {/* Project & File Actions moved from top */}
+        <button
+          className={clsx(styles.button, styles.bottomButton)}
+          onClick={onOpenModel || handleUploadClick}
+          title="Open Model"
+        >
+          <FolderOpen size={16} />
+        </button>
+
+        <button
+          className={clsx(styles.button, styles.bottomButton)}
+          onClick={onSaveProject}
+          title="Save Project"
+        >
+          <Save size={16} />
+        </button>
+
+        <div className={styles.separator} />
+
+        {/* Printer & Slice Actions moved from top */}
+        <button
+          className={clsx(styles.button, styles.bottomButton, styles.configButton)}
+          title="Printer: Prusa MK4 | Filament: PLA (0.20mm)"
+          onClick={() => onTabChange('settings')}
+        >
+          <Printer size={16} />
+        </button>
+
+        <button
+          className={clsx(styles.button, styles.bottomButton, styles.sliceButton)}
+          onClick={onSlice}
+          title="Slice Plate"
+        >
+          <Play size={14} className="fill-current" />
         </button>
 
         <div className={styles.separator} />
