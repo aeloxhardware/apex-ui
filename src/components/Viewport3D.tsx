@@ -113,7 +113,16 @@ export const Viewport3D = () => {
       hlRef.current.removeAllMeshes();
       selectedMeshesRef.current.forEach((mesh) => {
         if (mesh && !mesh.isDisposed()) {
-          hlRef.current?.addMesh(mesh as BABYLON.Mesh, new BABYLON.Color3(0, 0.94, 1));
+          // Ajouter le mesh racine s'il a des géométries
+          if (mesh instanceof BABYLON.Mesh && mesh.getTotalVertices() > 0) {
+            hlRef.current?.addMesh(mesh, new BABYLON.Color3(0, 0.94, 1));
+          }
+          // Ajouter tous les sous-maillages enfants pour s'assurer que tout le modèle brille
+          mesh.getChildMeshes(false).forEach((child) => {
+            if (child instanceof BABYLON.Mesh && child.getTotalVertices() > 0 && !child.isDisposed()) {
+              hlRef.current?.addMesh(child, new BABYLON.Color3(0, 0.94, 1));
+            }
+          });
         }
       });
     };
