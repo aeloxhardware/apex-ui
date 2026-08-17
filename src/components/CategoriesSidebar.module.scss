@@ -1,7 +1,8 @@
 .leftSidebarContainer {
   position: fixed;
   left: 24px;
-  top: 90px;
+  top: 50%;
+  transform: translateY(-50%);
   display: flex;
   flex-direction: column;
   z-index: 1000;
@@ -13,6 +14,7 @@
   flex-direction: column;
   gap: 6px;
   pointer-events: auto;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   background: rgba(10, 15, 26, 0.25);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
@@ -53,11 +55,11 @@
   left: 82px;
   width: 320px;
   max-height: calc(100vh - 120px);
-  background: rgba(10, 15, 26, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(0, 240, 255, 0.25);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 240, 255, 0.1);
+  background: rgba(10, 15, 26, 0.25);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: none;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
   border-radius: 16px;
   z-index: 1001;
   display: flex;
@@ -74,9 +76,7 @@
     top: 22px;
     width: 12px;
     height: 12px;
-    background: rgba(10, 15, 26, 0.85);
-    border-left: 1px solid rgba(0, 240, 255, 0.25);
-    border-bottom: 1px solid rgba(0, 240, 255, 0.25);
+    background: rgba(10, 15, 26, 0.25);
     transform: rotate(45deg);
   }
 }
