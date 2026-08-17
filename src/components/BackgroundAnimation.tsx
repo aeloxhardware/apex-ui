@@ -4,7 +4,6 @@ import { motion } from 'framer-motion';
 export const BackgroundAnimation: React.FC = () => {
   const dots = useMemo(() => {
     const list = [];
-    // Espacement homogène (carré) de 30px sur X et Y
     for (let row = 0; row < 36; row++) {
       for (let col = 0; col < 64; col++) {
         list.push({ 
@@ -28,7 +27,7 @@ export const BackgroundAnimation: React.FC = () => {
             key={dot.id}
             cx={dot.x}
             cy={dot.y}
-            r="1.5"
+            r="2.25"
             animate={{
               fill: "#00F0FF",
               opacity: [0, dot.maxOpacity, dot.maxOpacity * 0.3, dot.maxOpacity],
