@@ -77,7 +77,7 @@ export const TopRightMenu: React.FC = () => {
             className={clsx(styles.button, styles.largeButton)}
             onClick={() => showSuccess("Paramètres rapides ouverts")}
           >
-            <Sliders size={28} />
+            <Sliders size={26} />
             <span>Réglages</span>
           </button>
         </CustomTooltip>
@@ -87,7 +87,7 @@ export const TopRightMenu: React.FC = () => {
             className={clsx(styles.button, styles.largeButton)}
             onClick={() => showSuccess("Module IA actif")}
           >
-            <Cpu size={28} />
+            <Cpu size={26} />
             <span>Processeur</span>
           </button>
         </CustomTooltip>
@@ -99,7 +99,7 @@ export const TopRightMenu: React.FC = () => {
             className={clsx(styles.button, styles.largeButton)}
             onClick={() => showSuccess("Profils de couches avancés")}
           >
-            <Layers size={28} />
+            <Layers size={26} />
             <span>Couches</span>
           </button>
         </CustomTooltip>
@@ -109,7 +109,7 @@ export const TopRightMenu: React.FC = () => {
             className={clsx(styles.button, styles.largeButton)}
             onClick={() => showSuccess("Mode Turbo Boost activé")}
           >
-            <Zap size={28} />
+            <Zap size={26} />
             <span>Turbo</span>
           </button>
         </CustomTooltip>
