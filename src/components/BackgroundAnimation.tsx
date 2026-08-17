@@ -12,7 +12,7 @@ export const BackgroundAnimation: React.FC = () => {
           y: row * 30 + 15, 
           delay: Math.random() * 0.8,
           duration: 0.6 + Math.random() * 0.8,
-          maxOpacity: 0.3 + Math.random() * 0.5
+          maxOpacity: 0.15 + Math.random() * 0.25
         });
       }
     }
@@ -21,13 +21,26 @@ export const BackgroundAnimation: React.FC = () => {
 
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none z-0 bg-[#070913]">
-      <svg className="w-full h-full" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+      {/* Grille géométrique en arrière-plan */}
+      <div 
+        className="absolute inset-0 opacity-20"
+        style={{
+          backgroundImage: `
+            linear-gradient(to right, rgba(0, 240, 255, 0.15) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(0, 240, 255, 0.15) 1px, transparent 1px)
+          `,
+          backgroundSize: '40px 40px'
+        }}
+      />
+
+      {/* Animation de points conservée en arrière-plan (inactivée / discrète) */}
+      <svg className="w-full h-full opacity-60" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
         {dots.map((dot) => (
           <motion.circle
             key={dot.id}
             cx={dot.x}
             cy={dot.y}
-            r="2.25"
+            r="1.8"
             animate={{
               fill: "#00F0FF",
               opacity: [0, dot.maxOpacity, dot.maxOpacity * 0.3, dot.maxOpacity],
