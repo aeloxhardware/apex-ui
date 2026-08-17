@@ -9,7 +9,6 @@ import {
   Layers, 
   Upload,
   Code,
-  Play,
   Maximize2,
   Eye
 } from 'lucide-react';
@@ -19,14 +18,12 @@ import { CustomTooltip } from './CustomTooltip';
 interface SidebarProps {
   activeTab: '3d-view' | 'settings' | 'developer';
   onTabChange: (tab: 'box' | 'settings' | 'developer') => void;
-  onSlice?: () => void;
   onOpenModel?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
   activeTab, 
   onTabChange, 
-  onSlice, 
   onOpenModel
 }) => {
   const [activeTool, setActiveTool] = useState<'select' | 'move' | 'rotate' | 'layers'>('select');
@@ -119,7 +116,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </CustomTooltip>
       </div>
 
-      {/* Bottom Toolbar (Action, Manipulation 3D & Slice) */}
+      {/* Bottom Toolbar (Action, Manipulation 3D) */}
       <div className={clsx(styles.toolbar, styles.bottomToolbar)}>
         <CustomTooltip content="Select Tool">
           <button
@@ -192,18 +189,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => window.dispatchEvent(new CustomEvent('apex-fit-screen'))}
           >
             <Maximize2 size={16} />
-          </button>
-        </CustomTooltip>
-
-        <div className={styles.separator} />
-
-        {/* Slice Action */}
-        <CustomTooltip content="Slice Plate">
-          <button
-            className={clsx(styles.button, styles.bottomButton, styles.sliceButton)}
-            onClick={onSlice}
-          >
-            <Play size={14} className="fill-current" />
           </button>
         </CustomTooltip>
 

@@ -1,0 +1,48 @@
+.container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  pointer-events: auto;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  background: rgba(10, 15, 26, 0.5);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+  padding: 8px 16px;
+  border-radius: 16px;
+}
+
+.button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.sliceButton {
+  background: rgba(0, 240, 255, 0.15);
+  color: #00f0ff;
+  padding: 8px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  
+  &:hover {
+    background: rgba(0, 240, 255, 0.25) !important;
+    box-shadow: 0 0 12px rgba(0, 240, 255, 0.3);
+  }
+}
