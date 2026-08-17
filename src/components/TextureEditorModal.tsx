@@ -27,29 +27,22 @@ export const TextureEditorModal: React.FC = () => {
     };
 
     const handleTexturesLoaded = (e: CustomEvent<{ textures: TextureItem[] }>) => {
+      // Si aucun modèle n'est sélectionné ou si aucune texture n'est remontée, on laisse la liste vide
       if (e.detail?.textures && e.detail.textures.length > 0) {
         setTextures(e.detail.textures);
         setSelectedTexture(e.detail.textures[0].name);
       } else {
-        const defaultTexs: TextureItem[] = [
-          { id: '1', name: 'Diffuse_Albedo.png', type: 'Couleur principale', res: '4096 x 4096', color: '#00f0ff' },
-          { id: '2', name: 'Normal_Map.png', type: 'Relief / Bump', res: '4096 x 4096', color: '#8b5cf6' },
-          { id: '3', name: 'Roughness_Metal.png', type: 'Spéculaire', res: '2048 x 2048', color: '#f59e0b' }
-        ];
-        setTextures(defaultTexs);
-        setSelectedTexture(defaultTexs[0].name);
+        setTextures([]);
+        setSelectedTexture('');
       }
     };
 
     const handleMeshSelected = (e: CustomEvent<{ name: string | null; subMeshes: { id: string; name: string; color: string }[] }>) => {
-      if (e.detail?.subMeshes && e.detail.subMeshes.length > 0) {
-        const targetName = e.detail.name;
-        if (targetName) {
-          const matched = textures.find(t => t.name.toLowerCase().includes(targetName.toLowerCase()));
-          if (matched) {
-            setSelectedTexture(matched.name);
-          }
-        }
+      if (e.detail?.name) {
+        window.dispatchEvent(new CustomEvent('apex-request-textures'));
+      } else {
+        setTextures([]);
+        setSelectedTexture('');
       }
     };
 
@@ -62,7 +55,7 @@ export const TextureEditorModal: React.FC = () => {
       window.removeEventListener('apex-textures-loaded', handleTexturesLoaded as EventListener);
       window.removeEventListener('apex-mesh-selected', handleMeshSelected as EventListener);
     };
-  }, [textures]);
+  }, []);
 
   if (!isOpen) return null;
 
@@ -101,30 +94,34 @@ export const TextureEditorModal: React.FC = () => {
           <div className={styles.section}>
             <span className={styles.sectionLabel}>Textures récupérées du modèle :</span>
             <div className={styles.textureGrid}>
-              {textures.map(tex => {
-                const isSelected = selectedTexture === tex.name;
-                return (
-                  <div 
-                    key={tex.id}
-                    className={styles.textureCard}
-                    style={isSelected ? {
-                      backgroundColor: `${tex.color}22`,
-                      boxShadow: `0 0 16px ${tex.color}55`
-                    } : {}}
-                    onClick={() => setSelectedTexture(tex.name)}
-                  >
-                    <span 
-                      className="w-3.5 h-3.5 rounded-full shrink-0 shadow-sm" 
-                      style={{ backgroundColor: tex.color || '#00f0ff' }} 
-                    />
-                    <div className={styles.cardInfo}>
-                      <span className={styles.cardName}>{tex.name}</span>
-                      <span className={styles.cardMeta}>{tex.type} • {tex.res}</span>
+              {textures.length === 0 ? (
+                <div className="text-xs text-neutral-500 py-4 text-center">Aucun modèle sélectionné</div>
+              ) : (
+                textures.map(tex => {
+                  const isSelected = selectedTexture === tex.name;
+                  return (
+                    <div 
+                      key={tex.id}
+                      className={styles.textureCard}
+                      style={isSelected ? {
+                        backgroundColor: `${tex.color}22`,
+                        boxShadow: `0 0 16px ${tex.color}55`
+                      } : {}}
+                      onClick={() => setSelectedTexture(tex.name)}
+                    >
+                      <span 
+                        className="w-3.5 h-3.5 rounded-full shrink-0 shadow-sm" 
+                        style={{ backgroundColor: tex.color || '#00f0ff' }} 
+                      />
+                      <div className={styles.cardInfo}>
+                        <span className={styles.cardName}>{tex.name}</span>
+                        <span className={styles.cardMeta}>{tex.type} • {tex.res}</span>
+                      </div>
+                      {isSelected && <Check size={14} style={{ color: tex.color }} className="ml-auto" />}
                     </div>
-                    {isSelected && <Check size={14} style={{ color: tex.color }} className="ml-auto" />}
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
 
