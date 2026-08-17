@@ -14,6 +14,7 @@ import {
   Eye
 } from 'lucide-react';
 import styles from './Sidebar.module.scss';
+import { CustomTooltip } from './CustomTooltip';
 
 interface SidebarProps {
   activeTab: '3d-view' | 'settings' | 'developer';
@@ -72,137 +73,150 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className={styles.activeIndicator} style={indicatorStyle}></div>
 
         {/* Logo and App Title */}
-        <div className={styles.logoContainer} title="Apex Slicer v1.0.0">
-          <img src="/logo.webp" alt="Logo" className={styles.logoImg} />
-        </div>
+        <CustomTooltip content="Apex Slicer v1.0.0">
+          <div className={styles.logoContainer}>
+            <img src="/logo.webp" alt="Logo" className={styles.logoImg} />
+          </div>
+        </CustomTooltip>
 
         <div className={styles.topSeparator} />
 
         {/* Navigation Tabs */}
-        <button
-          ref={(el) => { if (el) buttonRefs.current.set('box', el); }}
-          className={clsx(styles.button, styles.topButton, {
-            [styles.active]: activeTab === '3d-view',
-          })}
-          onClick={() => handleTopTabClick('box')}
-          title="Perspective 3D View"
-        >
-          <Box size={22} />
-        </button>
+        <CustomTooltip content="Perspective 3D View">
+          <button
+            ref={(el) => { if (el) buttonRefs.current.set('box', el); }}
+            className={clsx(styles.button, styles.topButton, {
+              [styles.active]: activeTab === '3d-view',
+            })}
+            onClick={() => handleTopTabClick('box')}
+          >
+            <Box size={22} />
+          </button>
+        </CustomTooltip>
         
-        <button
-          ref={(el) => { if (el) buttonRefs.current.set('settings', el); }}
-          className={clsx(styles.button, styles.topButton, {
-            [styles.active]: activeTab === 'settings',
-          })}
-          onClick={() => handleTopTabClick('settings')}
-          title="Configuration Settings"
-        >
-          <Settings size={22} />
-        </button>
+        <CustomTooltip content="Configuration Settings">
+          <button
+            ref={(el) => { if (el) buttonRefs.current.set('settings', el); }}
+            className={clsx(styles.button, styles.topButton, {
+              [styles.active]: activeTab === 'settings',
+            })}
+            onClick={() => handleTopTabClick('settings')}
+          >
+            <Settings size={22} />
+          </button>
+        </CustomTooltip>
 
-        <button
-          ref={(el) => { if (el) buttonRefs.current.set('developer', el); }}
-          className={clsx(styles.button, styles.topButton, {
-            [styles.active]: activeTab === 'developer',
-          })}
-          onClick={() => handleTopTabClick('developer')}
-          title="Developer Settings"
-        >
-          <Code size={22} />
-        </button>
+        <CustomTooltip content="Developer Settings">
+          <button
+            ref={(el) => { if (el) buttonRefs.current.set('developer', el); }}
+            className={clsx(styles.button, styles.topButton, {
+              [styles.active]: activeTab === 'developer',
+            })}
+            onClick={() => handleTopTabClick('developer')}
+          >
+            <Code size={22} />
+          </button>
+        </CustomTooltip>
       </div>
 
       {/* Bottom Toolbar (Action, Manipulation 3D & Slice) */}
       <div className={clsx(styles.toolbar, styles.bottomToolbar)}>
-        <button
-          className={clsx(styles.button, styles.bottomButton, {
-            [styles.active]: activeTool === 'select',
-          })}
-          onClick={() => {
-            setActiveTool('select');
-            window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'select' } }));
-          }}
-          title="Select Tool"
-        >
-          <MousePointer2 size={16} />
-        </button>
+        <CustomTooltip content="Select Tool">
+          <button
+            className={clsx(styles.button, styles.bottomButton, {
+              [styles.active]: activeTool === 'select',
+            })}
+            onClick={() => {
+              setActiveTool('select');
+              window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'select' } }));
+            }}
+          >
+            <MousePointer2 size={16} />
+          </button>
+        </CustomTooltip>
 
-        <button
-          className={clsx(styles.button, styles.bottomButton, {
-            [styles.active]: activeTool === 'move',
-          })}
-          onClick={() => {
-            setActiveTool('move');
-            window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'move' } }));
-          }}
-          title="Move Tool"
-        >
-          <Move size={16} />
-        </button>
+        <CustomTooltip content="Move Tool">
+          <button
+            className={clsx(styles.button, styles.bottomButton, {
+              [styles.active]: activeTool === 'move',
+            })}
+            onClick={() => {
+              setActiveTool('move');
+              window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'move' } }));
+            }}
+          >
+            <Move size={16} />
+          </button>
+        </CustomTooltip>
 
-        <button
-          className={clsx(styles.button, styles.bottomButton, {
-            [styles.active]: activeTool === 'rotate',
-          })}
-          onClick={() => {
-            setActiveTool('rotate');
-            window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'rotate' } }));
-          }}
-          title="Rotate Tool"
-        >
-          <RotateCw size={16} />
-        </button>
+        <CustomTooltip content="Rotate Tool">
+          <button
+            className={clsx(styles.button, styles.bottomButton, {
+              [styles.active]: activeTool === 'rotate',
+            })}
+            onClick={() => {
+              setActiveTool('rotate');
+              window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'rotate' } }));
+            }}
+          >
+            <RotateCw size={16} />
+          </button>
+        </CustomTooltip>
 
-        <button
-          className={clsx(styles.button, styles.bottomButton, {
-            [styles.active]: activeTool === 'layers',
-          })}
-          onClick={() => setActiveTool('layers')}
-          title="Slice Layers"
-        >
-          <Layers size={16} />
-        </button>
+        <CustomTooltip content="Slice Layers">
+          <button
+            className={clsx(styles.button, styles.bottomButton, {
+              [styles.active]: activeTool === 'layers',
+            })}
+            onClick={() => setActiveTool('layers')}
+          >
+            <Layers size={16} />
+          </button>
+        </CustomTooltip>
 
         <div className={styles.separator} />
 
         {/* View tools */}
-        <button
-          className={clsx(styles.button, styles.bottomButton)}
-          onClick={() => window.dispatchEvent(new CustomEvent('apex-reset-camera'))}
-          title="Reset Camera View"
-        >
-          <Eye size={16} />
-        </button>
+        <CustomTooltip content="Reset Camera View">
+          <button
+            className={clsx(styles.button, styles.bottomButton)}
+            onClick={() => window.dispatchEvent(new CustomEvent('apex-reset-camera'))}
+          >
+            <Eye size={16} />
+          </button>
+        </CustomTooltip>
 
-        <button
-          className={clsx(styles.button, styles.bottomButton)}
-          onClick={() => window.dispatchEvent(new CustomEvent('apex-fit-screen'))}
-          title="Fit to Screen"
-        >
-          <Maximize2 size={16} />
-        </button>
+        <CustomTooltip content="Fit to Screen">
+          <button
+            className={clsx(styles.button, styles.bottomButton)}
+            onClick={() => window.dispatchEvent(new CustomEvent('apex-fit-screen'))}
+          >
+            <Maximize2 size={16} />
+          </button>
+        </CustomTooltip>
 
         <div className={styles.separator} />
 
         {/* Slice Action */}
-        <button
-          className={clsx(styles.button, styles.bottomButton, styles.sliceButton)}
-          onClick={onSlice}
-          title="Slice Plate"
-        >
-          <Play size={14} className="fill-current" />
-        </button>
+        <CustomTooltip content="Slice Plate">
+          <button
+            className={clsx(styles.button, styles.bottomButton, styles.sliceButton)}
+            onClick={onSlice}
+          >
+            <Play size={14} className="fill-current" />
+          </button>
+        </CustomTooltip>
 
         <div className={styles.separator} />
 
-        <button
-          className={clsx(styles.button, styles.bottomButton, styles.uploadActionButton)}
-          onClick={handleUploadClick}
-          title="Import 3D File (.stl)"
-        >
-          <Upload size={16} />
-        </button>
+        <CustomTooltip content="Import 3D File (.stl)">
+          <button
+            className={clsx(styles.button, styles.bottomButton, styles.uploadActionButton)}
+            onClick={handleUploadClick}
+          >
+            <Upload size={16} />
+          </button>
+        </CustomTooltip>
 
         <input 
           type="file" 

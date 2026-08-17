@@ -2,6 +2,7 @@ import React from 'react';
 import clsx from 'clsx';
 import { FolderOpen, Save, Printer } from 'lucide-react';
 import styles from './FileSidebar.module.scss';
+import { CustomTooltip } from './CustomTooltip';
 
 interface FileSidebarProps {
   onOpenModel?: () => void;
@@ -17,31 +18,34 @@ export const FileSidebar: React.FC<FileSidebarProps> = ({
   return (
     <div className={styles.container}>
       <div className={styles.toolbar}>
-        <button
-          className={clsx(styles.button)}
-          onClick={onOpenModel}
-          title="Open Model"
-        >
-          <FolderOpen size={18} />
-        </button>
+        <CustomTooltip content="Open Model">
+          <button
+            className={clsx(styles.button)}
+            onClick={onOpenModel}
+          >
+            <FolderOpen size={18} />
+          </button>
+        </CustomTooltip>
 
-        <button
-          className={clsx(styles.button)}
-          onClick={onSaveProject}
-          title="Save Project"
-        >
-          <Save size={18} />
-        </button>
+        <CustomTooltip content="Save Project">
+          <button
+            className={clsx(styles.button)}
+            onClick={onSaveProject}
+          >
+            <Save size={18} />
+          </button>
+        </CustomTooltip>
 
         <div className={styles.separator} />
 
-        <button
-          className={clsx(styles.button, styles.configButton)}
-          onClick={onOpenSettings}
-          title="Printer: Prusa MK4 | Filament: PLA (0.20mm)"
-        >
-          <Printer size={18} />
-        </button>
+        <CustomTooltip content="Printer: Prusa MK4 | Filament: PLA">
+          <button
+            className={clsx(styles.button, styles.configButton)}
+            onClick={onOpenSettings}
+          >
+            <Printer size={18} />
+          </button>
+        </CustomTooltip>
       </div>
     </div>
   );
