@@ -146,7 +146,7 @@
   }
 }
 
-/* Curseur externe indépendant avec largeur doublée, flou et ombre portée */
+/* Curseur externe indépendant assorti aux barres latérales (translucide et flouté) */
 .externalScrollTrack {
   position: absolute;
   right: -12px;
@@ -162,16 +162,16 @@
   position: absolute;
   left: 0;
   width: 8px;
-  background: rgba(0, 240, 255, 0.65);
+  background: rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border-radius: 6px;
-  box-shadow: 0 0 12px rgba(0, 240, 255, 0.5), 0 2px 6px rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   transition: background 0.2s;
 
   &:hover {
-    background: rgba(0, 240, 255, 0.9);
+    background: rgba(255, 255, 255, 0.22);
   }
 }
 
