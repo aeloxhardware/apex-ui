@@ -3,7 +3,9 @@
   top: 20px;
   right: 24px;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
   z-index: 1000;
   pointer-events: none;
 }
@@ -22,6 +24,13 @@
   padding: 8px 16px;
   border-radius: 22px;
   gap: 8px;
+}
+
+.secondaryToolbar {
+  /* Hauteur égale à 2.5x la toolbar principale (padding vertical 20px x 2.5 = 50px, boutons 36px x 2.5 = 90px) */
+  padding: 20px 24px;
+  border-radius: 32px;
+  gap: 14px;
 }
 
 .button {
@@ -44,9 +53,31 @@
   }
 }
 
+.largeButton {
+  width: 90px;
+  height: 90px;
+  border-radius: 22px;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 500;
+
+  svg {
+    width: 32px;
+    height: 32px;
+  }
+}
+
 .separator {
   width: 1px;
   height: 18px;
   background: rgba(255, 255, 255, 0.2);
   margin: 0 4px;
+}
+
+.largeSeparator {
+  width: 1px;
+  height: 60px;
+  background: rgba(255, 255, 255, 0.2);
+  margin: 0 6px;
 }
