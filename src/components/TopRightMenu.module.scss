@@ -13,7 +13,6 @@
 .toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   pointer-events: auto;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   
@@ -22,79 +21,37 @@
   -webkit-backdrop-filter: blur(4px);
   border: none;
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
-  padding: 8px 16px;
+  padding: 12px 20px;
   border-radius: 22px;
-  width: 320px;
+  width: 340px;
+  min-height: 48px;
 }
 
 .secondaryToolbar {
-  padding: 12px 16px;
+  min-height: 120px;
+  padding: 16px 20px;
   border-radius: 26px;
+  align-items: flex-start;
 }
 
 .infoDisplayTop {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
-  color: #ffffff;
+  color: #00f0ff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding: 0 8px;
+  width: 100%;
 }
 
 .infoDisplayBottom {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 400;
-  color: rgba(255, 255, 255, 0.75);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  padding: 0 8px;
-}
-
-.button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
   color: rgba(255, 255, 255, 0.85);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  outline: none;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-
-  &:hover:not(:disabled) {
-    color: rgba(255, 255, 255, 1);
-    background: rgba(255, 255, 255, 0.12);
-  }
-}
-
-.largeButton {
-  width: 54px;
-  height: 90px;
-  border-radius: 16px;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 10px;
-  font-weight: 500;
-
-  svg {
-    width: 26px;
-    height: 26px;
-  }
-}
-
-.separator {
-  width: 1px;
-  height: 18px;
-  background: rgba(255, 255, 255, 0.15);
-}
-
-.largeSeparator {
-  width: 1px;
-  height: 60px;
-  background: rgba(255, 255, 255, 0.15);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  width: 100%;
 }
