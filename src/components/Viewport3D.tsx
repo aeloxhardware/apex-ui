@@ -247,21 +247,81 @@ export const Viewport3D = () => {
 
     const onRequestTextures = () => {
       const selection = selectedMeshesRef.current;
-      const activeMesh = selection.size > 0 ? Array.from(selection)[selection.size - 1] : Array.from(modelsRef.current)[0];
+      let activeMesh = selection.size > 0 ? Array.from(selection)[selection.size - 1] : Array.from(modelsRef.current)[0];
       
       const textures: any[] = [];
-      if (activeMesh && activeMesh.material) {
-        const mat = activeMesh.material as any;
-        // Check standard PBR or Standard material textures
-        if (mat.albedoTexture) {
-          textures.push({ id: '1', name: mat.albedoTexture.name || 'Albedo_Texture.png', type: 'Couleur Principale', res: '4096 x 4096', color: '#00f0ff' });
+      const visitedMats = new Set<string>();
+
+      const inspectMaterial = (mat: any) => {
+        if (!mat || visitedMats.has(mat.uniqueId)) return;
+        visitedMats.add(mat.uniqueId);
+
+        // Check albedo / diffuse
+        const albedoTex = mat.albedoTexture || mat.diffuseTexture;
+        if (albedoTex) {
+          textures.push({
+            id: `tex-${mat.uniqueId}-albedo`,
+            name: albedoTex.name ? albedoTex.name.split('/').pop() : `${mat.name}_albedo.png`,
+            type: 'Couleur Principale (Albedo)',
+            res: `${albedoTex.getSize().width} x ${albedoTex.getSize().height}`,
+            color: '#00f0ff'
+          });
         }
-        if (mat.bumpTexture) {
-          textures.push({ id: '2', name: mat.bumpTexture.name || 'Normal_Map.png', type: 'Relief / Bump', res: '4096 x 4096', color: '#8b5cf6' });
+
+        // Check bump / normal
+        const bumpTex = mat.bumpTexture || mat.normalTexture;
+        if (bumpTex) {
+          textures.push({
+            id: `tex-${mat.uniqueId}-bump`,
+            name: bumpTex.name ? bumpTex.name.split('/').pop() : `${mat.name}_normal.png`,
+            type: 'Relief / Normal Map',
+            res: `${bumpTex.getSize().width} x ${bumpTex.getSize().height}`,
+            color: '#8b5cf6'
+          });
         }
-        if (mat.metallicTexture || mat.roughnessTexture) {
-          textures.push({ id: '3', name: 'Roughness_Metal.png', type: 'Spéculaire', res: '2048 x 2048', color: '#f59e0b' });
+
+        // Check roughness / metallic / specular
+        const specTex = mat.metallicTexture || mat.roughnessTexture || mat.specularTexture;
+        if (specTex) {
+          textures.push({
+            id: `tex-${mat.uniqueId}-spec`,
+            name: specTex.name ? specTex.name.split('/').pop() : `${mat.name}_specular.png`,
+            type: 'Spéculaire / Rugosité',
+            res: `${specTex.getSize().width} x ${specTex.getSize().height}`,
+            color: '#f59e0b'
+          });
         }
+
+        // If standard material with no textures but color
+        if (!albedoTex && !bumpTex && !specTex) {
+          let hexColor = '#3b82f6';
+          if (mat.albedoColor) {
+            hexColor = mat.albedoColor.toHexString();
+          } else if (mat.diffuseColor) {
+            hexColor = mat.diffuseColor.toHexString();
+          }
+          textures.push({
+            id: `tex-${mat.uniqueId}-color`,
+            name: `${mat.name || 'Material'}.mat`,
+            type: 'Matériau Couleur Pleine',
+            res: 'Procédural',
+            color: hexColor
+          });
+        }
+      };
+
+      if (activeMesh) {
+        // Inspect active mesh and its submeshes/children
+        const meshesToCheck = [activeMesh, ...activeMesh.getChildMeshes()];
+        meshesToCheck.forEach(m => {
+          if (m.material) {
+            if (m.material.getClassName() === 'MultiMaterial') {
+              (m.material as any).subMaterials.forEach((subMat: any) => inspectMaterial(subMat));
+            } else {
+              inspectMaterial(m.material);
+            }
+          }
+        });
       }
 
       if (textures.length === 0) {
