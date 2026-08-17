@@ -1,9 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
-import clsx from 'clsx';
-import { Palette, X, Sparkles } from 'lucide-react';
-import { CustomTooltip } from './CustomTooltip';
+import React, { useState, useEffect } from 'react';
+import styles from './TextureEditorModal.module.scss';
+import { Palette, X, Check } from 'lucide-react';
 import { showSuccess } from '@/utils/toast';
-import styles from './CategoriesSidebar.module.scss';
 
 interface TextureItem {
   id: string;
@@ -17,15 +15,6 @@ export const TextureEditorModal: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [textures, setTextures] = useState<TextureItem[]>([]);
   const [selectedTexture, setSelectedTexture] = useState<string>('');
-  
-  const contentRef = useRef<HTMLDivElement>(null);
-  const [thumbHeight, setThumbHeight] = useState(40);
-  const [thumbTop, setThumbTop] = useState(8);
-  const [hasScroll, setHasScroll] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-
-  const startYRef = useRef(0);
-  const startScrollTopRef = useRef(0);
 
   useEffect(() => {
     const handleToolChanged = (e: CustomEvent<{ tool: string }>) => {
@@ -53,10 +42,15 @@ export const TextureEditorModal: React.FC = () => {
     };
 
     const handleMeshSelected = (e: CustomEvent<{ name: string | null; subMeshes: { id: string; name: string; color: string }[] }>) => {
-      if (e.detail?.name) {
-        const matched = textures.find(t => t.name.toLowerCase().includes(e.detail.name!.toLowerCase()));
-        if (matched) {
-          setSelectedTexture(matched.name);
+      // Lorsque l'on clique sur une sous-partie en mode texture, on sélectionne automatiquement sa texture/matériau associé
+      if (e.detail?.subMeshes && e.detail.subMeshes.length > 0) {
+        // On cherche si un material/texture correspond au nom de la sous-partie ou on prend le premier
+        const targetName = e.detail.name;
+        if (targetName) {
+          const matched = textures.find(t => t.name.toLowerCase().includes(targetName.toLowerCase()));
+          if (matched) {
+            setSelectedTexture(matched.name);
+          }
         }
       }
     };
@@ -71,63 +65,6 @@ export const TextureEditorModal: React.FC = () => {
       window.removeEventListener('apex-mesh-selected', handleMeshSelected as EventListener);
     };
   }, [textures]);
-
-  const handleScroll = () => {
-    if (!contentRef.current || isDragging) return;
-    const { scrollTop, scrollHeight, clientHeight } = contentRef.current;
-    if (scrollHeight <= clientHeight) {
-      setHasScroll(false);
-      return;
-    }
-    setHasScroll(true);
-    
-    const margin = 8;
-    const trackHeight = clientHeight - (margin * 2);
-    const calculatedHeight = Math.max(32, (clientHeight / scrollHeight) * trackHeight);
-    
-    const maxScrollTop = scrollHeight - clientHeight;
-    const maxThumbTop = trackHeight - calculatedHeight;
-    const calculatedTop = maxScrollTop > 0 ? margin + (scrollTop / maxScrollTop) * maxThumbTop : margin;
-
-    setThumbHeight(calculatedHeight);
-    setThumbTop(calculatedTop);
-  };
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true);
-    startYRef.current = e.clientY;
-    if (contentRef.current) {
-      startScrollTopRef.current = contentRef.current.scrollTop;
-    }
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    e.preventDefault();
-  };
-
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!contentRef.current) return;
-    const deltaY = e.clientY - startYRef.current;
-    const { scrollHeight, clientHeight } = contentRef.current;
-    const margin = 8;
-    const trackHeight = clientHeight - (margin * 2);
-    const maxThumbTop = trackHeight - thumbHeight;
-    const maxScrollTop = scrollHeight - clientHeight;
-
-    if (maxThumbTop > 0) {
-      const scrollRatio = deltaY / maxThumbTop;
-      const newScrollTop = Math.max(0, Math.min(maxScrollTop, startScrollTopRef.current + scrollRatio * maxScrollTop));
-      contentRef.current.scrollTop = newScrollTop;
-      
-      const calculatedTop = margin + (newScrollTop / maxScrollTop) * maxThumbTop;
-      setThumbTop(calculatedTop);
-    }
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', handleMouseUp);
-  };
 
   if (!isOpen) return null;
 
@@ -144,100 +81,76 @@ export const TextureEditorModal: React.FC = () => {
   };
 
   return (
-    <>
-      <div className={styles.fusionTitleContainer}>
-        <span className={styles.fusionMenuTitle}>Texture & Matériaux (AMS)</span>
-        <button 
-          className={styles.fusionCloseBtn}
-          onClick={() => {
-            setIsOpen(false);
-            window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'select' } }));
-          }}
-        >
-          ✕
-        </button>
-      </div>
+    <div className={styles.container}>
+      <div className={styles.toolbar}>
+        <div className={styles.header}>
+          <div className={styles.headerTitle}>
+            <Palette size={16} className="text-[#00f0ff]" />
+            <span>Éditeur de Texture</span>
+          </div>
+          <button 
+            className={styles.closeBtn} 
+            onClick={() => {
+              setIsOpen(false);
+              window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'select' } }));
+            }}
+          >
+            <X size={14} />
+          </button>
+        </div>
 
-      <div className={styles.fusionMenuContainer}>
-        <div 
-          ref={contentRef}
-          className={styles.fusionMenuContent}
-          onScroll={handleScroll}
-        >
-          <div className={styles.sectionGroup}>
-            <h4 className={styles.sectionTitle}>Textures du modèle actif</h4>
-            <ul className={styles.itemsList}>
-              {textures.map((tex) => {
-                const isSelected = selectedTexture === tex.name;
-                return (
-                  <CustomTooltip key={tex.id} content={tex.name} description={`${tex.type} • Résolution ${tex.res}`}>
-                    <li 
-                      className={clsx(styles.itemRow, { 'bg-cyan-500/10 border-cyan-500/30': isSelected })}
-                      onClick={() => setSelectedTexture(tex.name)}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <div className="flex items-center gap-2.5 overflow-hidden">
-                        <span 
-                          className="w-3.5 h-3.5 rounded-full shrink-0 shadow-sm border border-white/20" 
-                          style={{ backgroundColor: tex.color || '#00f0ff' }} 
-                        />
-                        <span className={styles.itemName}>{tex.name}</span>
-                      </div>
-                      <span className="text-[11px] text-cyan-400 font-mono shrink-0">{tex.res}</span>
-                    </li>
-                  </CustomTooltip>
-                );
-              })}
-            </ul>
+        <div className={styles.content}>
+          <div className={styles.section}>
+            <span className={styles.sectionLabel}>Textures récupérées du modèle :</span>
+            <div className={styles.textureGrid}>
+              {textures.map(tex => (
+                <div 
+                  key={tex.id}
+                  className={`${styles.textureCard} ${selectedTexture === tex.name ? styles.selectedCard : ''}`}
+                  onClick={() => setSelectedTexture(tex.name)}
+                >
+                  <span 
+                    className="w-3.5 h-3.5 rounded-full shrink-0 shadow-sm" 
+                    style={{ backgroundColor: tex.color || '#00f0ff' }} 
+                  />
+                  <div className={styles.cardInfo}>
+                    <span className={styles.cardName}>{tex.name}</span>
+                    <span className={styles.cardMeta}>{tex.type} • {tex.res}</span>
+                  </div>
+                  {selectedTexture === tex.name && <Check size={14} className="text-[#00f0ff] ml-auto" />}
+                </div>
+              ))}
+            </div>
           </div>
 
           {currentTexObj && (
-            <div className={styles.sectionGroup}>
-              <h4 className={styles.sectionTitle}>Personnalisation de la couleur</h4>
-              <ul className={styles.itemsList}>
-                <CustomTooltip content={currentTexObj.name} description="Modifiez la couleur de la texture en temps réel.">
-                  <li className={styles.itemRow}>
-                    <span className={styles.itemName}>Teinte / Couleur principale</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono text-neutral-400">{currentTexObj.color}</span>
-                      <input 
-                        type="color" 
-                        value={currentTexObj.color || '#00f0ff'}
-                        onChange={(e) => handleColorChange(e.target.value)}
-                        className={styles.itemInput}
-                        style={{ width: '36px', height: '26px', padding: 0, cursor: 'pointer', background: 'transparent', border: 0 }}
-                      />
-                    </div>
-                  </li>
-                </CustomTooltip>
-              </ul>
+            <div className={styles.section}>
+              <span className={styles.sectionLabel}>Couleur de la texture ({currentTexObj.name}) :</span>
+              <div className="flex items-center gap-3 mt-2 bg-neutral-900/60 p-3 rounded-lg border border-neutral-800">
+                <input 
+                  type="color" 
+                  value={currentTexObj.color || '#00f0ff'}
+                  onChange={(e) => handleColorChange(e.target.value)}
+                  className="w-10 h-10 rounded cursor-pointer bg-transparent border-0"
+                />
+                <div className="flex flex-col">
+                  <span className="text-xs font-mono text-neutral-300">{currentTexObj.color}</span>
+                  <span className="text-[10px] text-neutral-500">Cliquez pour changer la couleur</span>
+                </div>
+              </div>
             </div>
           )}
 
-          <div className="pt-2 pb-4 px-1">
-            <button 
-              className="w-full py-2.5 bg-cyan-500 hover:bg-cyan-400 text-neutral-950 font-semibold rounded-lg shadow-lg transition-all text-xs tracking-wide uppercase flex items-center justify-center gap-2"
-              onClick={() => {
-                showSuccess("Texture appliquée avec succès sur le modèle 3D !");
-              }}
-            >
-              <Sparkles size={14} />
-              Appliquer la texture
-            </button>
-          </div>
-        </div>
-
-        {hasScroll && (
-          <div 
-            className={clsx(styles.externalScrollThumb, { [styles.dragging]: isDragging })}
-            onMouseDown={handleMouseDown}
-            style={{
-              height: `${thumbHeight}px`,
-              top: `${thumbTop}px`
+          <button 
+            className={styles.saveBtn}
+            onClick={() => {
+              showSuccess("Texture mise à jour sur le modèle 3D !");
             }}
-          />
-        )}
+          >
+            Appliquer
+          </button>
+        </div>
       </div>
-    </>
+    </div>
   );
 };
