@@ -17,7 +17,7 @@
   background: rgba(10, 15, 26, 0.5);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-  border: none;
+  border: 1px solid rgba(0, 240, 255, 0.3);
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
   padding: 8px 16px;
   border-radius: 16px;
@@ -39,7 +39,7 @@
   color: #00f0ff;
   padding: 8px 16px;
   border-radius: 12px;
-  border: none;
+  border: 1px solid rgba(0, 240, 255, 0.3);
   
   &:hover {
     background: rgba(0, 240, 255, 0.25) !important;
