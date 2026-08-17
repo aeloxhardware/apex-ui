@@ -146,10 +146,10 @@
   }
 }
 
-/* Curseur externe flottant pur avec expansion vers la gauche (intérieur) au survol */
+/* Curseur externe flottant pur avec expansion vers la droite (extérieur) au survol */
 .externalScrollThumb {
   position: absolute;
-  right: -8px;
+  right: -12px;
   top: 6px;
   width: 8px;
   background: rgba(255, 255, 255, 0.15);
@@ -159,7 +159,7 @@
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4);
   pointer-events: auto;
   cursor: pointer;
-  transform-origin: right center;
+  transform-origin: left center;
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.2s;
 
   &:hover {
