@@ -97,16 +97,16 @@ export const Viewport3D = () => {
 
     new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
     
-    // Highlight layer for selection (Blue crisp outline)
+    // Highlight layer for selection (Crisp blue outline)
     const hl = new BABYLON.HighlightLayer("hl1", scene);
     hl.blurHorizontalSize = 0.5;
     hl.blurVerticalSize = 0.5;
     hlRef.current = hl;
 
-    // Highlight layer for unselected models (Heavy blurred silhouette overlay)
+    // Highlight layer for unselected meshes (Soft blurred silhouette matching shape)
     const blurHl = new BABYLON.HighlightLayer("blurHl", scene);
-    blurHl.blurHorizontalSize = 4.0;
-    blurHl.blurVerticalSize = 4.0;
+    blurHl.blurHorizontalSize = 3.0;
+    blurHl.blurVerticalSize = 3.0;
     blurHlRef.current = blurHl;
 
     const gizmoManager = new BABYLON.GizmoManager(scene); 
@@ -131,8 +131,7 @@ export const Viewport3D = () => {
           if (isSelected) {
             hlRef.current?.addMesh(mesh as BABYLON.Mesh, new BABYLON.Color3(0, 0.94, 1));
           } else if (hasSelection) {
-            // Apply heavy blur outline matching the model's exact shape
-            blurHlRef.current?.addMesh(mesh as BABYLON.Mesh, new BABYLON.Color3(0.15, 0.15, 0.2));
+            blurHlRef.current?.addMesh(mesh as BABYLON.Mesh, new BABYLON.Color3(0.25, 0.25, 0.35));
           }
         }
       });
@@ -406,7 +405,7 @@ export const Viewport3D = () => {
     const handleResize = () => {
       engine.resize();
     };
-    window.addEventListener('resize', handleResize);
+    window.addEventListener('resize', aka => handleResize());
 
     engine.runRenderLoop(() => {
       if (!scene.isDisposed) {
