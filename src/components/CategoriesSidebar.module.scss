@@ -194,11 +194,10 @@
   font-size: 11px;
   padding: 2px 4px;
   outline: none;
-  isolation: isolate;
 
   &:focus {
     border-color: #00f0ff;
     box-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
-    background: transparent;
+    background: rgba(0, 240, 255, 0.05);
   }
 }
