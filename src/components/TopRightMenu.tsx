@@ -7,6 +7,15 @@ export const TopRightMenu: React.FC = () => {
   const [tooltipDesc, setTooltipDesc] = useState("Survolez n'importe quel élément interactif de l'interface pour afficher son titre et sa description détaillée en temps réel.");
 
   useEffect(() => {
+    // Inject Orbitron font link into document head if not present
+    if (!document.getElementById('google-font-orbitron')) {
+      const link = document.createElement('link');
+      link.id = 'google-font-orbitron';
+      link.rel = 'stylesheet';
+      link.href = 'https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;800;900&display=swap';
+      document.head.appendChild(link);
+    }
+
     const handleGlobalTooltip = (e: CustomEvent<{ title: string; desc: string }>) => {
       if (e.detail) {
         setTooltipTitle(e.detail.title);
@@ -32,7 +41,7 @@ export const TopRightMenu: React.FC = () => {
     <div className={styles.container}>
       {/* Panneau du haut : Titre en grand */}
       <div className={styles.toolbar}>
-        <div className={styles.infoDisplayTop} style={{ fontFamily: "'Orbitron', sans-serif" }}>
+        <div className={styles.infoDisplayTop} style={{ fontFamily: "'Orbitron', sans-serif !important" }}>
           {tooltipTitle}
         </div>
       </div>
