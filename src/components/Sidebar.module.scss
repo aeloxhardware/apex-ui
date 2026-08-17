@@ -17,12 +17,12 @@
   pointer-events: auto;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   
-  /* Filtre de couleur CLAIR et suppression du contour */
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  /* Filtre clair plus léger */
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
   border: none;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2), 0 2px 8px 0 rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.15);
 }
 
 .topToolbar {
@@ -53,7 +53,7 @@
 
   &:hover:not(:disabled) {
     color: rgba(255, 255, 255, 1);
-    background: rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.18);
   }
   
   &:disabled {
@@ -73,19 +73,19 @@
 }
 
 .sliceButton {
-  background: rgba(0, 240, 255, 0.2);
+  background: rgba(0, 240, 255, 0.15);
   color: #00f0ff;
   border: none;
   
   &:hover {
-    background: rgba(0, 240, 255, 0.3) !important;
+    background: rgba(0, 240, 255, 0.25) !important;
   }
 }
 
 .configButton {
   color: #a78bfa;
   &:hover {
-    background: rgba(167, 139, 250, 0.2) !important;
+    background: rgba(167, 139, 250, 0.15) !important;
   }
 }
 
@@ -116,20 +116,20 @@
   }
 
   &.active {
-    background: rgba(0, 240, 255, 0.2);
+    background: rgba(0, 240, 255, 0.15);
     box-shadow:
-      0 0 8px rgba(0, 240, 255, 0.3),
-      inset 0 0 6px rgba(0, 240, 255, 0.15);
+      0 0 8px rgba(0, 240, 255, 0.2),
+      inset 0 0 6px rgba(0, 240, 255, 0.1);
     color: #00f0ff;
   }
 }
 
 .activeIndicator {
   position: absolute;
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.12);
   box-shadow: 
-    0 0 14px rgba(255, 255, 255, 0.2), 
-    inset 0 0 10px rgba(255, 255, 255, 0.1);
+    0 0 14px rgba(255, 255, 255, 0.15), 
+    inset 0 0 10px rgba(255, 255, 255, 0.05);
   border-radius: 14px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: none;
@@ -144,20 +144,20 @@
   border-radius: 10px;
 
   &:hover {
-    background: rgba(0, 240, 255, 0.2) !important;
+    background: rgba(0, 240, 255, 0.15) !important;
   }
 }
 
 .separator {
   width: 1px;
   height: 18px;
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.2);
   margin: 0 4px;
 }
 
 .topSeparator {
   width: 1px;
   height: 24px;
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.2);
   margin: 0 2px;
 }
