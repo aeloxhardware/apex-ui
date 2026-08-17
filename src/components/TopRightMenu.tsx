@@ -109,7 +109,7 @@ export const TopRightMenu: React.FC = () => {
             className={clsx(styles.button, styles.largeButton)}
             onClick={() => showSuccess("Mode Turbo Boost activé")}
           >
-            <Zap size={28} className="text-amber-400 fill-amber-400/20" />
+            <Zap size={28} />
             <span>Turbo</span>
           </button>
         </CustomTooltip>
