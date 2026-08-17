@@ -1,82 +1,45 @@
-"use client";
-
 import React, { useState } from 'react';
-import { Sidebar } from '@/components/Sidebar';
-import { FileSidebar } from '@/components/FileSidebar';
-import { SliceSidebar } from '@/components/SliceSidebar';
-import { CategoriesSidebar } from '@/components/CategoriesSidebar';
-import { TopRightMenu } from '@/components/TopRightMenu';
-import { Viewport3D } from '@/components/Viewport3D';
-import { Box, Layers, Activity } from 'lucide-react';
-import { showSuccess } from '@/utils/toast';
+import { Sidebar } from '../components/Sidebar';
+import { Viewport3D } from '../components/Viewport3D';
+import { TopRightMenu } from '../components/TopRightMenu';
+import { TopLeftBox } from '../components/TopLeftBox';
 
-const Index = () => {
+export default function Index() {
   const [activeTab, setActiveTab] = useState<'3d-view' | 'settings' | 'developer'>('3d-view');
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [selectedModelName, setSelectedModelName] = useState<string | null>(null);
 
-  const handleSlice = () => {
-    showSuccess("Slicing plate completed successfully!");
-  };
+  React.useEffect(() => {
+    const handleMeshSelected = (e: CustomEvent<{ name: string | null }>) => {
+      setSelectedModelName(e.detail.name);
+    };
 
-  const handleOpenModel = () => {
-    showSuccess("Select an STL file or click import to add a model.");
-  };
-
-  const handleSaveProject = () => {
-    showSuccess("Project saved successfully.");
-  };
+    window.addEventListener('apex-mesh-selected', handleMeshSelected as EventListener);
+    return () => {
+      window.removeEventListener('apex-mesh-selected', handleMeshSelected as EventListener);
+    };
+  }, []);
 
   return (
-    <div 
-      className="flex flex-col h-screen w-screen overflow-hidden select-none relative bg-cover bg-center"
-      style={{ backgroundImage: `url('/background.jpg')` }}
-    >
-      <FileSidebar 
-        onOpenModel={handleOpenModel}
-        onSaveProject={handleSaveProject}
-        onOpenSettings={() => setActiveTab('settings')}
-      />
-
-      <Sidebar 
-        activeTab={activeTab} 
-        onTabChange={(tab) => setActiveTab(tab === 'box' ? '3d-view' : tab)}
-        onOpenModel={handleOpenModel}
-      />
-
+    <div style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden', backgroundColor: '#060911' }}>
+      <Sidebar activeTab={activeTab} onTabChange={(tab) => setActiveTab(tab === 'box' ? '3d-view' : tab)} />
+      <TopLeftBox title={selectedModelName || "Plateau d'impression"} />
       <TopRightMenu />
-
-      <CategoriesSidebar 
-        activeCategory={activeCategory} 
-        onSelectCategory={setActiveCategory} 
-      />
-
-      <SliceSidebar onSlice={handleSlice} />
-
-      <main className="flex-1 flex flex-col relative overflow-hidden z-10 bg-transparent">
-        <div className="flex-1 w-full h-full">
-          <Viewport3D />
-        </div>
-
-        {/* Bottom status / stats overlay */}
-        <div className="absolute bottom-4 left-4 right-24 z-20 flex items-center justify-between pointer-events-none">
-          <div className="bg-[rgba(10,15,26,0.25)] backdrop-blur-[4px] -webkit-backdrop-blur-[4px] border-none rounded-lg px-3 py-2 text-xs text-zinc-300 flex items-center space-x-4 pointer-events-auto shadow-[0_8px_32px_0_rgba(0,0,0,0.4),0_2px_8px_0_rgba(0,0,0,0.3)]">
-            <span className="flex items-center"><Box className="w-3.5 h-3.5 mr-1.5 text-blue-400" /> Benchy_v3.stl</span>
-            <span className="text-zinc-600">|</span>
-            <span>Dimensions: 60.0 x 31.0 x 48.0 mm</span>
-            <span className="text-zinc-600">|</span>
-            <span className="text-emerald-400 font-medium">Ready to slice</span>
+      
+      <div style={{ width: '100%', height: '100%' }}>
+        {activeTab === '3d-view' && <Viewport3D />}
+        {activeTab === 'settings' && (
+          <div style={{ padding: '40px 100px', color: '#fff', fontFamily: 'sans-serif' }}>
+            <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '20px', color: '#00f0ff' }}>Paramètres de l'imprimante</h1>
+            <p style={{ color: 'rgba(255,255,255,0.7)' }}>Configuration des profils d'impression, températures et vitesses.</p>
           </div>
-
-          <div className="bg-[rgba(10,15,26,0.25)] backdrop-blur-[4px] -webkit-backdrop-blur-[4px] border-none rounded-lg px-3 py-2 text-xs text-zinc-300 flex items-center space-x-3 pointer-events-auto shadow-[0_8px_32px_0_rgba(0,0,0,0.4),0_2px_8px_0_rgba(0,0,0,0.3)]">
-            <Activity className="w-3.5 h-3.5 text-primary" />
-            <span>Est. Time: 2h 14m</span>
-            <span className="text-zinc-600">|</span>
-            <span>Filament: 14.2g (4.78m)</span>
+        )}
+        {activeTab === 'developer' && (
+          <div style={{ padding: '40px 100px', color: '#fff', fontFamily: 'sans-serif' }}>
+            <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '20px', color: '#00f0ff' }}>Console Développeur</h1>
+            <p style={{ color: 'rgba(255,255,255,0.7)' }}>Flux G-code et journaux de diagnostic en temps réel.</p>
           </div>
-        </div>
-      </main>
+        )}
+      </div>
     </div>
   );
-};
-
-export default Index;
+}
