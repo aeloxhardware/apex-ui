@@ -219,9 +219,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         className={clsx(styles.toolbar, styles.bottomToolbar)}
         initial={false}
         animate={isPreviewActive ? {
-          x: [0, 0, window.innerWidth - 130, window.innerWidth - 130],
-          width: ["auto", "auto", "auto", "64px"],
-          height: ["44px", "44px", "44px", "420px"],
+          x: [0, 0, 480, 480],
+          width: ["auto", "auto", "auto", "auto"],
+          height: ["44px", "44px", "44px", "380px"],
           borderRadius: ["22px", "22px", "22px", "24px"]
         } : {
           x: 0,
