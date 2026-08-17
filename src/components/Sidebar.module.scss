@@ -17,11 +17,11 @@
   pointer-events: auto;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   
-  background: rgba(10, 15, 26, 0.5);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+  background: rgba(10, 15, 26, 0.2);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.15);
 }
 
 .topToolbar {
@@ -43,7 +43,7 @@
   justify-content: center;
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.7);
   cursor: pointer;
   transition: all 0.2s ease;
   outline: none;
@@ -52,7 +52,7 @@
 
   &:hover:not(:disabled) {
     color: rgba(255, 255, 255, 0.95);
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.12);
   }
   
   &:disabled {
@@ -115,7 +115,7 @@
   }
 
   &.active {
-    background: rgba(0, 240, 255, 0.12);
+    background: rgba(0, 240, 255, 0.15);
     box-shadow:
       0 0 8px rgba(0, 240, 255, 0.2),
       inset 0 0 6px rgba(0, 240, 255, 0.1);
@@ -125,10 +125,10 @@
 
 .activeIndicator {
   position: absolute;
-  background: rgba(0, 240, 255, 0.15);
+  background: rgba(0, 240, 255, 0.12);
   box-shadow: 
-    0 0 14px rgba(0, 240, 255, 0.25), 
-    inset 0 0 10px rgba(0, 240, 255, 0.15);
+    0 0 14px rgba(0, 240, 255, 0.2), 
+    inset 0 0 10px rgba(0, 240, 255, 0.1);
   border-radius: 14px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: none;
@@ -143,20 +143,20 @@
   border-radius: 10px;
 
   &:hover {
-    background: rgba(0, 240, 255, 0.12) !important;
+    background: rgba(0, 240, 255, 0.15) !important;
   }
 }
 
 .separator {
   width: 1px;
   height: 18px;
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.2);
   margin: 0 4px;
 }
 
 .topSeparator {
   width: 1px;
   height: 24px;
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.2);
   margin: 0 2px;
 }
