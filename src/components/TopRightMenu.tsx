@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import styles from './TopRightMenu.module.scss';
 
 export const TopRightMenu: React.FC = () => {
-  const [tooltipTitle, setTooltipTitle] = useState("Apex Slicer Studio");
+  const [tooltipTitle, setTooltipTitle] = useState("Apex");
   const [tooltipDesc, setTooltipDesc] = useState("Survolez n'importe quel élément interactif de l'interface pour afficher son titre et sa description détaillée en temps réel.");
 
   useEffect(() => {
@@ -15,7 +15,7 @@ export const TopRightMenu: React.FC = () => {
     };
 
     const handleResetTooltip = () => {
-      setTooltipTitle("Apex Slicer Studio");
+      setTooltipTitle("Apex");
       setTooltipDesc("Survolez n'importe quel élément interactif de l'interface pour afficher son titre et sa description détaillée en temps réel.");
     };
 
