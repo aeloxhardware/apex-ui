@@ -102,6 +102,7 @@ export const Viewport3D = () => {
     gizmoManager.usePointerToAttachGizmos = false;
     gizmoManager.positionGizmoEnabled = false;
     gizmoManager.rotationGizmoEnabled = false;
+    gizmoManager.scaleGizmoEnabled = false;
 
     let currentTool = "select";
 
@@ -200,6 +201,7 @@ export const Viewport3D = () => {
         const activeMesh = Array.from(selection)[0];
         if (activeMesh) {
           gizmoManager.rotationGizmoEnabled = false;
+          gizmoManager.scaleGizmoEnabled = false;
           gizmoManager.positionGizmoEnabled = true;
           applyCustomGizmoColors();
           gizmoManager.attachToMesh(activeMesh);
@@ -208,13 +210,23 @@ export const Viewport3D = () => {
         const activeMesh = Array.from(selection)[0];
         if (activeMesh) {
           gizmoManager.positionGizmoEnabled = false;
+          gizmoManager.scaleGizmoEnabled = false;
           gizmoManager.rotationGizmoEnabled = true;
           applyCustomGizmoColors();
+          gizmoManager.attachToMesh(activeMesh);
+        }
+      } else if (currentTool === 'scale' && selection.size > 0) {
+        const activeMesh = Array.from(selection)[0];
+        if (activeMesh) {
+          gizmoManager.positionGizmoEnabled = false;
+          gizmoManager.rotationGizmoEnabled = false;
+          gizmoManager.scaleGizmoEnabled = true;
           gizmoManager.attachToMesh(activeMesh);
         }
       } else {
         gizmoManager.positionGizmoEnabled = false;
         gizmoManager.rotationGizmoEnabled = false;
+        gizmoManager.scaleGizmoEnabled = false;
         gizmoManager.attachToMesh(null);
       }
     };
@@ -263,17 +275,25 @@ export const Viewport3D = () => {
 
           if (currentTool === 'move') {
             gizmoManager.rotationGizmoEnabled = false;
+            gizmoManager.scaleGizmoEnabled = false;
             gizmoManager.positionGizmoEnabled = true;
             applyCustomGizmoColors();
             gizmoManager.attachToMesh(topMesh);
           } else if (currentTool === 'rotate') {
             gizmoManager.positionGizmoEnabled = false;
+            gizmoManager.scaleGizmoEnabled = false;
             gizmoManager.rotationGizmoEnabled = true;
             applyCustomGizmoColors();
+            gizmoManager.attachToMesh(topMesh);
+          } else if (currentTool === 'scale') {
+            gizmoManager.positionGizmoEnabled = false;
+            gizmoManager.rotationGizmoEnabled = false;
+            gizmoManager.scaleGizmoEnabled = true;
             gizmoManager.attachToMesh(topMesh);
           } else {
             gizmoManager.positionGizmoEnabled = false;
             gizmoManager.rotationGizmoEnabled = false;
+            gizmoManager.scaleGizmoEnabled = false;
             gizmoManager.attachToMesh(null);
           }
         }
@@ -312,13 +332,20 @@ export const Viewport3D = () => {
 
           if (currentTool === 'move') {
             gizmoManager.rotationGizmoEnabled = false;
+            gizmoManager.scaleGizmoEnabled = false;
             gizmoManager.positionGizmoEnabled = true;
             applyCustomGizmoColors();
             gizmoManager.attachToMesh(r);
           } else if (currentTool === 'rotate') {
             gizmoManager.positionGizmoEnabled = false;
+            gizmoManager.scaleGizmoEnabled = false;
             gizmoManager.rotationGizmoEnabled = true;
             applyCustomGizmoColors();
+            gizmoManager.attachToMesh(r);
+          } else if (currentTool === 'scale') {
+            gizmoManager.positionGizmoEnabled = false;
+            gizmoManager.rotationGizmoEnabled = false;
+            gizmoManager.scaleGizmoEnabled = true;
             gizmoManager.attachToMesh(r);
           }
         }
