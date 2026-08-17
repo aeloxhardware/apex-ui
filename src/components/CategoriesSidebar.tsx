@@ -155,14 +155,13 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
     }
     setHasScroll(true);
     
-    const topMargin = 6;
-    const bottomMargin = 12;
-    const trackHeight = clientHeight - (topMargin + bottomMargin);
+    const margin = 6;
+    const trackHeight = clientHeight - (margin * 2);
     const calculatedHeight = Math.max(30, (clientHeight / scrollHeight) * trackHeight);
     
     const maxScrollTop = scrollHeight - clientHeight;
     const maxThumbTop = trackHeight - calculatedHeight;
-    const calculatedTop = maxScrollTop > 0 ? topMargin + (scrollTop / maxScrollTop) * maxThumbTop : topMargin;
+    const calculatedTop = maxScrollTop > 0 ? margin + (scrollTop / maxScrollTop) * maxThumbTop : margin;
 
     setThumbHeight(calculatedHeight);
     setThumbTop(calculatedTop);
@@ -183,18 +182,17 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
     if (!isDraggingRef.current || !contentRef.current) return;
     const deltaY = e.clientY - startYRef.current;
     const { scrollHeight, clientHeight } = contentRef.current;
-    const topMargin = 6;
-    const bottomMargin = 12;
-    const trackHeight = clientHeight - (topMargin + bottomMargin);
+    const margin = 6;
+    const trackHeight = clientHeight - (margin * 2);
     const maxThumbTop = trackHeight - thumbHeight;
     const maxScrollTop = scrollHeight - clientHeight;
 
     if (maxThumbTop > 0) {
       const scrollRatio = deltaY / maxThumbTop;
-      contentRef.current.scrollTop = startScrollTopRef.current + scrollRatio * maxScrollTop;
+      const newScrollTop = Math.max(0, Math.min(maxScrollTop, startScrollTopRef.current + scrollRatio * maxScrollTop));
+      contentRef.current.scrollTop = newScrollTop;
       
-      const newScrollTop = contentRef.current.scrollTop;
-      const calculatedTop = topMargin + (newScrollTop / maxScrollTop) * maxThumbTop;
+      const calculatedTop = margin + (newScrollTop / maxScrollTop) * maxThumbTop;
       setThumbTop(calculatedTop);
     }
   };
@@ -284,7 +282,7 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
                 ))}
               </div>
 
-              {/* Curseur de défilement externe interactif (clic & glisser) */}
+              {/* Curseur de défilement externe interactif avec proportionnalité stricte */}
               {hasScroll && (
                 <div 
                   className={styles.externalScrollThumb}
