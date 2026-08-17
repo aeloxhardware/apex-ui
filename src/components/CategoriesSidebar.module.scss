@@ -146,10 +146,10 @@
   }
 }
 
-/* Curseur externe flottant ancré à gauche à l'extérieur : grandit uniquement vers la droite (extérieur) sans lueur externe */
+/* Curseur externe flottant rapproché de la boîte */
 .externalScrollThumb {
   position: absolute;
-  left: calc(100% + 8px);
+  left: calc(100% + 4px);
   width: 6px;
   background: rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(4px);
