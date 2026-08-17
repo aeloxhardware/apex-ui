@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import styles from './ModelStatusBox.module.scss';
 import { Box, ChevronRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface SubMeshItem {
   id: string;
@@ -17,6 +18,7 @@ interface ModelItem {
 export const ModelStatusBox: React.FC = () => {
   const [models, setModels] = useState<ModelItem[]>([]);
   const [selectedModelName, setSelectedModelName] = useState<string | null>(null);
+  const [isPreviewActive, setIsPreviewActive] = useState(false);
 
   useEffect(() => {
     const handleMeshSelected = (e: CustomEvent<{ name: string | null; subMeshes?: SubMeshItem[] }>) => {
@@ -47,55 +49,73 @@ export const ModelStatusBox: React.FC = () => {
       }
     };
 
+    const handlePreviewToggled = (e: CustomEvent<{ active: boolean }>) => {
+      if (e.detail) {
+        setIsPreviewActive(e.detail.active);
+      }
+    };
+
     window.addEventListener('apex-mesh-selected', handleMeshSelected as EventListener);
     window.addEventListener('apex-import-model', handleImportModel as EventListener);
+    window.addEventListener('apex-preview-toggled', handlePreviewToggled as EventListener);
 
     return () => {
       window.removeEventListener('apex-mesh-selected', handleMeshSelected as EventListener);
       window.removeEventListener('apex-import-model', handleImportModel as EventListener);
+      window.removeEventListener('apex-preview-toggled', handlePreviewToggled as EventListener);
     };
   }, []);
 
   return (
-    <div className={styles.container}>
-      <div className={styles.toolbar}>
-        <div className={styles.content}>
-          {models.length === 0 ? (
-            <div className={styles.emptyText}>Aucun modèle sur le plateau</div>
-          ) : (
-            <ul className={styles.treeList}>
-              {models.map((model) => {
-                const isSelected = selectedModelName === model.name;
-                return (
-                  <li key={model.id} className={styles.treeNode}>
-                    <div 
-                      className={`${styles.nodeRow} ${isSelected ? styles.selectedNode : ''}`}
-                      onClick={() => setSelectedModelName(model.name)}
-                    >
-                      <ChevronRight size={14} className="text-zinc-400 rotate-90" />
-                      <Box size={14} className="text-[#00f0ff] ml-1" />
-                      <span className={styles.nodeName}>{model.name}</span>
-                    </div>
-                    {model.children && model.children.length > 0 && (
-                      <ul className={styles.childList}>
-                        {model.children.map(child => (
-                          <li key={child.id} className={styles.childRow}>
-                            <span 
-                              className="w-2.5 h-2.5 rounded-full shrink-0 mr-1.5 shadow-sm" 
-                              style={{ backgroundColor: child.color }} 
-                            />
-                            <span className={styles.childName}>{child.name}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-      </div>
-    </div>
+    <AnimatePresence>
+      {!isPreviewActive && (
+        <motion.div 
+          className={styles.container}
+          initial={{ opacity: 0, x: -30 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -320 }}
+          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <div className={styles.toolbar}>
+            <div className={styles.content}>
+              {models.length === 0 ? (
+                <div className={styles.emptyText}>Aucun modèle sur le plateau</div>
+              ) : (
+                <ul className={styles.treeList}>
+                  {models.map((model) => {
+                    const isSelected = selectedModelName === model.name;
+                    return (
+                      <li key={model.id} className={styles.treeNode}>
+                        <div 
+                          className={`${styles.nodeRow} ${isSelected ? styles.selectedNode : ''}`}
+                          onClick={() => setSelectedModelName(model.name)}
+                        >
+                          <ChevronRight size={14} className="text-zinc-400 rotate-90" />
+                          <Box size={14} className="text-[#00f0ff] ml-1" />
+                          <span className={styles.nodeName}>{model.name}</span>
+                        </div>
+                        {model.children && model.children.length > 0 && (
+                          <ul className={styles.childList}>
+                            {model.children.map(child => (
+                              <li key={child.id} className={styles.childRow}>
+                                <span 
+                                  className="w-2.5 h-2.5 rounded-full shrink-0 mr-1.5 shadow-sm" 
+                                  style={{ backgroundColor: child.color }} 
+                                />
+                                <span className={styles.childName}>{child.name}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };

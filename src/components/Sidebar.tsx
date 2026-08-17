@@ -40,7 +40,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const handleTopTabClick = (tabName: 'box' | 'settings' | 'developer') => {
+    setActiveTool('select');
     onTabChange(tabName);
+    window.dispatchEvent(new CustomEvent('apex-preview-toggled', { detail: { active: false } }));
   };
 
   const handleToolClick = (tool: 'select' | 'move' | 'rotate' | 'scale' | 'texture') => {
@@ -53,6 +55,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const newTool = activeTool === 'layers' ? 'select' : 'layers';
     setActiveTool(newTool);
     window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: newTool } }));
+    window.dispatchEvent(new CustomEvent('apex-preview-toggled', { detail: { active: newTool === 'layers' } }));
   };
 
   useEffect(() => {
@@ -81,6 +84,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       } else if (key === 'escape') {
         setActiveTool('select');
         window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'select' } }));
+        window.dispatchEvent(new CustomEvent('apex-preview-toggled', { detail: { active: false } }));
       }
     };
 
@@ -92,7 +96,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   useEffect(() => {
     if (topToolbarRef.current && buttonRefs.current.size > 0) {
-      const activeButtonKey = activeTab === '3d-view' ? 'box' : activeTab;
+      let activeButtonKey = activeTab === '3d-view' ? 'box' : activeTab;
+      if (activeTool === 'layers') {
+        activeButtonKey = 'layers';
+      }
       const activeButton = buttonRefs.current.get(activeButtonKey);
 
       if (activeButton) {
@@ -110,7 +117,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         setIndicatorStyle((prev) => ({ ...prev, opacity: 0 }));
       }
     }
-  }, [activeTab]);
+  }, [activeTab, activeTool]);
 
   return (
     <div className={styles.container}>
@@ -133,7 +140,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             ref={(el) => { if (el) buttonRefs.current.set('box', el); }}
             className={clsx(styles.button, styles.topButton, {
-              [styles.active]: activeTab === '3d-view',
+              [styles.active]: activeTab === '3d-view' && activeTool !== 'layers',
             })}
             onClick={() => handleTopTabClick('box')}
           >
@@ -143,6 +150,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         <CustomTooltip content="Prévisualisation" description="Visualisez le parcours de la buse et ajustez différents paramètres si cela ne vous convient pas.">
           <button
+            ref={(el) => { if (el) buttonRefs.current.set('layers', el); }}
             className={clsx(styles.button, styles.topButton, {
               [styles.active]: activeTool === 'layers',
             })}
