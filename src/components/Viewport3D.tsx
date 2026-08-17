@@ -275,7 +275,7 @@ export const Viewport3D = () => {
 
     // Texture Mode Grid & Isolated View
     const textureGridRoot = new BABYLON.TransformNode("textureGridRoot", scene);
-    textureGridRoot.isEnabled = false;
+    textureGridRoot.setEnabled(false);
 
     // 3D Grid lines
     const gridLines = [];
@@ -303,23 +303,23 @@ export const Viewport3D = () => {
       if (scene.isDisposed) return;
 
       if (active) {
-        volumeRoot.isEnabled = false;
-        textureGridRoot.isEnabled = true;
+        volumeRoot.setEnabled(false);
+        textureGridRoot.setEnabled(true);
 
         modelsRef.current.forEach(mesh => {
           if (selectedMeshesRef.current.has(mesh)) {
-            mesh.isEnabled = true;
+            mesh.setEnabled(true);
             mesh.position.set(0, 0, 0);
           } else {
-            mesh.isEnabled = false;
+            mesh.setEnabled(false);
           }
         });
       } else {
-        volumeRoot.isEnabled = true;
-        textureGridRoot.isEnabled = false;
+        volumeRoot.setEnabled(true);
+        textureGridRoot.setEnabled(false);
 
         modelsRef.current.forEach(mesh => {
-          mesh.isEnabled = true;
+          mesh.setEnabled(true);
         });
       }
     };
