@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import styles from './ModelStatusBox.module.scss';
-import { Box, ChevronRight, Layers, Eye, Trash2 } from 'lucide-react';
+import { Box, ChevronRight, Layers } from 'lucide-react';
 
 interface ModelItem {
   id: string;
@@ -19,37 +19,27 @@ export const ModelStatusBox: React.FC = () => {
       ]
     }
   ]);
-  const [selectedModelId, setSelectedModelId] = useState<string>('1');
+  const [selectedModelName, setSelectedModelName] = useState<string | null>('Benchy_v3.stl');
 
   useEffect(() => {
     const handleMeshSelected = (e: CustomEvent<{ name: string | null }>) => {
       if (e.detail?.name) {
-        const found = models.find(m => m.name === e.detail.name);
-        if (found) {
-          setSelectedModelId(found.id);
-        } else {
-          const newModel: ModelItem = {
-            id: Date.now().toString(),
-            name: e.detail.name,
-            children: [{ id: `${Date.now()}-1`, name: 'Maillage 3D' }]
-          };
-          setModels(prev => [...prev, newModel]);
-          setSelectedModelId(newModel.id);
-        }
+        setSelectedModelName(e.detail.name);
       } else {
-        setSelectedModelId('');
+        setSelectedModelName(null);
       }
     };
 
     const handleImportModel = (e: CustomEvent<File>) => {
       if (e.detail) {
+        const fileName = e.detail.name;
         const newModel: ModelItem = {
           id: Date.now().toString(),
-          name: e.detail.name,
+          name: fileName,
           children: [{ id: `${Date.now()}-1`, name: 'Maillage STL' }]
         };
         setModels(prev => [...prev, newModel]);
-        setSelectedModelId(newModel.id);
+        setSelectedModelName(fileName);
       }
     };
 
@@ -60,7 +50,7 @@ export const ModelStatusBox: React.FC = () => {
       window.removeEventListener('apex-mesh-selected', handleMeshSelected as EventListener);
       window.removeEventListener('apex-import-model', handleImportModel as EventListener);
     };
-  }, [models]);
+  }, []);
 
   return (
     <div className={styles.container}>
@@ -75,12 +65,12 @@ export const ModelStatusBox: React.FC = () => {
           ) : (
             <ul className={styles.treeList}>
               {models.map((model) => {
-                const isSelected = selectedModelId === model.id;
+                const isSelected = selectedModelName === model.name;
                 return (
                   <li key={model.id} className={styles.treeNode}>
                     <div 
                       className={`${styles.nodeRow} ${isSelected ? styles.selectedNode : ''}`}
-                      onClick={() => setSelectedModelId(model.id)}
+                      onClick={() => setSelectedModelName(model.name)}
                     >
                       <ChevronRight size={14} className="text-zinc-400 rotate-90" />
                       <Box size={14} className="text-[#00f0ff] ml-1" />
