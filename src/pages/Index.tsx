@@ -6,6 +6,7 @@ import { FileSidebar } from '@/components/FileSidebar';
 import { SliceSidebar } from '@/components/SliceSidebar';
 import { CategoriesSidebar } from '@/components/CategoriesSidebar';
 import { TopRightMenu } from '@/components/TopRightMenu';
+import { ModelStatusBox } from '@/components/ModelStatusBox';
 import { Viewport3D } from '@/components/Viewport3D';
 import { Box, Layers, Activity } from 'lucide-react';
 import { showSuccess } from '@/utils/toast';
@@ -36,6 +37,8 @@ const Index = () => {
         onSaveProject={handleSaveProject}
         onOpenSettings={() => setActiveTab('settings')}
       />
+
+      <ModelStatusBox />
 
       <Sidebar 
         activeTab={activeTab} 
