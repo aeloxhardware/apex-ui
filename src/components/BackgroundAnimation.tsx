@@ -4,16 +4,59 @@ import { motion } from 'framer-motion';
 export const BackgroundAnimation: React.FC = () => {
   const dots = useMemo(() => {
     const list = [];
-    // Densité et grille inspirées du composant Slice (espacement serré)
-    for (let row = 0; row < 36; row++) {
-      for (let col = 0; col < 64; col++) {
-        list.push({ 
-          id: `${row}-${col}`, 
-          x: col * 30 + 15, 
-          y: row * 30 + 15, 
-          delay: Math.random() * 0.8,
-          duration: 0.6 + Math.random() * 0.8,
-          maxOpacity: 0.3 + Math.random() * 0.5
+    const rows = 18; // moitié pour symétrie verticale
+    const cols = 32; // moitié pour symétrie horizontale
+    
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const x = col * 60 + 30;
+        const y = row * 60 + 30;
+        const mirrorX = (cols * 60) - x;
+        const mirrorY = (rows * 60) - y;
+        
+        // Identifiants uniques et paramètres partagés pour la symétrie exacte
+        const baseDelay = Math.random() * 0.8;
+        const baseDuration = 0.6 + Math.random() * 0.8;
+        const maxOp = 0.3 + Math.random() * 0.5;
+
+        // Point original
+        list.push({
+          id: `${row}-${col}-orig`,
+          x,
+          y,
+          delay: baseDelay,
+          duration: baseDuration,
+          maxOpacity: maxOp
+        });
+
+        // Symétrique X
+        list.push({
+          id: `${row}-${col}-symX`,
+          x: mirrorX,
+          y,
+          delay: baseDelay,
+          duration: baseDuration,
+          maxOpacity: maxOp
+        });
+
+        // Symétrique Y
+        list.push({
+          id: `${row}-${col}-symY`,
+          x,
+          y: mirrorY,
+          delay: baseDelay,
+          duration: baseDuration,
+          maxOpacity: maxOp
+        });
+
+        // Symétrique X et Y (centre/diagonal)
+        list.push({
+          id: `${row}-${col}-symXY`,
+          x: mirrorX,
+          y: mirrorY,
+          delay: baseDelay,
+          duration: baseDuration,
+          maxOpacity: maxOp
         });
       }
     }
