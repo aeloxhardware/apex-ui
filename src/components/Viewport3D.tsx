@@ -113,11 +113,9 @@ export const Viewport3D = () => {
       hlRef.current.removeAllMeshes();
       selectedMeshesRef.current.forEach((mesh) => {
         if (mesh && !mesh.isDisposed()) {
-          // Ajouter le mesh racine s'il a des géométries
           if (mesh instanceof BABYLON.Mesh && mesh.getTotalVertices() > 0) {
             hlRef.current?.addMesh(mesh, new BABYLON.Color3(0, 0.94, 1));
           }
-          // Ajouter tous les sous-maillages enfants pour s'assurer que tout le modèle brille
           mesh.getChildMeshes(false).forEach((child) => {
             if (child instanceof BABYLON.Mesh && child.getTotalVertices() > 0 && !child.isDisposed()) {
               hlRef.current?.addMesh(child, new BABYLON.Color3(0, 0.94, 1));
@@ -204,9 +202,52 @@ export const Viewport3D = () => {
       }
     };
 
+    // Animation de rebond vertical quand on lâche l'objet au-dessus du plateau (y > 0)
+    const handleDragEnd = () => {
+      const selection = selectedMeshesRef.current;
+      if (selection.size === 0) return;
+      const activeMesh = Array.from(selection)[selection.size - 1];
+      if (!activeMesh || activeMesh.isDisposed()) return;
+
+      // Si l'objet est soulevé au-dessus du plateau (y > 2 par exemple)
+      if (activeMesh.position.y > 2) {
+        const boundingInfo = activeMesh.getHierarchyBoundingVectors(true);
+        const minHeight = boundingInfo.min.y;
+        const targetY = activeMesh.position.y - minHeight; // Hauteur initiale au sol
+
+        // Animation de rebond élastique vers y = targetY
+        const anim = new BABYLON.Animation(
+          "bounceBack",
+          "position.y",
+          60,
+          BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+          BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT
+        );
+
+        const keys = [
+          { frame: 0, value: activeMesh.position.y },
+          { frame: 15, value: targetY - 1.5 }, // l'impact et compression
+          { frame: 25, value: targetY + 1.2 }, // petit rebond
+          { frame: 35, value: targetY - 0.4 },
+          { frame: 45, value: targetY + 0.3 },
+          { frame: 60, value: targetY }       // stabilisation au sol
+        ];
+
+        anim.setKeys(keys);
+        activeMesh.animations = [anim];
+        scene.beginAnimation(activeMesh, 0, 60, false, 1.5, () => {
+          updateSelectedPosition();
+        });
+      }
+    };
+
     gizmoManager.gizmos.positionGizmo?.xGizmo.dragBehavior.onDragObservable.add(updateSelectedPosition);
     gizmoManager.gizmos.positionGizmo?.yGizmo.dragBehavior.onDragObservable.add(updateSelectedPosition);
     gizmoManager.gizmos.positionGizmo?.zGizmo.dragBehavior.onDragObservable.add(updateSelectedPosition);
+
+    gizmoManager.gizmos.positionGizmo?.xGizmo.dragBehavior.onDragEndObservable.add(handleDragEnd);
+    gizmoManager.gizmos.positionGizmo?.yGizmo.dragBehavior.onDragEndObservable.add(handleDragEnd);
+    gizmoManager.gizmos.positionGizmo?.zGizmo.dragBehavior.onDragEndObservable.add(handleDragEnd);
 
     gizmoManager.gizmos.rotationGizmo?.xGizmo.dragBehavior.onDragObservable.add(updateSelectedRotation);
     gizmoManager.gizmos.rotationGizmo?.yGizmo.dragBehavior.onDragObservable.add(updateSelectedRotation);
@@ -357,7 +398,6 @@ export const Viewport3D = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
 
-    // Fonction robuste pour remonter au sommet de la hiérarchie du modèle (root)
     const getRootModel = (mesh: BABYLON.AbstractMesh): BABYLON.AbstractMesh => {
       let curr: BABYLON.Node | null = mesh;
       let topValid: BABYLON.AbstractMesh = mesh;
@@ -409,7 +449,6 @@ export const Viewport3D = () => {
         if (pick?.hit && pick.pickedMesh) {
           let targetMesh = pick.pickedMesh;
           
-          // CRITIQUE : Si l'outil n'est PAS 'texture', on remonte TOUJOURS au modèle racine complet.
           if (currentToolRef.current !== 'texture') {
             targetMesh = getRootModel(targetMesh);
           }
@@ -433,7 +472,6 @@ export const Viewport3D = () => {
           updateSelectedPosition();
           updateSelectedRotation();
 
-          // Extract real sub-meshes and colors from targetMesh hierarchy
           const subMeshesList: { id: string; name: string; color: string }[] = [];
           const childMeshes = [targetMesh, ...targetMesh.getChildMeshes()];
           childMeshes.forEach((cm, idx) => {
