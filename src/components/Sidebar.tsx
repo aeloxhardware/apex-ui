@@ -206,7 +206,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         <div className={styles.separator} />
 
-        <CustomTooltip content="Importer un Modèle 3D (.stl)" description="Ouvrez le sélecteur de fichiers pour charger un nouveau fichier STL 3D sur le plateau.">
+        <CustomTooltip content="Importer un Modèle 3D (.stl, .glb, .gltf)" description="Ouvrez le sélecteur de fichiers pour charger un nouveau fichier 3D avec textures sur le plateau.">
           <button
             className={clsx(styles.button, styles.bottomButton, styles.uploadActionButton)}
             onClick={handleUploadClick}
@@ -219,7 +219,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           type="file" 
           ref={fileInputRef} 
           style={{ display: 'none' }} 
-          accept=".stl" 
+          accept=".stl,.glb,.gltf" 
           onChange={(e) => {
             if (e.target.files?.[0]) {
               window.dispatchEvent(

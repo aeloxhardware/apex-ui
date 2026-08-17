@@ -114,7 +114,6 @@ export const Viewport3D = () => {
       hlRef.current.removeAllMeshes();
       selectedMeshesRef.current.forEach((mesh) => {
         if (mesh && !mesh.isDisposed()) {
-          // Blue highlight color (#00f0ff)
           hlRef.current?.addMesh(mesh as BABYLON.Mesh, new BABYLON.Color3(0, 0.94, 1));
         }
       });
@@ -281,7 +280,6 @@ export const Viewport3D = () => {
         if (pick?.hit && pick.pickedMesh && !excluded.includes(pick.pickedMesh) && !pick.pickedMesh.name.includes("Gizmo")) {
           const topMesh = pick.pickedMesh;
           
-          // Toggle selection if clicking the same mesh again
           if (selectedMeshesRef.current.has(topMesh)) {
             selectedMeshesRef.current.clear();
             setSelectedMeshName(null);
@@ -333,8 +331,12 @@ export const Viewport3D = () => {
       const file = e.detail;
       if (scene.isDisposed) return;
       
+      const fileName = file.name.toLowerCase();
+      const isGlbOrGltf = fileName.endsWith('.glb') || fileName.endsWith('.gltf');
+      const pluginExtension = isGlbOrGltf ? fileName.substring(fileName.lastIndexOf('.')) : ".stl";
+
       try {
-        const res = await BABYLON.SceneLoader.ImportMeshAsync("", "", file, scene, null, ".stl");
+        const res = await BABYLON.SceneLoader.ImportMeshAsync("", "", file, scene, null, pluginExtension);
         if (scene.isDisposed) return;
 
         const r = res.meshes[0];
@@ -350,15 +352,19 @@ export const Viewport3D = () => {
           
           r.position.set(0, size.y / 2, 0);
 
-          r.material = createBoundaryMaterial(scene);
+          // Apply default boundary material only if it's an STL (keep textures for GLB/GLTF)
+          if (!isGlbOrGltf) {
+            r.material = createBoundaryMaterial(scene);
+          }
+
           modelsRef.current.add(r);
           selectedMeshesRef.current.clear();
           selectedMeshesRef.current.add(r);
-          setSelectedMeshName(r.name || "Modèle 3D");
+          setSelectedMeshName(file.name || "Modèle 3D");
           updateHighlight();
           updateSelectedPosition();
           updateSelectedRotation();
-          window.dispatchEvent(new CustomEvent('apex-mesh-selected', { detail: { name: r.name || "Modèle 3D" } }));
+          window.dispatchEvent(new CustomEvent('apex-mesh-selected', { detail: { name: file.name || "Modèle 3D" } }));
 
           if (currentTool === 'move') {
             gizmoManager.rotationGizmoEnabled = false;
@@ -380,7 +386,7 @@ export const Viewport3D = () => {
           }
         }
       } catch (err) {
-        console.error("Failed to import STL:", err);
+        console.error("Failed to import 3D model:", err);
       }
     };
 
