@@ -21,19 +21,6 @@ export const BackgroundAnimation: React.FC = () => {
 
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none z-0 bg-[#070913]">
-      {/* Grille géométrique de fond subtile */}
-      <div 
-        className="absolute inset-0 opacity-20"
-        style={{
-          backgroundImage: `
-            linear-gradient(to right, rgba(0, 240, 255, 0.15) 1px, transparent 1px),
-            linear-gradient(to bottom, rgba(0, 240, 255, 0.15) 1px, transparent 1px)
-          `,
-          backgroundSize: '60px 60px'
-        }}
-      />
-
-      {/* Animation de points scintillants */}
       <svg className="w-full h-full" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
         {dots.map((dot) => (
           <motion.circle
