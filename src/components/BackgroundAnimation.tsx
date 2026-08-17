@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 export const BackgroundAnimation: React.FC = () => {
   const dots = useMemo(() => {
     const list = [];
-    // Densité et grille inspirées du composant Slice (espacement serré)
+    // Espacement homogène (carré) de 30px sur X et Y
     for (let row = 0; row < 36; row++) {
       for (let col = 0; col < 64; col++) {
         list.push({ 
@@ -22,7 +22,7 @@ export const BackgroundAnimation: React.FC = () => {
 
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none z-0 bg-[#070913]">
-      <svg className="w-full h-full" viewBox="0 0 1920 1080" preserveAspectRatio="none">
+      <svg className="w-full h-full" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
         {dots.map((dot) => (
           <motion.circle
             key={dot.id}
