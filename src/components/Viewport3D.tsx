@@ -102,6 +102,7 @@ export const Viewport3D = () => {
     gizmoManager.usePointerToAttachGizmos = false;
     gizmoManager.positionGizmoEnabled = false;
     gizmoManager.rotationGizmoEnabled = false;
+    gizmoManager.scaleGizmoEnabled = false;
 
     let currentTool = "select";
 
@@ -196,26 +197,26 @@ export const Viewport3D = () => {
       if (scene.isDisposed) return;
 
       const selection = selectedMeshesRef.current;
-      if (currentTool === 'move' && selection.size > 0) {
-        const activeMesh = Array.from(selection)[0];
-        if (activeMesh) {
-          gizmoManager.rotationGizmoEnabled = false;
+      const activeMesh = selection.size > 0 ? Array.from(selection)[0] : null;
+
+      gizmoManager.positionGizmoEnabled = false;
+      gizmoManager.rotationGizmoEnabled = false;
+      gizmoManager.scaleGizmoEnabled = false;
+      gizmoManager.attachToMesh(null);
+
+      if (activeMesh) {
+        if (currentTool === 'move') {
           gizmoManager.positionGizmoEnabled = true;
           applyCustomGizmoColors();
           gizmoManager.attachToMesh(activeMesh);
-        }
-      } else if (currentTool === 'rotate' && selection.size > 0) {
-        const activeMesh = Array.from(selection)[0];
-        if (activeMesh) {
-          gizmoManager.positionGizmoEnabled = false;
+        } else if (currentTool === 'rotate') {
           gizmoManager.rotationGizmoEnabled = true;
           applyCustomGizmoColors();
           gizmoManager.attachToMesh(activeMesh);
+        } else if (currentTool === 'scale') {
+          gizmoManager.scaleGizmoEnabled = true;
+          gizmoManager.attachToMesh(activeMesh);
         }
-      } else {
-        gizmoManager.positionGizmoEnabled = false;
-        gizmoManager.rotationGizmoEnabled = false;
-        gizmoManager.attachToMesh(null);
       }
     };
     window.addEventListener('apex-tool-changed', onToolChanged);
@@ -261,20 +262,22 @@ export const Viewport3D = () => {
           updateSelectedRotation();
           window.dispatchEvent(new CustomEvent('apex-mesh-selected', { detail: { name: topMesh.name || "Modèle 3D" } }));
 
+          gizmoManager.positionGizmoEnabled = false;
+          gizmoManager.rotationGizmoEnabled = false;
+          gizmoManager.scaleGizmoEnabled = false;
+          gizmoManager.attachToMesh(null);
+
           if (currentTool === 'move') {
-            gizmoManager.rotationGizmoEnabled = false;
             gizmoManager.positionGizmoEnabled = true;
             applyCustomGizmoColors();
             gizmoManager.attachToMesh(topMesh);
           } else if (currentTool === 'rotate') {
-            gizmoManager.positionGizmoEnabled = false;
             gizmoManager.rotationGizmoEnabled = true;
             applyCustomGizmoColors();
             gizmoManager.attachToMesh(topMesh);
-          } else {
-            gizmoManager.positionGizmoEnabled = false;
-            gizmoManager.rotationGizmoEnabled = false;
-            gizmoManager.attachToMesh(null);
+          } else if (currentTool === 'scale') {
+            gizmoManager.scaleGizmoEnabled = true;
+            gizmoManager.attachToMesh(topMesh);
           }
         }
       }
@@ -310,15 +313,21 @@ export const Viewport3D = () => {
           updateSelectedRotation();
           window.dispatchEvent(new CustomEvent('apex-mesh-selected', { detail: { name: r.name || "Modèle 3D" } }));
 
+          gizmoManager.positionGizmoEnabled = false;
+          gizmoManager.rotationGizmoEnabled = false;
+          gizmoManager.scaleGizmoEnabled = false;
+          gizmoManager.attachToMesh(null);
+
           if (currentTool === 'move') {
-            gizmoManager.rotationGizmoEnabled = false;
             gizmoManager.positionGizmoEnabled = true;
             applyCustomGizmoColors();
             gizmoManager.attachToMesh(r);
           } else if (currentTool === 'rotate') {
-            gizmoManager.positionGizmoEnabled = false;
             gizmoManager.rotationGizmoEnabled = true;
             applyCustomGizmoColors();
+            gizmoManager.attachToMesh(r);
+          } else if (currentTool === 'scale') {
+            gizmoManager.scaleGizmoEnabled = true;
             gizmoManager.attachToMesh(r);
           }
         }
