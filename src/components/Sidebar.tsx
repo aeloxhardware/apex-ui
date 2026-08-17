@@ -29,7 +29,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenModel
 }) => {
   const [activeTool, setActiveTool] = useState<'select' | 'move' | 'rotate' | 'scale' | 'texture' | 'layers'>('select');
-  const [isTopHovered, setIsTopHovered] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const topToolbarRef = useRef<HTMLDivElement>(null);
@@ -78,8 +77,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div 
         ref={topToolbarRef} 
         className={clsx(styles.toolbar, styles.topToolbar)}
-        onMouseEnter={() => setIsTopHovered(true)}
-        onMouseLeave={() => setIsTopHovered(false)}
       >
         <div className={styles.activeIndicator} style={indicatorStyle}></div>
 
@@ -129,7 +126,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Bottom Toolbar (Action, Manipulation 3D) */}
-      <div className={clsx(styles.toolbar, styles.bottomToolbar, { [styles.shiftedDown]: isTopHovered })}>
+      <div className={clsx(styles.toolbar, styles.bottomToolbar)}>
         <CustomTooltip content="Outil de Sélection" description="Cliquez sur n'importe quel modèle 3D sur le plateau pour le sélectionner et afficher ses propriétés.">
           <button
             className={clsx(styles.button, styles.bottomButton, {
