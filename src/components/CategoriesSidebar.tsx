@@ -134,6 +134,10 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
   const [thumbTop, setThumbTop] = useState(0);
   const [hasScroll, setHasScroll] = useState(false);
 
+  const isDraggingRef = useRef(false);
+  const startYRef = useRef(0);
+  const startScrollTopRef = useRef(0);
+
   const handleCategoryClick = (catId: string) => {
     if (activeCategory === catId) {
       onSelectCategory(null);
@@ -143,7 +147,7 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
   };
 
   const handleScroll = () => {
-    if (!contentRef.current) return;
+    if (!contentRef.current || isDraggingRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = contentRef.current;
     if (scrollHeight <= clientHeight) {
       setHasScroll(false);
@@ -162,6 +166,43 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
 
     setThumbHeight(calculatedHeight);
     setThumbTop(calculatedTop);
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    isDraggingRef.current = true;
+    startYRef.current = e.clientY;
+    if (contentRef.current) {
+      startScrollTopRef.current = contentRef.current.scrollTop;
+    }
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    e.preventDefault();
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isDraggingRef.current || !contentRef.current) return;
+    const deltaY = e.clientY - startYRef.current;
+    const { scrollHeight, clientHeight } = contentRef.current;
+    const topMargin = 6;
+    const bottomMargin = 12;
+    const trackHeight = clientHeight - (topMargin + bottomMargin);
+    const maxThumbTop = trackHeight - thumbHeight;
+    const maxScrollTop = scrollHeight - clientHeight;
+
+    if (maxThumbTop > 0) {
+      const scrollRatio = deltaY / maxThumbTop;
+      contentRef.current.scrollTop = startScrollTopRef.current + scrollRatio * maxScrollTop;
+      
+      const newScrollTop = contentRef.current.scrollTop;
+      const calculatedTop = topMargin + (newScrollTop / maxScrollTop) * maxThumbTop;
+      setThumbTop(calculatedTop);
+    }
+  };
+
+  const handleMouseUp = () => {
+    isDraggingRef.current = false;
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
   };
 
   useEffect(() => {
@@ -243,10 +284,11 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
                 ))}
               </div>
 
-              {/* Curseur de défilement externe flottant pur */}
+              {/* Curseur de défilement externe interactif (clic & glisser) */}
               {hasScroll && (
                 <div 
                   className={styles.externalScrollThumb}
+                  onMouseDown={handleMouseDown}
                   style={{
                     height: `${thumbHeight}px`,
                     transform: `translateY(${thumbTop}px)`
