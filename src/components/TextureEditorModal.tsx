@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styles from './TextureEditorModal.module.scss';
-import { Palette, X, Image, Check, Sliders } from 'lucide-react';
+import { Palette, X, Check } from 'lucide-react';
 import { showSuccess } from '@/utils/toast';
 
 interface TextureItem {
@@ -15,14 +15,11 @@ export const TextureEditorModal: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [textures, setTextures] = useState<TextureItem[]>([]);
   const [selectedTexture, setSelectedTexture] = useState<string>('');
-  const [roughness, setRoughness] = useState<number>(50);
-  const [metalness, setMetalness] = useState<number>(20);
 
   useEffect(() => {
     const handleToolChanged = (e: CustomEvent<{ tool: string }>) => {
       if (e.detail?.tool === 'texture') {
         setIsOpen(true);
-        // Request actual textures from the selected mesh or window event
         window.dispatchEvent(new CustomEvent('apex-request-textures'));
       } else {
         setIsOpen(false);
@@ -34,7 +31,6 @@ export const TextureEditorModal: React.FC = () => {
         setTextures(e.detail.textures);
         setSelectedTexture(e.detail.textures[0].name);
       } else {
-        // Fallback default textures if none found on model
         const defaultTexs: TextureItem[] = [
           { id: '1', name: 'Diffuse_Albedo.png', type: 'Couleur principale', res: '4096 x 4096', color: '#00f0ff' },
           { id: '2', name: 'Normal_Map.png', type: 'Relief / Bump', res: '4096 x 4096', color: '#8b5cf6' },
@@ -45,18 +41,44 @@ export const TextureEditorModal: React.FC = () => {
       }
     };
 
+    const handleMeshSelected = (e: CustomEvent<{ name: string | null; subMeshes: { id: string; name: string; color: string }[] }>) => {
+      // Lorsque l'on clique sur une sous-partie en mode texture, on sélectionne automatiquement sa texture/matériau associé
+      if (e.detail?.subMeshes && e.detail.subMeshes.length > 0) {
+        // On cherche si un material/texture correspond au nom de la sous-partie ou on prend le premier
+        const targetName = e.detail.name;
+        if (targetName) {
+          const matched = textures.find(t => t.name.toLowerCase().includes(targetName.toLowerCase()));
+          if (matched) {
+            setSelectedTexture(matched.name);
+          }
+        }
+      }
+    };
+
     window.addEventListener('apex-tool-changed', handleToolChanged as EventListener);
     window.addEventListener('apex-textures-loaded', handleTexturesLoaded as EventListener);
+    window.addEventListener('apex-mesh-selected', handleMeshSelected as EventListener);
 
     return () => {
       window.removeEventListener('apex-tool-changed', handleToolChanged as EventListener);
       window.removeEventListener('apex-textures-loaded', handleTexturesLoaded as EventListener);
+      window.removeEventListener('apex-mesh-selected', handleMeshSelected as EventListener);
     };
-  }, []);
+  }, [textures]);
 
   if (!isOpen) return null;
 
   const currentTexObj = textures.find(t => t.name === selectedTexture);
+
+  const handleColorChange = (newColor: string) => {
+    if (!currentTexObj) return;
+    setTextures(prev => prev.map(t => t.name === currentTexObj.name ? { ...t, color: newColor } : t));
+    window.dispatchEvent(
+      new CustomEvent('apex-update-texture-color', {
+        detail: { textureName: currentTexObj.name, color: newColor }
+      })
+    );
+  };
 
   return (
     <div className={styles.container}>
@@ -103,29 +125,17 @@ export const TextureEditorModal: React.FC = () => {
 
           {currentTexObj && (
             <div className={styles.section}>
-              <span className={styles.sectionLabel}>Réglages ({currentTexObj.name}) :</span>
-              <div className={styles.sliderGroup}>
-                <div className={styles.sliderRow}>
-                  <span>Rugosité : {roughness}%</span>
-                  <input 
-                    type="range" 
-                    min="0" 
-                    max="100" 
-                    value={roughness} 
-                    onChange={(e) => setRoughness(Number(e.target.value))} 
-                    className={styles.slider}
-                  />
-                </div>
-                <div className={styles.sliderRow}>
-                  <span>Métallicité : {metalness}%</span>
-                  <input 
-                    type="range" 
-                    min="0" 
-                    max="100" 
-                    value={metalness} 
-                    onChange={(e) => setMetalness(Number(e.target.value))} 
-                    className={styles.slider}
-                  />
+              <span className={styles.sectionLabel}>Couleur de la texture ({currentTexObj.name}) :</span>
+              <div className="flex items-center gap-3 mt-2 bg-neutral-900/60 p-3 rounded-lg border border-neutral-800">
+                <input 
+                  type="color" 
+                  value={currentTexObj.color || '#00f0ff'}
+                  onChange={(e) => handleColorChange(e.target.value)}
+                  className="w-10 h-10 rounded cursor-pointer bg-transparent border-0"
+                />
+                <div className="flex flex-col">
+                  <span className="text-xs font-mono text-neutral-300">{currentTexObj.color}</span>
+                  <span className="text-[10px] text-neutral-500">Cliquez pour changer la couleur</span>
                 </div>
               </div>
             </div>
