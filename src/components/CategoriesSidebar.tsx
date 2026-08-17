@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -129,6 +129,10 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
   onSelectCategory,
 }) => {
   const iconRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [thumbHeight, setThumbHeight] = useState(40);
+  const [thumbTop, setThumbTop] = useState(0);
+  const [hasScroll, setHasScroll] = useState(false);
 
   const handleCategoryClick = (catId: string) => {
     if (activeCategory === catId) {
@@ -137,6 +141,31 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
       onSelectCategory(catId);
     }
   };
+
+  const handleScroll = () => {
+    if (!contentRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = contentRef.current;
+    if (scrollHeight <= clientHeight) {
+      setHasScroll(false);
+      return;
+    }
+    setHasScroll(true);
+    const trackHeight = clientHeight;
+    const calculatedHeight = Math.max(30, (clientHeight / scrollHeight) * trackHeight);
+    const maxScrollTop = scrollHeight - clientHeight;
+    const maxThumbTop = trackHeight - calculatedHeight;
+    const calculatedTop = maxScrollTop > 0 ? (scrollTop / maxScrollTop) * maxThumbTop : 0;
+
+    setThumbHeight(calculatedHeight);
+    setThumbTop(calculatedTop);
+  };
+
+  useEffect(() => {
+    // Recalculate on category change
+    if (activeCategory) {
+      setTimeout(handleScroll, 50);
+    }
+  }, [activeCategory]);
 
   const activeCatData = CATEGORIES.find(c => c.id === activeCategory);
 
@@ -187,10 +216,10 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
               exit={{ opacity: 0, scale: 0.95, x: -10, y: 20 }}
               transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
             >
-              <motion.div 
+              <div 
+                ref={contentRef}
                 className={styles.fusionMenuContent}
-                layout
-                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                onScroll={handleScroll}
               >
                 {activeCatData.sections.map((section, idx) => (
                   <div key={idx} className={styles.sectionGroup}>
@@ -209,7 +238,20 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
                     </ul>
                   </div>
                 ))}
-              </motion.div>
+              </div>
+
+              {/* Curseur de défilement externe indépendant */}
+              {hasScroll && (
+                <div className={styles.externalScrollTrack}>
+                  <div 
+                    className={styles.externalScrollThumb}
+                    style={{
+                      height: `${thumbHeight}px`,
+                      transform: `translateY(${thumbTop}px)`
+                    }}
+                  />
+                </div>
+              )}
             </motion.div>
           </>
         )}
