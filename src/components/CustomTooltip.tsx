@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import styles from './Tooltip.module.scss';
 
 interface CustomTooltipProps {
@@ -8,11 +8,13 @@ interface CustomTooltipProps {
 }
 
 export const CustomTooltip: React.FC<CustomTooltipProps> = ({ content, description, children }) => {
+  const [visible, setVisible] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleMouseEnter = () => {
     timeoutRef.current = setTimeout(() => {
-    }, 150);
+      setVisible(true);
+    }, 200);
 
     window.dispatchEvent(
       new CustomEvent('apex-set-tooltip', {
@@ -26,6 +28,7 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({ content, descripti
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
+    setVisible(false);
     window.dispatchEvent(new CustomEvent('apex-reset-tooltip'));
   };
 
@@ -36,6 +39,9 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({ content, descripti
       className={styles.tooltipWrapper}
     >
       {children}
+      <div className={`${styles.tooltipBubble} ${visible ? styles.visible : ''}`}>
+        {content}
+      </div>
     </div>
   );
 };

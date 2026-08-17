@@ -29,12 +29,14 @@
   border-radius: 33px;
   gap: 8px;
   position: relative;
+  overflow: visible !important;
 }
 
 .bottomToolbar {
   padding: 6px 10px;
   border-radius: 22px;
   gap: 6px;
+  overflow: visible !important;
 }
 
 .button {
