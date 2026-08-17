@@ -146,22 +146,24 @@
   }
 }
 
-/* Curseur externe flottant pur aligné avec le contenu */
+/* Curseur externe flottant pur avec effet de zoom sur la largeur au survol */
 .externalScrollThumb {
   position: absolute;
   right: -12px;
-  top: 10px;
+  top: 6px;
   width: 8px;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.15);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
   border-radius: 6px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4);
-  pointer-events: none;
-  transition: background 0.2s;
+  pointer-events: auto;
+  cursor: pointer;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.2s;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.2);
+    width: 16px;
+    background: rgba(255, 255, 255, 0.25);
   }
 }
 
