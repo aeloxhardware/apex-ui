@@ -273,58 +273,6 @@ export const Viewport3D = () => {
     topOutline.color = new BABYLON.Color3(0, 0.94, 1);
     topOutline.parent = volumeRoot;
 
-    // Texture Mode Grid & Isolated View
-    const textureGridRoot = new BABYLON.TransformNode("textureGridRoot", scene);
-    textureGridRoot.setEnabled(false);
-
-    // 3D Grid lines
-    const gridLines = [];
-    for (let x = -100; x <= 100; x += 20) {
-      gridLines.push([new BABYLON.Vector3(x, 0, -100), new BABYLON.Vector3(x, 0, 100)]);
-    }
-    for (let z = -100; z <= 100; z += 20) {
-      gridLines.push([new BABYLON.Vector3(-100, 0, z), new BABYLON.Vector3(100, 0, z)]);
-    }
-    const gridSystem = BABYLON.MeshBuilder.CreateLineSystem("gridSystem", { lines: gridLines }, scene) as BABYLON.LinesMesh;
-    gridSystem.color = new BABYLON.Color3(0.2, 0.2, 0.25);
-    gridSystem.parent = textureGridRoot;
-
-    // Red X axis and Green Z axis crossing at center (0,0,0)
-    const xAxis = BABYLON.MeshBuilder.CreateLines("xAxis", { points: [new BABYLON.Vector3(-120, 0.05, 0), new BABYLON.Vector3(120, 0.05, 0)] }, scene) as BABYLON.LinesMesh;
-    xAxis.color = new BABYLON.Color3(1, 0, 0);
-    xAxis.parent = textureGridRoot;
-
-    const zAxis = BABYLON.MeshBuilder.CreateLines("zAxis", { points: [new BABYLON.Vector3(0, 0.05, -120), new BABYLON.Vector3(0, 0.05, 120)] }, scene) as BABYLON.LinesMesh;
-    zAxis.color = new BABYLON.Color3(0, 1, 0);
-    zAxis.parent = textureGridRoot;
-
-    const onTextureMode = (e: any) => {
-      const active = e.detail?.active;
-      if (scene.isDisposed) return;
-
-      if (active) {
-        volumeRoot.setEnabled(false);
-        textureGridRoot.setEnabled(true);
-
-        modelsRef.current.forEach(mesh => {
-          if (selectedMeshesRef.current.has(mesh)) {
-            mesh.setEnabled(true);
-            mesh.position.set(0, 0, 0);
-          } else {
-            mesh.setEnabled(false);
-          }
-        });
-      } else {
-        volumeRoot.setEnabled(true);
-        textureGridRoot.setEnabled(false);
-
-        modelsRef.current.forEach(mesh => {
-          mesh.setEnabled(true);
-        });
-      }
-    };
-    window.addEventListener('apex-texture-mode', onTextureMode);
-
     // Handle Delete key for removing selected meshes
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -356,10 +304,10 @@ export const Viewport3D = () => {
     window.addEventListener('keydown', handleKeyDown);
 
     const pointerObserver = scene.onPointerObservable.add((pointerInfo) => {
-      const excluded: BABYLON.AbstractMesh[] = [plate, outline, topOutline, gridSystem, xAxis, zAxis];
+      const excluded: BABYLON.AbstractMesh[] = [plate, outline, topOutline];
 
       if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERMOVE) {
-        const pick = scene.pick(scene.pointerX, scene.pointerY, (mesh) => !excluded.includes(mesh) && !mesh.name.includes("Gizmo") && mesh.isEnabled());
+        const pick = scene.pick(scene.pointerX, scene.pointerY, (mesh) => !excluded.includes(mesh) && !mesh.name.includes("Gizmo"));
         const clientX = pointerInfo.event.clientX;
         const clientY = pointerInfo.event.clientY;
 
@@ -387,7 +335,7 @@ export const Viewport3D = () => {
       }
 
       if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERUP) {
-        const pick = scene.pick(scene.pointerX, scene.pointerY, (mesh) => !excluded.includes(mesh) && !mesh.name.includes("Gizmo") && mesh.isEnabled());
+        const pick = scene.pick(scene.pointerX, scene.pointerY, (mesh) => !excluded.includes(mesh) && !mesh.name.includes("Gizmo"));
         if (pick?.hit && pick.pickedMesh) {
           const topMesh = pick.pickedMesh;
           
@@ -518,7 +466,6 @@ export const Viewport3D = () => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('apex-import-model', onImportModel);
       window.removeEventListener('apex-tool-changed', onToolChanged);
-      window.removeEventListener('apex-texture-mode', onTextureMode);
       window.removeEventListener('keydown', handleKeyDown);
       scene.onPointerObservable.remove(pointerObserver);
       gizmoManager.dispose();

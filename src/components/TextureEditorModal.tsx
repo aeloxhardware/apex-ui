@@ -13,10 +13,8 @@ export const TextureEditorModal: React.FC = () => {
     const handleToolChanged = (e: CustomEvent<{ tool: string }>) => {
       if (e.detail?.tool === 'texture') {
         setIsOpen(true);
-        window.dispatchEvent(new CustomEvent('apex-texture-mode', { detail: { active: true } }));
       } else {
         setIsOpen(false);
-        window.dispatchEvent(new CustomEvent('apex-texture-mode', { detail: { active: false } }));
       }
     };
 
@@ -40,7 +38,6 @@ export const TextureEditorModal: React.FC = () => {
             className={styles.closeBtn} 
             onClick={() => {
               setIsOpen(false);
-              window.dispatchEvent(new CustomEvent('apex-texture-mode', { detail: { active: false } }));
               window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'select' } }));
             }}
           >
@@ -104,7 +101,7 @@ export const TextureEditorModal: React.FC = () => {
           <button 
             className={styles.saveBtn}
             onClick={() => {
-              showSuccess("Texture mise à jour sur la grille 3D !");
+              showSuccess("Texture mise à jour sur le modèle !");
             }}
           >
             Appliquer
