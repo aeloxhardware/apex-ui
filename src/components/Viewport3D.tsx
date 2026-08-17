@@ -10,6 +10,7 @@ export const Viewport3D = () => {
   const sceneRef = useRef<BABYLON.Scene | null>(null);
   const cameraRef = useRef<BABYLON.ArcRotateCamera | null>(null);
   const hlRef = useRef<BABYLON.HighlightLayer | null>(null);
+  const pipelineRef = useRef<BABYLON.DefaultRenderingPipeline | null>(null);
   const gizmoManagerRef = useRef<BABYLON.GizmoManager | null>(null);
   const selectedMeshesRef = useRef<Set<BABYLON.AbstractMesh>>(new Set());
   const modelsRef = useRef<Set<BABYLON.AbstractMesh>>(new Set());
@@ -100,6 +101,11 @@ export const Viewport3D = () => {
     hl.blurVerticalSize = 0.5;
     hlRef.current = hl;
 
+    // Post-processing pipeline for slight blur / depth of field effect when unselected
+    const pipeline = new BABYLON.DefaultRenderingPipeline("defaultPipeline", true, scene, [camera]);
+    pipeline.depthOfFieldEnabled = false; // We can use image processing or blur
+    pipelineRef.current = pipeline;
+
     const gizmoManager = new BABYLON.GizmoManager(scene); 
     gizmoManagerRef.current = gizmoManager; 
     gizmoManager.usePointerToAttachGizmos = false;
@@ -112,10 +118,20 @@ export const Viewport3D = () => {
     const updateHighlight = () => {
       if (!hlRef.current) return;
       hlRef.current.removeAllMeshes();
-      selectedMeshesRef.current.forEach((mesh) => {
+      
+      const hasSelection = selectedMeshesRef.current.size > 0;
+
+      modelsRef.current.forEach((mesh) => {
         if (mesh && !mesh.isDisposed()) {
-          // Blue highlight color (#00f0ff)
-          hlRef.current?.addMesh(mesh as BABYLON.Mesh, new BABYLON.Color3(0, 0.94, 1));
+          if (selectedMeshesRef.current.has(mesh)) {
+            hlRef.current?.addMesh(mesh as BABYLON.Mesh, new BABYLON.Color3(0, 0.94, 1));
+            mesh.visibility = 1.0;
+          } else if (hasSelection) {
+            // Slight blur/transparency or dimming for unselected models
+            mesh.visibility = 0.6;
+          } else {
+            mesh.visibility = 1.0;
+          }
         }
       });
     };
