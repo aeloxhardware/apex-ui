@@ -151,13 +151,14 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
     }
     setHasScroll(true);
     
-    const margin = 12;
-    const availableHeight = clientHeight - (margin * 2);
-    const calculatedHeight = Math.max(30, (clientHeight / scrollHeight) * availableHeight);
+    const topMargin = 6;
+    const bottomMargin = 12;
+    const trackHeight = clientHeight - (topMargin + bottomMargin);
+    const calculatedHeight = Math.max(30, (clientHeight / scrollHeight) * trackHeight);
     
     const maxScrollTop = scrollHeight - clientHeight;
-    const maxThumbTop = availableHeight - calculatedHeight;
-    const calculatedTop = maxScrollTop > 0 ? margin + (scrollTop / maxScrollTop) * maxThumbTop : margin;
+    const maxThumbTop = trackHeight - calculatedHeight;
+    const calculatedTop = maxScrollTop > 0 ? topMargin + (scrollTop / maxScrollTop) * maxThumbTop : topMargin;
 
     setThumbHeight(calculatedHeight);
     setThumbTop(calculatedTop);
