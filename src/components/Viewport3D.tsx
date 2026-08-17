@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useLayoutEffect } from 'react';
+import React, { useRef, useState, useLayoutEffect } from 'react';
 import * as BABYLON from 'babylonjs';
 import 'babylonjs-loaders';
 
-const Viewport3D = () => {
+export const Viewport3D = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<BABYLON.Engine | null>(null);
   const sceneRef = useRef<BABYLON.Scene | null>(null);
@@ -83,7 +83,6 @@ const Viewport3D = () => {
     engineRef.current = engine;
     const scene = new BABYLON.Scene(engine);
     sceneRef.current = scene;
-    // Rendre l'arrière-plan de la scène transparent
     scene.clearColor = new BABYLON.Color4(0, 0, 0, 0);
 
     const camera = new BABYLON.ArcRotateCamera("camera", Math.PI / 4, Math.PI / 3, 300, new BABYLON.Vector3(0, HEIGHT / 2, 0), scene);
@@ -129,17 +128,13 @@ const Viewport3D = () => {
 
       const posGizmo = gizmoManager.gizmos.positionGizmo;
       if (posGizmo) {
-        // Y-axis (normally green, now blue)
         setGizmoColor(posGizmo.yGizmo, new BABYLON.Color3(0, 0, 1));
-        // Z-axis (normally blue, now green)
         setGizmoColor(posGizmo.zGizmo, new BABYLON.Color3(0, 1, 0));
       }
 
       const rotGizmo = gizmoManager.gizmos.rotationGizmo;
       if (rotGizmo) {
-        // Y-axis (normally green, now blue)
         setGizmoColor(rotGizmo.yGizmo, new BABYLON.Color3(0, 0, 1));
-        // Z-axis (normally blue, now green)
         setGizmoColor(rotGizmo.zGizmo, new BABYLON.Color3(0, 1, 0));
       }
     };
@@ -175,7 +170,6 @@ const Viewport3D = () => {
           } else {
             rotation = activeMesh.rotation;
           }
-          // Convert to degrees
           const rx = BABYLON.Tools.ToDegrees(rotation.x);
           const ry = BABYLON.Tools.ToDegrees(rotation.y);
           const rz = BABYLON.Tools.ToDegrees(rotation.z);
@@ -226,69 +220,6 @@ const Viewport3D = () => {
     };
     window.addEventListener('apex-tool-changed', onToolChanged);
 
-    const onSetModelPosition = (e: Event) => {
-      const customEvent = e as CustomEvent<{ x?: number; y?: number; z?: number; resetX?: boolean; resetY?: boolean; resetZ?: boolean; resetAll?: boolean }>;
-      const { x, y, z, resetX, resetY, resetZ, resetAll } = customEvent.detail;
-      const selection = selectedMeshesRef.current;
-      if (selection.size > 0) {
-        const activeMesh = Array.from(selection)[selection.size - 1];
-        if (activeMesh && !activeMesh.isDisposed()) {
-          const bounds = activeMesh.getHierarchyBoundingVectors(true);
-          const height = bounds.max.y - bounds.min.y;
-
-          if (resetX) activeMesh.position.x = 0;
-          if (resetY) activeMesh.position.y = height / 2;
-          if (resetZ) activeMesh.position.z = 0;
-          if (resetAll) {
-            activeMesh.position.x = 0;
-            activeMesh.position.y = height / 2;
-            activeMesh.position.z = 0;
-          }
-
-          if (x !== undefined) activeMesh.position.x = x;
-          if (y !== undefined) activeMesh.position.y = y;
-          if (z !== undefined) activeMesh.position.z = z;
-          
-          updateSelectedPosition();
-        }
-      }
-    };
-    window.addEventListener('apex-set-model-position', onSetModelPosition);
-
-    const onSetModelRotation = (e: Event) => {
-      const customEvent = e as CustomEvent<{ x?: number; y?: number; z?: number; resetX?: boolean; resetY?: boolean; resetZ?: boolean; resetAll?: boolean }>;
-      const { x, y, z, resetX, resetY, resetZ, resetAll } = customEvent.detail;
-      const selection = selectedMeshesRef.current;
-      if (selection.size > 0) {
-        const activeMesh = Array.from(selection)[selection.size - 1];
-        if (activeMesh && !activeMesh.isDisposed()) {
-          if (!activeMesh.rotationQuaternion) {
-            activeMesh.rotationQuaternion = BABYLON.Quaternion.RotationYawPitchRoll(activeMesh.rotation.y, activeMesh.rotation.x, activeMesh.rotation.z);
-          }
-
-          let currentEuler = activeMesh.rotationQuaternion.toEulerAngles();
-          let rx = currentEuler.x;
-          let ry = currentEuler.y;
-          let rz = currentEuler.z;
-
-          if (resetX) rx = 0;
-          if (resetY) ry = 0;
-          if (resetZ) rz = 0;
-          if (resetAll) {
-            rx = 0; ry = 0; rz = 0;
-          }
-
-          if (x !== undefined) rx = BABYLON.Tools.ToRadians(x);
-          if (y !== undefined) ry = BABYLON.Tools.ToRadians(y);
-          if (z !== undefined) rz = BABYLON.Tools.ToRadians(z);
-
-          activeMesh.rotationQuaternion = BABYLON.Quaternion.RotationYawPitchRoll(ry, rx, rz);
-          updateSelectedRotation();
-        }
-      }
-    };
-    window.addEventListener('apex-set-model-rotation', onSetModelRotation);
-
     const volumeRoot = new BABYLON.TransformNode("volumeRoot", scene);
     const plateLines = [];
     for (let i = 0; i < 64; i++) {
@@ -316,7 +247,6 @@ const Viewport3D = () => {
     const topOutline = BABYLON.MeshBuilder.CreateLines("topOutline", { points: topOutlinePoints }, scene) as BABYLON.LinesMesh;
     topOutline.color = new BABYLON.Color3(0, 0.94, 1);
     topOutline.parent = volumeRoot;
-    topOutline.alpha = 0.5;
 
     const pointerObserver = scene.onPointerObservable.add((pointerInfo) => {
       if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERUP) {
@@ -414,8 +344,6 @@ const Viewport3D = () => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('apex-import-model', onImportModel);
       window.removeEventListener('apex-tool-changed', onToolChanged);
-      window.removeEventListener('apex-set-model-position', onSetModelPosition);
-      window.removeEventListener('apex-set-model-rotation', onSetModelRotation);
       scene.onPointerObservable.remove(pointerObserver);
       gizmoManager.dispose();
       scene.dispose();
@@ -434,5 +362,3 @@ const Viewport3D = () => {
     </div>
   );
 };
-
-export default Viewport3D;

@@ -1,107 +1,171 @@
 .container {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  width: 64px;
-  background-color: hsl(240, 5.9%, 10%);
-  border-right: 1px solid hsl(240, 3.7%, 15.9%);
-  padding: 12px 8px;
-  z-index: 20;
-  user-select: none;
+  align-items: center;
+  gap: 10px;
+  z-index: 1000;
+  pointer-events: none;
 }
 
 .toolbar {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 8px;
-  position: relative;
+  pointer-events: auto;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  // Glass effect replacements for the shader
+  background: rgba(10, 15, 26, 0.45);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
 }
 
 .topToolbar {
+  padding: 8px 18px;
+  border-radius: 33px;
+  gap: 12px;
   position: relative;
-  background: rgba(24, 24, 27, 0.6);
-  border-radius: 12px;
-  padding: 6px;
-  border: 1px solid rgba(63, 63, 70, 0.4);
 }
 
 .bottomToolbar {
-  background: rgba(24, 24, 27, 0.6);
-  border-radius: 12px;
-  padding: 6px;
-  border: 1px solid rgba(63, 63, 70, 0.4);
-}
-
-.logoContainer {
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 4px;
-}
-
-.logoImg {
-  width: 28px;
-  height: 28px;
-  object-fit: contain;
-}
-
-.topSeparator {
-  width: 24px;
-  height: 1px;
-  background-color: rgba(63, 63, 70, 0.6);
-  margin-bottom: 4px;
-}
-
-.separator {
-  width: 24px;
-  height: 1px;
-  background-color: rgba(63, 63, 70, 0.6);
-  margin: 4px 0;
+  padding: 6px 10px;
+  border-radius: 22px;
+  gap: 5px;
 }
 
 .button {
-  width: 38px;
-  height: 38px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
-  border: none;
   background: transparent;
-  color: rgb(161, 161, 170);
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
   cursor: pointer;
   transition: all 0.2s ease;
+  outline: none;
   position: relative;
   z-index: 2;
 
-  &:hover {
-    color: rgb(244, 244, 245);
-    background-color: rgba(63, 63, 70, 0.4);
+  &:hover:not(:disabled) {
+    color: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.05);
+  }
+  
+  &:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+}
+
+.topButton {
+  width: 50px;
+  height: 50px;
+  border-radius: 16px;
+
+  svg {
+    width: 25px;
+    height: 25px;
   }
 
   &.active {
-    color: rgb(255, 255, 255);
+    color: #00f0ff; 
+  }
+}
+
+.logoContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 50px;
+  height: 50px;
+  padding: 3px;
+
+  .logoImg {
+    width: 36px;
+    height: 36px;
+    object-fit: contain;
+  }
+}
+
+.bottomButton {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+
+  svg {
+    width: 16px;
+    height: 16px;
+    transition: transform 0.2s ease;
+  }
+
+  &.active {
+    background: rgba(0, 240, 255, 0.12);
+    box-shadow:
+      0 0 8px rgba(0, 240, 255, 0.2),
+      inset 0 0 6px rgba(0, 240, 255, 0.1);
+    color: #00f0ff;
   }
 }
 
 .activeIndicator {
   position: absolute;
-  background: hsl(217.2, 91.2%, 59.8%);
-  border-radius: 8px;
+  background: rgba(0, 240, 255, 0.12);
+  box-shadow: 
+    0 0 14px rgba(0, 240, 255, 0.25), 
+    inset 0 0 10px rgba(0, 240, 255, 0.15);
+  border-radius: 16px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 1;
   pointer-events: none;
+  z-index: 1;
+  opacity: 0;
+}
+
+.uploadButtonContainer {
+  background: rgba(10, 15, 26, 0.45);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  
+  &:hover {
+    border-color: rgba(0, 240, 255, 0.3);
+    box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+  }
 }
 
 .uploadActionButton {
-  background-color: rgba(6, 182, 212, 0.15);
-  color: rgb(6, 182, 212);
+  color: #00f0ff !important;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
 
   &:hover {
-    background-color: rgba(6, 182, 212, 0.3);
-    color: rgb(34, 211, 238);
+    background: rgba(0, 240, 255, 0.08) !important;
   }
+}
+
+.separator {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.15);
+  margin: 0 2px;
+}
+
+.topSeparator {
+  width: 1px;
+  height: 25px;
+  background: rgba(255, 255, 255, 0.15);
+  margin: 0 4px;
 }
