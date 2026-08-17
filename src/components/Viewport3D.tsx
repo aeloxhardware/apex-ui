@@ -394,6 +394,7 @@ export const Viewport3D = () => {
         if (pick?.hit && pick.pickedMesh) {
           let topMesh = pick.pickedMesh;
           
+          // Si l'outil n'est pas 'texture', on remonte toujours au modèle racine complet
           if (currentTool !== 'texture') {
             let root = topMesh;
             while (root.parent && modelsRef.current.has(root.parent as BABYLON.AbstractMesh) === false) {
