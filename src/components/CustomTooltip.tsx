@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
+import styles from './Tooltip.module.scss';
 
 interface CustomTooltipProps {
   content: string;
@@ -7,7 +8,14 @@ interface CustomTooltipProps {
 }
 
 export const CustomTooltip: React.FC<CustomTooltipProps> = ({ content, description, children }) => {
+  const [visible, setVisible] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const handleMouseEnter = () => {
+    timeoutRef.current = setTimeout(() => {
+      setVisible(true);
+    }, 250);
+
     window.dispatchEvent(
       new CustomEvent('apex-set-tooltip', {
         detail: { title: content, desc: description }
@@ -16,6 +24,11 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({ content, descripti
   };
 
   const handleMouseLeave = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    setVisible(false);
     window.dispatchEvent(new CustomEvent('apex-reset-tooltip'));
   };
 
@@ -23,9 +36,12 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({ content, descripti
     <div 
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className="inline-flex"
+      className={styles.tooltipWrapper}
     >
       {children}
+      <div className={`${styles.tooltipBubble} ${visible ? styles.visible : ''}`}>
+        {content}
+      </div>
     </div>
   );
 };
