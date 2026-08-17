@@ -95,6 +95,12 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.56.2
         version: 5.74.4(react@19.2.3)
+      babylonjs:
+        specifier: ^9.15.0
+        version: 9.15.0
+      babylonjs-loaders:
+        specifier: ^9.15.0
+        version: 9.15.0
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -1507,6 +1513,15 @@ packages:
     hasBin: true
     peerDependencies:
       postcss: ^8.1.0
+
+  babylonjs-gltf2interface@9.15.0:
+    resolution: {integrity: sha512-Yr/WvOvnsZFN2LoyNU/ZZbT+lXMdNA9OiZzE4RibI1tnYxQjpPKT6X1cxQ/ACJPVzKwudxzJxQ/f/Tdba4TLDg==}
+
+  babylonjs-loaders@9.15.0:
+    resolution: {integrity: sha512-k5Kg9wmuy0n4ZAWu9woFk3C1yEwSvQHRv0Ct2GOQtuRvIHUIyRcW4KEKOsW0GOiApSjXh9nQcabdJTnUo8IBNw==}
+
+  babylonjs@9.15.0:
+    resolution: {integrity: sha512-IJQhrxsxxj4KCg4aSsB5chLidzAfbghr8rnzo6sRLFin6ipfeayCxg7MevjaMzqdVmc/BOMU6sj49nSNrBq+yQ==}
 
   balanced-match@1.0.2:
     resolution: {integrity: sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==}
@@ -3822,6 +3837,15 @@ snapshots:
       picocolors: 1.1.1
       postcss: 8.5.3
       postcss-value-parser: 4.2.0
+
+  babylonjs-gltf2interface@9.15.0: {}
+
+  babylonjs-loaders@9.15.0:
+    dependencies:
+      babylonjs: 9.15.0
+      babylonjs-gltf2interface: 9.15.0
+
+  babylonjs@9.15.0: {}
 
   balanced-match@1.0.2: {}
 
