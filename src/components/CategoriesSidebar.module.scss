@@ -146,22 +146,22 @@
   }
 }
 
-/* Curseur externe flottant pur avec flou neutre et ombre portée prononcée */
+/* Curseur externe flottant pur sans rail */
 .externalScrollThumb {
   position: absolute;
   right: -12px;
   top: 16px;
   width: 8px;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
   border-radius: 6px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
   pointer-events: none;
   transition: background 0.2s;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.15);
   }
 }
 
