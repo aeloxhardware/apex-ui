@@ -12,8 +12,9 @@ import {
   FolderOpen,
   Save,
   Play,
-  Cpu,
-  Printer
+  Printer,
+  Maximize2,
+  Eye
 } from 'lucide-react';
 import styles from './Sidebar.module.scss';
 
@@ -162,7 +163,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           className={clsx(styles.button, styles.bottomButton, {
             [styles.active]: activeTool === 'select',
           })}
-          onClick={() => setActiveTool('select')}
+          onClick={() => {
+            setActiveTool('select');
+            window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'select' } }));
+          }}
           title="Select Tool"
         >
           <MousePointer2 size={16} />
@@ -172,7 +176,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           className={clsx(styles.button, styles.bottomButton, {
             [styles.active]: activeTool === 'move',
           })}
-          onClick={() => setActiveTool('move')}
+          onClick={() => {
+            setActiveTool('move');
+            window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'move' } }));
+          }}
           title="Move Tool"
         >
           <Move size={16} />
@@ -182,7 +189,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           className={clsx(styles.button, styles.bottomButton, {
             [styles.active]: activeTool === 'rotate',
           })}
-          onClick={() => setActiveTool('rotate')}
+          onClick={() => {
+            setActiveTool('rotate');
+            window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'rotate' } }));
+          }}
           title="Rotate Tool"
         >
           <RotateCw size={16} />
@@ -196,6 +206,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
           title="Slice Layers"
         >
           <Layers size={16} />
+        </button>
+
+        <div className={styles.separator} />
+
+        {/* Extra view tools moved from top/header */}
+        <button
+          className={clsx(styles.button, styles.bottomButton)}
+          onClick={() => window.dispatchEvent(new CustomEvent('apex-reset-camera'))}
+          title="Reset Camera View"
+        >
+          <Eye size={16} />
+        </button>
+
+        <button
+          className={clsx(styles.button, styles.bottomButton)}
+          onClick={() => window.dispatchEvent(new CustomEvent('apex-fit-screen'))}
+          title="Fit to Screen"
+        >
+          <Maximize2 size={16} />
         </button>
 
         <div className={styles.separator} />
