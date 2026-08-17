@@ -9,17 +9,8 @@ interface ModelItem {
 }
 
 export const ModelStatusBox: React.FC = () => {
-  const [models, setModels] = useState<ModelItem[]>([
-    { 
-      id: '1', 
-      name: 'Benchy_v3.stl',
-      children: [
-        { id: '1-1', name: 'Coque principale' },
-        { id: '1-2', name: 'Cabine & Cheminée' }
-      ]
-    }
-  ]);
-  const [selectedModelName, setSelectedModelName] = useState<string | null>('Benchy_v3.stl');
+  const [models, setModels] = useState<ModelItem[]>([]);
+  const [selectedModelName, setSelectedModelName] = useState<string | null>(null);
 
   useEffect(() => {
     const handleMeshSelected = (e: CustomEvent<{ name: string | null }>) => {
