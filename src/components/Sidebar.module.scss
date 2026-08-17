@@ -1,0 +1,107 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 64px;
+  background-color: hsl(240, 5.9%, 10%);
+  border-right: 1px solid hsl(240, 3.7%, 15.9%);
+  padding: 12px 8px;
+  z-index: 20;
+  user-select: none;
+}
+
+.toolbar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.topToolbar {
+  position: relative;
+  background: rgba(24, 24, 27, 0.6);
+  border-radius: 12px;
+  padding: 6px;
+  border: 1px solid rgba(63, 63, 70, 0.4);
+}
+
+.bottomToolbar {
+  background: rgba(24, 24, 27, 0.6);
+  border-radius: 12px;
+  padding: 6px;
+  border: 1px solid rgba(63, 63, 70, 0.4);
+}
+
+.logoContainer {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.logoImg {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+
+.topSeparator {
+  width: 24px;
+  height: 1px;
+  background-color: rgba(63, 63, 70, 0.6);
+  margin-bottom: 4px;
+}
+
+.separator {
+  width: 24px;
+  height: 1px;
+  background-color: rgba(63, 63, 70, 0.6);
+  margin: 4px 0;
+}
+
+.button {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: rgb(161, 161, 170);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  z-index: 2;
+
+  &:hover {
+    color: rgb(244, 244, 245);
+    background-color: rgba(63, 63, 70, 0.4);
+  }
+
+  &.active {
+    color: rgb(255, 255, 255);
+  }
+}
+
+.activeIndicator {
+  position: absolute;
+  background: hsl(217.2, 91.2%, 59.8%);
+  border-radius: 8px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.uploadActionButton {
+  background-color: rgba(6, 182, 212, 0.15);
+  color: rgb(6, 182, 212);
+
+  &:hover {
+    background-color: rgba(6, 182, 212, 0.3);
+    color: rgb(34, 211, 238);
+  }
+}
