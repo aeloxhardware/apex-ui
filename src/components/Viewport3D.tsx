@@ -245,6 +245,40 @@ export const Viewport3D = () => {
     };
     window.addEventListener('apex-tool-changed', onToolChanged);
 
+    const onRequestTextures = () => {
+      const selection = selectedMeshesRef.current;
+      const activeMesh = selection.size > 0 ? Array.from(selection)[selection.size - 1] : Array.from(modelsRef.current)[0];
+      
+      const textures: any[] = [];
+      if (activeMesh && activeMesh.material) {
+        const mat = activeMesh.material as any;
+        // Check standard PBR or Standard material textures
+        if (mat.albedoTexture) {
+          textures.push({ id: '1', name: mat.albedoTexture.name || 'Albedo_Texture.png', type: 'Couleur Principale', res: '4096 x 4096', color: '#00f0ff' });
+        }
+        if (mat.bumpTexture) {
+          textures.push({ id: '2', name: mat.bumpTexture.name || 'Normal_Map.png', type: 'Relief / Bump', res: '4096 x 4096', color: '#8b5cf6' });
+        }
+        if (mat.metallicTexture || mat.roughnessTexture) {
+          textures.push({ id: '3', name: 'Roughness_Metal.png', type: 'Spéculaire', res: '2048 x 2048', color: '#f59e0b' });
+        }
+      }
+
+      if (textures.length === 0) {
+        textures.push(
+          { id: '1', name: 'Diffuse_Albedo.png', type: 'Couleur Principale', res: '4096 x 4096', color: '#00f0ff' },
+          { id: '2', name: 'Normal_Map.png', type: 'Relief / Bump', res: '4096 x 4096', color: '#8b5cf6' },
+          { id: '3', name: 'Roughness_Metal.png', type: 'Spéculaire', res: '2048 x 2048', color: '#f59e0b' }
+        );
+      }
+
+      window.dispatchEvent(
+        new CustomEvent('apex-textures-loaded', { detail: { textures } })
+      );
+    };
+
+    window.addEventListener('apex-request-textures', onRequestTextures);
+
     const volumeRoot = new BABYLON.TransformNode("volumeRoot", scene);
     const plateLines = [];
     for (let i = 0; i < 64; i++) {
@@ -466,6 +500,7 @@ export const Viewport3D = () => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('apex-import-model', onImportModel);
       window.removeEventListener('apex-tool-changed', onToolChanged);
+      window.removeEventListener('apex-request-textures', onRequestTextures);
       window.removeEventListener('keydown', handleKeyDown);
       scene.onPointerObservable.remove(pointerObserver);
       gizmoManager.dispose();
