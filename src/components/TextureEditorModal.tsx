@@ -156,16 +156,6 @@ export const TextureEditorModal: React.FC = () => {
 
   const currentTexObj = textures.find(t => t.name === selectedTexture);
 
-  const handleColorChange = (newColor: string) => {
-    if (!currentTexObj) return;
-    setTextures(prev => prev.map(t => t.name === currentTexObj.name ? { ...t, color: newColor } : t));
-    window.dispatchEvent(
-      new CustomEvent('apex-update-texture-color', {
-        detail: { textureName: currentTexObj.name, color: newColor }
-      })
-    );
-  };
-
   const handleCardClick = (texName: string) => {
     if (selectedTexture === texName) {
       setSelectedTexture(null); // Désélection
@@ -228,24 +218,6 @@ export const TextureEditorModal: React.FC = () => {
               )}
             </div>
           </div>
-
-          {currentTexObj && (
-            <div className={styles.section}>
-              <span className={styles.sectionLabel}>Couleur de la texture ({currentTexObj.name}) :</span>
-              <div className="flex items-center gap-3 mt-2 bg-neutral-900/60 p-3 rounded-lg">
-                <input 
-                  type="color" 
-                  value={currentTexObj.color || '#00f0ff'}
-                  onChange={(e) => handleColorChange(e.target.value)}
-                  className="w-10 h-10 rounded cursor-pointer bg-transparent border-0"
-                />
-                <div className="flex flex-col">
-                  <span className="text-xs font-mono text-neutral-300">{currentTexObj.color}</span>
-                  <span className="text-[10px] text-neutral-500">Cliquez pour changer la couleur</span>
-                </div>
-              </div>
-            </div>
-          )}
 
           <button 
             className={styles.saveBtn}
