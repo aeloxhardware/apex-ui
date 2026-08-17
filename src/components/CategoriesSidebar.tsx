@@ -138,9 +138,6 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
   };
 
   const activeCatData = CATEGORIES.find(c => c.id === activeCategory);
-  const activeIndex = CATEGORIES.findIndex(c => c.id === activeCategory);
-  // Calcul dynamique de la position verticale du menu pour fusionner avec l'icône cliquée
-  const topOffset = activeIndex !== -1 ? 16 + (activeIndex * 48) : 16;
 
   return (
     <>
@@ -164,10 +161,7 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
       </div>
 
       {activeCatData && (
-        <div 
-          className={styles.fusionMenuContainer}
-          style={{ top: `${topOffset}px` }}
-        >
+        <div className={styles.fusionMenuContainer}>
           <div className={styles.fusionMenuHeader}>
             <span className={styles.fusionMenuTitle}>{activeCatData.title}</span>
             <button 
