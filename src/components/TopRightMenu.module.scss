@@ -1,35 +1,57 @@
 .container {
+  position: fixed;
+  top: 20px;
+  right: 24px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  width: 100%;
+  align-items: flex-end;
+  gap: 12px;
+  z-index: 1000;
+  pointer-events: none;
 }
 
 .toolbar {
-  background: rgba(15, 23, 42, 0.85);
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  border-radius: 8px;
-  padding: 12px 16px;
-  backdrop-filter: blur(8px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  pointer-events: auto;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  background: rgba(10, 15, 26, 0.25);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: none;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
+  padding: 8px 16px;
+  border-radius: 22px;
+  width: 226px; /* 340px divisé par 1.5 */
+  min-height: 40px;
 }
 
 .secondaryToolbar {
-  padding: 16px;
-  min-height: 80px;
+  min-height: 80px; /* 120px divisé par 1.5 */
+  padding: 12px 16px;
+  border-radius: 26px;
+  align-items: flex-start;
 }
 
 .infoDisplayTop {
-  font-family: 'Orbitron', sans-serif;
-  font-weight: 700;
-  font-size: 1.5rem;
-  color: #38bdf8;
-  letter-spacing: 0.05em;
-  text-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+  font-size: 13px;
+  font-weight: 600;
+  color: #00f0ff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
 }
 
 .infoDisplayBottom {
-  font-size: 0.95rem;
-  color: #94a3b8;
-  line-height: 1.5;
+  font-size: 11px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  width: 100%;
 }
