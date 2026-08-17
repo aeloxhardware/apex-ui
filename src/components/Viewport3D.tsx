@@ -256,54 +256,20 @@ export const Viewport3D = () => {
         if (!mat || visitedMats.has(mat.uniqueId)) return;
         visitedMats.add(mat.uniqueId);
 
-        const albedoTex = mat.albedoTexture || mat.diffuseTexture;
-        if (albedoTex) {
-          textures.push({
-            id: `tex-${mat.uniqueId}-albedo`,
-            name: albedoTex.name ? albedoTex.name.split('/').pop() : `${mat.name}_albedo.png`,
-            type: 'Couleur Principale (Albedo)',
-            res: `${albedoTex.getSize().width} x ${albedoTex.getSize().height}`,
-            color: '#00f0ff'
-          });
+        let hexColor = '#00f0ff';
+        if (mat.albedoColor) {
+          hexColor = mat.albedoColor.toHexString();
+        } else if (mat.diffuseColor) {
+          hexColor = mat.diffuseColor.toHexString();
         }
 
-        const bumpTex = mat.bumpTexture || mat.normalTexture;
-        if (bumpTex) {
-          textures.push({
-            id: `tex-${mat.uniqueId}-bump`,
-            name: bumpTex.name ? bumpTex.name.split('/').pop() : `${mat.name}_normal.png`,
-            type: 'Relief / Normal Map',
-            res: `${bumpTex.getSize().width} x ${bumpTex.getSize().height}`,
-            color: '#8b5cf6'
-          });
-        }
-
-        const specTex = mat.metallicTexture || mat.roughnessTexture || mat.specularTexture;
-        if (specTex) {
-          textures.push({
-            id: `tex-${mat.uniqueId}-spec`,
-            name: specTex.name ? specTex.name.split('/').pop() : `${mat.name}_specular.png`,
-            type: 'Spéculaire / Rugosité',
-            res: `${specTex.getSize().width} x ${specTex.getSize().height}`,
-            color: '#f59e0b'
-          });
-        }
-
-        if (!albedoTex && !bumpTex && !specTex) {
-          let hexColor = '#3b82f6';
-          if (mat.albedoColor) {
-            hexColor = mat.albedoColor.toHexString();
-          } else if (mat.diffuseColor) {
-            hexColor = mat.diffuseColor.toHexString();
-          }
-          textures.push({
-            id: `tex-${mat.uniqueId}-color`,
-            name: `${mat.name || 'Material'}.mat`,
-            type: 'Matériau Couleur Pleine',
-            res: 'Procédural',
-            color: hexColor
-          });
-        }
+        textures.push({
+          id: `tex-${mat.uniqueId}`,
+          name: mat.name || 'Material',
+          type: mat.albedoTexture ? 'Texture Albedo' : 'Couleur Pleine',
+          res: mat.albedoTexture ? `${mat.albedoTexture.getSize().width} x ${mat.albedoTexture.getSize().height}` : 'Procédural',
+          color: hexColor
+        });
       };
 
       if (activeMesh) {
@@ -317,14 +283,6 @@ export const Viewport3D = () => {
             }
           }
         });
-      }
-
-      if (textures.length === 0) {
-        textures.push(
-          { id: '1', name: 'Diffuse_Albedo.png', type: 'Couleur Principale', res: '4096 x 4096', color: '#00f0ff' },
-          { id: '2', name: 'Normal_Map.png', type: 'Relief / Bump', res: '4096 x 4096', color: '#8b5cf6' },
-          { id: '3', name: 'Roughness_Metal.png', type: 'Spéculaire', res: '2048 x 2048', color: '#f59e0b' }
-        );
       }
 
       window.dispatchEvent(
@@ -384,7 +342,7 @@ export const Viewport3D = () => {
             gizmoManager.rotationGizmoEnabled = false;
             gizmoManager.scaleGizmoEnabled = false;
             gizmoManager.attachToMesh(null);
-            window.dispatchEvent(new CustomEvent('apex-mesh-selected', { detail: { name: null } }));
+            window.dispatchEvent(new CustomEvent('apex-mesh-selected', { detail: { name: null, subMeshes: [] } }));
           }
         }
       }
@@ -402,7 +360,6 @@ export const Viewport3D = () => {
         if (pick?.hit && pick.pickedMesh) {
           let hoveredMesh = pick.pickedMesh;
           if (currentTool !== 'texture') {
-            // Find root model parent if not in texture mode
             let root = hoveredMesh;
             while (root.parent && modelsRef.current.has(root.parent as BABYLON.AbstractMesh) === false) {
               root = root.parent as BABYLON.AbstractMesh;
@@ -455,7 +412,7 @@ export const Viewport3D = () => {
             gizmoManager.rotationGizmoEnabled = false;
             gizmoManager.scaleGizmoEnabled = false;
             gizmoManager.attachToMesh(null);
-            window.dispatchEvent(new CustomEvent('apex-mesh-selected', { detail: { name: null } }));
+            window.dispatchEvent(new CustomEvent('apex-mesh-selected', { detail: { name: null, subMeshes: [] } }));
             return;
           }
 
@@ -465,7 +422,32 @@ export const Viewport3D = () => {
           updateHighlight();
           updateSelectedPosition();
           updateSelectedRotation();
-          window.dispatchEvent(new CustomEvent('apex-mesh-selected', { detail: { name: topMesh.name || "Modèle 3D" } }));
+
+          // Extract real sub-meshes and colors from topMesh hierarchy
+          const subMeshesList: { id: string; name: string; color: string }[] = [];
+          const childMeshes = [topMesh, ...topMesh.getChildMeshes()];
+          childMeshes.forEach((cm, idx) => {
+            let hex = '#00f0ff';
+            if (cm.material) {
+              const mat = cm.material as any;
+              if (mat.albedoColor) hex = mat.albedoColor.toHexString();
+              else if (mat.diffuseColor) hex = mat.diffuseColor.toHexString();
+            }
+            subMeshesList.push({
+              id: `${topMesh.name}-${idx}`,
+              name: cm.name || `Partie ${idx + 1}`,
+              color: hex
+            });
+          });
+
+          window.dispatchEvent(
+            new CustomEvent('apex-mesh-selected', { 
+              detail: { 
+                name: topMesh.name || "Modèle 3D",
+                subMeshes: subMeshesList
+              } 
+            })
+          );
 
           if (currentTool === 'move') {
             gizmoManager.rotationGizmoEnabled = false;
@@ -531,7 +513,31 @@ export const Viewport3D = () => {
           updateHighlight();
           updateSelectedPosition();
           updateSelectedRotation();
-          window.dispatchEvent(new CustomEvent('apex-mesh-selected', { detail: { name: file.name || "Modèle 3D" } }));
+
+          const subMeshesList: { id: string; name: string; color: string }[] = [];
+          const childMeshes = [r, ...r.getChildMeshes()];
+          childMeshes.forEach((cm, idx) => {
+            let hex = '#00f0ff';
+            if (cm.material) {
+              const mat = cm.material as any;
+              if (mat.albedoColor) hex = mat.albedoColor.toHexString();
+              else if (mat.diffuseColor) hex = mat.diffuseColor.toHexString();
+            }
+            subMeshesList.push({
+              id: `${r.name}-${idx}`,
+              name: cm.name || `Partie ${idx + 1}`,
+              color: hex
+            });
+          });
+
+          window.dispatchEvent(
+            new CustomEvent('apex-mesh-selected', { 
+              detail: { 
+                name: file.name || "Modèle 3D",
+                subMeshes: subMeshesList
+              } 
+            })
+          );
 
           if (currentTool === 'move') {
             gizmoManager.rotationGizmoEnabled = false;
