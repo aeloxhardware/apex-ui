@@ -4,28 +4,24 @@
 }
 
 .tooltipBubble {
-  position: absolute;
-  top: calc(100% + 14px);
-  left: 50%;
-  transform: translateX(-50%) translateY(-3px);
-  background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
-  border: none;
+  position: fixed;
+  background: rgba(10, 15, 26, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.95);
   font-size: 11px;
   font-weight: 600;
   padding: 5px 12px;
-  border-radius: 12px;
+  border-radius: 10px;
   white-space: nowrap;
   pointer-events: none;
   z-index: 999999;
-  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.35), 0 4px 16px 0 rgba(0, 0, 0, 0.25);
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.45), 0 4px 16px 0 rgba(0, 0, 0, 0.25);
   opacity: 0;
   transition: opacity 0.18s ease, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 
   &.visible {
     opacity: 1;
-    transform: translateX(-50%) translateY(0);
   }
 }
