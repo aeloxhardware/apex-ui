@@ -5,6 +5,7 @@ import { Sidebar } from '@/components/Sidebar';
 import { FileSidebar } from '@/components/FileSidebar';
 import { SliceSidebar } from '@/components/SliceSidebar';
 import { CategoriesSidebar } from '@/components/CategoriesSidebar';
+import { TopRightMenu } from '@/components/TopRightMenu';
 import { Viewport3D } from '@/components/Viewport3D';
 import { Box, Layers, Activity } from 'lucide-react';
 import { showSuccess } from '@/utils/toast';
@@ -41,6 +42,8 @@ const Index = () => {
         onTabChange={(tab) => setActiveTab(tab === 'box' ? '3d-view' : tab)}
         onOpenModel={handleOpenModel}
       />
+
+      <TopRightMenu />
 
       <CategoriesSidebar 
         activeCategory={activeCategory} 
