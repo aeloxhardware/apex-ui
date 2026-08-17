@@ -34,7 +34,7 @@
 .bottomToolbar {
   padding: 6px 10px;
   border-radius: 22px;
-  gap: 5px;
+  gap: 6px;
 }
 
 .button {
@@ -138,12 +138,12 @@
 
 .uploadActionButton {
   color: #00f0ff !important;
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
 
   &:hover {
-    background: rgba(0, 240, 255, 0.08) !important;
+    background: rgba(0, 240, 255, 0.12) !important;
   }
 }
 
@@ -151,7 +151,7 @@
   width: 1px;
   height: 18px;
   background: rgba(255, 255, 255, 0.15);
-  margin: 0 2px;
+  margin: 0 4px;
 }
 
 .topSeparator {
