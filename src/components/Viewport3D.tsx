@@ -202,7 +202,7 @@ export const Viewport3D = () => {
       }
     };
 
-    // Fonction de retour au sol avec rebond quand on lâche l'objet au-dessus du plateau
+    // Simulation de chute libre avec accélération gravitationnelle et amortissement à l'impact
     const handleDragEnd = () => {
       const selection = selectedMeshesRef.current;
       if (selection.size === 0) return;
@@ -211,37 +211,42 @@ export const Viewport3D = () => {
 
       const boundingInfo = activeMesh.getHierarchyBoundingVectors(true);
       const minHeight = boundingInfo.min.y;
-      const originalHeightAtZero = (activeMesh.position.y - minHeight) > 0 ? (activeMesh.position.y - minHeight) : 0;
-      
-      // Si l'objet est soulevé au-dessus du plateau (y > 2)
-      if (activeMesh.position.y > 2) {
-        const targetY = originalHeightAtZero || 0;
+      const targetY = (activeMesh.position.y - minHeight) > 0 ? (activeMesh.position.y - minHeight) : 0;
 
-        const anim = new BABYLON.Animation(
-          "bounceBack",
-          "position.y",
-          60,
-          BABYLON.Animation.ANIMATIONTYPE_FLOAT,
-          BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT
-        );
+      // Si l'objet est relâché en l'air au-dessus du plateau
+      if (activeMesh.position.y > targetY + 1) {
+        let currentY = activeMesh.position.y;
+        let velocityY = 0;
+        const gravity = 0.8; // Accélération de la chute
+        const restitution = 0.25; // Facteur de rebond amorti
 
-        const keys = [
-          { frame: 0, value: activeMesh.position.y },
-          { frame: 12, value: targetY - 1.2 }, 
-          { frame: 22, value: targetY + 1.0 }, 
-          { frame: 32, value: targetY - 0.3 },
-          { frame: 45, value: targetY }       
-        ];
+        const observer = scene.onBeforeRenderObservable.add(() => {
+          if (!activeMesh || activeMesh.isDisposed()) {
+            scene.onBeforeRenderObservable.remove(observer);
+            return;
+          }
 
-        anim.setKeys(keys);
-        activeMesh.animations = [anim];
-        scene.beginAnimation(activeMesh, 0, 45, false, 1.5, () => {
+          velocityY -= gravity;
+          currentY += velocityY;
+
+          if (currentY <= targetY) {
+            currentY = targetY;
+            if (Math.abs(velocityY) > 1.5) {
+              velocityY = -velocityY * restitution; // Rebond amorti sans rappel élastique
+            } else {
+              activeMesh.position.y = targetY;
+              scene.onBeforeRenderObservable.remove(observer);
+              updateSelectedPosition();
+              return;
+            }
+          }
+
+          activeMesh.position.y = currentY;
           updateSelectedPosition();
         });
       }
     };
 
-    // Observer les événements de fin de glissement sur les gizmos de position
     const setupGizmoDragEnd = () => {
       const posGizmo = gizmoManager.gizmos.positionGizmo;
       if (posGizmo) {
