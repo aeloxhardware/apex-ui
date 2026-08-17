@@ -4,12 +4,14 @@ import React, { useState } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { FileSidebar } from '@/components/FileSidebar';
 import { SliceSidebar } from '@/components/SliceSidebar';
+import { CategoriesSidebar } from '@/components/CategoriesSidebar';
 import { Viewport3D } from '@/components/Viewport3D';
 import { Box, Layers, Activity } from 'lucide-react';
 import { showSuccess } from '@/utils/toast';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState<'3d-view' | 'settings' | 'developer'>('3d-view');
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
   const handleSlice = () => {
     showSuccess("Slicing plate completed successfully!");
@@ -38,6 +40,11 @@ const Index = () => {
         activeTab={activeTab} 
         onTabChange={(tab) => setActiveTab(tab === 'box' ? '3d-view' : tab)}
         onOpenModel={handleOpenModel}
+      />
+
+      <CategoriesSidebar 
+        activeCategory={activeCategory} 
+        onSelectCategory={setActiveCategory} 
       />
 
       <SliceSidebar onSlice={handleSlice} />
