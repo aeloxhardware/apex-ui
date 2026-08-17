@@ -22,7 +22,7 @@ export interface CategoryItem {
   icon: React.ReactNode;
   sections: {
     title: string;
-    items: string[];
+    items: { label: string; defaultValue: string }[];
   }[];
 }
 
@@ -32,9 +32,29 @@ const CATEGORIES: CategoryItem[] = [
     title: '1. Géométrie & Extrusion',
     icon: <Layers size={20} />,
     sections: [
-      { title: 'Hauteur & Première couche', items: ['Hauteur de couche (Layer height)', 'Première couche (First layer height)', 'Débit première couche'] },
-      { title: 'Largeurs d\'extrusion', items: ['Largeur des murs (Line width)', 'Largeur du remplissage', 'Largeur des supports'] },
-      { title: 'Parois', items: ['Ordre d\'impression des parois (Inner/Outer)', 'Compensation de contour'] }
+      { 
+        title: 'Hauteur & Première couche', 
+        items: [
+          { label: 'Hauteur de couche (Layer height)', defaultValue: '0.2 mm' },
+          { label: 'Première couche (First layer height)', defaultValue: '0.24 mm' },
+          { label: 'Débit première couche', defaultValue: '105%' }
+        ] 
+      },
+      { 
+        title: 'Largeurs d\'extrusion', 
+        items: [
+          { label: 'Largeur des murs (Line width)', defaultValue: '0.45 mm' },
+          { label: 'Largeur du remplissage', defaultValue: '0.45 mm' },
+          { label: 'Largeur des supports', defaultValue: '0.40 mm' }
+        ] 
+      },
+      { 
+        title: 'Parois', 
+        items: [
+          { label: 'Ordre d\'impression des parois (Inner/Outer)', defaultValue: 'Interne d\'abord' },
+          { label: 'Compensation de contour', defaultValue: 'Activée' }
+        ] 
+      }
     ]
   },
   {
@@ -42,8 +62,21 @@ const CATEGORIES: CategoryItem[] = [
     title: '2. Résistance & Remplissage',
     icon: <ShieldAlert size={20} />,
     sections: [
-      { title: 'Remplissage', items: ['Densité de remplissage (%)', 'Motifs (Grid, Gyroid, Lightning)', 'Angle du remplissage'] },
-      { title: 'Parois & Coques', items: ['Nombre de parois / contours (Wall loops)', 'Couches supérieures et inférieures (Top/Bottom shell layers)'] }
+      { 
+        title: 'Remplissage', 
+        items: [
+          { label: 'Densité de remplissage (%)', defaultValue: '15%' },
+          { label: 'Motifs (Grid, Gyroid, Lightning)', defaultValue: 'Gyroid' },
+          { label: 'Angle du remplissage', defaultValue: '45°' }
+        ] 
+      },
+      { 
+        title: 'Parois & Coques', 
+        items: [
+          { label: 'Nombre de parois / contours (Wall loops)', defaultValue: '3' },
+          { label: 'Couches supérieures et inférieures (Top/Bottom shell layers)', defaultValue: '4' }
+        ] 
+      }
     ]
   },
   {
@@ -51,8 +84,22 @@ const CATEGORIES: CategoryItem[] = [
     title: '3. Cinématique & Vitesse',
     icon: <Gauge size={20} />,
     sections: [
-      { title: 'Vitesses', items: ['Vitesse d\'impression des parois', 'Vitesse de remplissage', 'Vitesse de déplacement (Travel)'] },
-      { title: 'Accélération & Temps', items: ['Accélération & Jerk / Junction Deviation', 'Temps minimum de couche', 'Ralentissement automatique'] }
+      { 
+        title: 'Vitesses', 
+        items: [
+          { label: 'Vitesse d\'impression des parois', defaultValue: '120 mm/s' },
+          { label: 'Vitesse de remplissage', defaultValue: '200 mm/s' },
+          { label: 'Vitesse de déplacement (Travel)', defaultValue: '300 mm/s' }
+        ] 
+      },
+      { 
+        title: 'Accélération & Temps', 
+        items: [
+          { label: 'Accélération & Jerk / Junction Deviation', defaultValue: '5000 mm/s²' },
+          { label: 'Temps minimum de couche', defaultValue: '5.0 s' },
+          { label: 'Ralentissement automatique', defaultValue: 'Activé' }
+        ] 
+      }
     ]
   },
   {
@@ -60,8 +107,20 @@ const CATEGORIES: CategoryItem[] = [
     title: '4. Thermique & Refroidissement',
     icon: <Flame size={20} />,
     sections: [
-      { title: 'Températures', items: ['Température de la buse (Hotend)', 'Température du plateau (Bed)'] },
-      { title: 'Ventilation', items: ['Ventilation du composant (Part cooling fan %)', 'Ventilation ponts et surplombs (Overhang/Bridge fan)'] }
+      { 
+        title: 'Températures', 
+        items: [
+          { label: 'Température de la buse (Hotend)', defaultValue: '210°C' },
+          { label: 'Température du plateau (Bed)', defaultValue: '60°C' }
+        ] 
+      },
+      { 
+        title: 'Ventilation', 
+        items: [
+          { label: 'Ventilation du composant (Part cooling fan %)', defaultValue: '100%' },
+          { label: 'Ventilation ponts et surplombs (Overhang/Bridge fan)', defaultValue: '80%' }
+        ] 
+      }
     ]
   },
   {
@@ -69,8 +128,20 @@ const CATEGORIES: CategoryItem[] = [
     title: '5. Gestion Filaments & Rétraction',
     icon: <RotateCcw size={20} />,
     sections: [
-      { title: 'Rétraction', items: ['Distance et vitesse de rétraction', 'Z-Hop / Lift (décalage vertical)', 'Pressure Advance / Linear Advance'] },
-      { title: 'Débit', items: ['Facteur de débit (Flow ratio / Extrusion multiplier)'] }
+      { 
+        title: 'Rétraction', 
+        items: [
+          { label: 'Distance et vitesse de rétraction', defaultValue: '0.8 mm / 35 mm/s' },
+          { label: 'Z-Hop / Lift (décalage vertical)', defaultValue: '0.4 mm' },
+          { label: 'Pressure Advance / Linear Advance', defaultValue: '0.035' }
+        ] 
+      },
+      { 
+        title: 'Débit', 
+        items: [
+          { label: 'Facteur de débit (Flow ratio / Extrusion multiplier)', defaultValue: '0.98' }
+        ] 
+      }
     ]
   },
   {
@@ -78,8 +149,20 @@ const CATEGORIES: CategoryItem[] = [
     title: '6. Structures de Support & Adhérence',
     icon: <Cpu size={20} />,
     sections: [
-      { title: 'Supports', items: ['Types de supports (Standard vs Tree/Arachne)', 'Distance d\'interface Z/XY', 'Motif des interfaces de support'] },
-      { title: 'Adhérence', items: ['Adhérence au plateau (Brim, Raft, Skirt)'] }
+      { 
+        title: 'Supports', 
+        items: [
+          { label: 'Types de supports (Standard vs Tree/Arachne)', defaultValue: 'Arachne (Organique)' },
+          { label: 'Distance d\'interface Z/XY', defaultValue: '0.2 mm' },
+          { label: 'Motif des interfaces de support', defaultValue: 'Rectiligne' }
+        ] 
+      },
+      { 
+        title: 'Adhérence', 
+        items: [
+          { label: 'Adhérence au plateau (Brim, Raft, Skirt)', defaultValue: 'Brim (Ligne auto)' }
+        ] 
+      }
     ]
   },
   {
@@ -87,8 +170,19 @@ const CATEGORIES: CategoryItem[] = [
     title: '7. Qualité de Surface & Finition',
     icon: <Sparkles size={20} />,
     sections: [
-      { title: 'Finition', items: ['Lissage de la couche supérieure (Ironing)', 'Masquage des coutures Z (Seam position, Scarf seam)'] },
-      { title: 'Tolérances', items: ['Compensation d\'élasticité et tolérances X/Y'] }
+      { 
+        title: 'Finition', 
+        items: [
+          { label: 'Lissage de la couche supérieure (Ironing)', defaultValue: 'Désactivé' },
+          { label: 'Masquage des coutures Z (Seam position, Scarf seam)', defaultValue: 'Aléatoire' }
+        ] 
+      },
+      { 
+        title: 'Tolérances', 
+        items: [
+          { label: 'Compensation d\'élasticité et tolérances X/Y', defaultValue: '0.0 mm' }
+        ] 
+      }
     ]
   },
   {
@@ -96,8 +190,19 @@ const CATEGORIES: CategoryItem[] = [
     title: '8. Multi-Matériaux & Couleur (AMS)',
     icon: <Palette size={20} />,
     sections: [
-      { title: 'Purge & Rinçage', items: ['Volumes de purge et tour de rinçage (Flush volumes)', 'Changements d\'outils et températures de veille'] },
-      { title: 'Matériaux spéciaux', items: ['Matériaux d\'interface de support dédiés (PVA / Support W)'] }
+      { 
+        title: 'Purge & Rinçage', 
+        items: [
+          { label: 'Volumes de purge et tour de rinçage (Flush volumes)', defaultValue: '600 mm³' },
+          { label: 'Changements d\'outils et températures de veille', defaultValue: '220°C' }
+        ] 
+      },
+      { 
+        title: 'Matériaux spéciaux', 
+        items: [
+          { label: 'Matériaux d\'interface de support dédiés (PVA / Support W)', defaultValue: 'Support W' }
+        ] 
+      }
     ]
   },
   {
@@ -105,7 +210,14 @@ const CATEGORIES: CategoryItem[] = [
     title: '9. Dynamique & Algorithmes Avancés',
     icon: <Workflow size={20} />,
     sections: [
-      { title: 'Algorithmes', items: ['Générateur de parois (Arachne vs Classic)', 'Arc Fitting (G2/G3 interpolation)', 'Compensation de vibration (Input Shaping)'] }
+      { 
+        title: 'Algorithmes', 
+        items: [
+          { label: 'Générateur de parois (Arachne vs Classic)', defaultValue: 'Arachne' },
+          { label: 'Arc Fitting (G2/G3 interpolation)', defaultValue: 'Activé' },
+          { label: 'Compensation de vibration (Input Shaping)', defaultValue: 'MZV (X/Y)' }
+        ] 
+      }
     ]
   },
   {
@@ -113,8 +225,19 @@ const CATEGORIES: CategoryItem[] = [
     title: '10. G-code Custom & Intégration',
     icon: <Terminal size={20} />,
     sections: [
-      { title: 'Scripts G-code', items: ['G-code de début / fin / pause', 'Dimensions et limites physiques du volume'] },
-      { title: 'Intégration', items: ['Gestion des caméras / Time-lapse'] }
+      { 
+        title: 'Scripts G-code', 
+        items: [
+          { label: 'G-code de début / fin / pause', defaultValue: 'Standard Klipper' },
+          { label: 'Dimensions et limites physiques du volume', defaultValue: '256x256x256 mm' }
+        ] 
+      },
+      { 
+        title: 'Intégration', 
+        items: [
+          { label: 'Gestion des caméras / Time-lapse', defaultValue: 'Smooth (Exturder Sync)' }
+        ] 
+      }
     ]
   }
 ];
@@ -269,10 +392,10 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
                     <ul className={styles.itemsList}>
                       {section.items.map((item, iIdx) => (
                         <li key={iIdx} className={styles.itemRow}>
-                          <span className={styles.itemName}>{item}</span>
+                          <span className={styles.itemName}>{item.label}</span>
                           <input 
                             type="text" 
-                            defaultValue="Auto" 
+                            defaultValue={item.defaultValue} 
                             className={styles.itemInput} 
                           />
                         </li>
