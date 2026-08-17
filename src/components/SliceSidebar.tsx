@@ -29,10 +29,10 @@ export const SliceSidebar: React.FC<SliceSidebarProps> = ({ onSlice }) => {
       {!isPreviewActive && (
         <motion.div 
           className={styles.container}
-          initial={{ opacity: 0, x: -30 }}
+          initial={{ opacity: 0, x: -40 }}
           animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -320 }}
-          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+          exit={{ opacity: 0, x: -350 }}
+          transition={{ duration: 0.35, ease: [0.25, 1, 0.5, 1], delay: 0.1 }}
         >
           <div className={styles.toolbar}>
             <CustomTooltip content="Lancer le Slicing (Découpe)" description="Lancez le calcul complet du G-code pour transformer votre modèle 3D en trajectoires d'impression exploitables.">

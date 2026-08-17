@@ -71,10 +71,10 @@ export const ModelStatusBox: React.FC = () => {
       {!isPreviewActive && (
         <motion.div 
           className={styles.container}
-          initial={{ opacity: 0, x: -30 }}
+          initial={{ opacity: 0, x: -40 }}
           animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -320 }}
-          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+          exit={{ opacity: 0, x: -350 }}
+          transition={{ duration: 0.35, ease: [0.25, 1, 0.5, 1], delay: 0.05 }}
         >
           <div className={styles.toolbar}>
             <div className={styles.content}>
