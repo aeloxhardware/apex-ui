@@ -28,8 +28,6 @@ const Index = () => {
       className="flex flex-col h-screen w-screen overflow-hidden select-none relative bg-cover bg-center"
       style={{ backgroundImage: `url('/background.jpg')` }}
     >
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] pointer-events-none" />
-
       <FileSidebar 
         onOpenModel={handleOpenModel}
         onSaveProject={handleSaveProject}
