@@ -8,11 +8,11 @@ import {
   RotateCw, 
   Maximize, 
   Layers, 
-  Upload,
-  Code,
-  Maximize2,
-  Eye,
-  Palette
+  Upload, 
+  Code, 
+  Maximize2, 
+  Eye, 
+  Palette 
 } from 'lucide-react';
 import styles from './Sidebar.module.scss';
 import { CustomTooltip } from './CustomTooltip';
@@ -29,6 +29,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenModel
 }) => {
   const [activeTool, setActiveTool] = useState<'select' | 'move' | 'rotate' | 'scale' | 'texture' | 'layers'>('select');
+  const [isTopHovered, setIsTopHovered] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const topToolbarRef = useRef<HTMLDivElement>(null);
@@ -74,7 +75,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <div className={styles.container}>
       {/* Top Toolbar (Navigation & Main Views) */}
-      <div ref={topToolbarRef} className={clsx(styles.toolbar, styles.topToolbar)}>
+      <div 
+        ref={topToolbarRef} 
+        className={clsx(styles.toolbar, styles.topToolbar)}
+        onMouseEnter={() => setIsTopHovered(true)}
+        onMouseLeave={() => setIsTopHovered(false)}
+      >
         <div className={styles.activeIndicator} style={indicatorStyle}></div>
 
         <CustomTooltip content="Apex Slicer Studio" description="Logiciel de préparation et de découpe 3D haute performance pour l'impression additive professionnelle.">
@@ -123,7 +129,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Bottom Toolbar (Action, Manipulation 3D) */}
-      <div className={clsx(styles.toolbar, styles.bottomToolbar)}>
+      <div className={clsx(styles.toolbar, styles.bottomToolbar, { [styles.shiftedDown]: isTopHovered })}>
         <CustomTooltip content="Outil de Sélection" description="Cliquez sur n'importe quel modèle 3D sur le plateau pour le sélectionner et afficher ses propriétés.">
           <button
             className={clsx(styles.button, styles.bottomButton, {
