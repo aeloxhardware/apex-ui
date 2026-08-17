@@ -29,7 +29,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenModel
 }) => {
   const [activeTool, setActiveTool] = useState<'select' | 'move' | 'rotate' | 'scale' | 'texture' | 'layers'>('select');
-  const [hoveredTool, setHoveredTool] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const topToolbarRef = useRef<HTMLDivElement>(null);
@@ -55,10 +54,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const handleLayerClick = () => {
     const newTool = activeTool === 'layers' ? 'select' : 'layers';
     setActiveTool(newTool);
-    // On décale l'effet de disparition en dernier
-    setTimeout(() => {
-      window.dispatchEvent(new CustomEvent('apex-preview-toggled', { detail: { active: newTool === 'layers' } }));
-    }, 150);
+    window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: newTool } }));
+    window.dispatchEvent(new CustomEvent('apex-preview-toggled', { detail: { active: newTool === 'layers' } }));
   };
 
   useEffect(() => {
@@ -99,16 +96,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   useEffect(() => {
     if (topToolbarRef.current && buttonRefs.current.size > 0) {
-      // Priorité au survol pour le déplacement fluide du surlignage
-      let targetKey = hoveredTool;
-      if (!targetKey) {
-        targetKey = activeTab === '3d-view' ? 'box' : activeTab;
-        if (activeTool === 'layers') {
-          targetKey = 'layers';
-        }
+      let activeButtonKey = activeTab === '3d-view' ? 'box' : activeTab;
+      if (activeTool === 'layers') {
+        activeButtonKey = 'layers';
       }
-      
-      const activeButton = buttonRefs.current.get(targetKey);
+      const activeButton = buttonRefs.current.get(activeButtonKey);
 
       if (activeButton) {
         const toolbarRect = topToolbarRef.current.getBoundingClientRect();
@@ -125,7 +117,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         setIndicatorStyle((prev) => ({ ...prev, opacity: 0 }));
       }
     }
-  }, [activeTab, activeTool, hoveredTool]);
+  }, [activeTab, activeTool]);
 
   return (
     <div className={styles.container}>
@@ -133,7 +125,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div 
         ref={topToolbarRef} 
         className={clsx(styles.toolbar, styles.topToolbar)}
-        onMouseLeave={() => setHoveredTool(null)}
       >
         <div className={styles.activeIndicator} style={indicatorStyle}></div>
 
@@ -152,7 +143,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               [styles.active]: activeTab === '3d-view' && activeTool !== 'layers',
             })}
             onClick={() => handleTopTabClick('box')}
-            onMouseEnter={() => setHoveredTool('box')}
           >
             <Box size={22} />
           </button>
@@ -162,10 +152,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             ref={(el) => { if (el) buttonRefs.current.set('layers', el); }}
             className={clsx(styles.button, styles.topButton, {
-              [styles.active]: false, // Le changement d'onglet actif en bleu se fera en tout dernier
+              [styles.active]: activeTool === 'layers',
             })}
             onClick={handleLayerClick}
-            onMouseEnter={() => setHoveredTool('layers')}
           >
             <Layers size={22} />
           </button>
@@ -178,7 +167,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               [styles.active]: activeTab === 'settings',
             })}
             onClick={() => handleTopTabClick('settings')}
-            onMouseEnter={() => setHoveredTool('settings')}
           >
             <Settings size={22} />
           </button>
@@ -191,7 +179,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               [styles.active]: activeTab === 'developer',
             })}
             onClick={() => handleTopTabClick('developer')}
-            onMouseEnter={() => setHoveredTool('developer')}
           >
             <Code size={22} />
           </button>
