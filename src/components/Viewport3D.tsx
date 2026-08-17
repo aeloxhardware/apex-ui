@@ -273,6 +273,36 @@ export const Viewport3D = () => {
     topOutline.color = new BABYLON.Color3(0, 0.94, 1);
     topOutline.parent = volumeRoot;
 
+    // Handle Delete key for removing selected meshes
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        const selection = selectedMeshesRef.current;
+        if (selection.size > 0) {
+          let confirmed = true;
+          if (selection.size > 1) {
+            confirmed = window.confirm(`Voulez-vous vraiment supprimer les ${selection.size} modèles sélectionnés ?`);
+          }
+          if (confirmed) {
+            selection.forEach(mesh => {
+              if (mesh && !mesh.isDisposed()) {
+                modelsRef.current.delete(mesh);
+                mesh.dispose();
+              }
+            });
+            selection.clear();
+            setSelectedMeshName(null);
+            updateHighlight();
+            gizmoManager.positionGizmoEnabled = false;
+            gizmoManager.rotationGizmoEnabled = false;
+            gizmoManager.scaleGizmoEnabled = false;
+            gizmoManager.attachToMesh(null);
+            window.dispatchEvent(new CustomEvent('apex-mesh-selected', { detail: { name: null } }));
+          }
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
     const pointerObserver = scene.onPointerObservable.add((pointerInfo) => {
       const excluded: BABYLON.AbstractMesh[] = [plate, outline, topOutline];
 
@@ -436,6 +466,7 @@ export const Viewport3D = () => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('apex-import-model', onImportModel);
       window.removeEventListener('apex-tool-changed', onToolChanged);
+      window.removeEventListener('keydown', handleKeyDown);
       scene.onPointerObservable.remove(pointerObserver);
       gizmoManager.dispose();
       scene.dispose();
