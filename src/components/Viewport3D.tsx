@@ -348,18 +348,17 @@ export const Viewport3D = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
 
-    // Fonction utilitaire robuste pour remonter au modèle racine (root) enregistré dans modelsRef
+    // Fonction robuste pour remonter au sommet de la hiérarchie du modèle (root)
     const getRootModel = (mesh: BABYLON.AbstractMesh): BABYLON.AbstractMesh => {
-      let curr: BABYLON.AbstractMesh | null = mesh;
-      let lastValid: BABYLON.AbstractMesh = mesh;
-      while (curr) {
-        if (modelsRef.current.has(curr)) {
-          return curr;
+      let curr: BABYLON.Node | null = mesh;
+      let topValid: BABYLON.AbstractMesh = mesh;
+      while (curr && curr.parent) {
+        curr = curr.parent;
+        if (curr instanceof BABYLON.AbstractMesh) {
+          topValid = curr;
         }
-        lastValid = curr;
-        curr = curr.parent as BABYLON.AbstractMesh;
       }
-      return lastValid;
+      return topValid;
     };
 
     const pointerObserver = scene.onPointerObservable.add((pointerInfo) => {
