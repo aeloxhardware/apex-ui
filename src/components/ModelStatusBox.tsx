@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import styles from './ModelStatusBox.module.scss';
-import { Box, ChevronRight, Layers } from 'lucide-react';
+import { Box, ChevronRight } from 'lucide-react';
 
 interface ModelItem {
   id: string;
@@ -55,10 +55,6 @@ export const ModelStatusBox: React.FC = () => {
   return (
     <div className={styles.container}>
       <div className={styles.toolbar}>
-        <div className={styles.header}>
-          <Layers size={16} className="text-[#00f0ff]" />
-          <span className={styles.title}>Arborescence des Modèles</span>
-        </div>
         <div className={styles.content}>
           {models.length === 0 ? (
             <div className={styles.emptyText}>Aucun modèle sur le plateau</div>
