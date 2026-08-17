@@ -13,6 +13,7 @@ export const Viewport3D = () => {
   const gizmoManagerRef = useRef<BABYLON.GizmoManager | null>(null);
   const selectedMeshesRef = useRef<Set<BABYLON.AbstractMesh>>(new Set());
   const modelsRef = useRef<Set<BABYLON.AbstractMesh>>(new Set());
+  const currentToolRef = useRef<string>("select");
   const [selectedMeshName, setSelectedMeshName] = useState<string | null>(null);
 
   // Dimensions : 250mm de diamètre (rayon 125) et 130mm de haut
@@ -106,8 +107,6 @@ export const Viewport3D = () => {
     gizmoManager.positionGizmoEnabled = false;
     gizmoManager.rotationGizmoEnabled = false;
     gizmoManager.scaleGizmoEnabled = false;
-
-    let currentTool = "select";
 
     const updateHighlight = () => {
       if (!hlRef.current) return;
@@ -206,11 +205,11 @@ export const Viewport3D = () => {
 
     const onToolChanged = (e: Event) => {
       const customEvent = e as CustomEvent<{ tool: string }>;
-      currentTool = customEvent.detail.tool;
+      currentToolRef.current = customEvent.detail.tool;
       if (scene.isDisposed) return;
 
       const selection = selectedMeshesRef.current;
-      if (currentTool === 'move' && selection.size > 0) {
+      if (currentToolRef.current === 'move' && selection.size > 0) {
         const activeMesh = Array.from(selection)[0];
         if (activeMesh) {
           gizmoManager.rotationGizmoEnabled = false;
@@ -219,7 +218,7 @@ export const Viewport3D = () => {
           applyCustomGizmoColors();
           gizmoManager.attachToMesh(activeMesh);
         }
-      } else if (currentTool === 'rotate' && selection.size > 0) {
+      } else if (currentToolRef.current === 'rotate' && selection.size > 0) {
         const activeMesh = Array.from(selection)[0];
         if (activeMesh) {
           gizmoManager.positionGizmoEnabled = false;
@@ -228,7 +227,7 @@ export const Viewport3D = () => {
           applyCustomGizmoColors();
           gizmoManager.attachToMesh(activeMesh);
         }
-      } else if (currentTool === 'scale' && selection.size > 0) {
+      } else if (currentToolRef.current === 'scale' && selection.size > 0) {
         const activeMesh = Array.from(selection)[0];
         if (activeMesh) {
           gizmoManager.positionGizmoEnabled = false;
@@ -359,7 +358,7 @@ export const Viewport3D = () => {
 
         if (pick?.hit && pick.pickedMesh) {
           let hoveredMesh = pick.pickedMesh;
-          if (currentTool !== 'texture') {
+          if (currentToolRef.current !== 'texture') {
             let root = hoveredMesh;
             while (root.parent && modelsRef.current.has(root.parent as BABYLON.AbstractMesh) === false) {
               root = root.parent as BABYLON.AbstractMesh;
@@ -392,20 +391,20 @@ export const Viewport3D = () => {
       if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERUP) {
         const pick = scene.pick(scene.pointerX, scene.pointerY, (mesh) => !excluded.includes(mesh) && !mesh.name.includes("Gizmo"));
         if (pick?.hit && pick.pickedMesh) {
-          let topMesh = pick.pickedMesh;
+          let targetMesh = pick.pickedMesh;
           
-          // Si l'outil n'est pas 'texture', on remonte toujours au modèle racine complet
-          if (currentTool !== 'texture') {
-            let root = topMesh;
+          // CRITIQUE : Si l'outil n'est PAS 'texture', on remonte TOUJOURS au modèle racine complet.
+          if (currentToolRef.current !== 'texture') {
+            let root = targetMesh;
             while (root.parent && modelsRef.current.has(root.parent as BABYLON.AbstractMesh) === false) {
               root = root.parent as BABYLON.AbstractMesh;
             }
             if (modelsRef.current.has(root)) {
-              topMesh = root;
+              targetMesh = root;
             }
           }
           
-          if (selectedMeshesRef.current.has(topMesh)) {
+          if (selectedMeshesRef.current.has(targetMesh)) {
             selectedMeshesRef.current.clear();
             setSelectedMeshName(null);
             updateHighlight();
@@ -418,15 +417,15 @@ export const Viewport3D = () => {
           }
 
           selectedMeshesRef.current.clear();
-          selectedMeshesRef.current.add(topMesh);
-          setSelectedMeshName(topMesh.name || "Modèle 3D");
+          selectedMeshesRef.current.add(targetMesh);
+          setSelectedMeshName(targetMesh.name || "Modèle 3D");
           updateHighlight();
           updateSelectedPosition();
           updateSelectedRotation();
 
-          // Extract real sub-meshes and colors from topMesh hierarchy
+          // Extract real sub-meshes and colors from targetMesh hierarchy
           const subMeshesList: { id: string; name: string; color: string }[] = [];
-          const childMeshes = [topMesh, ...topMesh.getChildMeshes()];
+          const childMeshes = [targetMesh, ...targetMesh.getChildMeshes()];
           childMeshes.forEach((cm, idx) => {
             let hex = '#00f0ff';
             if (cm.material) {
@@ -435,7 +434,7 @@ export const Viewport3D = () => {
               else if (mat.diffuseColor) hex = mat.diffuseColor.toHexString();
             }
             subMeshesList.push({
-              id: `${topMesh.name}-${idx}`,
+              id: `${targetMesh.name}-${idx}`,
               name: cm.name || `Partie ${idx + 1}`,
               color: hex
             });
@@ -444,29 +443,29 @@ export const Viewport3D = () => {
           window.dispatchEvent(
             new CustomEvent('apex-mesh-selected', { 
               detail: { 
-                name: topMesh.name || "Modèle 3D",
+                name: targetMesh.name || "Modèle 3D",
                 subMeshes: subMeshesList
               } 
             })
           );
 
-          if (currentTool === 'move') {
+          if (currentToolRef.current === 'move') {
             gizmoManager.rotationGizmoEnabled = false;
             gizmoManager.scaleGizmoEnabled = false;
             gizmoManager.positionGizmoEnabled = true;
             applyCustomGizmoColors();
-            gizmoManager.attachToMesh(topMesh);
-          } else if (currentTool === 'rotate') {
+            gizmoManager.attachToMesh(targetMesh);
+          } else if (currentToolRef.current === 'rotate') {
             gizmoManager.positionGizmoEnabled = false;
             gizmoManager.scaleGizmoEnabled = false;
             gizmoManager.rotationGizmoEnabled = true;
             applyCustomGizmoColors();
-            gizmoManager.attachToMesh(topMesh);
-          } else if (currentTool === 'scale') {
+            gizmoManager.attachToMesh(targetMesh);
+          } else if (currentToolRef.current === 'scale') {
             gizmoManager.positionGizmoEnabled = false;
             gizmoManager.rotationGizmoEnabled = false;
             gizmoManager.scaleGizmoEnabled = true;
-            gizmoManager.attachToMesh(topMesh);
+            gizmoManager.attachToMesh(targetMesh);
           } else {
             gizmoManager.positionGizmoEnabled = false;
             gizmoManager.rotationGizmoEnabled = false;
@@ -531,7 +530,7 @@ export const Viewport3D = () => {
             });
           });
 
-          window.dispatchEvent(
+      window.dispatchEvent(
             new CustomEvent('apex-mesh-selected', { 
               detail: { 
                 name: file.name || "Modèle 3D",
@@ -540,19 +539,19 @@ export const Viewport3D = () => {
             })
           );
 
-          if (currentTool === 'move') {
+          if (currentToolRef.current === 'move') {
             gizmoManager.rotationGizmoEnabled = false;
             gizmoManager.scaleGizmoEnabled = false;
             gizmoManager.positionGizmoEnabled = true;
             applyCustomGizmoColors();
             gizmoManager.attachToMesh(r);
-          } else if (currentTool === 'rotate') {
+          } else if (currentToolRef.current === 'rotate') {
             gizmoManager.positionGizmoEnabled = false;
             gizmoManager.scaleGizmoEnabled = false;
             gizmoManager.rotationGizmoEnabled = true;
             applyCustomGizmoColors();
             gizmoManager.attachToMesh(r);
-          } else if (currentTool === 'scale') {
+          } else if (currentToolRef.current === 'scale') {
             gizmoManager.positionGizmoEnabled = false;
             gizmoManager.rotationGizmoEnabled = false;
             gizmoManager.scaleGizmoEnabled = true;
