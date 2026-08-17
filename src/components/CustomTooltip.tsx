@@ -33,10 +33,11 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({ content, descripti
           transform: 'translateY(-50%) translateX(-100%)',
         });
       } else {
+        // Horizontal toolbar -> show above the button to avoid overlapping with bottom elements
         setCoords({
-          top: rect.bottom + 14,
+          top: rect.top - 14,
           left: rect.left + rect.width / 2,
-          transform: 'translateX(-50%)',
+          transform: 'translateX(-50%) translateY(-100%)',
         });
       }
     }
