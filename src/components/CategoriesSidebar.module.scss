@@ -146,7 +146,7 @@
   }
 }
 
-/* Curseur externe indépendant assorti aux barres latérales (translucide et flouté) */
+/* Curseur externe indépendant sans bordure ni filtre de couleur */
 .externalScrollTrack {
   position: absolute;
   right: -12px;
@@ -167,7 +167,6 @@
   -webkit-backdrop-filter: blur(8px);
   border-radius: 6px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.15);
   transition: background 0.2s;
 
   &:hover {
