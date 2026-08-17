@@ -256,7 +256,6 @@ export const Viewport3D = () => {
         if (!mat || visitedMats.has(mat.uniqueId)) return;
         visitedMats.add(mat.uniqueId);
 
-        // Check albedo / diffuse
         const albedoTex = mat.albedoTexture || mat.diffuseTexture;
         if (albedoTex) {
           textures.push({
@@ -268,7 +267,6 @@ export const Viewport3D = () => {
           });
         }
 
-        // Check bump / normal
         const bumpTex = mat.bumpTexture || mat.normalTexture;
         if (bumpTex) {
           textures.push({
@@ -280,7 +278,6 @@ export const Viewport3D = () => {
           });
         }
 
-        // Check roughness / metallic / specular
         const specTex = mat.metallicTexture || mat.roughnessTexture || mat.specularTexture;
         if (specTex) {
           textures.push({
@@ -292,7 +289,6 @@ export const Viewport3D = () => {
           });
         }
 
-        // If standard material with no textures but color
         if (!albedoTex && !bumpTex && !specTex) {
           let hexColor = '#3b82f6';
           if (mat.albedoColor) {
@@ -311,7 +307,6 @@ export const Viewport3D = () => {
       };
 
       if (activeMesh) {
-        // Inspect active mesh and its submeshes/children
         const meshesToCheck = [activeMesh, ...activeMesh.getChildMeshes()];
         meshesToCheck.forEach(m => {
           if (m.material) {
@@ -367,7 +362,6 @@ export const Viewport3D = () => {
     topOutline.color = new BABYLON.Color3(0, 0.94, 1);
     topOutline.parent = volumeRoot;
 
-    // Handle Delete key for removing selected meshes
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Delete' || e.key === 'Backspace') {
         const selection = selectedMeshesRef.current;
@@ -406,7 +400,17 @@ export const Viewport3D = () => {
         const clientY = pointerInfo.event.clientY;
 
         if (pick?.hit && pick.pickedMesh) {
-          const hoveredMesh = pick.pickedMesh;
+          let hoveredMesh = pick.pickedMesh;
+          if (currentTool !== 'texture') {
+            // Find root model parent if not in texture mode
+            let root = hoveredMesh;
+            while (root.parent && modelsRef.current.has(root.parent as BABYLON.AbstractMesh) === false) {
+              root = root.parent as BABYLON.AbstractMesh;
+            }
+            if (modelsRef.current.has(root)) {
+              hoveredMesh = root;
+            }
+          }
           const hasTexture = hoveredMesh.material && hoveredMesh.material.name !== "boundaryMat";
           window.dispatchEvent(
             new CustomEvent('apex-model-hover', {
@@ -431,7 +435,17 @@ export const Viewport3D = () => {
       if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERUP) {
         const pick = scene.pick(scene.pointerX, scene.pointerY, (mesh) => !excluded.includes(mesh) && !mesh.name.includes("Gizmo"));
         if (pick?.hit && pick.pickedMesh) {
-          const topMesh = pick.pickedMesh;
+          let topMesh = pick.pickedMesh;
+          
+          if (currentTool !== 'texture') {
+            let root = topMesh;
+            while (root.parent && modelsRef.current.has(root.parent as BABYLON.AbstractMesh) === false) {
+              root = root.parent as BABYLON.AbstractMesh;
+            }
+            if (modelsRef.current.has(root)) {
+              topMesh = root;
+            }
+          }
           
           if (selectedMeshesRef.current.has(topMesh)) {
             selectedMeshesRef.current.clear();
