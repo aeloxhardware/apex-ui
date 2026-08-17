@@ -13,6 +13,7 @@ export const Viewport3D = () => {
   const gizmoManagerRef = useRef<BABYLON.GizmoManager | null>(null);
   const selectedMeshesRef = useRef<Set<BABYLON.AbstractMesh>>(new Set());
   const modelsRef = useRef<Set<BABYLON.AbstractMesh>>(new Set());
+  const pipelineRef = useRef<BABYLON.DefaultRenderingPipeline | null>(null);
   const [selectedMeshName, setSelectedMeshName] = useState<string | null>(null);
 
   // Dimensions : 250mm de diamètre (rayon 125) et 130mm de haut
@@ -20,7 +21,7 @@ export const Viewport3D = () => {
   const HEIGHT = 130;
   const HOLE_RADIUS = 20; 
 
-  const createBoundaryMaterial = (scene: BABYLON.Scene, isBlurred: boolean = false) => {
+  const createBoundaryMaterial = (scene: BABYLON.Scene) => {
     BABYLON.Effect.ShadersStore["boundaryVertexShader"] = `
       precision highp float;
       attribute vec3 position;
@@ -36,24 +37,7 @@ export const Viewport3D = () => {
           vNormalW = normalize(vec3(world * vec4(normal, 0.0)));
       }
     `;
-    
-    // Si isBlurred est vrai, on assombrit/atténue légèrement le matériau pour simuler le flou visuel
-    const fragShader = isBlurred ? `
-      precision highp float;
-      varying vec3 vPositionW;
-      varying vec3 vNormalW;
-      uniform float radius;
-      uniform float height;
-      uniform vec3 cameraPosition;
-      void main(void) {
-          float dist = sqrt(vPositionW.x * vPositionW.x + vPositionW.z * vPositionW.z);
-          vec3 lightDir = normalize(vec3(0.5, 1.0, 0.3));
-          float diffuse = max(dot(vNormalW, lightDir), 0.3);
-          vec3 neutralGrey = vec3(0.3, 0.3, 0.3);
-          // Effet assombri / estompé pour les modèles non sélectionnés
-          gl_FragColor = vec4(neutralGrey * diffuse * 0.6, 0.7);
-      }
-    ` : `
+    BABYLON.Effect.ShadersStore["boundaryFragmentShader"] = `
       precision highp float;
       varying vec3 vPositionW;
       varying vec3 vNormalW;
@@ -85,22 +69,11 @@ export const Viewport3D = () => {
           }
       }
     `;
-
-    BABYLON.Effect.ShadersStore[isBlurred ? "blurBoundaryFragmentShader" : "boundaryFragmentShader"] = fragShader;
-
-    const mat = new BABYLON.ShaderMaterial(
-      isBlurred ? "blurMat" : "boundaryMat", 
-      scene, 
-      { vertex: "boundary", fragment: isBlurred ? "blurBoundary" : "boundary" }, 
-      { attributes: ["position", "normal"], uniforms: ["worldViewProjection", "world", "radius", "height", "cameraPosition"] }
-    );
+    const mat = new BABYLON.ShaderMaterial("boundaryMat", scene, { vertex: "boundary", fragment: "boundary" }, { attributes: ["position", "normal"], uniforms: ["worldViewProjection", "world", "radius", "height", "cameraPosition"] });
     mat.setFloat("radius", RADIUS);
     mat.setFloat("height", HEIGHT);
     mat.backFaceCulling = true;
     mat.forceDepthWrite = true;
-    if (isBlurred) {
-      mat.alpha = 0.85;
-    }
     return mat;
   };
 
@@ -123,10 +96,19 @@ export const Viewport3D = () => {
     cameraRef.current = camera;
 
     new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+    
     const hl = new BABYLON.HighlightLayer("hl1", scene);
     hl.blurHorizontalSize = 0.5;
     hl.blurVerticalSize = 0.5;
     hlRef.current = hl;
+
+    // Rendering pipeline for depth of field / blur on unselected items
+    const pipeline = new BABYLON.DefaultRenderingPipeline("defaultPipeline", true, scene, [camera]);
+    pipelineRef.current = pipeline;
+    pipeline.depthOfFieldEnabled = false;
+    pipeline.depthOfField.lensSize = 32;
+    pipeline.depthOfField.focalLength = 50;
+    pipeline.depthOfField.fStop = 1.4;
 
     const gizmoManager = new BABYLON.GizmoManager(scene); 
     gizmoManagerRef.current = gizmoManager; 
@@ -137,27 +119,26 @@ export const Viewport3D = () => {
 
     let currentTool = "select";
 
-    const updateMaterialsAndHighlight = () => {
-      if (!hlRef.current) return;
+    const updateHighlightAndBlur = () => {
+      if (!hlRef.current || !pipelineRef.current) return;
       hlRef.current.removeAllMeshes();
 
       const hasSelection = selectedMeshesRef.current.size > 0;
-
-      modelsRef.current.forEach((mesh) => {
-        if (mesh && !mesh.isDisposed()) {
-          const isSelected = selectedMeshesRef.current.has(mesh);
-          if (isSelected) {
+      if (hasSelection) {
+        selectedMeshesRef.current.forEach((mesh) => {
+          if (mesh && !mesh.isDisposed()) {
             hlRef.current?.addMesh(mesh as BABYLON.Mesh, new BABYLON.Color3(0, 0.94, 1));
-            mesh.material = createBoundaryMaterial(scene, false);
-          } else {
-            if (hasSelection) {
-              mesh.material = createBoundaryMaterial(scene, true);
-            } else {
-              mesh.material = createBoundaryMaterial(scene, false);
-            }
           }
+        });
+        pipelineRef.current.depthOfFieldEnabled = true;
+        // Focus on the first selected mesh
+        const activeMesh = Array.from(selectedMeshesRef.current)[0];
+        if (activeMesh) {
+          pipelineRef.current.depthOfField.focusDistance = BABYLON.Vector3.Distance(camera.position, activeMesh.absolutePosition) * 1000;
         }
-      });
+      } else {
+        pipelineRef.current.depthOfFieldEnabled = false;
+      }
     };
 
     const applyCustomGizmoColors = () => {
@@ -321,11 +302,10 @@ export const Viewport3D = () => {
         if (pick?.hit && pick.pickedMesh && !excluded.includes(pick.pickedMesh) && !pick.pickedMesh.name.includes("Gizmo")) {
           const topMesh = pick.pickedMesh;
           
-          // Toggle selection if clicking the same mesh again
           if (selectedMeshesRef.current.has(topMesh)) {
             selectedMeshesRef.current.clear();
             setSelectedMeshName(null);
-            updateMaterialsAndHighlight();
+            updateHighlightAndBlur();
             gizmoManager.positionGizmoEnabled = false;
             gizmoManager.rotationGizmoEnabled = false;
             gizmoManager.scaleGizmoEnabled = false;
@@ -337,7 +317,7 @@ export const Viewport3D = () => {
           selectedMeshesRef.current.clear();
           selectedMeshesRef.current.add(topMesh);
           setSelectedMeshName(topMesh.name || "Modèle 3D");
-          updateMaterialsAndHighlight();
+          updateHighlightAndBlur();
           updateSelectedPosition();
           updateSelectedRotation();
           window.dispatchEvent(new CustomEvent('apex-mesh-selected', { detail: { name: topMesh.name || "Modèle 3D" } }));
@@ -390,12 +370,12 @@ export const Viewport3D = () => {
           
           r.position.set(0, size.y / 2, 0);
 
-          r.material = createBoundaryMaterial(scene, false);
+          r.material = createBoundaryMaterial(scene);
           modelsRef.current.add(r);
           selectedMeshesRef.current.clear();
           selectedMeshesRef.current.add(r);
           setSelectedMeshName(r.name || "Modèle 3D");
-          updateMaterialsAndHighlight();
+          updateHighlightAndBlur();
           updateSelectedPosition();
           updateSelectedRotation();
           window.dispatchEvent(new CustomEvent('apex-mesh-selected', { detail: { name: r.name || "Modèle 3D" } }));
@@ -450,6 +430,7 @@ export const Viewport3D = () => {
       sceneRef.current = null;
       gizmoManagerRef.current = null;
       hlRef.current = null;
+      pipelineRef.current = null;
     };
   }, []);
 
