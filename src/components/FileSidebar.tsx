@@ -3,7 +3,6 @@ import clsx from 'clsx';
 import { FolderOpen, Save, Printer } from 'lucide-react';
 import styles from './FileSidebar.module.scss';
 import { CustomTooltip } from './CustomTooltip';
-import { ModelTree } from './ModelTree';
 
 interface FileSidebarProps {
   onOpenModel?: () => void;
@@ -17,40 +16,37 @@ export const FileSidebar: React.FC<FileSidebarProps> = ({
   onOpenSettings,
 }) => {
   return (
-    <>
-      <div className={styles.container}>
-        <div className={styles.toolbar}>
-          <CustomTooltip content="Ouvrir un Projet" description="Chargez un projet 3D enregistré précédemment avec ses configurations complètes.">
-            <button
-              className={clsx(styles.button)}
-              onClick={onOpenModel}
-            >
-              <FolderOpen size={18} />
-            </button>
-          </CustomTooltip>
+    <div className={styles.container}>
+      <div className={styles.toolbar}>
+        <CustomTooltip content="Ouvrir un Projet" description="Chargez un projet 3D enregistré précédemment avec ses configurations complètes.">
+          <button
+            className={clsx(styles.button)}
+            onClick={onOpenModel}
+          >
+            <FolderOpen size={18} />
+          </button>
+        </CustomTooltip>
 
-          <CustomTooltip content="Sauvegarder le Projet" description="Enregistrez l'état actuel de votre plateau et vos réglages dans un fichier de projet.">
-            <button
-              className={clsx(styles.button)}
-              onClick={onSaveProject}
-            >
-              <Save size={18} />
-            </button>
-          </CustomTooltip>
+        <CustomTooltip content="Sauvegarder le Projet" description="Enregistrez l'état actuel de votre plateau et vos réglages dans un fichier de projet.">
+          <button
+            className={clsx(styles.button)}
+            onClick={onSaveProject}
+          >
+            <Save size={18} />
+          </button>
+        </CustomTooltip>
 
-          <div className={styles.separator} />
+        <div className={styles.separator} />
 
-          <CustomTooltip content="Configuration Imprimante & Filament" description="Imprimante active : Prusa MK4 | Filament sélectionné : PLA Premium 1.75mm. Cliquez pour modifier.">
-            <button
-              className={clsx(styles.button, styles.configButton)}
-              onClick={onOpenSettings}
-            >
-              <Printer size={18} />
-            </button>
-          </CustomTooltip>
-        </div>
+        <CustomTooltip content="Configuration Imprimante & Filament" description="Imprimante active : Prusa MK4 | Filament sélectionné : PLA Premium 1.75mm. Cliquez pour modifier.">
+          <button
+            className={clsx(styles.button, styles.configButton)}
+            onClick={onOpenSettings}
+          >
+            <Printer size={18} />
+          </button>
+        </CustomTooltip>
       </div>
-      <ModelTree />
-    </>
+    </div>
   );
 };
