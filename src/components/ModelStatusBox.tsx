@@ -18,6 +18,7 @@ interface ModelItem {
 export const ModelStatusBox: React.FC = () => {
   const [models, setModels] = useState<ModelItem[]>([]);
   const [selectedModelName, setSelectedModelName] = useState<string | null>(null);
+  const [expandedModels, setExpandedModels] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const handleMeshSelected = (e: CustomEvent<{ name: string | null; subMeshes?: SubMeshItem[] }>) => {
@@ -72,6 +73,14 @@ export const ModelStatusBox: React.FC = () => {
     };
   }, [selectedModelName]);
 
+  const toggleExpand = (modelName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedModels(prev => ({
+      ...prev,
+      [modelName]: !prev[modelName]
+    }));
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.toolbar}>
@@ -90,6 +99,7 @@ export const ModelStatusBox: React.FC = () => {
               <AnimatePresence>
                 {models.map((model) => {
                   const isSelected = selectedModelName === model.name;
+                  const isExpanded = !!expandedModels[model.name];
                   return (
                     <motion.li 
                       key={model.id} 
@@ -103,23 +113,39 @@ export const ModelStatusBox: React.FC = () => {
                         className={`${styles.nodeRow} ${isSelected ? styles.selectedNode : ''}`}
                         onClick={() => setSelectedModelName(model.name)}
                       >
-                        <ChevronRight size={14} className="text-zinc-400 rotate-90" />
+                        <button 
+                          className="bg-transparent border-none cursor-pointer p-0 flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
+                          onClick={(e) => toggleExpand(model.name, e)}
+                        >
+                          <ChevronRight 
+                            size={14} 
+                            className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} 
+                          />
+                        </button>
                         <Box size={14} className="text-[#00f0ff] ml-1" />
                         <span className={styles.nodeName}>{model.name}</span>
                       </div>
-                      {model.children && model.children.length > 0 && (
-                        <ul className={styles.childList}>
-                          {model.children.map(child => (
-                            <li key={child.id} className={styles.childRow}>
-                              <span 
-                                className="w-2.5 h-2.5 rounded-full shrink-0 mr-1.5 shadow-sm" 
-                                style={{ backgroundColor: child.color }} 
-                              />
-                              <span className={styles.childName}>{child.name}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
+                      <AnimatePresence>
+                        {isExpanded && model.children && model.children.length > 0 && (
+                          <motion.ul 
+                            className={styles.childList}
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                          >
+                            {model.children.map(child => (
+                              <li key={child.id} className={styles.childRow}>
+                                <span 
+                                  className="w-2.5 h-2.5 rounded-full shrink-0 mr-1.5 shadow-sm" 
+                                  style={{ backgroundColor: child.color }} 
+                                />
+                                <span className={styles.childName}>{child.name}</span>
+                              </li>
+                            ))}
+                          </motion.ul>
+                        )}
+                      </AnimatePresence>
                     </motion.li>
                   );
                 })}
