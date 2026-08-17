@@ -50,6 +50,42 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignorer si l'utilisateur tape dans un input ou textarea
+      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) {
+        return;
+      }
+
+      const key = e.key.toLowerCase();
+      if (key === 'm') {
+        const newTool = activeTool === 'move' ? 'select' : 'move';
+        setActiveTool(newTool);
+        window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: newTool } }));
+      } else if (key === 'r') {
+        const newTool = activeTool === 'rotate' ? 'select' : 'rotate';
+        setActiveTool(newTool);
+        window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: newTool } }));
+      } else if (key === 's') {
+        const newTool = activeTool === 'scale' ? 'select' : 'scale';
+        setActiveTool(newTool);
+        window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: newTool } }));
+      } else if (key === 't') {
+        const newTool = activeTool === 'texture' ? 'select' : 'texture';
+        setActiveTool(newTool);
+        window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: newTool } }));
+      } else if (key === 'escape') {
+        setActiveTool('select');
+        window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'select' } }));
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [activeTool]);
+
+  useEffect(() => {
     if (topToolbarRef.current && buttonRefs.current.size > 0) {
       const activeButtonKey = activeTab === '3d-view' ? 'box' : activeTab;
       const activeButton = buttonRefs.current.get(activeButtonKey);
@@ -138,7 +174,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </CustomTooltip>
 
-        <CustomTooltip content="Outil de Déplacement (Move)" description="Affichez les gizmos directionnels pour repositionner précisément l'objet sur le plateau d'impression.">
+        <CustomTooltip content="Outil de Déplacement (Move - M)" description="Affichez les gizmos directionnels pour repositionner précisément l'objet sur le plateau d'impression. (Raccourci : M)">
           <button
             className={clsx(styles.button, styles.bottomButton, {
               [styles.active]: activeTool === 'move',
@@ -149,7 +185,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </CustomTooltip>
 
-        <CustomTooltip content="Outil de Rotation" description="Faites pivoter le modèle selon les axes X, Y et Z pour optimiser son orientation de contact.">
+        <CustomTooltip content="Outil de Rotation (Rotate - R)" description="Faites pivoter le modèle selon les axes X, Y et Z pour optimiser son orientation de contact. (Raccourci : R)">
           <button
             className={clsx(styles.button, styles.bottomButton, {
               [styles.active]: activeTool === 'rotate',
@@ -160,7 +196,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </CustomTooltip>
 
-        <CustomTooltip content="Outil de Mise à l'échelle (Scale)" description="Modifiez la taille et les proportions du modèle 3D sur le plateau d'impression.">
+        <CustomTooltip content="Outil de Mise à l'échelle (Scale - S)" description="Modifiez la taille et les proportions du modèle 3D sur le plateau d'impression. (Raccourci : S)">
           <button
             className={clsx(styles.button, styles.bottomButton, {
               [styles.active]: activeTool === 'scale',
@@ -171,7 +207,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </CustomTooltip>
 
-        <CustomTooltip content="Outil Texture & Matériau" description="Sélectionnez et éditez les textures et propriétés de matériaux du modèle actif.">
+        <CustomTooltip content="Outil Texture & Matériau (Texture - T)" description="Sélectionnez et éditez les textures et propriétés de matériaux du modèle actif. (Raccourci : T)">
           <button
             className={clsx(styles.button, styles.bottomButton, {
               [styles.active]: activeTool === 'texture',
