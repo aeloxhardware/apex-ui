@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import styles from './Sidebar.module.scss';
 import { CustomTooltip } from './CustomTooltip';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 interface SidebarProps {
   activeTab: '3d-view' | 'settings' | 'developer';
@@ -131,8 +131,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       y: 0,
       scale: 1,
       transition: {
-        delay: 0.15 + i * 0.04,
-        duration: 0.35,
+        delay: i * 0.05,
+        duration: 0.4,
         ease: [0.16, 1, 0.3, 1]
       }
     }),
@@ -141,8 +141,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       y: 8 + i * 1,
       scale: 0.98,
       transition: {
-        delay: i * 0.03,
-        duration: 0.25,
+        delay: i * 0.06,
+        duration: 0.4,
         ease: [0.25, 1, 0.5, 1]
       }
     })
@@ -215,26 +215,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Bottom Toolbar (Action, Manipulation 3D) */}
-      <motion.div 
-        className={clsx(styles.toolbar, styles.bottomToolbar)}
-        animate={isPreviewActive ? {
-          x: [0, 0, 360],
-          width: ['480px', '480px', '52px'],
-          height: ['44px', '44px', '320px'],
-          borderRadius: ['22px', '22px', '26px']
-        } : {
-          x: 0,
-          width: '480px',
-          height: '44px',
-          borderRadius: '22px'
-        }}
-        transition={{
-          duration: 0.9,
-          times: [0, 0.45, 1],
-          ease: [0.25, 1, 0.5, 1]
-        }}
-        style={{ transformOrigin: 'top left' }}
-      >
+      <div className={clsx(styles.toolbar, styles.bottomToolbar)}>
         <motion.div custom={0} variants={iconVariants} animate={isPreviewActive ? "hidden" : "visible"} initial="visible" className="flex items-center">
           <CustomTooltip content="Outil de Sélection" description="Cliquez sur n'importe quel modèle 3D sur le plateau pour le sélectionner et afficher ses propriétés.">
             <button
@@ -356,7 +337,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }
           }}
         />
-      </motion.div>
+      </div>
     </div>
   );
 };
