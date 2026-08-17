@@ -133,8 +133,8 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
   const [thumbHeight, setThumbHeight] = useState(40);
   const [thumbTop, setThumbTop] = useState(8);
   const [hasScroll, setHasScroll] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
-  const isDraggingRef = useRef(false);
   const startYRef = useRef(0);
   const startScrollTopRef = useRef(0);
 
@@ -147,7 +147,7 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
   };
 
   const handleScroll = () => {
-    if (!contentRef.current || isDraggingRef.current) return;
+    if (!contentRef.current || isDragging) return;
     const { scrollTop, scrollHeight, clientHeight } = contentRef.current;
     if (scrollHeight <= clientHeight) {
       setHasScroll(false);
@@ -168,7 +168,7 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    isDraggingRef.current = true;
+    setIsDragging(true);
     startYRef.current = e.clientY;
     if (contentRef.current) {
       startScrollTopRef.current = contentRef.current.scrollTop;
@@ -179,7 +179,7 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
   };
 
   const handleMouseMove = (e: MouseEvent) => {
-    if (!isDraggingRef.current || !contentRef.current) return;
+    if (!contentRef.current) return;
     const deltaY = e.clientY - startYRef.current;
     const { scrollHeight, clientHeight } = contentRef.current;
     const margin = 8;
@@ -198,7 +198,7 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
   };
 
   const handleMouseUp = () => {
-    isDraggingRef.current = false;
+    setIsDragging(false);
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
   };
@@ -282,10 +282,10 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
                 ))}
               </div>
 
-              {/* Curseur de défilement externe interactif avec positionnement direct top */}
+              {/* Curseur de défilement externe interactif avec maintien d'extension pendant le clic */}
               {hasScroll && (
                 <div 
-                  className={styles.externalScrollThumb}
+                  className={clsx(styles.externalScrollThumb, { [styles.dragging]: isDragging })}
                   onMouseDown={handleMouseDown}
                   style={{
                     height: `${thumbHeight}px`,
