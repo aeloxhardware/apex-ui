@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import styles from './Sidebar.module.scss';
 import { CustomTooltip } from './CustomTooltip';
+import { motion } from 'framer-motion';
 
 interface SidebarProps {
   activeTab: '3d-view' | 'settings' | 'developer';
@@ -29,6 +30,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenModel
 }) => {
   const [activeTool, setActiveTool] = useState<'select' | 'move' | 'rotate' | 'scale' | 'texture' | 'layers'>('select');
+  const [isPreviewActive, setIsPreviewActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const topToolbarRef = useRef<HTMLDivElement>(null);
@@ -42,6 +44,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const handleTopTabClick = (tabName: 'box' | 'settings' | 'developer') => {
     setActiveTool('select');
     onTabChange(tabName);
+    setIsPreviewActive(false);
     window.dispatchEvent(new CustomEvent('apex-preview-toggled', { detail: { active: false } }));
   };
 
@@ -54,8 +57,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const handleLayerClick = () => {
     const newTool = activeTool === 'layers' ? 'select' : 'layers';
     setActiveTool(newTool);
+    const nextPreviewState = newTool === 'layers';
+    setIsPreviewActive(nextPreviewState);
     window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: newTool } }));
-    window.dispatchEvent(new CustomEvent('apex-preview-toggled', { detail: { active: newTool === 'layers' } }));
+    window.dispatchEvent(new CustomEvent('apex-preview-toggled', { detail: { active: nextPreviewState } }));
   };
 
   useEffect(() => {
@@ -83,6 +88,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: newTool } }));
       } else if (key === 'escape') {
         setActiveTool('select');
+        setIsPreviewActive(false);
         window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'select' } }));
         window.dispatchEvent(new CustomEvent('apex-preview-toggled', { detail: { active: false } }));
       }
@@ -118,6 +124,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
       }
     }
   }, [activeTab, activeTool]);
+
+  const iconVariants = {
+    visible: (i: number) => ({
+      opacity: 1,
+      x: 0,
+      scale: 1,
+      transition: {
+        delay: i * 0.03,
+        duration: 0.25,
+        ease: [0.16, 1, 0.3, 1]
+      }
+    }),
+    hidden: (i: number) => ({
+      opacity: 0,
+      x: -30 - i * 15,
+      scale: 0.85,
+      transition: {
+        delay: (7 - i) * 0.04,
+        duration: 0.25,
+        ease: [0.25, 1, 0.5, 1]
+      }
+    })
+  };
 
   return (
     <div className={styles.container}>
@@ -187,91 +216,111 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Bottom Toolbar (Action, Manipulation 3D) */}
       <div className={clsx(styles.toolbar, styles.bottomToolbar)}>
-        <CustomTooltip content="Outil de Sélection" description="Cliquez sur n'importe quel modèle 3D sur le plateau pour le sélectionner et afficher ses propriétés.">
-          <button
-            className={clsx(styles.button, styles.bottomButton, {
-              [styles.active]: activeTool === 'select',
-            })}
-            onClick={() => handleToolClick('select')}
-          >
-            <MousePointer2 size={16} />
-          </button>
-        </CustomTooltip>
+        <motion.div custom={0} variants={iconVariants} animate={isPreviewActive ? "hidden" : "visible"} initial="visible" className="flex items-center">
+          <CustomTooltip content="Outil de Sélection" description="Cliquez sur n'importe quel modèle 3D sur le plateau pour le sélectionner et afficher ses propriétés.">
+            <button
+              className={clsx(styles.button, styles.bottomButton, {
+                [styles.active]: activeTool === 'select',
+              })}
+              onClick={() => handleToolClick('select')}
+            >
+              <MousePointer2 size={16} />
+            </button>
+          </CustomTooltip>
+        </motion.div>
 
-        <CustomTooltip content="Outil de Déplacement (Move - M)" description="Affichez les gizmos directionnels pour repositionner précisément l'objet sur le plateau d'impression. (Raccourci : M)">
-          <button
-            className={clsx(styles.button, styles.bottomButton, {
-              [styles.active]: activeTool === 'move',
-            })}
-            onClick={() => handleToolClick('move')}
-          >
-            <Move size={16} />
-          </button>
-        </CustomTooltip>
+        <motion.div custom={1} variants={iconVariants} animate={isPreviewActive ? "hidden" : "visible"} initial="visible" className="flex items-center">
+          <CustomTooltip content="Outil de Déplacement (Move - M)" description="Affichez les gizmos directionnels pour repositionner précisément l'objet sur le plateau d'impression. (Raccourci : M)">
+            <button
+              className={clsx(styles.button, styles.bottomButton, {
+                [styles.active]: activeTool === 'move',
+              })}
+              onClick={() => handleToolClick('move')}
+            >
+              <Move size={16} />
+            </button>
+          </CustomTooltip>
+        </motion.div>
 
-        <CustomTooltip content="Outil de Rotation (Rotate - R)" description="Faites pivoter le modèle selon les axes X, Y et Z pour optimiser son orientation de contact. (Raccourci : R)">
-          <button
-            className={clsx(styles.button, styles.bottomButton, {
-              [styles.active]: activeTool === 'rotate',
-            })}
-            onClick={() => handleToolClick('rotate')}
-          >
-            <RotateCw size={16} />
-          </button>
-        </CustomTooltip>
+        <motion.div custom={2} variants={iconVariants} animate={isPreviewActive ? "hidden" : "visible"} initial="visible" className="flex items-center">
+          <CustomTooltip content="Outil de Rotation (Rotate - R)" description="Faites pivoter le modèle selon les axes X, Y et Z pour optimiser son orientation de contact. (Raccourci : R)">
+            <button
+              className={clsx(styles.button, styles.bottomButton, {
+                [styles.active]: activeTool === 'rotate',
+              })}
+              onClick={() => handleToolClick('rotate')}
+            >
+              <RotateCw size={16} />
+            </button>
+          </CustomTooltip>
+        </motion.div>
 
-        <CustomTooltip content="Outil de Mise à l'échelle (Scale - S)" description="Modifiez la taille et les proportions du modèle 3D sur le plateau d'impression. (Raccourci : S)">
-          <button
-            className={clsx(styles.button, styles.bottomButton, {
-              [styles.active]: activeTool === 'scale',
-            })}
-            onClick={() => handleToolClick('scale')}
-          >
-            <Maximize size={16} />
-          </button>
-        </CustomTooltip>
+        <motion.div custom={3} variants={iconVariants} animate={isPreviewActive ? "hidden" : "visible"} initial="visible" className="flex items-center">
+          <CustomTooltip content="Outil de Mise à l'échelle (Scale - S)" description="Modifiez la taille et les proportions du modèle 3D sur le plateau d'impression. (Raccourci : S)">
+            <button
+              className={clsx(styles.button, styles.bottomButton, {
+                [styles.active]: activeTool === 'scale',
+              })}
+              onClick={() => handleToolClick('scale')}
+            >
+              <Maximize size={16} />
+            </button>
+          </CustomTooltip>
+        </motion.div>
 
-        <CustomTooltip content="Outil Texture & Matériau (Texture - T)" description="Sélectionnez et éditez les textures et propriétés de matériaux du modèle actif. (Raccourci : T)">
-          <button
-            className={clsx(styles.button, styles.bottomButton, {
-              [styles.active]: activeTool === 'texture',
-            })}
-            onClick={() => handleToolClick('texture')}
-          >
-            <Palette size={16} />
-          </button>
-        </CustomTooltip>
+        <motion.div custom={4} variants={iconVariants} animate={isPreviewActive ? "hidden" : "visible"} initial="visible" className="flex items-center">
+          <CustomTooltip content="Outil Texture & Matériau (Texture - T)" description="Sélectionnez et éditez les textures et propriétés de matériaux du modèle actif. (Raccourci : T)">
+            <button
+              className={clsx(styles.button, styles.bottomButton, {
+                [styles.active]: activeTool === 'texture',
+              })}
+              onClick={() => handleToolClick('texture')}
+            >
+              <Palette size={16} />
+            </button>
+          </CustomTooltip>
+        </motion.div>
 
-        <div className={styles.separator} />
+        <motion.div custom={5} variants={iconVariants} animate={isPreviewActive ? "hidden" : "visible"} initial="visible" className="flex items-center">
+          <div className={styles.separator} />
+        </motion.div>
 
-        <CustomTooltip content="Réinitialiser la Caméra" description="Remettez la caméra dans sa position isométrique par défaut face au plateau.">
-          <button
-            className={clsx(styles.button, styles.bottomButton)}
-            onClick={() => window.dispatchEvent(new CustomEvent('apex-reset-camera'))}
-          >
-            <Eye size={16} />
-          </button>
-        </CustomTooltip>
+        <motion.div custom={6} variants={iconVariants} animate={isPreviewActive ? "hidden" : "visible"} initial="visible" className="flex items-center">
+          <CustomTooltip content="Réinitialiser la Caméra" description="Remettez la caméra dans sa position isométrique par défaut face au plateau.">
+            <button
+              className={clsx(styles.button, styles.bottomButton)}
+              onClick={() => window.dispatchEvent(new CustomEvent('apex-reset-camera'))}
+            >
+              <Eye size={16} />
+            </button>
+          </CustomTooltip>
+        </motion.div>
 
-        <CustomTooltip content="Ajuster à l'Écran (Fit)" description="Zoomez et recentrez la vue automatiquement sur le modèle sélectionné.">
-          <button
-            className={clsx(styles.button, styles.bottomButton)}
-            onClick={() => window.dispatchEvent(new CustomEvent('apex-fit-screen'))}
-          >
-            <Maximize2 size={16} />
-          </button>
-        </CustomTooltip>
+        <motion.div custom={7} variants={iconVariants} animate={isPreviewActive ? "hidden" : "visible"} initial="visible" className="flex items-center">
+          <CustomTooltip content="Ajuster à l'Écran (Fit)" description="Zoomez et recentrez la vue automatiquement sur le modèle sélectionné.">
+            <button
+              className={clsx(styles.button, styles.bottomButton)}
+              onClick={() => window.dispatchEvent(new CustomEvent('apex-fit-screen'))}
+            >
+              <Maximize2 size={16} />
+            </button>
+          </CustomTooltip>
+        </motion.div>
 
-        <div className={styles.separator} />
+        <motion.div custom={8} variants={iconVariants} animate={isPreviewActive ? "hidden" : "visible"} initial="visible" className="flex items-center">
+          <div className={styles.separator} />
+        </motion.div>
 
-        <CustomTooltip content="Importer un Modèle 3D (.stl, .glb, .gltf)" description="Ouvrez le sélecteur de fichiers pour charger un nouveau fichier 3D avec textures sur le plateau.">
-          <button
-            className={clsx(styles.button, styles.bottomButton, styles.uploadActionButton)}
-            onClick={handleUploadClick}
-          >
-            <Upload size={16} />
-          </button>
-        </CustomTooltip>
+        <motion.div custom={9} variants={iconVariants} animate={isPreviewActive ? "hidden" : "visible"} initial="visible" className="flex items-center">
+          <CustomTooltip content="Importer un Modèle 3D (.stl, .glb, .gltf)" description="Ouvrez le sélecteur de fichiers pour charger un nouveau fichier 3D avec textures sur le plateau.">
+            <button
+              className={clsx(styles.button, styles.bottomButton, styles.uploadActionButton)}
+              onClick={handleUploadClick}
+            >
+              <Upload size={16} />
+            </button>
+          </CustomTooltip>
+        </motion.div>
 
         <input 
           type="file" 
