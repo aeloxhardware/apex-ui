@@ -1,10 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import clsx from 'clsx';
 import styles from './TopRightMenu.module.scss';
 
 export const TopRightMenu: React.FC = () => {
   const [tooltipTitle, setTooltipTitle] = useState("Apex");
   const [tooltipDesc, setTooltipDesc] = useState("Survolez n'importe quel élément interactif de l'interface pour afficher son titre et sa description détaillée en temps réel.");
+  const [isOverflowing, setIsOverflowing] = useState(false);
+  const textRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Inject Orbitron font link into document head if not present
@@ -37,12 +40,26 @@ export const TopRightMenu: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (textRef.current && containerRef.current) {
+      const textWidth = textRef.current.scrollWidth;
+      const containerWidth = containerRef.current.clientWidth;
+      setIsOverflowing(textWidth > containerWidth);
+    }
+  }, [tooltipTitle]);
+
   return (
     <div className={styles.container}>
-      {/* Panneau du haut : Titre en grand */}
-      <div className={styles.toolbar}>
-        <div className={styles.infoDisplayTop} style={{ fontFamily: "'Orbitron', sans-serif !important" }}>
-          {tooltipTitle}
+      {/* Panneau du haut : Titre en grand avec défilement si trop long */}
+      <div className={styles.toolbar} ref={containerRef}>
+        <div className={styles.infoDisplayTopWrapper}>
+          <div 
+            ref={textRef}
+            className={clsx(styles.infoDisplayTop, { [styles.scrolling]: isOverflowing })} 
+            style={{ fontFamily: "'Orbitron', sans-serif" }}
+          >
+            {tooltipTitle}
+          </div>
         </div>
       </div>
 

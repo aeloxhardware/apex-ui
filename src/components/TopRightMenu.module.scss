@@ -25,6 +25,7 @@
   border-radius: 22px;
   width: 226px;
   min-height: 40px;
+  overflow: hidden;
 }
 
 .secondaryToolbar {
@@ -34,15 +35,34 @@
   align-items: flex-start;
 }
 
+.infoDisplayTopWrapper {
+  width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  position: relative;
+}
+
 .infoDisplayTop {
   font-family: 'Orbitron', sans-serif !important;
   font-size: 13px;
   font-weight: 800;
   color: #00f0ff;
+  display: inline-block;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  width: 100%;
+}
+
+.scrolling {
+  animation: marquee 8s linear infinite;
+  padding-left: 100%;
+}
+
+@keyframes marquee {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(-100%, 0);
+  }
 }
 
 .infoDisplayBottom {
