@@ -34,17 +34,17 @@ export const ViewCube: React.FC = () => {
   const renderFace = (faceName: string, alphaFace: number, betaFace: number) => {
     return (
       <>
-        {/* Sommets (Coins élargis) */}
-        <div className={`${styles.vertex} ${styles.vertexTL}`} onClick={() => triggerView(`Sommet Haut-Gauche (${faceName})`, alphaFace - 0.5, betaFace - 0.5)} title="Sommet" />
-        <div className={`${styles.vertex} ${styles.vertexTR}`} onClick={() => triggerView(`Sommet Haut-Droite (${faceName})`, alphaFace + 0.5, betaFace - 0.5)} title="Sommet" />
-        <div className={`${styles.vertex} ${styles.vertexBL}`} onClick={() => triggerView(`Sommet Bas-Gauche (${faceName})`, alphaFace - 0.5, betaFace + 0.5)} title="Sommet" />
-        <div className={`${styles.vertex} ${styles.vertexBR}`} onClick={() => triggerView(`Sommet Bas-Droite (${faceName})`, alphaFace + 0.5, betaFace + 0.5)} title="Sommet" />
+        {/* Sommets unifiés (Coins) */}
+        <div className={`${styles.vertex} ${styles.vertexTL}`} onClick={() => triggerView(`Sommet Haut-Gauche (${faceName})`, alphaFace - 0.7, betaFace - 0.7)} title="Sommet" />
+        <div className={`${styles.vertex} ${styles.vertexTR}`} onClick={() => triggerView(`Sommet Haut-Droite (${faceName})`, alphaFace + 0.7, betaFace - 0.7)} title="Sommet" />
+        <div className={`${styles.vertex} ${styles.vertexBL}`} onClick={() => triggerView(`Sommet Bas-Gauche (${faceName})`, alphaFace - 0.7, betaFace + 0.7)} title="Sommet" />
+        <div className={`${styles.vertex} ${styles.vertexBR}`} onClick={() => triggerView(`Sommet Bas-Droite (${faceName})`, alphaFace + 0.7, betaFace + 0.7)} title="Sommet" />
 
-        {/* Arêtes (Côtés) */}
-        <div className={`${styles.edge} ${styles.edgeTop}`} onClick={() => triggerView(`Arête Haute (${faceName})`, alphaFace, betaFace - 0.6)} title="Arête" />
-        <div className={`${styles.edge} ${styles.edgeBottom}`} onClick={() => triggerView(`Arête Basse (${faceName})`, alphaFace, betaFace + 0.6)} title="Arête" />
-        <div className={`${styles.edge} ${styles.edgeLeft}`} onClick={() => triggerView(`Arête Gauche (${faceName})`, alphaFace - 0.6, betaFace)} title="Arête" />
-        <div className={`${styles.edge} ${styles.edgeRight}`} onClick={() => triggerView(`Arête Droite (${faceName})`, alphaFace + 0.6, betaFace)} title="Arête" />
+        {/* Arêtes unifiées (Côtés) */}
+        <div className={`${styles.edge} ${styles.edgeTop}`} onClick={() => triggerView(`Arête Haute (${faceName})`, alphaFace, betaFace - 0.8)} title="Arête" />
+        <div className={`${styles.edge} ${styles.edgeBottom}`} onClick={() => triggerView(`Arête Basse (${faceName})`, alphaFace, betaFace + 0.8)} title="Arête" />
+        <div className={`${styles.edge} ${styles.edgeLeft}`} onClick={() => triggerView(`Arête Gauche (${faceName})`, alphaFace - 0.8, betaFace)} title="Arête" />
+        <div className={`${styles.edge} ${styles.edgeRight}`} onClick={() => triggerView(`Arête Droite (${faceName})`, alphaFace + 0.8, betaFace)} title="Arête" />
 
         {/* Face centrale */}
         <div className={styles.centerPart} onClick={() => triggerView(faceName, alphaFace, betaFace)}>
