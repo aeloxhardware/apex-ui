@@ -8,7 +8,6 @@ export const Viewcube: React.FC = () => {
   useEffect(() => {
     const handleCameraMove = (e: CustomEvent<{ alpha: number; beta: number }>) => {
       if (e.detail) {
-        // Convert Babylon ArcRotateCamera angles to Viewcube rotation
         const alphaDeg = (e.detail.alpha * 180) / Math.PI;
         const betaDeg = (e.detail.beta * 180) / Math.PI;
         setRotation({
@@ -24,25 +23,36 @@ export const Viewcube: React.FC = () => {
     };
   }, []);
 
-  const handleFaceClick = (face: string) => {
-    window.dispatchEvent(new CustomEvent('apex-set-camera-view', { detail: { view: face } }));
-    showSuccess(`Caméra orientée : ${face}`);
+  const handleViewClick = (view: string) => {
+    window.dispatchEvent(new CustomEvent('apex-set-camera-view', { detail: { view } }));
+    showSuccess(`Caméra orientée : ${view}`);
   };
 
   return (
     <div className={styles.container}>
-      <div 
-        className={styles.cubeWrapper}
-        style={{
-          transform: `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`,
-        }}
-      >
-        <div className={`${styles.face} ${styles.front}`} onClick={() => handleFaceClick('front')}>AVANT</div>
-        <div className={`${styles.face} ${styles.back}`} onClick={() => handleFaceClick('back')}>ARRIÈRE</div>
-        <div className={`${styles.face} ${styles.right}`} onClick={() => handleFaceClick('right')}>DROITE</div>
-        <div className={`${styles.face} ${styles.left}`} onClick={() => handleFaceClick('left')}>GAUCHE</div>
-        <div className={`${styles.face} ${styles.top}`} onClick={() => handleFaceClick('top')}>DESSUS</div>
-        <div className={`${styles.face} ${styles.bottom}`} onClick={() => handleFaceClick('bottom')}>DESSOUS</div>
+      <div className={styles.compassWrapper}>
+        <div 
+          className={styles.compassInner}
+          style={{
+            transform: `rotate(${rotation.y}deg)`,
+          }}
+        >
+          <button className={`${styles.directionBtn} ${styles.topDir}`} onClick={() => handleViewClick('front')}>
+            AV
+          </button>
+          <button className={`${styles.directionBtn} ${styles.bottomDir}`} onClick={() => handleViewClick('back')}>
+            AR
+          </button>
+          <button className={`${styles.directionBtn} ${styles.leftDir}`} onClick={() => handleViewClick('left')}>
+            GA
+          </button>
+          <button className={`${styles.directionBtn} ${styles.rightDir}`} onClick={() => handleViewClick('right')}>
+            DR
+          </button>
+          <button className={styles.centerHub} onClick={() => handleViewClick('top')}>
+            3D
+          </button>
+        </div>
       </div>
     </div>
   );

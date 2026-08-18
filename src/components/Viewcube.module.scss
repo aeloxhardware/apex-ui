@@ -1,61 +1,96 @@
 .container {
   position: fixed;
-  bottom: 56px;
-  left: 56px;
-  width: 90px;
-  height: 90px;
+  bottom: 84px;
+  right: 28px;
+  width: 110px;
+  height: 110px;
   z-index: 1000;
   pointer-events: auto;
-  perspective: 400px;
+  perspective: 600px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.cubeWrapper {
+.compassWrapper {
+  width: 90px;
+  height: 90px;
+  position: relative;
+  background: rgba(10, 15, 26, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 0 15px rgba(0, 240, 255, 0.08);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: rgba(0, 240, 255, 0.6);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6), inset 0 0 20px rgba(0, 240, 255, 0.18);
+  }
+}
+
+.compassInner {
   width: 100%;
   height: 100%;
   position: relative;
   transform-style: preserve-3d;
   transition: transform 0.1s ease-out;
-  cursor: pointer;
-
-  &:hover {
-    .face {
-      background: rgba(0, 240, 255, 0.22);
-      border-color: rgba(0, 240, 255, 0.5);
-    }
-  }
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.face {
+.directionBtn {
   position: absolute;
-  width: 90px;
-  height: 90px;
-  background: rgba(10, 15, 26, 0.55);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  background: transparent;
+  border: none;
+  font-family: 'Orbitron', sans-serif !important;
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  padding: 4px;
+  transition: all 0.2s ease;
+  outline: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    color: #00f0ff;
+    text-shadow: 0 0 8px rgba(0, 240, 255, 0.8);
+    transform: scale(1.15);
+  }
+
+  &.topDir { top: 6px; left: 50%; transform: translateX(-50%); }
+  &.bottomDir { bottom: 6px; left: 50%; transform: translateX(-50%); }
+  &.leftDir { left: 8px; top: 50%; transform: translateY(-50%); }
+  &.rightDir { right: 8px; top: 50%; transform: translateY(-50%); }
+}
+
+.centerHub {
+  width: 32px;
+  height: 32px;
+  background: rgba(0, 240, 255, 0.15);
+  border: 1px solid rgba(0, 240, 255, 0.4);
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: 'Orbitron', sans-serif !important;
-  font-size: 10px;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.85);
-  transition: all 0.2s ease;
-  user-select: none;
-  border-radius: 6px;
+  font-size: 8px;
+  font-weight: 900;
+  color: #00f0ff;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+  transition: all 0.2s;
 
   &:hover {
-    background: rgba(0, 240, 255, 0.35) !important;
-    border-color: #00f0ff !important;
-    color: #fff !important;
-    box-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
+    background: rgba(0, 240, 255, 0.3);
+    box-shadow: 0 0 16px rgba(0, 240, 255, 0.6);
   }
 }
-
-.front  { transform: translateZ(45px); }
-.back   { transform: rotateY(180deg) translateZ(45px); }
-.right  { transform: rotateY(90deg) translateZ(45px); }
-.left   { transform: rotateY(-90deg) translateZ(45px); }
-.top    { transform: rotateX(90deg) translateZ(45px); }
-.bottom { transform: rotateX(-90deg) translateZ(45px); }
