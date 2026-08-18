@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { CustomTooltip } from './CustomTooltip';
 import styles from './CategoriesSidebar.module.scss';
+import { showSuccess } from '@/utils/toast';
 
 export interface InfillPattern {
   name: string;
@@ -63,6 +64,7 @@ export interface CategoryItem {
   title: string;
   description: string;
   icon: React.ReactNode;
+  disabled?: boolean;
   sections: {
     title: string;
     items: { label: string; defaultValue: string; description: string; isPatternDropdown?: boolean }[];
@@ -197,6 +199,7 @@ const CATEGORIES: CategoryItem[] = [
     title: '6. Structures de Support & Adhérence',
     description: 'Générez des échafaudages intelligents pour soutenir les surplombs et optimiser l\'ancrage sur le plateau.',
     icon: <Cpu size={20} />,
+    disabled: true,
     sections: [
       { 
         title: 'Supports', 
@@ -219,6 +222,7 @@ const CATEGORIES: CategoryItem[] = [
     title: '7. Qualité de Surface & Finition',
     description: 'Optimisez l\'esthétique visuelle, le lissage des dessus de pièces et la précision dimensionnelle.',
     icon: <Sparkles size={20} />,
+    disabled: true,
     sections: [
       { 
         title: 'Finition', 
@@ -240,6 +244,7 @@ const CATEGORIES: CategoryItem[] = [
     title: '8. Multi-Matériaux & Couleur (AMS)',
     description: 'Pilotez les changements de bobines automatiques, les tours de purge et les matériaux de support solubles.',
     icon: <Palette size={20} />,
+    disabled: true,
     sections: [
       { 
         title: 'Purge & Rinçage', 
@@ -261,6 +266,7 @@ const CATEGORIES: CategoryItem[] = [
     title: '9. Dynamique & Algorithmes Avancés',
     description: 'Activez les algorithmes mathématiques de pointe pour accélérer le calcul et lisser les trajectoires.',
     icon: <Workflow size={20} />,
+    disabled: true,
     sections: [
       { 
         title: 'Algorithmes', 
@@ -277,6 +283,7 @@ const CATEGORIES: CategoryItem[] = [
     title: '10. G-code Custom & Intégration',
     description: 'Personnalisez les scripts d\'initialisation, de fin de course et l\'intégration avec vos fermes d\'impression.',
     icon: <Terminal size={20} />,
+    disabled: true,
     sections: [
       { 
         title: 'Scripts G-code', 
@@ -324,11 +331,15 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
   const startYRef = useRef(0);
   const startScrollTopRef = useRef(0);
 
-  const handleCategoryClick = (catId: string) => {
-    if (activeCategory === catId) {
+  const handleCategoryClick = (cat: CategoryItem) => {
+    if (cat.disabled) {
+      showSuccess("Bientôt disponible");
+      return;
+    }
+    if (activeCategory === cat.id) {
       onSelectCategory(null);
     } else {
-      onSelectCategory(catId);
+      onSelectCategory(cat.id);
     }
     setIsPatternPopupOpen(false);
   };
@@ -470,11 +481,19 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
           {CATEGORIES.map((cat) => {
             const isActive = activeCategory === cat.id;
             return (
-              <CustomTooltip key={cat.id} content={cat.title} description={cat.description}>
+              <CustomTooltip 
+                key={cat.id} 
+                content={cat.disabled ? "Bientôt disponible" : cat.title} 
+                description={cat.description}
+              >
                 <button
                   ref={(el) => (iconRefs.current[cat.id] = el)}
-                  className={clsx(styles.categoryButton, { [styles.active]: isActive })}
-                  onClick={() => handleCategoryClick(cat.id)}
+                  className={clsx(styles.categoryButton, { 
+                    [styles.active]: isActive,
+                    [styles.disabledButton]: cat.disabled
+                  })}
+                  onClick={() => handleCategoryClick(cat)}
+                  style={cat.disabled ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
                 >
                   {cat.icon}
                 </button>
@@ -485,7 +504,7 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
       </div>
 
       <AnimatePresence>
-        {activeCatData && (
+        {activeCatData && !activeCatData.disabled && (
           <>
             <motion.div 
               className={styles.fusionTitleContainer}
