@@ -12,7 +12,6 @@ import { ModelHoverTooltip } from '@/components/ModelHoverTooltip';
 import { TextureEditorModal } from '@/components/TextureEditorModal';
 import { SliceModal } from '@/components/SliceModal';
 import { Viewport3D } from '@/components/Viewport3D';
-import { Viewcube } from '@/components/Viewcube';
 import { Box } from 'lucide-react';
 import { showSuccess } from '@/utils/toast';
 
@@ -66,9 +65,8 @@ const Index = () => {
 
       <TopRightMenu />
       <AxisSidebar />
-      <Viewcube />
 
-      <CategoriesSidebar 
+      <CategoriesSidebar
         activeCategory={activeCategory} 
         onSelectCategory={setActiveCategory} 
       />
