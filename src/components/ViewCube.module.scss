@@ -64,15 +64,15 @@
   }
 }
 
-/* Arêtes unifiées */
+/* Arêtes (Côtés) */
 .edgeTop    { grid-column: 2; grid-row: 1; }
 .edgeBottom { grid-column: 2; grid-row: 3; }
 .edgeLeft   { grid-column: 1; grid-row: 2; }
 .edgeRight  { grid-column: 3; grid-row: 2; }
 
 .edge {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(0, 240, 255, 0.15);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(0, 240, 255, 0.12);
   transition: all 0.2s ease;
   cursor: pointer;
 
@@ -84,15 +84,15 @@
   }
 }
 
-/* Sommets unifiés */
+/* Sommets (Coins élargis) */
 .vertexTL { grid-column: 1; grid-row: 1; }
 .vertexTR { grid-column: 3; grid-row: 1; }
 .vertexBL { grid-column: 1; grid-row: 3; }
 .vertexBR { grid-column: 3; grid-row: 3; }
 
 .vertex {
-  background: rgba(0, 240, 255, 0.15);
-  border: 1px solid rgba(0, 240, 255, 0.25);
+  background: rgba(0, 240, 255, 0.12);
+  border: 1px solid rgba(0, 240, 255, 0.22);
   transition: all 0.2s ease;
   cursor: pointer;
 
