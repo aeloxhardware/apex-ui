@@ -9,6 +9,7 @@ import { TopRightMenu } from '@/components/TopRightMenu';
 import { ModelStatusBox } from '@/components/ModelStatusBox';
 import { ModelHoverTooltip } from '@/components/ModelHoverTooltip';
 import { TextureEditorModal } from '@/components/TextureEditorModal';
+import { SliceModal } from '@/components/SliceModal';
 import { Viewport3D } from '@/components/Viewport3D';
 import { Box, Layers, Activity } from 'lucide-react';
 import { showSuccess } from '@/utils/toast';
@@ -16,8 +17,14 @@ import { showSuccess } from '@/utils/toast';
 const Index = () => {
   const [activeTab, setActiveTab] = useState<'3d-view' | 'settings' | 'developer'>('3d-view');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [isSliceModalOpen, setIsSliceModalOpen] = useState(false);
 
   const handleSlice = () => {
+    setIsSliceModalOpen(true);
+  };
+
+  const handleConfirmSlice = () => {
+    setIsSliceModalOpen(false);
     showSuccess("Slicing plate completed successfully!");
   };
 
@@ -43,6 +50,11 @@ const Index = () => {
       <ModelStatusBox />
       <ModelHoverTooltip />
       <TextureEditorModal />
+      <SliceModal 
+        isOpen={isSliceModalOpen} 
+        onClose={() => setIsSliceModalOpen(false)} 
+        onConfirm={handleConfirmSlice} 
+      />
 
       <Sidebar 
         activeTab={activeTab} 
