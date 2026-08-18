@@ -31,6 +31,29 @@ export const ViewCube: React.FC = () => {
     showSuccess(`Vue orientée : ${viewName}`);
   };
 
+  const renderFace = (faceName: string, alphaFace: number, betaFace: number) => {
+    return (
+      <>
+        {/* Sommets */}
+        <div className={`${styles.vertex} ${styles.vertexTL}`} onClick={() => triggerView(`Sommet Haut-Gauche (${faceName})`, alphaFace - 0.5, betaFace - 0.5)} title="Sommet" />
+        <div className={`${styles.vertex} ${styles.vertexTR}`} onClick={() => triggerView(`Sommet Haut-Droite (${faceName})`, alphaFace + 0.5, betaFace - 0.5)} title="Sommet" />
+        <div className={`${styles.vertex} ${styles.vertexBL}`} onClick={() => triggerView(`Sommet Bas-Gauche (${faceName})`, alphaFace - 0.5, betaFace + 0.5)} title="Sommet" />
+        <div className={`${styles.vertex} ${styles.vertexBR}`} onClick={() => triggerView(`Sommet Bas-Droite (${faceName})`, alphaFace + 0.5, betaFace + 0.5)} title="Sommet" />
+
+        {/* Arêtes */}
+        <div className={`${styles.edge} ${styles.edgeTop}`} onClick={() => triggerView(`Arête Haute (${faceName})`, alphaFace, betaFace - 0.6)} title="Arête" />
+        <div className={`${styles.edge} ${styles.edgeBottom}`} onClick={() => triggerView(`Arête Basse (${faceName})`, alphaFace, betaFace + 0.6)} title="Arête" />
+        <div className={`${styles.edge} ${styles.edgeLeft}`} onClick={() => triggerView(`Arête Gauche (${faceName})`, alphaFace - 0.6, betaFace)} title="Arête" />
+        <div className={`${styles.edge} ${styles.edgeRight}`} onClick={() => triggerView(`Arête Droite (${faceName})`, alphaFace + 0.6, betaFace)} title="Arête" />
+
+        {/* Face centrale */}
+        <div className={styles.centerPart} onClick={() => triggerView(faceName, alphaFace, betaFace)}>
+          {faceName}
+        </div>
+      </>
+    );
+  };
+
   return (
     <div className={styles.container}>
       <CustomTooltip content="ViewCube 3D" description="Cliquez sur une face, une arête ou un sommet pour orienter instantanément la caméra 3D.">
@@ -40,30 +63,24 @@ export const ViewCube: React.FC = () => {
             transform: `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`
           }}
         >
-          {/* Faces principales */}
-          <div className={`${styles.face} ${styles.front}`} onClick={() => triggerView('Face (Front)', Math.PI / 2, Math.PI / 2)}>FRONT</div>
-          <div className={`${styles.face} ${styles.back}`} onClick={() => triggerView('Dos (Back)', -Math.PI / 2, Math.PI / 2)}>BACK</div>
-          <div className={`${styles.face} ${styles.right}`} onClick={() => triggerView('Droite (Right)', 0, Math.PI / 2)}>RIGHT</div>
-          <div className={`${styles.face} ${styles.left}`} onClick={() => triggerView('Gauche (Left)', Math.PI, Math.PI / 2)}>LEFT</div>
-          <div className={`${styles.face} ${styles.top}`} onClick={() => triggerView('Dessus (Top)', Math.PI / 2, 0.01)}>TOP</div>
-          <div className={`${styles.face} ${styles.bottom}`} onClick={() => triggerView('Dessous (Bottom)', Math.PI / 2, Math.PI - 0.01)}>BOTTOM</div>
-
-          {/* Sommets (8 coins) */}
-          <div className={styles.vertex} style={{ transform: 'translate3d(-6px, -6px, 35px)' }} onClick={() => triggerView('Sommet Haut-Avant-Gauche', (3 * Math.PI) / 4, Math.PI / 4)} />
-          <div className={styles.vertex} style={{ transform: 'translate3d(64px, -6px, 35px)' }} onClick={() => triggerView('Sommet Haut-Avant-Droite', Math.PI / 4, Math.PI / 4)} />
-          <div className={styles.vertex} style={{ transform: 'translate3d(-6px, 64px, 35px)' }} onClick={() => triggerView('Sommet Bas-Avant-Gauche', (5 * Math.PI) / 4, (3 * Math.PI) / 4)} />
-          <div className={styles.vertex} style={{ transform: 'translate3d(64px, 64px, 35px)' }} onClick={() => triggerView('Sommet Bas-Avant-Droite', (7 * Math.PI) / 4, (3 * Math.PI) / 4)} />
-          
-          <div className={styles.vertex} style={{ transform: 'translate3d(-6px, -6px, -35px)' }} onClick={() => triggerView('Sommet Haut-Arrière-Gauche', (3 * Math.PI) / 4, Math.PI / 4)} />
-          <div className={styles.vertex} style={{ transform: 'translate3d(64px, -6px, -35px)' }} onClick={() => triggerView('Sommet Haut-Arrière-Droite', Math.PI / 4, Math.PI / 4)} />
-          <div className={styles.vertex} style={{ transform: 'translate3d(-6px, 64px, -35px)' }} onClick={() => triggerView('Sommet Bas-Arrière-Gauche', (5 * Math.PI) / 4, (3 * Math.PI) / 4)} />
-          <div className={styles.vertex} style={{ transform: 'translate3d(64px, 64px, -35px)' }} onClick={() => triggerView('Sommet Bas-Arrière-Droite', (7 * Math.PI) / 4, (3 * Math.PI) / 4)} />
-
-          {/* Arêtes (12 arêtes) */}
-          <div className={styles.edge} style={{ width: '70px', height: '6px', transform: 'translate3d(0px, -3px, 35px)' }} onClick={() => triggerView('Arête Haut-Avant', Math.PI / 2, Math.PI / 4)} />
-          <div className={styles.edge} style={{ width: '70px', height: '6px', transform: 'translate3d(0px, 67px, 35px)' }} onClick={() => triggerView('Arête Bas-Avant', Math.PI / 2, (3 * Math.PI) / 4)} />
-          <div className={styles.edge} style={{ width: '6px', height: '70px', transform: 'translate3d(-3px, 0px, 35px)' }} onClick={() => triggerView('Arête Gauche-Avant', (3 * Math.PI) / 4, Math.PI / 2)} />
-          <div className={styles.edge} style={{ width: '6px', height: '70px', transform: 'translate3d(67px, 0px, 35px)' }} onClick={() => triggerView('Arête Droite-Avant', Math.PI / 4, Math.PI / 2)} />
+          <div className={`${styles.face} ${styles.front}`}>
+            {renderFace('FRONT', Math.PI / 2, Math.PI / 2)}
+          </div>
+          <div className={`${styles.face} ${styles.back}`}>
+            {renderFace('BACK', -Math.PI / 2, Math.PI / 2)}
+          </div>
+          <div className={`${styles.face} ${styles.right}`}>
+            {renderFace('RIGHT', 0, Math.PI / 2)}
+          </div>
+          <div className={`${styles.face} ${styles.left}`}>
+            {renderFace('LEFT', Math.PI, Math.PI / 2)}
+          </div>
+          <div className={`${styles.face} ${styles.top}`}>
+            {renderFace('TOP', Math.PI / 2, 0.01)}
+          </div>
+          <div className={`${styles.face} ${styles.bottom}`}>
+            {renderFace('BOTTOM', Math.PI / 2, Math.PI - 0.01)}
+          </div>
         </div>
       </CustomTooltip>
     </div>
