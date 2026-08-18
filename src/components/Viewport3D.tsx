@@ -6,7 +6,6 @@ import 'babylonjs-loaders';
 
 export const Viewport3D = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const viewcubeCanvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<BABYLON.Engine | null>(null);
   const sceneRef = useRef<BABYLON.Scene | null>(null);
   const cameraRef = useRef<BABYLON.ArcRotateCamera | null>(null);
@@ -108,117 +107,6 @@ export const Viewport3D = () => {
     gizmoManager.positionGizmoEnabled = false;
     gizmoManager.rotationGizmoEnabled = false;
     gizmoManager.scaleGizmoEnabled = false;
-
-    // Viewcube 3D scene setup (mini viewport)
-    let viewcubeScene: BABYLON.Scene | null = null;
-    let viewcubeEngine: BABYLON.Engine | null = null;
-    let cubeMesh: BABYLON.Mesh | null = null;
-
-    if (viewcubeCanvasRef.current) {
-      viewcubeEngine = new BABYLON.Engine(viewcubeCanvasRef.current, true, { preserveDrawingBuffer: true });
-      viewcubeScene = new BABYLON.Scene(viewcubeEngine);
-      viewcubeScene.clearColor = new BABYLON.Color4(0, 0, 0, 0);
-
-      const vcCamera = new BABYLON.ArcRotateCamera("vcCam", Math.PI / 4, Math.PI / 3, 5, BABYLON.Vector3.Zero(), viewcubeScene);
-      vcCamera.inputs.clear();
-
-      const vcLight = new BABYLON.HemisphericLight("vcLight", new BABYLON.Vector3(0, 1, 0), viewcubeScene);
-      vcLight.intensity = 0.9;
-
-      const dirLight = new BABYLON.DirectionalLight("vcDirLight", new BABYLON.Vector3(-1, -2, -1), viewcubeScene);
-      dirLight.intensity = 0.5;
-
-      cubeMesh = BABYLON.MeshBuilder.CreateBox("viewcubeBox", { size: 2.2 }, viewcubeScene);
-      cubeMesh.isPickable = true;
-
-      const facesData = [
-        { name: "AVANT", color: "#3b82f6", textColor: "#ffffff" },
-        { name: "ARRIÈRE", color: "#64748b", textColor: "#ffffff" },
-        { name: "DROITE", color: "#0ea5e9", textColor: "#ffffff" },
-        { name: "GAUCHE", color: "#64748b", textColor: "#ffffff" },
-        { name: "DESSUS", color: "#6366f1", textColor: "#ffffff" },
-        { name: "DESSOUS", color: "#475569", textColor: "#ffffff" },
-      ];
-
-      const multiMat = new BABYLON.MultiMaterial("vcMultiMat", viewcubeScene);
-      
-      facesData.forEach((face, idx) => {
-        const dynTex = new BABYLON.DynamicTexture(`dynTex_${idx}`, { width: 256, height: 256 }, viewcubeScene, true);
-        const ctx = dynTex.getContext();
-        ctx.fillStyle = face.color;
-        ctx.fillRect(0, 0, 256, 256);
-
-        ctx.strokeStyle = '#1e293b';
-        ctx.lineWidth = 12;
-        ctx.strokeRect(6, 6, 244, 244);
-
-        ctx.fillStyle = face.textColor;
-        ctx.font = "bold 34px sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(face.name, 128, 128);
-        dynTex.update();
-
-        const mat = new BABYLON.StandardMaterial(`vcMat_${idx}`, viewcubeScene);
-        mat.diffuseTexture = dynTex;
-        mat.specularColor = new BABYLON.Color3(0.2, 0.2, 0.2);
-        multiMat.subMaterials.push(mat);
-      });
-
-      cubeMesh.material = multiMat;
-
-      viewcubeScene.registerBeforeRender(() => {
-        if (cameraRef.current && cubeMesh) {
-          cubeMesh.rotation.y = -cameraRef.current.alpha - Math.PI / 2;
-          cubeMesh.rotation.x = -cameraRef.current.beta + Math.PI / 2;
-        }
-      });
-
-      viewcubeScene.onPointerObservable.add((pointerInfo) => {
-        if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERUP) {
-          const pick = viewcubeScene?.pick(viewcubeScene.pointerX, viewcubeScene.pointerY);
-          if (pick?.hit && cameraRef.current) {
-            const subMeshId = pick.subMeshId;
-            const targetAngles: { [key: number]: { alpha: number; beta: number } } = {
-              0: { alpha: Math.PI / 2, beta: Math.PI / 3 },     // ARRIERE
-              1: { alpha: -Math.PI / 2, beta: Math.PI / 3 },    // AVANT
-              2: { alpha: 0, beta: Math.PI / 3 },               // DROITE
-              3: { alpha: Math.PI, beta: Math.PI / 3 },         // GAUCHE
-              4: { alpha: Math.PI / 4, beta: 0.01 },            // DESSUS
-              5: { alpha: Math.PI / 4, beta: Math.PI - 0.01 },  // DESSOUS
-            };
-
-            const target = targetAngles[subMeshId];
-            if (target) {
-              const cam = cameraRef.current;
-              const frameCount = 20;
-              let currentFrame = 0;
-              const startAlpha = cam.alpha;
-              const startBeta = cam.beta;
-              const diffAlpha = target.alpha - startAlpha;
-
-              const animObserver = scene.onBeforeRenderObservable.add(() => {
-                currentFrame++;
-                const t = currentFrame / frameCount;
-                const easeT = 1 - Math.pow(1 - t, 3);
-                cam.alpha = startAlpha + diffAlpha * easeT;
-                cam.beta = startBeta + (target.beta - startBeta) * easeT;
-
-                if (currentFrame >= frameCount) {
-                  scene.onBeforeRenderObservable.remove(animObserver);
-                }
-              });
-            }
-          }
-        }
-      });
-
-      viewcubeEngine.runRenderLoop(() => {
-        if (viewcubeScene && !viewcubeScene.isDisposed) {
-          viewcubeScene.render();
-        }
-      });
-    }
 
     const updateHighlight = () => {
       if (!hlRef.current) return;
@@ -741,7 +629,6 @@ export const Viewport3D = () => {
 
     const handleResize = () => {
       engine.resize();
-      if (viewcubeEngine) viewcubeEngine.resize();
     };
     window.addEventListener('resize', handleResize);
 
@@ -758,10 +645,6 @@ export const Viewport3D = () => {
       window.removeEventListener('apex-request-textures', onRequestTextures);
       window.removeEventListener('keydown', handleKeyDown);
       scene.onPointerObservable.remove(pointerObserver);
-      
-      if (viewcubeScene) viewcubeScene.dispose();
-      if (viewcubeEngine) viewcubeEngine.dispose();
-
       gizmoManager.dispose();
       scene.dispose();
       engine.dispose();
@@ -776,55 +659,6 @@ export const Viewport3D = () => {
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       <canvas id="babylon-canvas" ref={canvasRef} style={{ width: '100%', height: '100%', outline: 'none', touchAction: 'none' }} />
-      
-      {/* Viewcube interactif aligné en bas à gauche */}
-      <div 
-        style={{
-          position: 'absolute',
-          bottom: '24px',
-          left: '24px',
-          width: '120px',
-          height: '120px',
-          background: 'rgba(15, 23, 42, 0.75)',
-          backdropFilter: 'blur(8px)',
-          borderRadius: '12px',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 10,
-        }}
-        className="group hover:border-cyan-500/50 hover:scale-105 transition-all duration-200"
-      >
-        <canvas 
-          ref={viewcubeCanvasRef} 
-          style={{ 
-            width: '100%', 
-            height: '100%', 
-            outline: 'none', 
-            touchAction: 'none',
-            cursor: 'pointer'
-          }} 
-        />
-        <div style={{
-          position: 'absolute',
-          bottom: '4px',
-          fontSize: '9px',
-          fontWeight: 600,
-          color: '#94a3b8',
-          letterSpacing: '0.05em',
-          pointerEvents: 'none',
-          textTransform: 'uppercase',
-          background: 'rgba(15, 23, 42, 0.8)',
-          padding: '1px 6px',
-          borderRadius: '4px'
-        }}>
-          Orientation
-        </div>
-      </div>
     </div>
   );
 };
