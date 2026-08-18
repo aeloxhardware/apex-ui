@@ -21,6 +21,7 @@
   cursor: pointer;
 }
 
+/* Face principale composée d'une grille 3x3 (Coins, Arêtes, Centre) */
 .face {
   position: absolute;
   width: 80px;
@@ -32,8 +33,8 @@
   box-shadow: inset 0 0 16px rgba(0, 240, 255, 0.15);
   border-radius: 8px;
   display: grid;
-  grid-template-columns: 22px 1fr 22px;
-  grid-template-rows: 22px 1fr 22px;
+  grid-template-columns: 16px 1fr 16px;
+  grid-template-rows: 16px 1fr 16px;
   overflow: hidden;
 }
 
@@ -44,7 +45,7 @@
 .top    { transform: rotateX(90deg) translateZ(40px); }
 .bottom { transform: rotateX(-90deg) translateZ(40px); }
 
-/* Centre (Face principale) */
+/* Zone centrale (FACE) */
 .centerPart {
   grid-column: 2;
   grid-row: 2;
@@ -52,7 +53,7 @@
   align-items: center;
   justify-content: center;
   font-family: 'Orbitron', sans-serif !important;
-  font-size: 9px;
+  font-size: 9.5px;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.9);
   transition: all 0.2s ease;
@@ -64,15 +65,15 @@
   }
 }
 
-/* Arêtes (Côtés) */
+/* Arêtes (Edges) */
 .edgeTop    { grid-column: 2; grid-row: 1; }
 .edgeBottom { grid-column: 2; grid-row: 3; }
 .edgeLeft   { grid-column: 1; grid-row: 2; }
 .edgeRight  { grid-column: 3; grid-row: 2; }
 
 .edge {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(0, 240, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(0, 240, 255, 0.15);
   transition: all 0.2s ease;
   cursor: pointer;
 
@@ -84,15 +85,15 @@
   }
 }
 
-/* Sommets (Coins élargis) */
+/* Sommets (Corners) */
 .vertexTL { grid-column: 1; grid-row: 1; }
 .vertexTR { grid-column: 3; grid-row: 1; }
 .vertexBL { grid-column: 1; grid-row: 3; }
 .vertexBR { grid-column: 3; grid-row: 3; }
 
 .vertex {
-  background: rgba(0, 240, 255, 0.12);
-  border: 1px solid rgba(0, 240, 255, 0.22);
+  background: rgba(0, 240, 255, 0.15);
+  border: 1px solid rgba(0, 240, 255, 0.25);
   transition: all 0.2s ease;
   cursor: pointer;
 
