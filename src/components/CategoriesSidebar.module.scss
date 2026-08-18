@@ -200,20 +200,23 @@
   border-radius: 8px;
   font-size: 11px;
   color: rgba(255, 255, 255, 0.9);
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: perspective(400px) translateZ(0px);
 
   &.clickableRow {
     cursor: pointer;
 
     &:hover {
-      background: rgba(0, 240, 255, 0.1);
-      border-color: rgba(0, 240, 255, 0.3);
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.2);
+      transform: perspective(400px) translateZ(6px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
     }
   }
 
   &:not(.clickableRow):hover {
     background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(0, 240, 255, 0.25);
+    transform: perspective(400px) translateZ(4px);
   }
 }
 
@@ -320,12 +323,15 @@
   font-size: 11px;
   color: rgba(255, 255, 255, 0.9);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: perspective(400px) translateZ(0px);
 
   &:hover {
-    background: rgba(0, 240, 255, 0.1);
-    border-color: rgba(0, 240, 255, 0.3);
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.2);
     color: #fff;
+    transform: perspective(400px) translateZ(6px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   }
 
   &.activePattern {
