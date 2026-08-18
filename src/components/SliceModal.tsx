@@ -1,6 +1,6 @@
 import React from 'react';
 import styles from './SliceModal.module.scss';
-import { Play, X, Layers, Clock, Zap } from 'lucide-react';
+import { Play, X } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface SliceModalProps {
@@ -54,15 +54,15 @@ export const SliceModal: React.FC<SliceModalProps> = ({ isOpen, onClose, onConfi
               <span className={styles.statValue}>240 couches</span>
             </div>
           </div>
-        </div>
 
-        <div className={styles.footer}>
-          <button className={styles.cancelBtn} onClick={onClose}>
-            Annuler
-          </button>
-          <button className={styles.confirmBtn} onClick={onConfirm}>
-            Lancer le Slicing
-          </button>
+          <div className={styles.footerButtons}>
+            <button className={styles.cancelBtn} onClick={onClose}>
+              Annuler
+            </button>
+            <button className={styles.confirmBtn} onClick={onConfirm}>
+              Lancer le Slicing
+            </button>
+          </div>
         </div>
       </motion.div>
     </div>
