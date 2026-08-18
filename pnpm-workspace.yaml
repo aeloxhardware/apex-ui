@@ -1,4 +1,6 @@
 allowBuilds:
+  "@parcel/watcher": false # dyad-auto-denied
+  babylonjs: false # dyad-auto-denied
   # dyad-default-allow-builds begin
   # dyad-default-allow-builds-schema=v1
   # dyad-default-allow-builds-data-version=2026-07-08.1
