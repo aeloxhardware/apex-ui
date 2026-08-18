@@ -74,12 +74,7 @@ const Index = () => {
             <span className="text-emerald-400 font-medium">Ready to slice</span>
           </div>
 
-          <div className="bg-[rgba(10,15,26,0.25)] backdrop-blur-[4px] -webkit-backdrop-blur-[4px] border-none rounded-lg px-3 py-2 text-xs text-zinc-300 flex items-center space-x-3 pointer-events-auto shadow-[0_8px_32px_0_rgba(0,0,0,0.4),0_2px_8px_0_rgba(0,0,0,0.3)]">
-            <Activity className="w-3.5 h-3.5 text-primary" />
-            <span>Est. Time: 2h 14m</span>
-            <span className="text-zinc-600">|</span>
-            <span>Filament: 14.2g (4.78m)</span>
-          </div>
+          <div />
         </div>
       </main>
     </div>
