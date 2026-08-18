@@ -15,10 +15,22 @@ export interface PrinterModel {
   name: string;
 }
 
-export interface SpecificManufacturer {
+export interface SubCategory {
   id: string;
   name: string;
   models: PrinterModel[];
+}
+
+export interface SpecificManufacturer {
+  id: string;
+  name: string;
+  models?: PrinterModel[];
+  subCategories?: SubCategory[];
+  nestedCategories?: {
+    id: string;
+    name: string;
+    subCategories: SubCategory[];
+  }[];
 }
 
 export interface PrinterCategory {
@@ -120,12 +132,229 @@ export const PRINTER_CATEGORIES: PrinterCategory[] = [
       {
         id: 'creality',
         name: 'Creality',
-        models: [
-          { id: 'ender-3-v3-ke', name: 'Ender-3 V3 KE' },
-          { id: 'ender-3-v3-se', name: 'Ender-3 V3 SE' },
-          { id: 'k1-max', name: 'K1 Max' },
-          { id: 'k1-c', name: 'K1 C' },
-          { id: 'halot-mage-pro', name: 'Halot-Mage Pro' }
+        nestedCategories: [
+          {
+            id: 'creality-ender',
+            name: 'Série Ender',
+            subCategories: [
+              {
+                id: 'ender-3',
+                name: 'Ender-3',
+                models: [
+                  { id: 'e3', name: 'Ender-3' },
+                  { id: 'e3-pro', name: 'Ender-3 Pro' },
+                  { id: 'e3-v2', name: 'Ender-3 V2' },
+                  { id: 'e3-max', name: 'Ender-3 Max' },
+                  { id: 'e3-s1', name: 'Ender-3 S1' },
+                  { id: 'e3-s1-pro', name: 'Ender-3 S1 Pro' },
+                  { id: 'e3-s1-plus', name: 'Ender-3 S1 Plus' },
+                  { id: 'e3-neo', name: 'Ender-3 Neo' },
+                  { id: 'e3-v2-neo', name: 'Ender-3 V2 Neo' },
+                  { id: 'e3-max-neo', name: 'Ender-3 Max Neo' },
+                  { id: 'e3-v3-se', name: 'Ender-3 V3 SE' },
+                  { id: 'e3-v3-ke', name: 'Ender-3 V3 KE' },
+                  { id: 'e3-v3', name: 'Ender-3 V3' },
+                  { id: 'e3-v3-plus', name: 'Ender-3 V3 Plus' }
+                ]
+              },
+              {
+                id: 'ender-5',
+                name: 'Ender-5',
+                models: [
+                  { id: 'e5', name: 'Ender-5' },
+                  { id: 'e5-pro', name: 'Ender-5 Pro' },
+                  { id: 'e5-plus', name: 'Ender-5 Plus' },
+                  { id: 'e5-s1', name: 'Ender-5 S1' }
+                ]
+              },
+              {
+                id: 'ender-6-7',
+                name: 'Ender-6 / Ender-7',
+                models: [
+                  { id: 'e6', name: 'Ender-6' },
+                  { id: 'e7', name: 'Ender-7' }
+                ]
+              },
+              {
+                id: 'autres-ender',
+                name: 'Autres Ender',
+                models: [
+                  { id: 'e2', name: 'Ender-2' },
+                  { id: 'e2-pro', name: 'Ender-2 Pro' },
+                  { id: 'e4', name: 'Ender-4' }
+                ]
+              }
+            ]
+          },
+          {
+            id: 'creality-k',
+            name: 'Série K (CoreXY Haute Vitesse)',
+            subCategories: [
+              {
+                id: 'k-series',
+                name: 'Modèles K',
+                models: [
+                  { id: 'k1', name: 'K1' },
+                  { id: 'k1-max', name: 'K1 Max' },
+                  { id: 'k1c', name: 'K1C' },
+                  { id: 'k2-plus', name: 'K2 Plus' }
+                ]
+              }
+            ]
+          },
+          {
+            id: 'creality-cr',
+            name: 'Série CR (Core / Cartésiennes Grand Format)',
+            subCategories: [
+              {
+                id: 'cr-10',
+                name: 'CR-10',
+                models: [
+                  { id: 'cr10', name: 'CR-10' },
+                  { id: 'cr10s', name: 'CR-10S' },
+                  { id: 'cr10-s4', name: 'CR-10 S4' },
+                  { id: 'cr10-s5', name: 'CR-10 S5' },
+                  { id: 'cr10-v2', name: 'CR-10 V2' },
+                  { id: 'cr10-v3', name: 'CR-10 V3' },
+                  { id: 'cr10-max', name: 'CR-10 Max' },
+                  { id: 'cr10-mini', name: 'CR-10 Mini' },
+                  { id: 'cr10-smart', name: 'CR-10 Smart' },
+                  { id: 'cr10-smart-pro', name: 'CR-10 Smart Pro' },
+                  { id: 'cr10-se', name: 'CR-10 SE' }
+                ]
+              },
+              {
+                id: 'cr-6',
+                name: 'CR-6',
+                models: [
+                  { id: 'cr6-se', name: 'CR-6 SE' },
+                  { id: 'cr6-max', name: 'CR-6 Max' }
+                ]
+              },
+              {
+                id: 'cr-20',
+                name: 'CR-20',
+                models: [
+                  { id: 'cr20', name: 'CR-20' },
+                  { id: 'cr20-pro', name: 'CR-20 Pro' }
+                ]
+              },
+              {
+                id: 'cr-m4',
+                name: 'CR-M4',
+                models: [
+                  { id: 'crm4', name: 'CR-M4' }
+                ]
+              },
+              {
+                id: 'cr-x',
+                name: 'CR-X',
+                models: [
+                  { id: 'crx', name: 'CR-X' },
+                  { id: 'crx-pro', name: 'CR-X Pro' }
+                ]
+              },
+              {
+                id: 'autres-cr',
+                name: 'Autres CR',
+                models: [
+                  { id: 'cr30', name: 'CR-30 (PrintMill)' },
+                  { id: 'cr100', name: 'CR-100' },
+                  { id: 'cr2020', name: 'CR-2020' },
+                  { id: 'cr3040', name: 'CR-3040' },
+                  { id: 'cr3040-pro', name: 'CR-3040 Pro' },
+                  { id: 'cr5-pro', name: 'CR-5 Pro' },
+                  { id: 'cr5-pro-ht', name: 'CR-5 Pro High-Temp' }
+                ]
+              }
+            ]
+          },
+          {
+            id: 'creality-resin',
+            name: 'Série Résine (SLA / LCD - Halot & LD)',
+            subCategories: [
+              {
+                id: 'halot',
+                name: 'Gamme Halot',
+                models: [
+                  { id: 'halot-one', name: 'Halot-One' },
+                  { id: 'halot-one-plus', name: 'Halot-One Plus' },
+                  { id: 'halot-one-pro', name: 'Halot-One Pro' },
+                  { id: 'halot-mage', name: 'Halot-Mage' },
+                  { id: 'halot-mage-pro', name: 'Halot-Mage Pro' },
+                  { id: 'halot-mage-s', name: 'Halot-Mage S' },
+                  { id: 'halot-sky', name: 'Halot-Sky' },
+                  { id: 'halot-sky-2022', name: 'Halot-Sky 2022' },
+                  { id: 'halot-lite', name: 'Halot-Lite' },
+                  { id: 'halot-ray', name: 'Halot-Ray' },
+                  { id: 'halot-max', name: 'Halot-Max' }
+                ]
+              },
+              {
+                id: 'ld',
+                name: 'Gamme LD (Archivée)',
+                models: [
+                  { id: 'ld-001', name: 'LD-001' },
+                  { id: 'ld-002', name: 'LD-002' },
+                  { id: 'ld-002r', name: 'LD-002R' },
+                  { id: 'ld-002h', name: 'LD-002H' },
+                  { id: 'ld-006', name: 'LD-006' }
+                ]
+              }
+            ]
+          },
+          {
+            id: 'creality-enclosed',
+            name: 'Séries Caisson Fermé / Éducation',
+            subCategories: [
+              {
+                id: 'sermoon',
+                name: 'Série Sermoon',
+                models: [
+                  { id: 'sermoon-d1', name: 'Sermoon D1' },
+                  { id: 'sermoon-d3', name: 'Sermoon D3' },
+                  { id: 'sermoon-d3-pro', name: 'Sermoon D3 Pro' },
+                  { id: 'sermoon-v1', name: 'Sermoon V1' },
+                  { id: 'sermoon-v1-pro', name: 'Sermoon V1 Pro' }
+                ]
+              },
+              {
+                id: 'cr-200',
+                name: 'Série CR-200',
+                models: [
+                  { id: 'cr-200b', name: 'CR-200B' },
+                  { id: 'cr-200b-pro', name: 'CR-200B Pro' }
+                ]
+              }
+            ]
+          },
+          {
+            id: 'creality-multi',
+            name: 'Série Beluga / Multi-couleurs',
+            subCategories: [
+              {
+                id: 'cfs',
+                name: 'Système Multi-filaments',
+                models: [
+                  { id: 'cfs-system', name: 'CFS (system multi-filaments)' }
+                ]
+              }
+            ]
+          },
+          {
+            id: 'creality-special',
+            name: 'Imprimantes Spéciales / Archivées',
+            subCategories: [
+              {
+                id: 'special',
+                name: 'Modèles Spéciaux',
+                models: [
+                  { id: 'cr-8', name: 'CR-8' },
+                  { id: 'cr-7', name: 'CR-7' }
+                ]
+              }
+            ]
+          }
         ]
       },
       {
@@ -338,6 +567,7 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
   const contentRef = useRef<HTMLDivElement>(null);
   const midContentRef = useRef<HTMLDivElement>(null);
   const modelsContentRef = useRef<HTMLDivElement>(null);
+  const fourthContentRef = useRef<HTMLDivElement>(null);
 
   const [thumbHeight, setThumbHeight] = useState(40);
   const [thumbTop, setThumbTop] = useState(8);
@@ -354,8 +584,15 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
   const [hasModelsScroll, setHasModelsScroll] = useState(false);
   const [isModelsDragging, setIsModelsDragging] = useState(false);
 
+  const [fourthThumbHeight, setFourthThumbHeight] = useState(40);
+  const [fourthThumbTop, setFourthThumbTop] = useState(8);
+  const [hasFourthScroll, setHasFourthScroll] = useState(false);
+  const [isFourthDragging, setIsFourthDragging] = useState(false);
+
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedManufacturer, setSelectedManufacturer] = useState<string | null>(null);
+  const [selectedNestedCat, setSelectedNestedCat] = useState<string | null>(null);
+  const [selectedSubCat, setSelectedSubCat] = useState<string | null>(null);
 
   const startYRef = useRef(0);
   const startScrollTopRef = useRef(0);
@@ -381,20 +618,21 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
     setThumbT(calculatedTop);
   };
 
-  const handleMouseDown = (e: React.MouseEvent, type: 'cat' | 'mid' | 'models') => {
+  const handleMouseDown = (e: React.MouseEvent, type: 'cat' | 'mid' | 'models' | 'fourth') => {
     if (type === 'cat') setIsDragging(true);
     if (type === 'mid') setIsMidDragging(true);
     if (type === 'models') setIsModelsDragging(true);
+    if (type === 'fourth') setIsFourthDragging(true);
 
     startYRef.current = e.clientY;
-    const currentRef = type === 'cat' ? contentRef : type === 'mid' ? midContentRef : modelsContentRef;
+    const currentRef = type === 'cat' ? contentRef : type === 'mid' ? midContentRef : type === 'models' ? modelsContentRef : fourthContentRef;
     if (currentRef.current) {
       startScrollTopRef.current = currentRef.current.scrollTop;
     }
 
     const onMouseMove = (ev: MouseEvent) => {
-      const refObj = type === 'cat' ? contentRef : type === 'mid' ? midContentRef : modelsContentRef;
-      const thumbH = type === 'cat' ? thumbHeight : type === 'mid' ? midThumbHeight : modelsThumbHeight;
+      const refObj = type === 'cat' ? contentRef : type === 'mid' ? midContentRef : type === 'models' ? modelsContentRef : fourthContentRef;
+      const thumbH = type === 'cat' ? thumbHeight : type === 'mid' ? midThumbHeight : type === 'models' ? modelsThumbHeight : fourthThumbHeight;
       if (!refObj.current) return;
       const deltaY = ev.clientY - startYRef.current;
       const { scrollHeight, clientHeight } = refObj.current;
@@ -414,6 +652,7 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
       if (type === 'cat') setIsDragging(false);
       if (type === 'mid') setIsMidDragging(false);
       if (type === 'models') setIsModelsDragging(false);
+      if (type === 'fourth') setIsFourthDragging(false);
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
     };
@@ -441,26 +680,52 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
     }
   }, [selectedManufacturer]);
 
+  useEffect(() => {
+    if (selectedNestedCat) {
+      setTimeout(() => handleScroll(fourthContentRef, setFourthThumbHeight, setFourthThumbTop, setHasFourthScroll, isFourthDragging), 50);
+    }
+  }, [selectedNestedCat]);
+
   const activeCategoryObj = PRINTER_CATEGORIES.find(c => c.id === selectedCategory);
   const activeManufacturerObj = activeCategoryObj?.manufacturers?.find(m => m.id === selectedManufacturer);
+  const activeNestedCatObj = activeManufacturerObj?.nestedCategories?.find(nc => nc.id === selectedNestedCat);
+  const activeSubCatObj = activeNestedCatObj?.subCategories?.find(sc => sc.id === selectedSubCat);
 
   let titlePath = 'Profils imprimante';
   if (activeCategoryObj) {
     if (activeCategoryObj.isDirectList) {
       titlePath = `Profils imprimante\\[${activeCategoryObj.name}]`;
     } else if (activeManufacturerObj) {
-      titlePath = `Profils imprimante\\[${activeCategoryObj.name}\\\u003E${activeManufacturerObj.name}]`;
+      if (activeManufacturerObj.id === 'creality' && selectedNestedCat) {
+        if (selectedSubCat) {
+          titlePath = `Profils imprimante\\[${activeCategoryObj.name}\\> ${activeManufacturerObj.name}\\> ${activeNestedCatObj?.name}\\> ${activeSubCatObj?.name}]`;
+        } else {
+          titlePath = `Profils imprimante\\[${activeCategoryObj.name}\\> ${activeManufacturerObj.name}\\> ${activeNestedCatObj?.name}]`;
+        }
+      } else if (selectedManufacturer) {
+        titlePath = `Profils imprimante\\[${activeCategoryObj.name}\\> ${activeManufacturerObj.name}]`;
+      } else {
+        titlePath = `Profils imprimante\\[${activeCategoryObj.name}]`;
+      }
     } else {
       titlePath = `Profils imprimante\\[${activeCategoryObj.name}]`;
     }
   }
 
-  let containerWidthClass = 'w-[195px]';
+  let windowCount = 1;
   if (selectedCategory) {
-    if (activeCategoryObj?.isDirectList || selectedManufacturer) {
-      containerWidthClass = 'w-[402px]';
-    } else {
-      containerWidthClass = 'w-[402px]';
+    if (activeCategoryObj?.isDirectList || (activeManufacturerObj && !activeManufacturerObj.nestedCategories)) {
+      windowCount = 2;
+    } else if (activeManufacturerObj?.nestedCategories) {
+      if (selectedNestedCat) {
+        if (selectedSubCat) {
+          windowCount = 4;
+        } else {
+          windowCount = 3;
+        }
+      } else {
+        windowCount = 2;
+      }
     }
   }
 
@@ -470,8 +735,9 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
         <>
           <motion.div 
             className={clsx(styles.fusionTitleContainer, { 
-              [styles.expandedWidthTwo]: selectedCategory && (activeCategoryObj?.isDirectList || selectedManufacturer),
-              [styles.expandedWidthThree]: selectedCategory && !activeCategoryObj?.isDirectList && !selectedManufacturer
+              [styles.expandedWidthTwo]: windowCount === 2,
+              [styles.expandedWidthThree]: windowCount === 3,
+              [styles.expandedWidthFour]: windowCount === 4
             })}
             initial={{ opacity: 0, scale: 0.95, x: -10, y: -20 }}
             animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
@@ -487,7 +753,11 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
             <button 
               className={styles.fusionCloseBtn}
               onClick={() => {
-                if (selectedManufacturer) {
+                if (selectedSubCat) {
+                  setSelectedSubCat(null);
+                } else if (selectedNestedCat) {
+                  setSelectedNestedCat(null);
+                } else if (selectedManufacturer) {
                   setSelectedManufacturer(null);
                 } else if (selectedCategory) {
                   setSelectedCategory(null);
@@ -525,6 +795,8 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
                           onClick={() => {
                             setSelectedCategory(cat.id);
                             setSelectedManufacturer(null);
+                            setSelectedNestedCat(null);
+                            setSelectedSubCat(null);
                           }}
                         >
                           <span className={styles.itemName}>{cat.name}</span>
@@ -549,7 +821,7 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
             )}
           </motion.div>
 
-          {/* Second Window: Direct Models (if Aelox) or Manufacturers list (if Autres) */}
+          {/* Second Window: Direct Models or Specific Manufacturers list */}
           <AnimatePresence>
             {selectedCategory && activeCategoryObj && (
               <motion.div 
@@ -596,6 +868,8 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
                                 className={clsx(styles.patternItem, { [styles.activePattern]: isSelected })}
                                 onClick={() => {
                                   setSelectedManufacturer(manuf.id);
+                                  setSelectedNestedCat(null);
+                                  setSelectedSubCat(null);
                                 }}
                               >
                                 <span className={styles.itemName}>{manuf.name}</span>
@@ -623,7 +897,7 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
             )}
           </AnimatePresence>
 
-          {/* Third Window: Models of specific manufacturer in "Autres fabricants" */}
+          {/* Third Window: Models or Series (e.g. Creality series) */}
           <AnimatePresence>
             {selectedManufacturer && activeManufacturerObj && (
               <motion.div 
@@ -639,9 +913,132 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
                   onScroll={() => handleScroll(modelsContentRef, setModelsThumbHeight, setModelsThumbTop, setHasModelsScroll, isModelsDragging)}
                 >
                   <div className={styles.sectionGroup}>
+                    <h4 className={styles.sectionTitle}>
+                      {activeManufacturerObj.nestedCategories ? 'Séries' : 'Modèles'}
+                    </h4>
+                    <ul className={styles.itemsList}>
+                      {activeManufacturerObj.nestedCategories ? (
+                        activeManufacturerObj.nestedCategories.map((nc) => {
+                          const isSelected = selectedNestedCat === nc.id;
+                          return (
+                            <CustomTooltip key={nc.id} content={nc.name} description="">
+                              <li 
+                                className={clsx(styles.patternItem, { [styles.activePattern]: isSelected })}
+                                onClick={() => {
+                                  setSelectedNestedCat(nc.id);
+                                  setSelectedSubCat(null);
+                                }}
+                              >
+                                <span className={styles.itemName}>{nc.name}</span>
+                                <ChevronRight size={14} className="text-zinc-400 shrink-0" />
+                              </li>
+                            </CustomTooltip>
+                          );
+                        })
+                      ) : (
+                        activeManufacturerObj.models?.map((model) => {
+                          const isSelected = selectedPrinter === model.name;
+                          return (
+                            <CustomTooltip key={model.id} content={model.name} description="">
+                              <li 
+                                className={clsx(styles.patternItem, { [styles.activePattern]: isSelected })}
+                                onClick={() => {
+                                  onSelectPrinter(model.name);
+                                  showSuccess(`Imprimante active : ${model.name}`);
+                                }}
+                              >
+                                <span className={styles.itemName}>{model.name}</span>
+                                {isSelected && <Check size={14} className="text-[#00f0ff] shrink-0" />}
+                              </li>
+                            </CustomTooltip>
+                          );
+                        })
+                      )}
+                    </ul>
+                  </div>
+                </div>
+
+                {hasModelsScroll && (
+                  <div 
+                    className={clsx(styles.externalScrollThumb, { [styles.dragging]: isModelsDragging })}
+                    onMouseDown={(e) => handleMouseDown(e, 'models')}
+                    style={{
+                      height: `${modelsThumbHeight}px`,
+                      top: `${modelsThumbTop}px`
+                    }}
+                  />
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Fourth Window: Sub-categories (e.g. Ender-3, Ender-5) or Models */}
+          <AnimatePresence>
+            {selectedNestedCat && activeNestedCatObj && (
+              <motion.div 
+                className={styles.fourthPopup}
+                initial={{ opacity: 0, scale: 0.95, x: -10 }}
+                animate={{ opacity: 1, scale: 1, x: 0 }}
+                exit={{ opacity: 0, scale: 0.95, x: -10 }}
+                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              >
+                <div 
+                  ref={fourthContentRef}
+                  className={styles.patternPopupContent}
+                  onScroll={() => handleScroll(fourthContentRef, setFourthThumbHeight, setFourthThumbTop, setHasFourthScroll, isFourthDragging)}
+                >
+                  <div className={styles.sectionGroup}>
+                    <h4 className={styles.sectionTitle}>Sous-familles</h4>
+                    <ul className={styles.itemsList}>
+                      {activeNestedCatObj.subCategories.map((sc) => {
+                        const isSelected = selectedSubCat === sc.id;
+                        return (
+                          <CustomTooltip key={sc.id} content={sc.name} description="">
+                            <li 
+                              className={clsx(styles.patternItem, { [styles.activePattern]: isSelected })}
+                              onClick={() => {
+                                setSelectedSubCat(sc.id);
+                              }}
+                            >
+                              <span className={styles.itemName}>{sc.name}</span>
+                              <ChevronRight size={14} className="text-zinc-400 shrink-0" />
+                            </li>
+                          </CustomTooltip>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                </div>
+
+                {hasFourthScroll && (
+                  <div 
+                    className={clsx(styles.externalScrollThumb, { [styles.dragging]: isFourthDragging })}
+                    onMouseDown={(e) => handleMouseDown(e, 'fourth')}
+                    style={{
+                      height: `${fourthThumbHeight}px`,
+                      top: `${fourthThumbTop}px`
+                    }}
+                  />
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Fifth Window: Final models if sub-category selected */}
+          <AnimatePresence>
+            {selectedSubCat && activeSubCatObj && (
+              <motion.div 
+                className={styles.fifthPopup}
+                initial={{ opacity: 0, scale: 0.95, x: -10 }}
+                animate={{ opacity: 1, scale: 1, x: 0 }}
+                exit={{ opacity: 0, scale: 0.95, x: -10 }}
+                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              >
+                <div className={styles.patternPopupContent}>
+                  <div className={styles.sectionGroup}>
                     <h4 className={styles.sectionTitle}>Modèles</h4>
                     <ul className={styles.itemsList}>
-                      {activeManufacturerObj.models.map((model) => {
+                      {activeSubCatObj.models.map((model) => {
                         const isSelected = selectedPrinter === model.name;
                         return (
                           <CustomTooltip key={model.id} content={model.name} description="">
@@ -661,17 +1058,6 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
                     </ul>
                   </div>
                 </div>
-
-                {hasModelsScroll && (
-                  <div 
-                    className={clsx(styles.externalScrollThumb, { [styles.dragging]: isModelsDragging })}
-                    onMouseDown={(e) => handleMouseDown(e, 'models')}
-                    style={{
-                      height: `${modelsThumbHeight}px`,
-                      top: `${modelsThumbTop}px`
-                    }}
-                  />
-                )}
               </motion.div>
             )}
           </AnimatePresence>
