@@ -11,6 +11,7 @@ import {
 import { CustomTooltip } from './CustomTooltip';
 import styles from './PrinterConfigSidebar.module.scss';
 import { showSuccess } from '@/utils/toast';
+import { PrinterDetailModal } from './PrinterDetailModal';
 
 export interface PrinterModel {
   id: string;
@@ -50,6 +51,7 @@ export const PRINTER_CATEGORIES: PrinterCategory[] = [
     name: 'Aelox Hardware',
     isDirectList: true,
     models: [
+      { id: 'aelox-aetheris-4', name: 'Aetheris-4' },
       { id: 'aelox-fusion-pro', name: 'Aelox Fusion Pro' },
       { id: 'aelox-compact', name: 'Aelox Compact X' }
     ]
@@ -598,6 +600,8 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
   const [selectedNestedCat, setSelectedNestedCat] = useState<string | null>(null);
   const [selectedSubCat, setSelectedSubCat] = useState<string | null>(null);
 
+  const [activeDetailsPrinter, setActiveDetailsPrinter] = useState<string | null>(null);
+
   const startYRef = useRef(0);
   const startScrollTopRef = useRef(0);
 
@@ -719,7 +723,7 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
   let windowCount = 1;
   if (selectedCategory) {
     if (activeCategoryObj?.isDirectList || (activeManufacturerObj && !activeManufacturerObj.nestedCategories)) {
-      windowCount = 2;
+      windowCount = activeDetailsPrinter ? 3 : 2;
     } else if (activeManufacturerObj?.nestedCategories) {
       if (selectedNestedCat) {
         if (selectedSubCat) {
@@ -759,7 +763,9 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
                 <button 
                   className={styles.fusionCloseBtn}
                   onClick={() => {
-                    if (selectedSubCat) {
+                    if (activeDetailsPrinter) {
+                      setActiveDetailsPrinter(null);
+                    } else if (selectedSubCat) {
                       setSelectedSubCat(null);
                     } else if (selectedNestedCat) {
                       setSelectedNestedCat(null);
@@ -769,8 +775,8 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
                       setSelectedCategory(null);
                     }
                   }}
-                  disabled={!selectedCategory}
-                  style={!selectedCategory ? { opacity: 0.3, cursor: 'not-allowed' } : {}}
+                  disabled={!selectedCategory && !activeDetailsPrinter}
+                  style={!selectedCategory && !activeDetailsPrinter ? { opacity: 0.3, cursor: 'not-allowed' } : {}}
                 >
                   <ArrowLeft size={16} />
                 </button>
@@ -779,7 +785,10 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
               <CustomTooltip content="Fermer le menu" description="Fermer complètement le panneau de configuration des imprimantes.">
                 <button 
                   className={styles.fusionCloseBtn}
-                  onClick={onClose}
+                  onClick={() => {
+                    setActiveDetailsPrinter(null);
+                    onClose();
+                  }}
                 >
                   <X size={16} />
                 </button>
@@ -831,6 +840,7 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
                               setSelectedManufacturer(null);
                               setSelectedNestedCat(null);
                               setSelectedSubCat(null);
+                              setActiveDetailsPrinter(null);
                             }}
                           >
                             <span className={styles.itemName}>{cat.name}</span>
@@ -878,7 +888,7 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
                     <ul className={styles.itemsList}>
                       {activeCategoryObj.isDirectList ? (
                         activeCategoryObj.models?.map((model, idx) => {
-                          const isSelected = selectedPrinter === model.name;
+                          const isSelected = selectedPrinter === model.name || activeDetailsPrinter === model.name;
                           return (
                             <motion.div
                               key={model.id}
@@ -886,16 +896,25 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
                               animate={{ opacity: 1, x: 0 }}
                               transition={{ duration: 0.2, delay: idx * 0.03 }}
                             >
-                              <CustomTooltip content={model.name} description="">
+                              <CustomTooltip content={model.name} description="Cliquez pour afficher les informations techniques de l'imprimante.">
                                 <li 
                                   className={clsx(styles.patternItem, { [styles.activePattern]: isSelected })}
                                   onClick={() => {
                                     onSelectPrinter(model.name);
+                                    if (model.name.toLowerCase().includes('aetheris')) {
+                                      setActiveDetailsPrinter(model.name);
+                                    } else {
+                                      setActiveDetailsPrinter(null);
+                                    }
                                     showSuccess(`Imprimante active : ${model.name}`);
                                   }}
                                 >
                                   <span className={styles.itemName}>{model.name}</span>
-                                  {isSelected && <Check size={14} className="text-[#00f0ff] shrink-0" />}
+                                  {model.name.toLowerCase().includes('aetheris') ? (
+                                    <ChevronRight size={14} className="text-[#00f0ff] shrink-0" />
+                                  ) : (
+                                    isSelected && <Check size={14} className="text-[#00f0ff] shrink-0" />
+                                  )}
                                 </li>
                               </CustomTooltip>
                             </motion.div>
@@ -918,6 +937,7 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
                                     setSelectedManufacturer(manuf.id);
                                     setSelectedNestedCat(null);
                                     setSelectedSubCat(null);
+                                    setActiveDetailsPrinter(null);
                                   }}
                                 >
                                   <span className={styles.itemName}>{manuf.name}</span>
@@ -946,9 +966,15 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
             )}
           </AnimatePresence>
 
-          {/* Third Window: Models or Series (e.g. Creality series) */}
+          {/* Third Window: Details for Aetheris-4 or Models/Series for others */}
+          <PrinterDetailModal 
+            printerName={activeDetailsPrinter} 
+            onClose={() => setActiveDetailsPrinter(null)} 
+          />
+
+          {/* Third Window for Autres fabricants (Series/Models) */}
           <AnimatePresence>
-            {selectedManufacturer && activeManufacturerObj && (
+            {selectedManufacturer && activeManufacturerObj && !activeDetailsPrinter && (
               <motion.div 
                 className={styles.thirdPopup}
                 initial={{ opacity: 0, scale: 0.95, x: -15 }}
@@ -1037,7 +1063,7 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
 
           {/* Fourth Window: Sub-categories (e.g. Ender-3, Ender-5) or Models */}
           <AnimatePresence>
-            {selectedNestedCat && activeNestedCatObj && (
+            {selectedNestedCat && activeNestedCatObj && !activeDetailsPrinter && (
               <motion.div 
                 className={styles.fourthPopup}
                 initial={{ opacity: 0, scale: 0.95, x: -15 }}
@@ -1096,7 +1122,7 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
 
           {/* Fifth Window: Final models if sub-category selected */}
           <AnimatePresence>
-            {selectedSubCat && activeSubCatObj && (
+            {selectedSubCat && activeSubCatObj && !activeDetailsPrinter && (
               <motion.div 
                 className={clsx(styles.fifthPopup, "pointer-events-auto")}
                 initial={{ opacity: 0, scale: 0.95, x: -15 }}
