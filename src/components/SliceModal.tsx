@@ -38,43 +38,61 @@ export const SliceModal: React.FC<SliceModalProps> = ({ isOpen, onClose, onConfi
         exit={{ opacity: 0, scale: 0.95, y: 15 }}
         transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
       >
-        <div className={styles.header}>
-          <div className={styles.title}>
-            <Play size={16} className="fill-current text-[#00f0ff]" />
-            <span>{is5Axes ? "Lancer la découpe des modèles" : "Lancer la découpe (Slicing)"}</span>
-          </div>
-          <button className={styles.closeBtn} onClick={onClose}>
-            <X size={16} />
-          </button>
-        </div>
-
-        <div className={styles.body}>
-          {is5Axes ? (
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-center gap-2 text-red-500 font-bold text-xs uppercase tracking-wider bg-red-500/10 py-1.5 px-3 rounded-lg border border-red-500/20">
-                <AlertTriangle size={15} className="shrink-0" />
-                <span>Attention</span>
-                <AlertTriangle size={15} className="shrink-0" />
+        {is5Axes ? (
+          <div className="flex flex-col gap-3">
+            {/* Boîte 1 : Le Titre */}
+            <div className={styles.header}>
+              <div className={styles.title}>
+                <Play size={16} className="fill-current text-[#00f0ff]" />
+                <span>Lancer la découpe des modèles</span>
               </div>
-              <p className="text-xs leading-relaxed text-zinc-300">
+              <button className={styles.closeBtn} onClick={onClose}>
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Boîte 2 : Le Panneau Attention */}
+            <div className="flex items-center justify-center gap-2 text-red-500 font-bold text-xs uppercase tracking-wider bg-red-500/10 py-2 px-3 rounded-xl border border-red-500/20 shadow-sm">
+              <AlertTriangle size={15} className="shrink-0" />
+              <span>Attention</span>
+              <AlertTriangle size={15} className="shrink-0" />
+            </div>
+
+            {/* Boîte 3 : Le Texte d'avertissement */}
+            <div className="flex flex-col gap-2 bg-neutral-950/40 p-3.5 rounded-xl border border-white/5 text-xs text-zinc-300 leading-relaxed">
+              <p>
                 Vous êtes sur le point de lancer une opération de tranchage de <span className="text-white font-semibold">{modelCount}</span> modèles pour un total de <span className="text-white font-semibold">{triangleCount.toLocaleString()}</span> triangles en mode 5 axes.
               </p>
-              <p className="text-xs leading-relaxed text-zinc-300">
+              <p>
                 Selon la puissance de votre ordinateur et la complexité du maillage, cette opération peut prendre plusieurs minutes.
               </p>
-              <p className="text-xs leading-relaxed text-zinc-300">
+              <p>
                 Vous ne pourrez plus modifier de nombreux paramètres de base.
               </p>
-              <p className="text-xs leading-relaxed font-semibold text-white">
+              <p className="font-semibold text-white pt-1">
                 Êtes-vous absolument sûr de vouloir continuer cette opération?
               </p>
             </div>
-          ) : (
-            <p>
-              Voulez-vous lancer le calcul complet des trajectoires G-code pour le plateau d'impression actuel ?
-            </p>
-          )}
-        </div>
+          </div>
+        ) : (
+          <>
+            <div className={styles.header}>
+              <div className={styles.title}>
+                <Play size={16} className="fill-current text-[#00f0ff]" />
+                <span>Lancer la découpe (Slicing)</span>
+              </div>
+              <button className={styles.closeBtn} onClick={onClose}>
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className={styles.body}>
+              <p>
+                Voulez-vous lancer le calcul complet des trajectoires G-code pour le plateau d'impression actuel ?
+              </p>
+            </div>
+          </>
+        )}
       </motion.div>
 
       <div className={styles.externalButtonsContainer}>
