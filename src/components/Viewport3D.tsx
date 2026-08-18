@@ -144,7 +144,6 @@ export const Viewport3D = () => {
           break;
       }
 
-      // Smooth transition
       const animAlpha = new BABYLON.Animation("animAlpha", "alpha", 60, BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
       animAlpha.setKeys([{ frame: 0, value: camera.alpha }, { frame: 20, value: targetAlpha }]);
 
@@ -154,7 +153,22 @@ export const Viewport3D = () => {
       scene.beginDirectAnimation(camera, [animAlpha, animBeta], 0, 20, false);
     };
 
+    const handleCustomView = (e: Event) => {
+      const customEvent = e as CustomEvent<{ alpha: number; beta: number }>;
+      const { alpha, beta } = customEvent.detail;
+      if (!camera) return;
+
+      const animAlpha = new BABYLON.Animation("animAlpha", "alpha", 60, BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+      animAlpha.setKeys([{ frame: 0, value: camera.alpha }, { frame: 20, value: alpha }]);
+
+      const animBeta = new BABYLON.Animation("animBeta", "beta", 60, BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+      animBeta.setKeys([{ frame: 0, value: camera.beta }, { frame: 20, value: beta }]);
+
+      scene.beginDirectAnimation(camera, [animAlpha, animBeta], 0, 20, false);
+    };
+
     window.addEventListener('apex-set-camera-view', handleSetView);
+    window.addEventListener('apex-set-camera-custom', handleCustomView);
 
     new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
     const hl = new BABYLON.HighlightLayer("hl1", scene);
@@ -705,6 +719,7 @@ export const Viewport3D = () => {
       window.removeEventListener('apex-tool-changed', onToolChanged);
       window.removeEventListener('apex-request-textures', onRequestTextures);
       window.removeEventListener('apex-set-camera-view', handleSetView);
+      window.removeEventListener('apex-set-camera-custom', handleCustomView);
       window.removeEventListener('keydown', handleKeyDown);
       scene.onPointerObservable.remove(pointerObserver);
       gizmoManager.dispose();
