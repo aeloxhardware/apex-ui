@@ -532,12 +532,11 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
                               }
                             }}
                           >
-                            <span className={styles.itemName}>{item.label}</span>
+                            <span className={styles.itemName}>
+                              {item.isPatternDropdown ? `Motif de remplissage (${selectedPattern})` : item.label}
+                            </span>
                             {item.isPatternDropdown ? (
-                              <div className={styles.dropdownTrigger}>
-                                <span className={styles.dropdownText}>{selectedPattern}</span>
-                                <ChevronDown size={14} className="shrink-0 ml-auto" />
-                              </div>
+                              <ChevronDown size={14} className="shrink-0 text-[#00f0ff] ml-2" />
                             ) : (
                               <input 
                                 type="text" 
