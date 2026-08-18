@@ -77,14 +77,14 @@
   cursor: pointer;
 
   &:hover, &.highlighted {
-    background: rgba(0, 240, 255, 0.35);
+    background: rgba(0, 240, 255, 0.45);
     border-color: #00f0ff;
-    box-shadow: 0 0 10px rgba(0, 240, 255, 0.4);
+    box-shadow: 0 0 12px rgba(0, 240, 255, 0.6);
     z-index: 5;
   }
 }
 
-/* Sommets (Coins) */
+/* Sommets */
 .vertexTL { grid-column: 1; grid-row: 1; }
 .vertexTR { grid-column: 3; grid-row: 1; }
 .vertexBL { grid-column: 1; grid-row: 3; }
@@ -97,9 +97,9 @@
   cursor: pointer;
 
   &:hover, &.highlighted {
-    background: rgba(0, 240, 255, 0.6);
+    background: rgba(0, 240, 255, 0.75);
     border-color: #00f0ff;
-    box-shadow: 0 0 12px #00f0ff;
+    box-shadow: 0 0 16px #00f0ff;
     z-index: 10;
   }
 }
