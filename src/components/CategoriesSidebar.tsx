@@ -111,7 +111,7 @@ const CATEGORIES: CategoryItem[] = [
         title: 'Remplissage', 
         items: [
           { label: 'Densité de remplissage (%)', defaultValue: '15%', description: 'Pourcentage de matière à l\'intérieur de la pièce. 15% offre un excellent compromis poids/solidité.' },
-          { label: 'Motifs (Gyroid, Grid, Lightning)', defaultValue: 'Gyroïde', description: 'Géométrie interne 3D. Le motif Gyroid offre une résistance isotrope exceptionnelle dans toutes les directions.', isPatternDropdown: true },
+          { label: 'Motifs (Gyroid, Grid, Lightning)', defaultValue: 'Gyroïde', description: 'Géométrie tridimensionnelle interne de l\'objet. Peut faire varier la vitesse et la résistance de l\'objet.', isPatternDropdown: true },
           { label: 'Angle du remplissage', defaultValue: '45°', description: 'Orientation des lignes de remplissage par rapport aux axes du plateau.' }
         ] 
       },
