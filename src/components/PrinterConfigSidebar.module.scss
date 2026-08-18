@@ -57,33 +57,16 @@
 
 .tabButtonsContainer {
   display: flex;
-  gap: 6px;
+  align-items: center;
 }
 
-.tabBtn {
-  background: transparent;
-  border: none;
-  color: rgba(255, 255, 255, 0.6);
-  cursor: pointer;
-  font-size: 11px;
-  font-weight: 500;
-  padding: 6px 10px;
-  border-radius: 8px;
+.activeTabTitle {
+  font-family: 'Orbitron', sans-serif !important;
+  font-size: 12px;
+  font-weight: 700;
+  color: #00f0ff;
   display: flex;
   align-items: center;
-  transition: all 0.2s;
-
-  &:hover {
-    color: #fff;
-    background: rgba(255, 255, 255, 0.1);
-  }
-
-  &.activeTab {
-    background: rgba(0, 240, 255, 0.2);
-    color: #00f0ff;
-    font-weight: 600;
-    box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
-  }
 }
 
 .fusionCloseBtn {
