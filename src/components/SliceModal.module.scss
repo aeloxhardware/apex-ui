@@ -53,15 +53,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  animation: attentionPulse 2s ease-in-out infinite alternate, scaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: attentionBlink 1.2s ease-in-out infinite alternate, scaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@keyframes attentionPulse {
+@keyframes attentionBlink {
   0% {
-    box-shadow: 0 8px 32px rgba(239, 68, 68, 0.25), inset 0 0 15px rgba(239, 68, 68, 0.15);
+    opacity: 0.55;
+    box-shadow: 0 8px 20px rgba(239, 68, 68, 0.15), inset 0 0 10px rgba(239, 68, 68, 0.1);
   }
   100% {
-    box-shadow: 0 8px 45px rgba(239, 68, 68, 0.5), inset 0 0 30px rgba(239, 68, 68, 0.3);
+    opacity: 1;
+    box-shadow: 0 8px 50px rgba(239, 68, 68, 0.7), inset 0 0 35px rgba(239, 68, 68, 0.4);
   }
 }
 

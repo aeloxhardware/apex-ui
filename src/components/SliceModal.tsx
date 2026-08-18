@@ -56,7 +56,7 @@ export const SliceModal: React.FC<SliceModalProps> = ({ isOpen, onClose, onConfi
             </div>
           </div>
 
-          {/* Boîte 2 : Le Panneau Attention (animé avec filtre rouge) */}
+          {/* Boîte 2 : Le Panneau Attention (clignotant avec filtre rouge) */}
           <div className={styles.attentionBox}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#ef4444', fontWeight: 700, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               <AlertTriangle size={15} style={{ flexShrink: 0 }} />
