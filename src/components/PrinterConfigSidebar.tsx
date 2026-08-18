@@ -773,9 +773,9 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
           {/* First Window: Categories (Aelox / Autres) */}
           <motion.div 
             className={styles.fusionMenuContainer}
-            initial={{ opacity: 0, scale: 0.95, x: -10, y: 20 }}
+            initial={{ opacity: 0, scale: 0.95, x: -15, y: 20 }}
             animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, x: -10, y: 20 }}
+            exit={{ opacity: 0, scale: 0.95, x: -15, y: 20 }}
             transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
           >
             <div 
@@ -786,23 +786,30 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
               <div className={styles.sectionGroup}>
                 <h4 className={styles.sectionTitle}>Fabricants</h4>
                 <ul className={styles.itemsList}>
-                  {PRINTER_CATEGORIES.map((cat) => {
+                  {PRINTER_CATEGORIES.map((cat, idx) => {
                     const isSelected = selectedCategory === cat.id;
                     return (
-                      <CustomTooltip key={cat.id} content={cat.name} description="">
-                        <li 
-                          className={clsx(styles.itemRow, { [styles.activeRow]: isSelected })}
-                          onClick={() => {
-                            setSelectedCategory(cat.id);
-                            setSelectedManufacturer(null);
-                            setSelectedNestedCat(null);
-                            setSelectedSubCat(null);
-                          }}
-                        >
-                          <span className={styles.itemName}>{cat.name}</span>
-                          <ChevronRight size={14} className="text-zinc-400 shrink-0" />
-                        </li>
-                      </CustomTooltip>
+                      <motion.div
+                        key={cat.id}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.2, delay: idx * 0.04 }}
+                      >
+                        <CustomTooltip content={cat.name} description="">
+                          <li 
+                            className={clsx(styles.itemRow, { [styles.activeRow]: isSelected })}
+                            onClick={() => {
+                              setSelectedCategory(cat.id);
+                              setSelectedManufacturer(null);
+                              setSelectedNestedCat(null);
+                              setSelectedSubCat(null);
+                            }}
+                          >
+                            <span className={styles.itemName}>{cat.name}</span>
+                            <ChevronRight size={14} className="text-zinc-400 shrink-0" />
+                          </li>
+                        </CustomTooltip>
+                      </motion.div>
                     );
                   })}
                 </ul>
@@ -826,10 +833,10 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
             {selectedCategory && activeCategoryObj && (
               <motion.div 
                 className={styles.patternPopup}
-                initial={{ opacity: 0, scale: 0.95, x: -10 }}
+                initial={{ opacity: 0, scale: 0.95, x: -15 }}
                 animate={{ opacity: 1, scale: 1, x: 0 }}
-                exit={{ opacity: 0, scale: 0.95, x: -10 }}
-                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                exit={{ opacity: 0, scale: 0.95, x: -15 }}
+                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
               >
                 <div 
                   ref={midContentRef}
@@ -842,40 +849,54 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
                     </h4>
                     <ul className={styles.itemsList}>
                       {activeCategoryObj.isDirectList ? (
-                        activeCategoryObj.models?.map((model) => {
+                        activeCategoryObj.models?.map((model, idx) => {
                           const isSelected = selectedPrinter === model.name;
                           return (
-                            <CustomTooltip key={model.id} content={model.name} description="">
-                              <li 
-                                className={clsx(styles.patternItem, { [styles.activePattern]: isSelected })}
-                                onClick={() => {
-                                  onSelectPrinter(model.name);
-                                  showSuccess(`Imprimante active : ${model.name}`);
-                                }}
-                              >
-                                <span className={styles.itemName}>{model.name}</span>
-                                {isSelected && <Check size={14} className="text-[#00f0ff] shrink-0" />}
-                              </li>
-                            </CustomTooltip>
+                            <motion.div
+                              key={model.id}
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ duration: 0.2, delay: idx * 0.03 }}
+                            >
+                              <CustomTooltip content={model.name} description="">
+                                <li 
+                                  className={clsx(styles.patternItem, { [styles.activePattern]: isSelected })}
+                                  onClick={() => {
+                                    onSelectPrinter(model.name);
+                                    showSuccess(`Imprimante active : ${model.name}`);
+                                  }}
+                                >
+                                  <span className={styles.itemName}>{model.name}</span>
+                                  {isSelected && <Check size={14} className="text-[#00f0ff] shrink-0" />}
+                                </li>
+                              </CustomTooltip>
+                            </motion.div>
                           );
                         })
                       ) : (
-                        activeCategoryObj.manufacturers?.map((manuf) => {
+                        activeCategoryObj.manufacturers?.map((manuf, idx) => {
                           const isSelected = selectedManufacturer === manuf.id;
                           return (
-                            <CustomTooltip key={manuf.id} content={manuf.name} description="">
-                              <li 
-                                className={clsx(styles.patternItem, { [styles.activePattern]: isSelected })}
-                                onClick={() => {
-                                  setSelectedManufacturer(manuf.id);
-                                  setSelectedNestedCat(null);
-                                  setSelectedSubCat(null);
-                                }}
-                              >
-                                <span className={styles.itemName}>{manuf.name}</span>
-                                <ChevronRight size={14} className="text-zinc-400 shrink-0" />
-                              </li>
-                            </CustomTooltip>
+                            <motion.div
+                              key={manuf.id}
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ duration: 0.15, delay: idx * 0.02 }}
+                            >
+                              <CustomTooltip content={manuf.name} description="">
+                                <li 
+                                  className={clsx(styles.patternItem, { [styles.activePattern]: isSelected })}
+                                  onClick={() => {
+                                    setSelectedManufacturer(manuf.id);
+                                    setSelectedNestedCat(null);
+                                    setSelectedSubCat(null);
+                                  }}
+                                >
+                                  <span className={styles.itemName}>{manuf.name}</span>
+                                  <ChevronRight size={14} className="text-zinc-400 shrink-0" />
+                                </li>
+                              </CustomTooltip>
+                            </motion.div>
                           );
                         })
                       )}
@@ -902,10 +923,10 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
             {selectedManufacturer && activeManufacturerObj && (
               <motion.div 
                 className={styles.thirdPopup}
-                initial={{ opacity: 0, scale: 0.95, x: -10 }}
+                initial={{ opacity: 0, scale: 0.95, x: -15 }}
                 animate={{ opacity: 1, scale: 1, x: 0 }}
-                exit={{ opacity: 0, scale: 0.95, x: -10 }}
-                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                exit={{ opacity: 0, scale: 0.95, x: -15 }}
+                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
               >
                 <div 
                   ref={modelsContentRef}
@@ -918,39 +939,53 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
                     </h4>
                     <ul className={styles.itemsList}>
                       {activeManufacturerObj.nestedCategories ? (
-                        activeManufacturerObj.nestedCategories.map((nc) => {
+                        activeManufacturerObj.nestedCategories.map((nc, idx) => {
                           const isSelected = selectedNestedCat === nc.id;
                           return (
-                            <CustomTooltip key={nc.id} content={nc.name} description="">
-                              <li 
-                                className={clsx(styles.patternItem, { [styles.activePattern]: isSelected })}
-                                onClick={() => {
-                                  setSelectedNestedCat(nc.id);
-                                  setSelectedSubCat(null);
-                                }}
-                              >
-                                <span className={styles.itemName}>{nc.name}</span>
-                                <ChevronRight size={14} className="text-zinc-400 shrink-0" />
-                              </li>
-                            </CustomTooltip>
+                            <motion.div
+                              key={nc.id}
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ duration: 0.15, delay: idx * 0.03 }}
+                            >
+                              <CustomTooltip content={nc.name} description="">
+                                <li 
+                                  className={clsx(styles.patternItem, { [styles.activePattern]: isSelected })}
+                                  onClick={() => {
+                                    setSelectedNestedCat(nc.id);
+                                    setSelectedSubCat(null);
+                                  }}
+                                >
+                                  <span className={styles.itemName}>{nc.name}</span>
+                                  <ChevronRight size={14} className="text-zinc-400 shrink-0" />
+                                </li>
+                              </CustomTooltip>
+                            </motion.div>
                           );
                         })
                       ) : (
-                        activeManufacturerObj.models?.map((model) => {
+                        activeManufacturerObj.models?.map((model, idx) => {
                           const isSelected = selectedPrinter === model.name;
                           return (
-                            <CustomTooltip key={model.id} content={model.name} description="">
-                              <li 
-                                className={clsx(styles.patternItem, { [styles.activePattern]: isSelected })}
-                                onClick={() => {
-                                  onSelectPrinter(model.name);
-                                  showSuccess(`Imprimante active : ${model.name}`);
-                                }}
-                              >
-                                <span className={styles.itemName}>{model.name}</span>
-                                {isSelected && <Check size={14} className="text-[#00f0ff] shrink-0" />}
-                              </li>
-                            </CustomTooltip>
+                            <motion.div
+                              key={model.id}
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ duration: 0.15, delay: idx * 0.03 }}
+                            >
+                              <CustomTooltip content={model.name} description="">
+                                <li 
+                                  className={clsx(styles.patternItem, { [styles.activePattern]: isSelected })}
+                                  onClick={() => {
+                                    onSelectPrinter(model.name);
+                                    showSuccess(`Imprimante active : ${model.name}`);
+                                  }}
+                                >
+                                  <span className={styles.itemName}>{model.name}</span>
+                                  {isSelected && <Check size={14} className="text-[#00f0ff] shrink-0" />}
+                                </li>
+                              </CustomTooltip>
+                            </motion.div>
                           );
                         })
                       )}
@@ -977,10 +1012,10 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
             {selectedNestedCat && activeNestedCatObj && (
               <motion.div 
                 className={styles.fourthPopup}
-                initial={{ opacity: 0, scale: 0.95, x: -10 }}
+                initial={{ opacity: 0, scale: 0.95, x: -15 }}
                 animate={{ opacity: 1, scale: 1, x: 0 }}
-                exit={{ opacity: 0, scale: 0.95, x: -10 }}
-                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                exit={{ opacity: 0, scale: 0.95, x: -15 }}
+                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
               >
                 <div 
                   ref={fourthContentRef}
@@ -990,20 +1025,27 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
                   <div className={styles.sectionGroup}>
                     <h4 className={styles.sectionTitle}>Sous-familles</h4>
                     <ul className={styles.itemsList}>
-                      {activeNestedCatObj.subCategories.map((sc) => {
+                      {activeNestedCatObj.subCategories.map((sc, idx) => {
                         const isSelected = selectedSubCat === sc.id;
                         return (
-                          <CustomTooltip key={sc.id} content={sc.name} description="">
-                            <li 
-                              className={clsx(styles.patternItem, { [styles.activePattern]: isSelected })}
-                              onClick={() => {
-                                setSelectedSubCat(sc.id);
-                              }}
-                            >
-                              <span className={styles.itemName}>{sc.name}</span>
-                              <ChevronRight size={14} className="text-zinc-400 shrink-0" />
-                            </li>
-                          </CustomTooltip>
+                          <motion.div
+                            key={sc.id}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ duration: 0.15, delay: idx * 0.03 }}
+                          >
+                            <CustomTooltip content={sc.name} description="">
+                              <li 
+                                className={clsx(styles.patternItem, { [styles.activePattern]: isSelected })}
+                                onClick={() => {
+                                  setSelectedSubCat(sc.id);
+                                }}
+                              >
+                                <span className={styles.itemName}>{sc.name}</span>
+                                <ChevronRight size={14} className="text-zinc-400 shrink-0" />
+                              </li>
+                            </CustomTooltip>
+                          </motion.div>
                         );
                       })}
                     </ul>
@@ -1029,30 +1071,37 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
             {selectedSubCat && activeSubCatObj && (
               <motion.div 
                 className={styles.fifthPopup}
-                initial={{ opacity: 0, scale: 0.95, x: -10 }}
+                initial={{ opacity: 0, scale: 0.95, x: -15 }}
                 animate={{ opacity: 1, scale: 1, x: 0 }}
-                exit={{ opacity: 0, scale: 0.95, x: -10 }}
-                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                exit={{ opacity: 0, scale: 0.95, x: -15 }}
+                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
               >
                 <div className={styles.patternPopupContent}>
                   <div className={styles.sectionGroup}>
                     <h4 className={styles.sectionTitle}>Modèles</h4>
                     <ul className={styles.itemsList}>
-                      {activeSubCatObj.models.map((model) => {
+                      {activeSubCatObj.models.map((model, idx) => {
                         const isSelected = selectedPrinter === model.name;
                         return (
-                          <CustomTooltip key={model.id} content={model.name} description="">
-                            <li 
-                              className={clsx(styles.patternItem, { [styles.activePattern]: isSelected })}
-                              onClick={() => {
-                                onSelectPrinter(model.name);
-                                showSuccess(`Imprimante active : ${model.name}`);
-                              }}
-                            >
-                              <span className={styles.itemName}>{model.name}</span>
-                              {isSelected && <Check size={14} className="text-[#00f0ff] shrink-0" />}
-                            </li>
-                          </CustomTooltip>
+                          <motion.div
+                            key={model.id}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ duration: 0.15, delay: idx * 0.02 }}
+                          >
+                            <CustomTooltip content={model.name} description="">
+                              <li 
+                                className={clsx(styles.patternItem, { [styles.activePattern]: isSelected })}
+                                onClick={() => {
+                                  onSelectPrinter(model.name);
+                                  showSuccess(`Imprimante active : ${model.name}`);
+                                }}
+                              >
+                                <span className={styles.itemName}>{model.name}</span>
+                                {isSelected && <Check size={14} className="text-[#00f0ff] shrink-0" />}
+                              </li>
+                            </CustomTooltip>
+                          </motion.div>
                         );
                       })}
                     </ul>
