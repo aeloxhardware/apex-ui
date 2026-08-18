@@ -6,6 +6,7 @@ import { FileSidebar } from '@/components/FileSidebar';
 import { SliceSidebar } from '@/components/SliceSidebar';
 import { CategoriesSidebar } from '@/components/CategoriesSidebar';
 import { AxisSidebar } from '@/components/AxisSidebar';
+import { Viewcube } from '@/components/Viewcube';
 import { TopRightMenu } from '@/components/TopRightMenu';
 import { ModelStatusBox } from '@/components/ModelStatusBox';
 import { ModelHoverTooltip } from '@/components/ModelHoverTooltip';
@@ -65,6 +66,7 @@ const Index = () => {
 
       <TopRightMenu />
       <AxisSidebar />
+      <Viewcube />
 
       <CategoriesSidebar
         activeCategory={activeCategory} 
