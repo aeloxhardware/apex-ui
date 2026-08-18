@@ -54,17 +54,17 @@ export const SliceModal: React.FC<SliceModalProps> = ({ isOpen, onClose, onConfi
               <span className={styles.statValue}>240 couches</span>
             </div>
           </div>
-
-          <div className={styles.footerButtons}>
-            <button className={styles.cancelBtn} onClick={onClose}>
-              Annuler
-            </button>
-            <button className={styles.confirmBtn} onClick={onConfirm}>
-              Lancer le Slicing
-            </button>
-          </div>
         </div>
       </motion.div>
+
+      <div className={styles.externalButtonsContainer}>
+        <button className={styles.cancelBtn} onClick={onClose}>
+          Annuler
+        </button>
+        <button className={styles.confirmBtn} onClick={onConfirm}>
+          Lancer le Slicing
+        </button>
+      </div>
     </div>
   );
 };
