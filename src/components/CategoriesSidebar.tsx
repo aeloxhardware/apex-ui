@@ -331,6 +331,9 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
   const startYRef = useRef(0);
   const startScrollTopRef = useRef(0);
 
+  const [hoveredCatId, setHoveredCatId] = useState<string | null>(null);
+  const [tooltipPos, setTooltipPos] = useState<{ top: number; title: string; description: string } | null>(null);
+
   const handleCategoryClick = (cat: CategoryItem) => {
     if (cat.disabled) {
       showSuccess("Bientôt disponible");
@@ -342,6 +345,23 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
       onSelectCategory(cat.id);
     }
     setIsPatternPopupOpen(false);
+  };
+
+  const handleMouseEnter = (cat: CategoryItem, e: React.MouseEvent<HTMLButtonElement>) => {
+    setHoveredCatId(cat.id);
+    const rect = e.currentTarget.getBoundingClientRect();
+    const tooltipTitle = cat.disabled ? "Bientôt disponible" : cat.title;
+    const tooltipDesc = cat.disabled ? "Cette fonctionnalité sera disponible dans une prochaine mise à jour." : cat.description;
+    setTooltipPos({
+      top: rect.top + rect.height / 2,
+      title: tooltipTitle,
+      description: tooltipDesc
+    });
+  };
+
+  const handleMouseLeave = () => {
+    setHoveredCatId(null);
+    setTooltipPos(null);
   };
 
   const handleScroll = () => {
@@ -481,27 +501,58 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
           {CATEGORIES.map((cat) => {
             const isActive = activeCategory === cat.id;
             return (
-              <CustomTooltip 
-                key={cat.id} 
-                content={cat.disabled ? "Bientôt disponible" : cat.title} 
-                description={cat.description}
+              <button
+                key={cat.id}
+                ref={(el) => (iconRefs.current[cat.id] = el)}
+                className={clsx(styles.categoryButton, { 
+                  [styles.active]: isActive,
+                  [styles.disabledButton]: cat.disabled
+                })}
+                onClick={() => handleCategoryClick(cat)}
+                onMouseEnter={(e) => handleMouseEnter(cat, e)}
+                onMouseLeave={handleMouseLeave}
+                style={cat.disabled ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
               >
-                <button
-                  ref={(el) => (iconRefs.current[cat.id] = el)}
-                  className={clsx(styles.categoryButton, { 
-                    [styles.active]: isActive,
-                    [styles.disabledButton]: cat.disabled
-                  })}
-                  onClick={() => handleCategoryClick(cat)}
-                  style={cat.disabled ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
-                >
-                  {cat.icon}
-                </button>
-              </CustomTooltip>
+                {cat.icon}
+              </button>
             );
           })}
         </div>
       </div>
+
+      <AnimatePresence>
+        {tooltipPos && (
+          <motion.div
+            initial={{ opacity: 0, x: -6, scale: 0.95 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, x: -6, scale: 0.95 }}
+            transition={{ duration: 0.15 }}
+            style={{
+              position: 'fixed',
+              left: '74px',
+              top: `${tooltipPos.top}px`,
+              transform: 'translateY(-50%)',
+              zIndex: 999999,
+              pointerEvents: 'none',
+              background: 'rgba(10, 15, 26, 0.85)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '12px',
+              padding: '10px 14px',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.6)',
+              maxWidth: '260px'
+            }}
+          >
+            <div style={{ fontFamily: 'Orbitron, sans-serif', fontSize: '12px', fontWeight: 700, color: '#00f0ff', marginBottom: '4px' }}>
+              {tooltipPos.title}
+            </div>
+            <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.8)', lineHeight: '1.4' }}>
+              {tooltipPos.description}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {activeCatData && !activeCatData.disabled && (
