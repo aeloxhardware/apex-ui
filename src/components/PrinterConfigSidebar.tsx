@@ -56,10 +56,18 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
   onSelectPrinter,
 }) => {
   const contentRef = useRef<HTMLDivElement>(null);
+  const modelsContentRef = useRef<HTMLDivElement>(null);
+
   const [thumbHeight, setThumbHeight] = useState(40);
   const [thumbTop, setThumbTop] = useState(8);
   const [hasScroll, setHasScroll] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+
+  const [modelsThumbHeight, setModelsThumbHeight] = useState(40);
+  const [modelsThumbTop, setModelsThumbTop] = useState(8);
+  const [hasModelsScroll, setHasModelsScroll] = useState(false);
+  const [isModelsDragging, setIsModelsDragging] = useState(false);
+
   const [selectedManufacturer, setSelectedManufacturer] = useState<string | null>(null);
 
   const startYRef = useRef(0);
@@ -86,14 +94,41 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
     setThumbTop(calculatedTop);
   };
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true);
+  const handleModelsScroll = () => {
+    if (!modelsContentRef.current || isModelsDragging) return;
+    const { scrollTop, scrollHeight, clientHeight } = modelsContentRef.current;
+    if (scrollHeight <= clientHeight) {
+      setHasModelsScroll(false);
+      return;
+    }
+    setHasModelsScroll(true);
+    
+    const margin = 8;
+    const trackHeight = clientHeight - (margin * 2);
+    const calculatedHeight = Math.max(32, (clientHeight / scrollHeight) * trackHeight);
+    
+    const maxScrollTop = scrollHeight - clientHeight;
+    const maxThumbTop = trackHeight - calculatedHeight;
+    const calculatedTop = maxScrollTop > 0 ? margin + (scrollTop / maxScrollTop) * maxThumbTop : margin;
+
+    setModelsThumbHeight(calculatedHeight);
+    setModelsThumbTop(calculatedTop);
+  };
+
+  const handleMouseDown = (e: React.MouseEvent, isModelsWindow = false) => {
+    if (isModelsWindow) {
+      setIsModelsDragging(true);
+    } else {
+      setIsDragging(true);
+    }
     startYRef.current = e.clientY;
-    if (contentRef.current) {
+    if (isModelsWindow && modelsContentRef.current) {
+      startScrollTopRef.current = modelsContentRef.current.scrollTop;
+    } else if (!isModelsWindow && contentRef.current) {
       startScrollTopRef.current = contentRef.current.scrollTop;
     }
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('mousemove', isModelsWindow ? handleModelsMouseMove : handleMouseMove);
+    document.addEventListener('mouseup', isModelsWindow ? handleModelsMouseUp : handleMouseUp);
     e.preventDefault();
   };
 
@@ -122,11 +157,42 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
     document.removeEventListener('mouseup', handleMouseUp);
   };
 
+  const handleModelsMouseMove = (e: MouseEvent) => {
+    if (!modelsContentRef.current) return;
+    const deltaY = e.clientY - startYRef.current;
+    const { scrollHeight, clientHeight } = modelsContentRef.current;
+    const margin = 8;
+    const trackHeight = clientHeight - (margin * 2);
+    const maxThumbTop = trackHeight - modelsThumbHeight;
+    const maxScrollTop = scrollHeight - clientHeight;
+
+    if (maxThumbTop > 0) {
+      const scrollRatio = deltaY / maxThumbTop;
+      const newScrollTop = Math.max(0, Math.min(maxScrollTop, startScrollTopRef.current + scrollRatio * maxScrollTop));
+      modelsContentRef.current.scrollTop = newScrollTop;
+      
+      const calculatedTop = margin + (newScrollTop / maxScrollTop) * maxThumbTop;
+      setModelsThumbTop(calculatedTop);
+    }
+  };
+
+  const handleModelsMouseUp = () => {
+    setIsModelsDragging(false);
+    document.removeEventListener('mousemove', handleModelsMouseMove);
+    document.removeEventListener('mouseup', handleModelsMouseUp);
+  };
+
   useEffect(() => {
     if (isOpen) {
       setTimeout(handleScroll, 50);
     }
-  }, [isOpen, selectedManufacturer]);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (selectedManufacturer) {
+      setTimeout(handleModelsScroll, 50);
+    }
+  }, [selectedManufacturer]);
 
   const activeManufacturerObj = PRINTER_MANUFACTURERS.find(m => m.id === selectedManufacturer);
 
@@ -135,7 +201,7 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
       {isOpen && (
         <>
           <motion.div 
-            className={styles.fusionTitleContainer}
+            className={clsx(styles.fusionTitleContainer, { [styles.expandedWidth]: selectedManufacturer })}
             initial={{ opacity: 0, scale: 0.95, x: -10, y: -20 }}
             animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, x: -10, y: -20 }}
@@ -143,8 +209,10 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
           >
             <div className={styles.tabButtonsContainer}>
               <div className={styles.activeTabTitle}>
-                <Printer size={14} className="mr-1.5 inline text-[#00f0ff]" /> 
-                {selectedManufacturer ? `Fabricant > ${activeManufacturerObj?.name}` : 'Profils Imprimante'}
+                <Printer size={14} className="mr-1.5 inline text-[#00f0ff] shrink-0" /> 
+                <span className="truncate">
+                  {selectedManufacturer ? `Profils imprimante\\[${activeManufacturerObj?.name}]` : 'Profils imprimante'}
+                </span>
               </div>
             </div>
             <button 
@@ -157,7 +225,7 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
                 }
               }}
             >
-              {selectedManufacturer ? '←' : '✕'}
+              ✕
             </button>
           </motion.div>
 
@@ -173,65 +241,33 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
               className={styles.fusionMenuContent}
               onScroll={handleScroll}
             >
-              {!selectedManufacturer ? (
-                <div className={styles.sectionGroup}>
-                  <h4 className={styles.sectionTitle}>Sélectionnez un fabricant</h4>
-                  <ul className={styles.itemsList}>
-                    {PRINTER_MANUFACTURERS.map((manufacturer) => {
-                      return (
-                        <CustomTooltip key={manufacturer.id} content={manufacturer.name} description="">
-                          <li 
-                            className={styles.itemRow}
-                            onClick={() => {
-                              setSelectedManufacturer(manufacturer.id);
-                            }}
-                          >
-                            <span className={styles.itemName}>{manufacturer.name}</span>
-                            <ChevronRight size={14} className="text-zinc-400 shrink-0" />
-                          </li>
-                        </CustomTooltip>
-                      );
-                    })}
-                  </ul>
-                </div>
-              ) : (
-                <div className={styles.sectionGroup}>
-                  <div className="flex items-center justify-between mb-1">
-                    <h4 className={styles.sectionTitle}>{activeManufacturerObj?.name}</h4>
-                    <button 
-                      onClick={() => setSelectedManufacturer(null)}
-                      className="text-[11px] text-[#00f0ff] hover:underline bg-transparent border-none cursor-pointer"
-                    >
-                      Retour
-                    </button>
-                  </div>
-                  <ul className={styles.itemsList}>
-                    {activeManufacturerObj?.models.map((model) => {
-                      const isSelected = selectedPrinter === model.name;
-                      return (
-                        <CustomTooltip key={model.id} content={model.name} description="">
-                          <li 
-                            className={clsx(styles.itemRow, { [styles.activeRow]: isSelected })}
-                            onClick={() => {
-                              onSelectPrinter(model.name);
-                              showSuccess(`Imprimante active : ${model.name}`);
-                            }}
-                          >
-                            <span className={styles.itemName}>{model.name}</span>
-                            {isSelected && <Check size={14} className="text-[#00f0ff] shrink-0" />}
-                          </li>
-                        </CustomTooltip>
-                      );
-                    })}
-                  </ul>
-                </div>
-              )}
+              <div className={styles.sectionGroup}>
+                <h4 className={styles.sectionTitle}>Fabricants</h4>
+                <ul className={styles.itemsList}>
+                  {PRINTER_MANUFACTURERS.map((manufacturer) => {
+                    const isSelected = selectedManufacturer === manufacturer.id;
+                    return (
+                      <CustomTooltip key={manufacturer.id} content={manufacturer.name} description="">
+                        <li 
+                          className={clsx(styles.itemRow, { [styles.activeRow]: isSelected })}
+                          onClick={() => {
+                            setSelectedManufacturer(manufacturer.id);
+                          }}
+                        >
+                          <span className={styles.itemName}>{manufacturer.name}</span>
+                          <ChevronRight size={14} className="text-zinc-400 shrink-0" />
+                        </li>
+                      </CustomTooltip>
+                    );
+                  })}
+                </ul>
+              </div>
             </div>
 
             {hasScroll && (
               <div 
                 className={clsx(styles.externalScrollThumb, { [styles.dragging]: isDragging })}
-                onMouseDown={handleMouseDown}
+                onMouseDown={(e) => handleMouseDown(e, false)}
                 style={{
                   height: `${thumbHeight}px`,
                   top: `${thumbTop}px`
@@ -239,6 +275,59 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
               />
             )}
           </motion.div>
+
+          {/* Second cascading window for printer models */}
+          <AnimatePresence>
+            {selectedManufacturer && activeManufacturerObj && (
+              <motion.div 
+                className={styles.patternPopup}
+                initial={{ opacity: 0, scale: 0.95, x: -10 }}
+                animate={{ opacity: 1, scale: 1, x: 0 }}
+                exit={{ opacity: 0, scale: 0.95, x: -10 }}
+                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              >
+                <div 
+                  ref={modelsContentRef}
+                  className={styles.patternPopupContent}
+                  onScroll={handleModelsScroll}
+                >
+                  <div className={styles.sectionGroup}>
+                    <h4 className={styles.sectionTitle}>Modèles</h4>
+                    <ul className={styles.itemsList}>
+                      {activeManufacturerObj.models.map((model) => {
+                        const isSelected = selectedPrinter === model.name;
+                        return (
+                          <CustomTooltip key={model.id} content={model.name} description="">
+                            <li 
+                              className={clsx(styles.patternItem, { [styles.activePattern]: isSelected })}
+                              onClick={() => {
+                                onSelectPrinter(model.name);
+                                showSuccess(`Imprimante active : ${model.name}`);
+                              }}
+                            >
+                              <span className={styles.itemName}>{model.name}</span>
+                              {isSelected && <Check size={14} className="text-[#00f0ff] shrink-0" />}
+                            </li>
+                          </CustomTooltip>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                </div>
+
+                {hasModelsScroll && (
+                  <div 
+                    className={clsx(styles.externalScrollThumb, { [styles.dragging]: isModelsDragging })}
+                    onMouseDown={(e) => handleMouseDown(e, true)}
+                    style={{
+                      height: `${modelsThumbHeight}px`,
+                      top: `${modelsThumbTop}px`
+                    }}
+                  />
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </>
       )}
     </AnimatePresence>
