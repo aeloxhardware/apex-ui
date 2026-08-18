@@ -64,7 +64,7 @@
   }
 }
 
-/* Arêtes */
+/* Arêtes unifiées */
 .edgeTop    { grid-column: 2; grid-row: 1; }
 .edgeBottom { grid-column: 2; grid-row: 3; }
 .edgeLeft   { grid-column: 1; grid-row: 2; }
@@ -76,7 +76,7 @@
   transition: all 0.2s ease;
   cursor: pointer;
 
-  &:hover, &.highlighted {
+  &:hover {
     background: rgba(0, 240, 255, 0.35);
     border-color: #00f0ff;
     box-shadow: 0 0 10px rgba(0, 240, 255, 0.4);
@@ -84,7 +84,7 @@
   }
 }
 
-/* Sommets (Coins) */
+/* Sommets unifiés */
 .vertexTL { grid-column: 1; grid-row: 1; }
 .vertexTR { grid-column: 3; grid-row: 1; }
 .vertexBL { grid-column: 1; grid-row: 3; }
@@ -96,7 +96,7 @@
   transition: all 0.2s ease;
   cursor: pointer;
 
-  &:hover, &.highlighted {
+  &:hover {
     background: rgba(0, 240, 255, 0.6);
     border-color: #00f0ff;
     box-shadow: 0 0 12px #00f0ff;
