@@ -5,6 +5,7 @@ import { Sidebar } from '@/components/Sidebar';
 import { FileSidebar } from '@/components/FileSidebar';
 import { SliceSidebar } from '@/components/SliceSidebar';
 import { CategoriesSidebar } from '@/components/CategoriesSidebar';
+import { PrinterConfigSidebar } from '@/components/PrinterConfigSidebar';
 import { AxisSidebar } from '@/components/AxisSidebar';
 import { TopRightMenu } from '@/components/TopRightMenu';
 import { ModelStatusBox } from '@/components/ModelStatusBox';
@@ -19,6 +20,9 @@ import { showSuccess } from '@/utils/toast';
 const Index = () => {
   const [activeTab, setActiveTab] = useState<'3d-view' | 'settings' | 'developer'>('3d-view');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [isPrinterConfigOpen, setIsPrinterConfigOpen] = useState(false);
+  const [selectedPrinter, setSelectedPrinter] = useState('Prusa MK4');
+  const [selectedFilament, setSelectedFilament] = useState('PLA Premium (eSUN / Prusament)');
   const [isSliceModalOpen, setIsSliceModalOpen] = useState(false);
 
   const handleSlice = () => {
@@ -47,6 +51,12 @@ const Index = () => {
         onOpenModel={handleOpenModel}
         onSaveProject={handleSaveProject}
         onOpenSettings={() => setActiveTab('settings')}
+        onOpenPrinterConfig={() => {
+          setIsPrinterConfigOpen(!isPrinterConfigOpen);
+          setActiveCategory(null);
+        }}
+        selectedPrinter={selectedPrinter}
+        selectedFilament={selectedFilament}
       />
 
       <ModelStatusBox />
@@ -60,7 +70,10 @@ const Index = () => {
 
       <Sidebar 
         activeTab={activeTab} 
-        onTabChange={(tab) => setActiveTab(tab === 'box' ? '3d-view' : tab)}
+        onTabChange={(tab) => {
+          setActiveTab(tab === 'box' ? '3d-view' : tab);
+          setIsPrinterConfigOpen(false);
+        }}
         onOpenModel={handleOpenModel}
       />
 
@@ -70,7 +83,19 @@ const Index = () => {
 
       <CategoriesSidebar
         activeCategory={activeCategory} 
-        onSelectCategory={setActiveCategory} 
+        onSelectCategory={(cat) => {
+          setActiveCategory(cat);
+          if (cat) setIsPrinterConfigOpen(false);
+        }} 
+      />
+
+      <PrinterConfigSidebar
+        isOpen={isPrinterConfigOpen}
+        onClose={() => setIsPrinterConfigOpen(false)}
+        selectedPrinter={selectedPrinter}
+        onSelectPrinter={setSelectedPrinter}
+        selectedFilament={selectedFilament}
+        onSelectFilament={setSelectedFilament}
       />
 
       <SliceSidebar onSlice={handleSlice} />

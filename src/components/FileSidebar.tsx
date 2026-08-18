@@ -8,12 +8,18 @@ interface FileSidebarProps {
   onOpenModel?: () => void;
   onSaveProject?: () => void;
   onOpenSettings?: () => void;
+  onOpenPrinterConfig?: () => void;
+  selectedPrinter?: string;
+  selectedFilament?: string;
 }
 
 export const FileSidebar: React.FC<FileSidebarProps> = ({
   onOpenModel,
   onSaveProject,
   onOpenSettings,
+  onOpenPrinterConfig,
+  selectedPrinter = 'Prusa MK4',
+  selectedFilament = 'PLA Premium 1.75mm',
 }) => {
   return (
     <div className={styles.container}>
@@ -38,10 +44,10 @@ export const FileSidebar: React.FC<FileSidebarProps> = ({
 
         <div className={styles.separator} />
 
-        <CustomTooltip content="Configuration Imprimante & Filament" description="Imprimante active : Prusa MK4 | Filament sélectionné : PLA Premium 1.75mm. Cliquez pour modifier.">
+        <CustomTooltip content="Configuration Imprimante & Filament" description={`Imprimante active : ${selectedPrinter} | Filament sélectionné : ${selectedFilament}. Cliquez pour modifier.`}>
           <button
             className={clsx(styles.button, styles.configButton)}
-            onClick={onOpenSettings}
+            onClick={onOpenPrinterConfig || onOpenSettings}
           >
             <Printer size={18} />
           </button>
