@@ -1,0 +1,91 @@
+.container {
+  position: fixed;
+  bottom: 24px;
+  right: 330px;
+  width: 140px;
+  height: 140px;
+  z-index: 1000;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.widget {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  pointer-events: auto;
+  background: rgba(10, 15, 26, 0.25);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border-radius: 50%;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s;
+
+  &:hover {
+    background: rgba(10, 15, 26, 0.4);
+  }
+}
+
+.axisBtn {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  font-family: 'Orbitron', sans-serif !important;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+
+  &:hover {
+    transform: scale(1.15);
+  }
+}
+
+.axisX {
+  background: #ef4444;
+  color: white;
+  bottom: 18px;
+  right: 18px;
+}
+
+.axisY {
+  background: #22c55e;
+  color: white;
+  right: 14px;
+  top: 48px;
+}
+
+.axisZ {
+  background: #3b82f6;
+  color: white;
+  top: 14px;
+  left: 48px;
+}
+
+.axisXNeg {
+  border: 2px solid #ef4444;
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  top: 22px;
+  left: 22px;
+}
+
+.axisYNeg {
+  border: 2px solid #22c55e;
+  background: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
+  bottom: 22px;
+  left: 24px;
+}
