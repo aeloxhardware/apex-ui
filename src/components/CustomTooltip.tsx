@@ -17,28 +17,11 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({ content, descripti
   const handleMouseEnter = () => {
     if (wrapperRef.current) {
       const rect = wrapperRef.current.getBoundingClientRect();
-      
-      const isVertical = rect.left < window.innerWidth / 4 || rect.right > (window.innerWidth * 3) / 4;
-
-      if (isVertical && rect.left < window.innerWidth / 2) {
-        setCoords({
-          top: rect.top + rect.height / 2,
-          left: rect.right + 12,
-          transform: 'translateY(-50%)',
-        });
-      } else if (isVertical) {
-        setCoords({
-          top: rect.top + rect.height / 2,
-          left: rect.left - 12,
-          transform: 'translateY(-50%) translateX(-100%)',
-        });
-      } else {
-        setCoords({
-          top: rect.bottom + 14,
-          left: rect.left + rect.width / 2,
-          transform: 'translateX(-50%)',
-        });
-      }
+      setCoords({
+        top: rect.bottom + 12,
+        left: rect.left + rect.width / 2,
+        transform: 'translateX(-50%)',
+      });
     }
 
     timeoutRef.current = setTimeout(() => {

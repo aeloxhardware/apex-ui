@@ -9,6 +9,7 @@
 }
 
 .toolbar {
+  position: relative;
   display: flex;
   align-items: center;
   background: rgba(10, 15, 26, 0.25);
@@ -22,7 +23,19 @@
   gap: 4px;
 }
 
+.activeIndicator {
+  position: absolute;
+  background: rgba(0, 240, 255, 0.18);
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
+  border-radius: 10px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+  z-index: 1;
+}
+
 .button {
+  position: relative;
+  z-index: 2;
   background: transparent;
   border: none;
   color: rgba(255, 255, 255, 0.65);
@@ -41,8 +54,6 @@
   }
 
   &.active {
-    background: rgba(0, 240, 255, 0.15);
     color: #00f0ff;
-    box-shadow: 0 0 12px rgba(0, 240, 255, 0.2);
   }
 }
