@@ -37,6 +37,7 @@ export interface PrinterCategory {
   id: string;
   name: string;
   isDirectList?: boolean;
+  disabled?: boolean;
   models?: PrinterModel[];
   manufacturers?: SpecificManufacturer[];
 }
@@ -54,6 +55,7 @@ export const PRINTER_CATEGORIES: PrinterCategory[] = [
   {
     id: 'autres',
     name: 'Autres fabricants',
+    disabled: true,
     manufacturers: [
       {
         id: '3d-systems',
@@ -795,10 +797,21 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.2, delay: idx * 0.04 }}
                       >
-                        <CustomTooltip content={cat.name} description="">
+                        <CustomTooltip 
+                          content={cat.disabled ? "Bientôt disponible" : cat.name} 
+                          description={cat.disabled ? "Ce fabricant sera disponible dans une prochaine mise à jour." : ""}
+                        >
                           <li 
-                            className={clsx(styles.itemRow, { [styles.activeRow]: isSelected })}
+                            className={clsx(styles.itemRow, { 
+                              [styles.activeRow]: isSelected,
+                              [styles.disabledRow]: cat.disabled
+                            })}
+                            style={cat.disabled ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
                             onClick={() => {
+                              if (cat.disabled) {
+                                showSuccess("Bientôt disponible");
+                                return;
+                              }
                               setSelectedCategory(cat.id);
                               setSelectedManufacturer(null);
                               setSelectedNestedCat(null);
@@ -806,7 +819,7 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
                             }}
                           >
                             <span className={styles.itemName}>{cat.name}</span>
-                            <ChevronRight size={14} className="text-zinc-400 shrink-0" />
+                            {!cat.disabled && <ChevronRight size={14} className="text-zinc-400 shrink-0" />}
                           </li>
                         </CustomTooltip>
                       </motion.div>
@@ -1070,7 +1083,7 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
           <AnimatePresence>
             {selectedSubCat && activeSubCatObj && (
               <motion.div 
-                className={styles.fifthPopup}
+                className={clsx(styles.fifthPopup, "pointer-events-auto")}
                 initial={{ opacity: 0, scale: 0.95, x: -15 }}
                 animate={{ opacity: 1, scale: 1, x: 0 }}
                 exit={{ opacity: 0, scale: 0.95, x: -15 }}
