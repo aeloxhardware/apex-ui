@@ -505,32 +505,32 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
                   exit={{ opacity: 0, scale: 0.95, x: -10 }}
                   transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                 >
-                  <div className="text-[11px] font-semibold text-[#00f0ff] px-2 py-1 border-b border-white/10 mb-1 flex items-center justify-between">
-                    <span>Sélectionner le motif</span>
-                    <button 
-                      onClick={() => setIsPatternPopupOpen(false)}
-                      className="text-white/60 hover:text-white"
-                    >
-                      ✕
-                    </button>
+                  <div 
+                    className={styles.patternPopupContent}
+                  >
+                    <div className={styles.sectionGroup}>
+                      <h4 className={styles.sectionTitle}>Motifs de remplissage</h4>
+                      <ul className={styles.itemsList}>
+                        {INFILL_PATTERNS.map((pat, pIdx) => {
+                          const isSelected = selectedPattern === pat.name;
+                          return (
+                            <CustomTooltip key={pIdx} content={pat.name} description={pat.description} key-override={pat.name}>
+                              <li 
+                                className={clsx(styles.patternItem, { [styles.activePattern]: isSelected })}
+                                onClick={() => {
+                                  setSelectedPattern(pat.name);
+                                  setIsPatternPopupOpen(false);
+                                }}
+                              >
+                                <span className={styles.itemName}>{pat.name}</span>
+                                {isSelected && <Check size={14} className="text-[#00f0ff] shrink-0" />}
+                              </li>
+                            </CustomTooltip>
+                          );
+                        })}
+                      </ul>
+                    </div>
                   </div>
-                  {INFILL_PATTERNS.map((pat, pIdx) => {
-                    const isSelected = selectedPattern === pat.name;
-                    return (
-                      <CustomTooltip key={pIdx} content={pat.name} description={pat.description} key-override={pat.name}>
-                        <div 
-                          className={clsx(styles.patternItem, { [styles.activePattern]: isSelected })}
-                          onClick={() => {
-                            setSelectedPattern(pat.name);
-                            setIsPatternPopupOpen(false);
-                          }}
-                        >
-                          <span className="truncate pr-2">{pat.name}</span>
-                          {isSelected && <Check size={14} className="text-[#00f0ff] shrink-0" />}
-                        </div>
-                      </CustomTooltip>
-                    );
-                  })}
                 </motion.div>
               )}
             </AnimatePresence>
