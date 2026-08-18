@@ -14,7 +14,7 @@ export const Viewport3D = () => {
   const selectedMeshesRef = useRef<Set<BABYLON.AbstractMesh>>(new Set());
   const modelsRef = useRef<Set<BABYLON.AbstractMesh>>(new Set());
   const currentToolRef = useRef<string>("select");
-  const [selectedMeshName, setSelectedMeshName] = useState<string | null>(null);
+  const [, setSelectedMeshName] = useState<string | null>(null);
 
   // Dimensions : 250mm de diamètre (rayon 125) et 130mm de haut
   const RADIUS = 125; 
@@ -94,6 +94,67 @@ export const Viewport3D = () => {
     camera.angularSensibilityY = 3500;
     camera.panningSensibility = 40; 
     cameraRef.current = camera;
+
+    // Broadcast camera position on move
+    scene.onBeforeRenderObservable.add(() => {
+      if (camera) {
+        window.dispatchEvent(
+          new CustomEvent('apex-camera-updated', {
+            detail: { alpha: camera.alpha, beta: camera.beta }
+          })
+        );
+      }
+    });
+
+    const handleSetView = (e: Event) => {
+      const customEvent = e as CustomEvent<{ view: string }>;
+      const view = customEvent.detail?.view;
+      if (!camera) return;
+
+      const targetRadius = 300;
+      const targetLookAt = new BABYLON.Vector3(0, HEIGHT / 2, 0);
+      camera.target = targetLookAt;
+      camera.radius = targetRadius;
+
+      let targetAlpha = camera.alpha;
+      let targetBeta = camera.beta;
+
+      switch (view) {
+        case 'front':
+          targetAlpha = Math.PI / 2;
+          targetBeta = Math.PI / 2;
+          break;
+        case 'back':
+          targetAlpha = -Math.PI / 2;
+          targetBeta = Math.PI / 2;
+          break;
+        case 'right':
+          targetAlpha = 0;
+          targetBeta = Math.PI / 2;
+          break;
+        case 'left':
+          targetAlpha = Math.PI;
+          targetBeta = Math.PI / 2;
+          break;
+        case 'top':
+          targetBeta = 0.01;
+          break;
+        case 'bottom':
+          targetBeta = Math.PI - 0.01;
+          break;
+      }
+
+      // Smooth transition
+      const animAlpha = new BABYLON.Animation("animAlpha", "alpha", 60, BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+      animAlpha.setKeys([{ frame: 0, value: camera.alpha }, { frame: 20, value: targetAlpha }]);
+
+      const animBeta = new BABYLON.Animation("animBeta", "beta", 60, BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+      animBeta.setKeys([{ frame: 0, value: camera.beta }, { frame: 20, value: targetBeta }]);
+
+      scene.beginDirectAnimation(camera, [animAlpha, animBeta], 0, 20, false);
+    };
+
+    window.addEventListener('apex-set-camera-view', handleSetView);
 
     new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
     const hl = new BABYLON.HighlightLayer("hl1", scene);
@@ -591,7 +652,7 @@ export const Viewport3D = () => {
             });
           });
 
-      window.dispatchEvent(
+          window.dispatchEvent(
             new CustomEvent('apex-mesh-selected', { 
               detail: { 
                 name: file.name || "Modèle 3D",
@@ -643,6 +704,7 @@ export const Viewport3D = () => {
       window.removeEventListener('apex-import-model', onImportModel);
       window.removeEventListener('apex-tool-changed', onToolChanged);
       window.removeEventListener('apex-request-textures', onRequestTextures);
+      window.removeEventListener('apex-set-camera-view', handleSetView);
       window.removeEventListener('keydown', handleKeyDown);
       scene.onPointerObservable.remove(pointerObserver);
       gizmoManager.dispose();
