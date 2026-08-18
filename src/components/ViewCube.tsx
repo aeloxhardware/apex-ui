@@ -5,8 +5,7 @@ import { showSuccess } from '@/utils/toast';
 
 export const ViewCube: React.FC = () => {
   const [rotation, setRotation] = useState({ x: -25, y: 45 });
-  const [hoveredCorner, setHoveredCorner] = useState<string | null>(null);
-  const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
+  const [hoveredElement, setHoveredElement] = useState<string | null>(null);
 
   useEffect(() => {
     const handleCameraUpdated = (e: CustomEvent<{ alpha: number; beta: number }>) => {
@@ -33,16 +32,17 @@ export const ViewCube: React.FC = () => {
     showSuccess(`Vue orientée : ${viewName}`);
   };
 
-  // 8 Sommets isométriques du cube
+  // Angles isométriques exacts pour les 8 sommets du cube
+  // FRONT-TOP-RIGHT (Sommet avant haut droit) : alpha = Math.PI / 4, beta = Math.PI / 4
   const CORNER_VIEWS: Record<string, { name: string; alpha: number; beta: number }> = {
     'top-front-right': { name: 'Sommet Haut-Avant-Droite', alpha: Math.PI / 4, beta: Math.PI / 4 },
     'top-front-left': { name: 'Sommet Haut-Avant-Gauche', alpha: (3 * Math.PI) / 4, beta: Math.PI / 4 },
     'top-back-right': { name: 'Sommet Haut-Arrière-Droite', alpha: -Math.PI / 4, beta: Math.PI / 4 },
     'top-back-left': { name: 'Sommet Haut-Arrière-Gauche', alpha: (-3 * Math.PI) / 4, beta: Math.PI / 4 },
     'bottom-front-right': { name: 'Sommet Bas-Avant-Droite', alpha: Math.PI / 4, beta: (3 * Math.PI) / 4 },
-    'bottom-front-left': { name: 'Sommet Bas-Avant-Gauche', alpha: (5 * Math.PI) / 4, beta: (3 * Math.PI) / 4 },
+    'bottom-front-left': { name: 'Sommet Bas-Avant-Gauche', alpha: (3 * Math.PI) / 4, beta: (3 * Math.PI) / 4 },
     'bottom-back-right': { name: 'Sommet Bas-Arrière-Droite', alpha: -Math.PI / 4, beta: (3 * Math.PI) / 4 },
-    'bottom-back-left': { name: 'Sommet Bas-Arrière-Gauche', alpha: (-5 * Math.PI) / 4, beta: (3 * Math.PI) / 4 },
+    'bottom-back-left': { name: 'Sommet Bas-Arrière-Gauche', alpha: (-3 * Math.PI) / 4, beta: (3 * Math.PI) / 4 },
   };
 
   return (
@@ -57,27 +57,27 @@ export const ViewCube: React.FC = () => {
           {/* FRONT FACE */}
           <div className={`${styles.face} ${styles.front}`}>
             <div 
-              className={`${styles.vertex} ${styles.vertexTL} ${hoveredCorner === 'top-front-left' ? styles.highlighted : ''}`} 
-              onMouseEnter={() => setHoveredCorner('top-front-left')}
-              onMouseLeave={() => setHoveredCorner(null)}
+              className={`${styles.vertex} ${styles.vertexTL} ${hoveredElement === 'top-front-left' ? styles.highlighted : ''}`} 
+              onMouseEnter={() => setHoveredElement('top-front-left')}
+              onMouseLeave={() => setHoveredElement(null)}
               onClick={() => triggerView(CORNER_VIEWS['top-front-left'].name, CORNER_VIEWS['top-front-left'].alpha, CORNER_VIEWS['top-front-left'].beta)} 
             />
             <div 
-              className={`${styles.vertex} ${styles.vertexTR} ${hoveredCorner === 'top-front-right' ? styles.highlighted : ''}`} 
-              onMouseEnter={() => setHoveredCorner('top-front-right')}
-              onMouseLeave={() => setHoveredCorner(null)}
+              className={`${styles.vertex} ${styles.vertexTR} ${hoveredElement === 'top-front-right' ? styles.highlighted : ''}`} 
+              onMouseEnter={() => setHoveredElement('top-front-right')}
+              onMouseLeave={() => setHoveredElement(null)}
               onClick={() => triggerView(CORNER_VIEWS['top-front-right'].name, CORNER_VIEWS['top-front-right'].alpha, CORNER_VIEWS['top-front-right'].beta)} 
             />
             <div 
-              className={`${styles.vertex} ${styles.vertexBL} ${hoveredCorner === 'bottom-front-left' ? styles.highlighted : ''}`} 
-              onMouseEnter={() => setHoveredCorner('bottom-front-left')}
-              onMouseLeave={() => setHoveredCorner(null)}
+              className={`${styles.vertex} ${styles.vertexBL} ${hoveredElement === 'bottom-front-left' ? styles.highlighted : ''}`} 
+              onMouseEnter={() => setHoveredElement('bottom-front-left')}
+              onMouseLeave={() => setHoveredElement(null)}
               onClick={() => triggerView(CORNER_VIEWS['bottom-front-left'].name, CORNER_VIEWS['bottom-front-left'].alpha, CORNER_VIEWS['bottom-front-left'].beta)} 
             />
             <div 
-              className={`${styles.vertex} ${styles.vertexBR} ${hoveredCorner === 'bottom-front-right' ? styles.highlighted : ''}`} 
-              onMouseEnter={() => setHoveredCorner('bottom-front-right')}
-              onMouseLeave={() => setHoveredCorner(null)}
+              className={`${styles.vertex} ${styles.vertexBR} ${hoveredElement === 'bottom-front-right' ? styles.highlighted : ''}`} 
+              onMouseEnter={() => setHoveredElement('bottom-front-right')}
+              onMouseLeave={() => setHoveredElement(null)}
               onClick={() => triggerView(CORNER_VIEWS['bottom-front-right'].name, CORNER_VIEWS['bottom-front-right'].alpha, CORNER_VIEWS['bottom-front-right'].beta)} 
             />
             <div className={`${styles.edge} ${styles.edgeTop}`} onClick={() => triggerView('Arête Haut-Avant', Math.PI / 2, Math.PI / 4)} />
@@ -90,27 +90,27 @@ export const ViewCube: React.FC = () => {
           {/* BACK FACE */}
           <div className={`${styles.face} ${styles.back}`}>
             <div 
-              className={`${styles.vertex} ${styles.vertexTL} ${hoveredCorner === 'top-back-right' ? styles.highlighted : ''}`} 
-              onMouseEnter={() => setHoveredCorner('top-back-right')}
-              onMouseLeave={() => setHoveredCorner(null)}
+              className={`${styles.vertex} ${styles.vertexTL} ${hoveredElement === 'top-back-right' ? styles.highlighted : ''}`} 
+              onMouseEnter={() => setHoveredElement('top-back-right')}
+              onMouseLeave={() => setHoveredElement(null)}
               onClick={() => triggerView(CORNER_VIEWS['top-back-right'].name, CORNER_VIEWS['top-back-right'].alpha, CORNER_VIEWS['top-back-right'].beta)} 
             />
             <div 
-              className={`${styles.vertex} ${styles.vertexTR} ${hoveredCorner === 'top-back-left' ? styles.highlighted : ''}`} 
-              onMouseEnter={() => setHoveredCorner('top-back-left')}
-              onMouseLeave={() => setHoveredCorner(null)}
+              className={`${styles.vertex} ${styles.vertexTR} ${hoveredElement === 'top-back-left' ? styles.highlighted : ''}`} 
+              onMouseEnter={() => setHoveredElement('top-back-left')}
+              onMouseLeave={() => setHoveredElement(null)}
               onClick={() => triggerView(CORNER_VIEWS['top-back-left'].name, CORNER_VIEWS['top-back-left'].alpha, CORNER_VIEWS['top-back-left'].beta)} 
             />
             <div 
-              className={`${styles.vertex} ${styles.vertexBL} ${hoveredCorner === 'bottom-back-right' ? styles.highlighted : ''}`} 
-              onMouseEnter={() => setHoveredCorner('bottom-back-right')}
-              onMouseLeave={() => setHoveredCorner(null)}
+              className={`${styles.vertex} ${styles.vertexBL} ${hoveredElement === 'bottom-back-right' ? styles.highlighted : ''}`} 
+              onMouseEnter={() => setHoveredElement('bottom-back-right')}
+              onMouseLeave={() => setHoveredElement(null)}
               onClick={() => triggerView(CORNER_VIEWS['bottom-back-right'].name, CORNER_VIEWS['bottom-back-right'].alpha, CORNER_VIEWS['bottom-back-right'].beta)} 
             />
             <div 
-              className={`${styles.vertex} ${styles.vertexBR} ${hoveredCorner === 'bottom-back-left' ? styles.highlighted : ''}`} 
-              onMouseEnter={() => setHoveredCorner('bottom-back-left')}
-              onMouseLeave={() => setHoveredCorner(null)}
+              className={`${styles.vertex} ${styles.vertexBR} ${hoveredElement === 'bottom-back-left' ? styles.highlighted : ''}`} 
+              onMouseEnter={() => setHoveredElement('bottom-back-left')}
+              onMouseLeave={() => setHoveredElement(null)}
               onClick={() => triggerView(CORNER_VIEWS['bottom-back-left'].name, CORNER_VIEWS['bottom-back-left'].alpha, CORNER_VIEWS['bottom-back-left'].beta)} 
             />
             <div className={`${styles.edge} ${styles.edgeTop}`} onClick={() => triggerView('Arête Haut-Arrière', -Math.PI / 2, Math.PI / 4)} />
@@ -123,27 +123,27 @@ export const ViewCube: React.FC = () => {
           {/* RIGHT FACE */}
           <div className={`${styles.face} ${styles.right}`}>
             <div 
-              className={`${styles.vertex} ${styles.vertexTL} ${hoveredCorner === 'top-back-right' ? styles.highlighted : ''}`} 
-              onMouseEnter={() => setHoveredCorner('top-back-right')}
-              onMouseLeave={() => setHoveredCorner(null)}
+              className={`${styles.vertex} ${styles.vertexTL} ${hoveredElement === 'top-back-right' ? styles.highlighted : ''}`} 
+              onMouseEnter={() => setHoveredElement('top-back-right')}
+              onMouseLeave={() => setHoveredElement(null)}
               onClick={() => triggerView(CORNER_VIEWS['top-back-right'].name, CORNER_VIEWS['top-back-right'].alpha, CORNER_VIEWS['top-back-right'].beta)} 
             />
             <div 
-              className={`${styles.vertex} ${styles.vertexTR} ${hoveredCorner === 'top-front-right' ? styles.highlighted : ''}`} 
-              onMouseEnter={() => setHoveredCorner('top-front-right')}
-              onMouseLeave={() => setHoveredCorner(null)}
+              className={`${styles.vertex} ${styles.vertexTR} ${hoveredElement === 'top-front-right' ? styles.highlighted : ''}`} 
+              onMouseEnter={() => setHoveredElement('top-front-right')}
+              onMouseLeave={() => setHoveredElement(null)}
               onClick={() => triggerView(CORNER_VIEWS['top-front-right'].name, CORNER_VIEWS['top-front-right'].alpha, CORNER_VIEWS['top-front-right'].beta)} 
             />
             <div 
-              className={`${styles.vertex} ${styles.vertexBL} ${hoveredCorner === 'bottom-back-right' ? styles.highlighted : ''}`} 
-              onMouseEnter={() => setHoveredCorner('bottom-back-right')}
-              onMouseLeave={() => setHoveredCorner(null)}
+              className={`${styles.vertex} ${styles.vertexBL} ${hoveredElement === 'bottom-back-right' ? styles.highlighted : ''}`} 
+              onMouseEnter={() => setHoveredElement('bottom-back-right')}
+              onMouseLeave={() => setHoveredElement(null)}
               onClick={() => triggerView(CORNER_VIEWS['bottom-back-right'].name, CORNER_VIEWS['bottom-back-right'].alpha, CORNER_VIEWS['bottom-back-right'].beta)} 
             />
             <div 
-              className={`${styles.vertex} ${styles.vertexBR} ${hoveredCorner === 'bottom-front-right' ? styles.highlighted : ''}`} 
-              onMouseEnter={() => setHoveredCorner('bottom-front-right')}
-              onMouseLeave={() => setHoveredCorner(null)}
+              className={`${styles.vertex} ${styles.vertexBR} ${hoveredElement === 'bottom-front-right' ? styles.highlighted : ''}`} 
+              onMouseEnter={() => setHoveredElement('bottom-front-right')}
+              onMouseLeave={() => setHoveredElement(null)}
               onClick={() => triggerView(CORNER_VIEWS['bottom-front-right'].name, CORNER_VIEWS['bottom-front-right'].alpha, CORNER_VIEWS['bottom-front-right'].beta)} 
             />
             <div className={`${styles.edge} ${styles.edgeTop}`} onClick={() => triggerView('Arête Haut-Droite', 0, Math.PI / 4)} />
@@ -156,27 +156,27 @@ export const ViewCube: React.FC = () => {
           {/* LEFT FACE */}
           <div className={`${styles.face} ${styles.left}`}>
             <div 
-              className={`${styles.vertex} ${styles.vertexTL} ${hoveredCorner === 'top-front-left' ? styles.highlighted : ''}`} 
-              onMouseEnter={() => setHoveredCorner('top-front-left')}
-              onMouseLeave={() => setHoveredCorner(null)}
+              className={`${styles.vertex} ${styles.vertexTL} ${hoveredElement === 'top-front-left' ? styles.highlighted : ''}`} 
+              onMouseEnter={() => setHoveredElement('top-front-left')}
+              onMouseLeave={() => setHoveredElement(null)}
               onClick={() => triggerView(CORNER_VIEWS['top-front-left'].name, CORNER_VIEWS['top-front-left'].alpha, CORNER_VIEWS['top-front-left'].beta)} 
             />
             <div 
-              className={`${styles.vertex} ${styles.vertexTR} ${hoveredCorner === 'top-back-left' ? styles.highlighted : ''}`} 
-              onMouseEnter={() => setHoveredCorner('top-back-left')}
-              onMouseLeave={() => setHoveredCorner(null)}
+              className={`${styles.vertex} ${styles.vertexTR} ${hoveredElement === 'top-back-left' ? styles.highlighted : ''}`} 
+              onMouseEnter={() => setHoveredElement('top-back-left')}
+              onMouseLeave={() => setHoveredElement(null)}
               onClick={() => triggerView(CORNER_VIEWS['top-back-left'].name, CORNER_VIEWS['top-back-left'].alpha, CORNER_VIEWS['top-back-left'].beta)} 
             />
             <div 
-              className={`${styles.vertex} ${styles.vertexBL} ${hoveredCorner === 'bottom-front-left' ? styles.highlighted : ''}`} 
-              onMouseEnter={() => setHoveredCorner('bottom-front-left')}
-              onMouseLeave={() => setHoveredCorner(null)}
+              className={`${styles.vertex} ${styles.vertexBL} ${hoveredElement === 'bottom-front-left' ? styles.highlighted : ''}`} 
+              onMouseEnter={() => setHoveredElement('bottom-front-left')}
+              onMouseLeave={() => setHoveredElement(null)}
               onClick={() => triggerView(CORNER_VIEWS['bottom-front-left'].name, CORNER_VIEWS['bottom-front-left'].alpha, CORNER_VIEWS['bottom-front-left'].beta)} 
             />
             <div 
-              className={`${styles.vertex} ${styles.vertexBR} ${hoveredCorner === 'bottom-back-left' ? styles.highlighted : ''}`} 
-              onMouseEnter={() => setHoveredCorner('bottom-back-left')}
-              onMouseLeave={() => setHoveredCorner(null)}
+              className={`${styles.vertex} ${styles.vertexBR} ${hoveredElement === 'bottom-back-left' ? styles.highlighted : ''}`} 
+              onMouseEnter={() => setHoveredElement('bottom-back-left')}
+              onMouseLeave={() => setHoveredElement(null)}
               onClick={() => triggerView(CORNER_VIEWS['bottom-back-left'].name, CORNER_VIEWS['bottom-back-left'].alpha, CORNER_VIEWS['bottom-back-left'].beta)} 
             />
             <div className={`${styles.edge} ${styles.edgeTop}`} onClick={() => triggerView('Arête Haut-Gauche', Math.PI, Math.PI / 4)} />
@@ -189,27 +189,27 @@ export const ViewCube: React.FC = () => {
           {/* TOP FACE */}
           <div className={`${styles.face} ${styles.top}`}>
             <div 
-              className={`${styles.vertex} ${styles.vertexTL} ${hoveredCorner === 'top-back-left' ? styles.highlighted : ''}`} 
-              onMouseEnter={() => setHoveredCorner('top-back-left')}
-              onMouseLeave={() => setHoveredCorner(null)}
+              className={`${styles.vertex} ${styles.vertexTL} ${hoveredElement === 'top-back-left' ? styles.highlighted : ''}`} 
+              onMouseEnter={() => setHoveredElement('top-back-left')}
+              onMouseLeave={() => setHoveredElement(null)}
               onClick={() => triggerView(CORNER_VIEWS['top-back-left'].name, CORNER_VIEWS['top-back-left'].alpha, CORNER_VIEWS['top-back-left'].beta)} 
             />
             <div 
-              className={`${styles.vertex} ${styles.vertexTR} ${hoveredCorner === 'top-back-right' ? styles.highlighted : ''}`} 
-              onMouseEnter={() => setHoveredCorner('top-back-right')}
-              onMouseLeave={() => setHoveredCorner(null)}
+              className={`${styles.vertex} ${styles.vertexTR} ${hoveredElement === 'top-back-right' ? styles.highlighted : ''}`} 
+              onMouseEnter={() => setHoveredElement('top-back-right')}
+              onMouseLeave={() => setHoveredElement(null)}
               onClick={() => triggerView(CORNER_VIEWS['top-back-right'].name, CORNER_VIEWS['top-back-right'].alpha, CORNER_VIEWS['top-back-right'].beta)} 
             />
             <div 
-              className={`${styles.vertex} ${styles.vertexBL} ${hoveredCorner === 'top-front-left' ? styles.highlighted : ''}`} 
-              onMouseEnter={() => setHoveredCorner('top-front-left')}
-              onMouseLeave={() => setHoveredCorner(null)}
+              className={`${styles.vertex} ${styles.vertexBL} ${hoveredElement === 'top-front-left' ? styles.highlighted : ''}`} 
+              onMouseEnter={() => setHoveredElement('top-front-left')}
+              onMouseLeave={() => setHoveredElement(null)}
               onClick={() => triggerView(CORNER_VIEWS['top-front-left'].name, CORNER_VIEWS['top-front-left'].alpha, CORNER_VIEWS['top-front-left'].beta)} 
             />
             <div 
-              className={`${styles.vertex} ${styles.vertexBR} ${hoveredCorner === 'top-front-right' ? styles.highlighted : ''}`} 
-              onMouseEnter={() => setHoveredCorner('top-front-right')}
-              onMouseLeave={() => setHoveredCorner(null)}
+              className={`${styles.vertex} ${styles.vertexBR} ${hoveredElement === 'top-front-right' ? styles.highlighted : ''}`} 
+              onMouseEnter={() => setHoveredElement('top-front-right')}
+              onMouseLeave={() => setHoveredElement(null)}
               onClick={() => triggerView(CORNER_VIEWS['top-front-right'].name, CORNER_VIEWS['top-front-right'].alpha, CORNER_VIEWS['top-front-right'].beta)} 
             />
             <div className={`${styles.edge} ${styles.edgeTop}`} onClick={() => triggerView('Arête Haut-Top', Math.PI / 2, 0.01)} />
@@ -222,27 +222,27 @@ export const ViewCube: React.FC = () => {
           {/* BOTTOM FACE */}
           <div className={`${styles.face} ${styles.bottom}`}>
             <div 
-              className={`${styles.vertex} ${styles.vertexTL} ${hoveredCorner === 'bottom-front-left' ? styles.highlighted : ''}`} 
-              onMouseEnter={() => setHoveredCorner('bottom-front-left')}
-              onMouseLeave={() => setHoveredCorner(null)}
+              className={`${styles.vertex} ${styles.vertexTL} ${hoveredElement === 'bottom-front-left' ? styles.highlighted : ''}`} 
+              onMouseEnter={() => setHoveredElement('bottom-front-left')}
+              onMouseLeave={() => setHoveredElement(null)}
               onClick={() => triggerView(CORNER_VIEWS['bottom-front-left'].name, CORNER_VIEWS['bottom-front-left'].alpha, CORNER_VIEWS['bottom-front-left'].beta)} 
             />
             <div 
-              className={`${styles.vertex} ${styles.vertexTR} ${hoveredCorner === 'bottom-front-right' ? styles.highlighted : ''}`} 
-              onMouseEnter={() => setHoveredCorner('bottom-front-right')}
-              onMouseLeave={() => setHoveredCorner(null)}
+              className={`${styles.vertex} ${styles.vertexTR} ${hoveredElement === 'bottom-front-right' ? styles.highlighted : ''}`} 
+              onMouseEnter={() => setHoveredElement('bottom-front-right')}
+              onMouseLeave={() => setHoveredElement(null)}
               onClick={() => triggerView(CORNER_VIEWS['bottom-front-right'].name, CORNER_VIEWS['bottom-front-right'].alpha, CORNER_VIEWS['bottom-front-right'].beta)} 
             />
             <div 
-              className={`${styles.vertex} ${styles.vertexBL} ${hoveredCorner === 'bottom-back-left' ? styles.highlighted : ''}`} 
-              onMouseEnter={() => setHoveredCorner('bottom-back-left')}
-              onMouseLeave={() => setHoveredCorner(null)}
+              className={`${styles.vertex} ${styles.vertexBL} ${hoveredElement === 'bottom-back-left' ? styles.highlighted : ''}`} 
+              onMouseEnter={() => setHoveredElement('bottom-back-left')}
+              onMouseLeave={() => setHoveredElement(null)}
               onClick={() => triggerView(CORNER_VIEWS['bottom-back-left'].name, CORNER_VIEWS['bottom-back-left'].alpha, CORNER_VIEWS['bottom-back-left'].beta)} 
             />
             <div 
-              className={`${styles.vertex} ${styles.vertexBR} ${hoveredCorner === 'bottom-back-right' ? styles.highlighted : ''}`} 
-              onMouseEnter={() => setHoveredCorner('bottom-back-right')}
-              onMouseLeave={() => setHoveredCorner(null)}
+              className={`${styles.vertex} ${styles.vertexBR} ${hoveredElement === 'bottom-back-right' ? styles.highlighted : ''}`} 
+              onMouseEnter={() => setHoveredElement('bottom-back-right')}
+              onMouseLeave={() => setHoveredElement(null)}
               onClick={() => triggerView(CORNER_VIEWS['bottom-back-right'].name, CORNER_VIEWS['bottom-back-right'].alpha, CORNER_VIEWS['bottom-back-right'].beta)} 
             />
             <div className={`${styles.edge} ${styles.edgeTop}`} onClick={() => triggerView('Arête Haut-Bottom', Math.PI / 2, Math.PI - 0.01)} />
