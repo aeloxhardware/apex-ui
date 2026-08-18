@@ -32,7 +32,7 @@ export const ViewCube: React.FC = () => {
     showSuccess(`Vue orientée : ${viewName}`);
   };
 
-  // Cartographie exacte des 8 sommets isométriques du cube
+  // 8 Sommets isométriques exacts du cube
   const CORNER_VIEWS: Record<string, { name: string; alpha: number; beta: number }> = {
     'top-front-right': { name: 'Sommet Haut-Avant-Droite', alpha: Math.PI / 4, beta: Math.PI / 4 },
     'top-front-left': { name: 'Sommet Haut-Avant-Gauche', alpha: (3 * Math.PI) / 4, beta: Math.PI / 4 },
@@ -44,7 +44,7 @@ export const ViewCube: React.FC = () => {
     'bottom-back-left': { name: 'Sommet Bas-Arrière-Gauche', alpha: (-5 * Math.PI) / 4, beta: (3 * Math.PI) / 4 },
   };
 
-  // Cartographie des 12 arêtes du cube
+  // 12 Arêtes du cube
   const EDGE_VIEWS: Record<string, { name: string; alpha: number; beta: number }> = {
     'top-front': { name: 'Arête Haut-Avant', alpha: Math.PI / 2, beta: Math.PI / 4 },
     'top-back': { name: 'Arête Haut-Arrière', alpha: -Math.PI / 2, beta: Math.PI / 4 },
@@ -117,24 +117,24 @@ export const ViewCube: React.FC = () => {
           {/* BACK FACE */}
           <div className={`${styles.face} ${styles.back}`}>
             <div 
-              className={`${styles.vertex} ${styles.vertexTL} ${hoveredId === 'top-back-right' ? styles.highlighted : ''}`} 
-              onMouseEnter={() => setHoveredId('top-back-right')} onMouseLeave={() => setHoveredId(null)}
-              onClick={() => triggerView(CORNER_VIEWS['top-back-right'].name, CORNER_VIEWS['top-back-right'].alpha, CORNER_VIEWS['top-back-right'].beta)} 
-            />
-            <div 
-              className={`${styles.vertex} ${styles.vertexTR} ${hoveredId === 'top-back-left' ? styles.highlighted : ''}`} 
+              className={`${styles.vertex} ${styles.vertexTL} ${hoveredId === 'top-back-left' ? styles.highlighted : ''}`} 
               onMouseEnter={() => setHoveredId('top-back-left')} onMouseLeave={() => setHoveredId(null)}
               onClick={() => triggerView(CORNER_VIEWS['top-back-left'].name, CORNER_VIEWS['top-back-left'].alpha, CORNER_VIEWS['top-back-left'].beta)} 
             />
             <div 
-              className={`${styles.vertex} ${styles.vertexBL} ${hoveredId === 'bottom-back-right' ? styles.highlighted : ''}`} 
-              onMouseEnter={() => setHoveredId('bottom-back-right')} onMouseLeave={() => setHoveredId(null)}
-              onClick={() => triggerView(CORNER_VIEWS['bottom-back-right'].name, CORNER_VIEWS['bottom-back-right'].alpha, CORNER_VIEWS['bottom-back-right'].beta)} 
+              className={`${styles.vertex} ${styles.vertexTR} ${hoveredId === 'top-back-right' ? styles.highlighted : ''}`} 
+              onMouseEnter={() => setHoveredId('top-back-right')} onMouseLeave={() => setHoveredId(null)}
+              onClick={() => triggerView(CORNER_VIEWS['top-back-right'].name, CORNER_VIEWS['top-back-right'].alpha, CORNER_VIEWS['top-back-right'].beta)} 
             />
             <div 
-              className={`${styles.vertex} ${styles.vertexBR} ${hoveredId === 'bottom-back-left' ? styles.highlighted : ''}`} 
+              className={`${styles.vertex} ${styles.vertexBL} ${hoveredId === 'bottom-back-left' ? styles.highlighted : ''}`} 
               onMouseEnter={() => setHoveredId('bottom-back-left')} onMouseLeave={() => setHoveredId(null)}
               onClick={() => triggerView(CORNER_VIEWS['bottom-back-left'].name, CORNER_VIEWS['bottom-back-left'].alpha, CORNER_VIEWS['bottom-back-left'].beta)} 
+            />
+            <div 
+              className={`${styles.vertex} ${styles.vertexBR} ${hoveredId === 'bottom-back-right' ? styles.highlighted : ''}`} 
+              onMouseEnter={() => setHoveredId('bottom-back-right')} onMouseLeave={() => setHoveredId(null)}
+              onClick={() => triggerView(CORNER_VIEWS['bottom-back-right'].name, CORNER_VIEWS['bottom-back-right'].alpha, CORNER_VIEWS['bottom-back-right'].beta)} 
             />
             <div 
               className={`${styles.edge} ${styles.edgeTop} ${hoveredId === 'top-back' ? styles.highlighted : ''}`} 
@@ -147,14 +147,14 @@ export const ViewCube: React.FC = () => {
               onClick={() => triggerView(EDGE_VIEWS['bottom-back'].name, EDGE_VIEWS['bottom-back'].alpha, EDGE_VIEWS['bottom-back'].beta)} 
             />
             <div 
-              className={`${styles.edge} ${styles.edgeLeft} ${hoveredId === 'back-right' ? styles.highlighted : ''}`} 
-              onMouseEnter={() => setHoveredId('back-right')} onMouseLeave={() => setHoveredId(null)}
-              onClick={() => triggerView(EDGE_VIEWS['back-right'].name, EDGE_VIEWS['back-right'].alpha, EDGE_VIEWS['back-right'].beta)} 
-            />
-            <div 
-              className={`${styles.edge} ${styles.edgeRight} ${hoveredId === 'back-left' ? styles.highlighted : ''}`} 
+              className={`${styles.edge} ${styles.edgeLeft} ${hoveredId === 'back-left' ? styles.highlighted : ''}`} 
               onMouseEnter={() => setHoveredId('back-left')} onMouseLeave={() => setHoveredId(null)}
               onClick={() => triggerView(EDGE_VIEWS['back-left'].name, EDGE_VIEWS['back-left'].alpha, EDGE_VIEWS['back-left'].beta)} 
+            />
+            <div 
+              className={`${styles.edge} ${styles.edgeRight} ${hoveredId === 'back-right' ? styles.highlighted : ''}`} 
+              onMouseEnter={() => setHoveredId('back-right')} onMouseLeave={() => setHoveredId(null)}
+              onClick={() => triggerView(EDGE_VIEWS['back-right'].name, EDGE_VIEWS['back-right'].alpha, EDGE_VIEWS['back-right'].beta)} 
             />
             <div className={styles.centerPart} onClick={() => triggerView('BACK', -Math.PI / 2, Math.PI / 2)}>BACK</div>
           </div>
@@ -237,14 +237,14 @@ export const ViewCube: React.FC = () => {
               onClick={() => triggerView(EDGE_VIEWS['bottom-left'].name, EDGE_VIEWS['bottom-left'].alpha, EDGE_VIEWS['bottom-left'].beta)} 
             />
             <div 
-              className={`${styles.edge} ${styles.edgeLeft} ${hoveredId === 'front-left' ? styles.highlighted : ''}`} 
-              onMouseEnter={() => setHoveredId('front-left')} onMouseLeave={() => setHoveredId(null)}
-              onClick={() => triggerView(EDGE_VIEWS['front-left'].name, EDGE_VIEWS['front-left'].alpha, EDGE_VIEWS['front-left'].beta)} 
-            />
-            <div 
-              className={`${styles.edge} ${styles.edgeRight} ${hoveredId === 'back-left' ? styles.highlighted : ''}`} 
+              className={`${styles.edge} ${styles.edgeLeft} ${hoveredId === 'back-left' ? styles.highlighted : ''}`} 
               onMouseEnter={() => setHoveredId('back-left')} onMouseLeave={() => setHoveredId(null)}
               onClick={() => triggerView(EDGE_VIEWS['back-left'].name, EDGE_VIEWS['back-left'].alpha, EDGE_VIEWS['back-left'].beta)} 
+            />
+            <div 
+              className={`${styles.edge} ${styles.edgeRight} ${hoveredId === 'front-left' ? styles.highlighted : ''}`} 
+              onMouseEnter={() => setHoveredId('front-left')} onMouseLeave={() => setHoveredId(null)}
+              onClick={() => triggerView(EDGE_VIEWS['front-left'].name, EDGE_VIEWS['front-left'].alpha, EDGE_VIEWS['front-left'].beta)} 
             />
             <div className={styles.centerPart} onClick={() => triggerView('LEFT', Math.PI, Math.PI / 2)}>LEFT</div>
           </div>
@@ -327,7 +327,7 @@ export const ViewCube: React.FC = () => {
               onClick={() => triggerView(EDGE_VIEWS['bottom-back'].name, EDGE_VIEWS['bottom-back'].alpha, EDGE_VIEWS['bottom-back'].beta)} 
             />
             <div 
-              className={`${styles.edge} ${styles.edgeLeft} ${hoveredId === 'bottom-left' ? styles.html ? '' : 'bottom-left' : ''}`} 
+              className={`${styles.edge} ${styles.edgeLeft} ${hoveredId === 'bottom-left' ? styles.highlighted : ''}`} 
               onMouseEnter={() => setHoveredId('bottom-left')} onMouseLeave={() => setHoveredId(null)}
               onClick={() => triggerView(EDGE_VIEWS['bottom-left'].name, EDGE_VIEWS['bottom-left'].alpha, EDGE_VIEWS['bottom-left'].beta)} 
             />
