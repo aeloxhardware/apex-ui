@@ -5,7 +5,8 @@ import {
   Printer, 
   Check,
   ChevronRight,
-  ArrowLeft
+  ArrowLeft,
+  X
 } from 'lucide-react';
 import { CustomTooltip } from './CustomTooltip';
 import styles from './PrinterConfigSidebar.module.scss';
@@ -753,24 +754,32 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
                 <span className="truncate">{titlePath}</span>
               </div>
             </div>
-            <button 
-              className={styles.fusionCloseBtn}
-              onClick={() => {
-                if (selectedSubCat) {
-                  setSelectedSubCat(null);
-                } else if (selectedNestedCat) {
-                  setSelectedNestedCat(null);
-                } else if (selectedManufacturer) {
-                  setSelectedManufacturer(null);
-                } else if (selectedCategory) {
-                  setSelectedCategory(null);
-                } else {
-                  onClose();
-                }
-              }}
-            >
-              <ArrowLeft size={16} />
-            </button>
+            <div className="flex items-center space-x-1 shrink-0">
+              <button 
+                className={styles.fusionCloseBtn}
+                onClick={() => {
+                  if (selectedSubCat) {
+                    setSelectedSubCat(null);
+                  } else if (selectedNestedCat) {
+                    setSelectedNestedCat(null);
+                  } else if (selectedManufacturer) {
+                    setSelectedManufacturer(null);
+                  } else if (selectedCategory) {
+                    setSelectedCategory(null);
+                  }
+                }}
+                disabled={!selectedCategory}
+                style={!selectedCategory ? { opacity: 0.3, cursor: 'not-allowed' } : {}}
+              >
+                <ArrowLeft size={16} />
+              </button>
+              <button 
+                className={styles.fusionCloseBtn}
+                onClick={onClose}
+              >
+                <X size={16} />
+              </button>
+            </div>
           </motion.div>
 
           {/* First Window: Categories (Aelox / Autres) */}
@@ -1100,7 +1109,7 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
                           <motion.div
                             key={model.id}
                             initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
+                            animate={{ opacity: 1, scale: 1, x: 0 }}
                             transition={{ duration: 0.15, delay: idx * 0.02 }}
                           >
                             <CustomTooltip content={model.name} description="">
