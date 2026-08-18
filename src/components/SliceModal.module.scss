@@ -2,8 +2,8 @@
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(0px);
-  -webkit-backdrop-filter: blur(0px);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   z-index: 99999;
   display: flex;
   flex-direction: column;
@@ -20,43 +20,56 @@
     background: rgba(0, 0, 0, 0);
   }
   to {
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
     background: rgba(0, 0, 0, 0.1);
   }
 }
 
 .modalCard {
-  background: rgba(10, 15, 26, 0.35);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: none;
+  background: rgba(10, 15, 26, 0.45);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.7), 0 0 30px rgba(0, 0, 0, 0.4);
   border-radius: 20px;
   width: 440px;
   padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
   animation: scaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.attentionBox {
+  background: rgba(239, 68, 68, 0.18);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  box-shadow: 0 8px 32px rgba(239, 68, 68, 0.2), inset 0 0 15px rgba(239, 68, 68, 0.1);
+  border-radius: 16px;
+  width: 440px;
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: attentionPulse 2s ease-in-out infinite alternate, scaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes attentionPulse {
+  0% {
+    box-shadow: 0 8px 32px rgba(239, 68, 68, 0.2), inset 0 0 15px rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.35);
+  }
+  100% {
+    box-shadow: 0 8px 40px rgba(239, 68, 68, 0.45), inset 0 0 25px rgba(239, 68, 68, 0.25);
+    border-color: rgba(239, 68, 68, 0.7);
+  }
 }
 
 @keyframes scaleUp {
   from { opacity: 0; transform: scale(0.95) translateY(10px); }
   to { opacity: 1; transform: scale(1) translateY(0); }
-}
-
-.boxContainer {
-  background: rgba(10, 15, 26, 0.55);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 14px;
-  padding: 14px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
 .header {
@@ -96,8 +109,8 @@
 .body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  font-size: 12px;
+  gap: 12px;
+  font-size: 12.5px;
   color: rgba(255, 255, 255, 0.85);
   line-height: 1.5;
 }
@@ -112,10 +125,10 @@
 }
 
 .cancelBtn {
-  background: rgba(10, 15, 26, 0.35);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: none;
+  background: rgba(10, 15, 26, 0.45);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   color: rgba(255, 255, 255, 0.8);
   font-family: 'Orbitron', sans-serif !important;
   font-size: 11px;
@@ -134,10 +147,10 @@
 
 .confirmBtn {
   background: rgba(0, 240, 255, 0.25);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(0, 240, 255, 0.4);
   color: #00f0ff;
-  border: none;
   font-family: 'Orbitron', sans-serif !important;
   font-size: 11px;
   font-weight: 700;
