@@ -202,7 +202,16 @@
   color: rgba(255, 255, 255, 0.9);
   transition: all 0.2s ease;
 
-  &:hover {
+  &.clickableRow {
+    cursor: pointer;
+
+    &:hover {
+      background: rgba(0, 240, 255, 0.1);
+      border-color: rgba(0, 240, 255, 0.3);
+    }
+  }
+
+  &:not(.clickableRow):hover {
     background: rgba(255, 255, 255, 0.08);
     border-color: rgba(0, 240, 255, 0.25);
   }
@@ -243,14 +252,9 @@
   color: #00f0ff;
   font-size: 11px;
   padding: 4px 8px;
-  cursor: pointer;
   transition: all 0.2s;
   max-width: 140px;
-
-  &:hover {
-    border-color: #00f0ff;
-    background: rgba(0, 240, 255, 0.1);
-  }
+  pointer-events: none;
 }
 
 .dropdownText {

@@ -454,16 +454,20 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
                     <ul className={styles.itemsList}>
                       {section.items.map((item, iIdx) => (
                         <CustomTooltip key={iIdx} content={item.label} description={item.description}>
-                          <li className={styles.itemRow}>
+                          <li 
+                            className={clsx(styles.itemRow, { [styles.clickableRow]: item.isPatternDropdown })}
+                            onClick={() => {
+                              if (item.isPatternDropdown) {
+                                setIsPatternPopupOpen(!isPatternPopupOpen);
+                              }
+                            }}
+                          >
                             <span className={styles.itemName}>{item.label}</span>
                             {item.isPatternDropdown ? (
-                              <button 
-                                className={styles.dropdownTrigger}
-                                onClick={() => setIsPatternPopupOpen(!isPatternPopupOpen)}
-                              >
+                              <div className={styles.dropdownTrigger}>
                                 <span className={styles.dropdownText}>{selectedPattern}</span>
                                 <ChevronDown size={14} className="shrink-0 ml-auto" />
-                              </button>
+                              </div>
                             ) : (
                               <input 
                                 type="text" 
