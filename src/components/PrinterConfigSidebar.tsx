@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Printer, 
   Check,
-  ChevronRight
+  ChevronRight,
+  ArrowLeft
 } from 'lucide-react';
 import { CustomTooltip } from './CustomTooltip';
 import styles from './PrinterConfigSidebar.module.scss';
@@ -768,7 +769,7 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
                 }
               }}
             >
-              ✕
+              <ArrowLeft size={16} />
             </button>
           </motion.div>
 
