@@ -11,10 +11,52 @@ import {
   Sparkles, 
   Palette, 
   Workflow, 
-  Terminal 
+  Terminal,
+  ChevronDown,
+  Check
 } from 'lucide-react';
 import { CustomTooltip } from './CustomTooltip';
 import styles from './CategoriesSidebar.module.scss';
+
+export interface InfillPattern {
+  name: string;
+  description: string;
+}
+
+export const INFILL_PATTERNS: InfillPattern[] = [
+  { name: 'Concentrique', description: 'Suit la forme du périmètre externe en décalant la bordure vers l\'intérieur à chaque boucle.' },
+  { name: 'Rectiligne', description: 'Lignes droites parallèles croisées d\'un angle fixe alterné à chaque couche.' },
+  { name: 'Grille', description: 'Lignes parallèles croisées tracées sur une même couche pour former une grille carrée.' },
+  { name: 'Ligne', description: 'Lignes parallèles tracées sur une même couche sans croisement, orientées à 90° de la couche précédente.' },
+  { name: 'Triangles', description: 'Réseau de trois jeux de lignes croisées formant des triangles équilatéraux.' },
+  { name: 'Tri-hexagone', description: 'Trois séries de lignes droites formant des hexagones entrelacés avec de petits triangles.' },
+  { name: 'Nid d\'abeille', description: 'Hexagones parfaits alignés en 2D à chaque couche.' },
+  { name: 'Rectiligne aligné', description: 'Lignes parallèles toujours orientées dans le même sens sur toutes les couches.' },
+  { name: 'Spirale d\'Archimède', description: 'Motifs circulaires continus s\'enroulant du centre vers l\'extérieur.' },
+  { name: 'Spirale Octagramme', description: 'Motif en étoile à 8 branches généré par des spirales concentriques polygonales.' },
+  { name: 'Zigzag', description: 'Trajectoire continue en ligne brisée évitant les rétractions de l\'extrudeur.' },
+  { name: 'Nid d\'abeille latéral', description: 'Structure en nid d\'abeille orientée verticalement le long des parois.' },
+  { name: 'Grille latérale', description: 'Grille carrée projetée verticalement sur les flancs de la pièce.' },
+  { name: 'Cubique', description: 'Réseau 3D de cubes basculés sur leur coin, créant des cavités pyramidales inversées.' },
+  { name: 'Cubique adaptatif', description: 'Motif cubique dont la densité augmente à mesure qu\'on s\'approche des surfaces supérieures ou des parois.' },
+  { name: 'Un quart de cube', description: 'Variante du motif cubique décalée pour réduire la taille des cellules par deux dans une direction.' },
+  { name: 'Tétraèdre', description: 'Pyramides à base triangulaire interconnectées pour maximiser la résistance à la compression.' },
+  { name: 'Nid d\'abeille 3D', description: 'Structure alvéolaire dont la forme évolue de façon fluide le long de l\'axe Z.' },
+  { name: 'Support Cubique', description: 'Remplissage très aéré qui ne se densifie que sous les plafonds internes pour les soutenir.' },
+  { name: 'Gyroïde', description: 'Surface courbe 3D isotrope ondulée continue offrant une résistance multidirectionnelle sans croisement de buse.' },
+  { name: 'Croix 3D', description: 'Motif 3D composé de croix entrelacées offrant flexibilité et absorption d\'impacts.' },
+  { name: 'Croix', description: 'Motif 2D souple composé de formes en croix à branches arrondies.' },
+  { name: 'Croix-Zag', description: 'Structure hybride alternant entre la croix 3D et le tracé en zigzag.' },
+  { name: 'Interlocked-Zag', description: 'Motif de remplissage avec liaisons mécaniques verrouillées d\'une couche à l\'autre.' },
+  { name: 'TPMS Diamond', description: 'Structure minimale 3D inspirée de la disposition cristalline du diamant.' },
+  { name: 'Gyroïde graduel', description: 'Gyroïde dont la densité et l\'épaisseur évoluent progressivement selon la hauteur Z.' },
+  { name: 'TPMS Diamond graduel', description: 'Structure TPMS Diamond dont la densité varie le long de la pièce.' },
+  { name: 'Fischer-Koch', description: 'Surface TPMS complexe offrant une porosité élevée et une répartition très homogène des contraintes.' },
+  { name: 'Fischer-Koch graduel', description: 'Structure Fischer-Koch à densité variable le long de l\'axe Z.' },
+  { name: 'Courbe de Hilbert', description: 'Ligne brisée continue remplissant l\'espace 2D sans croisement, idéale pour les pièces flexibles.' },
+  { name: 'Éclair', description: 'Structure d\'arborescence interne suspendue qui ne soutient que les plafonds internes.' },
+  { name: 'Hachures croisées', description: 'Motif de hachures croisées à intervalles alternés pour limiter l\'accumulation de matière.' }
+];
 
 export interface CategoryItem {
   id: string;
@@ -23,7 +65,7 @@ export interface CategoryItem {
   icon: React.ReactNode;
   sections: {
     title: string;
-    items: { label: string; defaultValue: string; description: string }[];
+    items: { label: string; defaultValue: string; description: string; isPatternDropdown?: boolean }[];
   }[];
 }
 
@@ -69,7 +111,7 @@ const CATEGORIES: CategoryItem[] = [
         title: 'Remplissage', 
         items: [
           { label: 'Densité de remplissage (%)', defaultValue: '15%', description: 'Pourcentage de matière à l\'intérieur de la pièce. 15% offre un excellent compromis poids/solidité.' },
-          { label: 'Motifs (Gyroid, Grid, Lightning)', defaultValue: 'Gyroid', description: 'Géométrie interne 3D. Le motif Gyroid offre une résistance isotrope exceptionnelle dans toutes les directions.' },
+          { label: 'Motifs (Gyroid, Grid, Lightning)', defaultValue: 'Gyroïde', description: 'Géométrie interne 3D. Le motif Gyroid offre une résistance isotrope exceptionnelle dans toutes les directions.', isPatternDropdown: true },
           { label: 'Angle du remplissage', defaultValue: '45°', description: 'Orientation des lignes de remplissage par rapport aux axes du plateau.' }
         ] 
       },
@@ -269,6 +311,9 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
   const [hasScroll, setHasScroll] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
 
+  const [selectedPattern, setSelectedPattern] = useState<string>('Gyroïde');
+  const [isPatternPopupOpen, setIsPatternPopupOpen] = useState(false);
+
   const startYRef = useRef(0);
   const startScrollTopRef = useRef(0);
 
@@ -278,6 +323,7 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
     } else {
       onSelectCategory(catId);
     }
+    setIsPatternPopupOpen(false);
   };
 
   const handleScroll = () => {
@@ -340,6 +386,8 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
   useEffect(() => {
     if (activeCategory) {
       setTimeout(handleScroll, 50);
+    } else {
+      setIsPatternPopupOpen(false);
     }
   }, [activeCategory]);
 
@@ -379,7 +427,10 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
               <span className={styles.fusionMenuTitle}>{activeCatData.title}</span>
               <button 
                 className={styles.fusionCloseBtn}
-                onClick={() => onSelectCategory(null)}
+                onClick={() => {
+                  onSelectCategory(null);
+                  setIsPatternPopupOpen(false);
+                }}
               >
                 ✕
               </button>
@@ -405,11 +456,21 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
                         <CustomTooltip key={iIdx} content={item.label} description={item.description}>
                           <li className={styles.itemRow}>
                             <span className={styles.itemName}>{item.label}</span>
-                            <input 
-                              type="text" 
-                              defaultValue={item.defaultValue} 
-                              className={styles.itemInput} 
-                            />
+                            {item.isPatternDropdown ? (
+                              <button 
+                                className={styles.dropdownTrigger}
+                                onClick={() => setIsPatternPopupOpen(!isPatternPopupOpen)}
+                              >
+                                <span className={styles.dropdownText}>{selectedPattern}</span>
+                                <ChevronDown size={14} className="shrink-0 ml-auto" />
+                              </button>
+                            ) : (
+                              <input 
+                                type="text" 
+                                defaultValue={item.defaultValue} 
+                                className={styles.itemInput} 
+                              />
+                            )}
                           </li>
                         </CustomTooltip>
                       ))}
@@ -429,6 +490,46 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
                 />
               )}
             </motion.div>
+
+            {/* Pattern popup window next to the menu */}
+            <AnimatePresence>
+              {isPatternPopupOpen && (
+                <motion.div
+                  className={styles.patternPopup}
+                  initial={{ opacity: 0, scale: 0.95, x: -10 }}
+                  animate={{ opacity: 1, scale: 1, x: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, x: -10 }}
+                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                >
+                  <div className="text-[11px] font-semibold text-[#00f0ff] px-2 py-1 border-b border-white/10 mb-1 flex items-center justify-between">
+                    <span>Sélectionner le motif</span>
+                    <button 
+                      onClick={() => setIsPatternPopupOpen(false)}
+                      className="text-white/60 hover:text-white"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  {INFILL_PATTERNS.map((pat, pIdx) => {
+                    const isSelected = selectedPattern === pat.name;
+                    return (
+                      <CustomTooltip key={pIdx} content={pat.name} description={pat.description} key-override={pat.name}>
+                        <div 
+                          className={clsx(styles.patternItem, { [styles.activePattern]: isSelected })}
+                          onClick={() => {
+                            setSelectedPattern(pat.name);
+                            setIsPatternPopupOpen(false);
+                          }}
+                        >
+                          <span className="truncate pr-2">{pat.name}</span>
+                          {isSelected && <Check size={14} className="text-[#00f0ff] shrink-0" />}
+                        </div>
+                      </CustomTooltip>
+                    );
+                  })}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </>
         )}
       </AnimatePresence>
