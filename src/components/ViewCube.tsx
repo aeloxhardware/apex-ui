@@ -31,6 +31,29 @@ export const ViewCube: React.FC = () => {
     showSuccess(`Vue orientée : ${viewName}`);
   };
 
+  const renderFace = (faceName: string, alphaFace: number, betaFace: number) => {
+    return (
+      <>
+        {/* Sommets */}
+        <div className={`${styles.vertex} ${styles.vertexTL}`} onClick={() => triggerView(`Sommet Haut-Gauche (${faceName})`, alphaFace - 0.5, betaFace - 0.5)} title="Sommet" />
+        <div className={`${styles.vertex} ${styles.vertexTR}`} onClick={() => triggerView(`Sommet Haut-Droite (${faceName})`, alphaFace + 0.5, betaFace - 0.5)} title="Sommet" />
+        <div className={`${styles.vertex} ${styles.vertexBL}`} onClick={() => triggerView(`Sommet Bas-Gauche (${faceName})`, alphaFace - 0.5, betaFace + 0.5)} title="Sommet" />
+        <div className={`${styles.vertex} ${styles.vertexBR}`} onClick={() => triggerView(`Sommet Bas-Droite (${faceName})`, alphaFace + 0.5, betaFace + 0.5)} title="Sommet" />
+
+        {/* Arêtes */}
+        <div className={`${styles.edge} ${styles.edgeTop}`} onClick={() => triggerView(`Arête Haute (${faceName})`, alphaFace, betaFace - 0.6)} title="Arête" />
+        <div className={`${styles.edge} ${styles.edgeBottom}`} onClick={() => triggerView(`Arête Basse (${faceName})`, alphaFace, betaFace + 0.6)} title="Arête" />
+        <div className={`${styles.edge} ${styles.edgeLeft}`} onClick={() => triggerView(`Arête Gauche (${faceName})`, alphaFace - 0.6, betaFace)} title="Arête" />
+        <div className={`${styles.edge} ${styles.edgeRight}`} onClick={() => triggerView(`Arête Droite (${faceName})`, alphaFace + 0.6, betaFace)} title="Arête" />
+
+        {/* Face centrale */}
+        <div className={styles.centerPart} onClick={() => triggerView(faceName, alphaFace, betaFace)}>
+          {faceName}
+        </div>
+      </>
+    );
+  };
+
   return (
     <div className={styles.container}>
       <CustomTooltip content="ViewCube 3D" description="Cliquez sur une face, une arête ou un sommet pour orienter instantanément la caméra 3D.">
@@ -40,77 +63,24 @@ export const ViewCube: React.FC = () => {
             transform: `rotateX(${rotation.x}deg) rotateY(${rotation.y}deg)`
           }}
         >
-          {/* Faces principales avec clic central */}
           <div className={`${styles.face} ${styles.front}`}>
-            <div className={styles.centerPart} onClick={() => triggerView('FRONT', Math.PI / 2, Math.PI / 2)}>FRONT</div>
+            {renderFace('FRONT', Math.PI / 2, Math.PI / 2)}
           </div>
           <div className={`${styles.face} ${styles.back}`}>
-            <div className={styles.centerPart} onClick={() => triggerView('BACK', -Math.PI / 2, Math.PI / 2)}>BACK</div>
+            {renderFace('BACK', -Math.PI / 2, Math.PI / 2)}
           </div>
           <div className={`${styles.face} ${styles.right}`}>
-            <div className={styles.centerPart} onClick={() => triggerView('RIGHT', 0, Math.PI / 2)}>RIGHT</div>
+            {renderFace('RIGHT', 0, Math.PI / 2)}
           </div>
           <div className={`${styles.face} ${styles.left}`}>
-            <div className={`${styles.centerPart}`} onClick={() => triggerView('LEFT', Math.PI, Math.PI / 2)}>LEFT</div>
+            {renderFace('LEFT', Math.PI, Math.PI / 2)}
           </div>
           <div className={`${styles.face} ${styles.top}`}>
-            <div className={styles.centerPart} onClick={() => triggerView('TOP', Math.PI / 2, 0.01)}>TOP</div>
+            {renderFace('TOP', Math.PI / 2, 0.01)}
           </div>
           <div className={`${styles.face} ${styles.bottom}`}>
-            <div className={styles.centerPart} onClick={() => triggerView('BOTTOM', Math.PI / 2, Math.PI - 0.01)}>BOTTOM</div>
+            {renderFace('BOTTOM', Math.PI / 2, Math.PI - 0.01)}
           </div>
-
-          {/* Sommets 3D (Coins Top-Front-Left indiqué par votre flèche) */}
-          <div 
-            className={styles.cornerOverlay} 
-            style={{ top: '-8px', left: '-8px', transform: 'translateZ(40px)' }}
-            onClick={() => triggerView('Sommet Haut-Avant-Gauche (Top-Front-Left)', (3 * Math.PI) / 4, Math.PI / 4)}
-            title="Sommet Top-Front-Left"
-          />
-          <div 
-            className={styles.cornerOverlay} 
-            style={{ top: '-8px', right: '-8px', transform: 'translateZ(40px)' }}
-            onClick={() => triggerView('Sommet Haut-Avant-Droite (Top-Front-Right)', Math.PI / 4, Math.PI / 4)}
-            title="Sommet Top-Front-Right"
-          />
-          <div 
-            className={styles.cornerOverlay} 
-            style={{ bottom: '-8px', left: '-8px', transform: 'translateZ(40px)' }}
-            onClick={() => triggerView('Sommet Bas-Avant-Gauche (Bottom-Front-Left)', (5 * Math.PI) / 4, (3 * Math.PI) / 4)}
-            title="Sommet Bottom-Front-Left"
-          />
-          <div 
-            className={styles.cornerOverlay} 
-            style={{ bottom: '-8px', right: '-8px', transform: 'translateZ(40px)' }}
-            onClick={() => triggerView('Sommet Bas-Avant-Droite (Bottom-Front-Right)', (7 * Math.PI) / 4, (3 * Math.PI) / 4)}
-            title="Sommet Bottom-Front-Right"
-          />
-
-          {/* Arêtes 3D unifiées */}
-          <div 
-            className={styles.edgeOverlay}
-            style={{ top: '-8px', left: '16px', width: '48px', height: '16px', transform: 'translateZ(40px)' }}
-            onClick={() => triggerView('Arête Top-Front', Math.PI / 2, Math.PI / 4)}
-            title="Arête Top-Front"
-          />
-          <div 
-            className={styles.edgeOverlay}
-            style={{ bottom: '-8px', left: '16px', width: '48px', height: '16px', transform: 'translateZ(40px)' }}
-            onClick={() => triggerView('Arête Bottom-Front', Math.PI / 2, (3 * Math.PI) / 4)}
-            title="Arête Bottom-Front"
-          />
-          <div 
-            className={styles.edgeOverlay}
-            style={{ top: '16px', left: '-8px', width: '16px', height: '48px', transform: 'translateZ(40px)' }}
-            onClick={() => triggerView('Arête Left-Front', (3 * Math.PI) / 4, Math.PI / 2)}
-            title="Arête Left-Front"
-          />
-          <div 
-            className={styles.edgeOverlay}
-            style={{ top: '16px', right: '-8px', width: '16px', height: '48px', transform: 'translateZ(40px)' }}
-            onClick={() => triggerView('Arête Right-Front', Math.PI / 4, Math.PI / 2)}
-            title="Arête Right-Front"
-          />
         </div>
       </CustomTooltip>
     </div>
