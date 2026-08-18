@@ -5,7 +5,7 @@ import { CustomTooltip } from './CustomTooltip';
 import { showSuccess } from '@/utils/toast';
 
 export const AxisSidebar: React.FC = () => {
-  const [axisMode, setAxisMode] = useState<'3-axes' | '5-axes'>('3-axes');
+  const [axisMode, setAxisMode] = useState<'3-axes' | '5-axes'>('5-axes');
   const toolbarRef = useRef<HTMLDivElement>(null);
   const buttonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [indicatorStyle, setIndicatorStyle] = useState<React.CSSProperties>({});
@@ -15,6 +15,11 @@ export const AxisSidebar: React.FC = () => {
     showSuccess(`Mode d'impression configuré : ${mode === '3-axes' ? '3 Axes Standard' : '5 Axes Avancé'}`);
     window.dispatchEvent(new CustomEvent('apex-axis-changed', { detail: { mode } }));
   };
+
+  useEffect(() => {
+    // Notify initial state on mount
+    window.dispatchEvent(new CustomEvent('apex-axis-changed', { detail: { mode: '5-axes' } }));
+  }, []);
 
   useEffect(() => {
     if (toolbarRef.current && buttonRefs.current.size > 0) {
