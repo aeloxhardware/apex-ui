@@ -10,9 +10,9 @@ export const ViewCube: React.FC = () => {
     const handleCameraUpdated = (e: CustomEvent<{ alpha: number; beta: number }>) => {
       if (e.detail) {
         const { alpha, beta } = e.detail;
-        // Convert Babylon angles to CSS rotation degrees
-        const rotY = (alpha * 180) / Math.PI - 90;
-        const rotX = 90 - (beta * 180) / Math.PI;
+        // Inversion du sens de rotation pour correspondre parfaitement au mouvement de la caméra
+        const rotY = 90 - (alpha * 180) / Math.PI;
+        const rotX = (beta * 180) / Math.PI - 90;
         setRotation({ x: rotX, y: rotY });
       }
     };
