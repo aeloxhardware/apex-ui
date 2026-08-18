@@ -35,25 +35,6 @@ export const SliceModal: React.FC<SliceModalProps> = ({ isOpen, onClose, onConfi
           <p>
             Voulez-vous lancer le calcul complet des trajectoires G-code pour le plateau d'impression actuel ?
           </p>
-
-          <div className={styles.statsGrid}>
-            <div className={styles.statItem}>
-              <span className={styles.statLabel}>Temps estimé :</span>
-              <span className={styles.statValue}>2h 14m</span>
-            </div>
-            <div className={styles.statItem}>
-              <span className={styles.statLabel}>Consommation fil :</span>
-              <span className={styles.statValue}>28.4 g (9.5 m)</span>
-            </div>
-            <div className={styles.statItem}>
-              <span className={styles.statLabel}>Hauteur de couche :</span>
-              <span className={styles.statValue}>0.2 mm</span>
-            </div>
-            <div className={styles.statItem}>
-              <span className={styles.statLabel}>Nombre de couches :</span>
-              <span className={styles.statValue}>240 couches</span>
-            </div>
-          </div>
         </div>
       </motion.div>
 
