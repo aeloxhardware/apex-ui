@@ -306,10 +306,17 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
 }) => {
   const iconRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
   const contentRef = useRef<HTMLDivElement>(null);
+  const patternContentRef = useRef<HTMLDivElement>(null);
+
   const [thumbHeight, setThumbHeight] = useState(40);
   const [thumbTop, setThumbTop] = useState(8);
   const [hasScroll, setHasScroll] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+
+  const [patternThumbHeight, setPatternThumbHeight] = useState(40);
+  const [patternThumbTop, setPatternThumbTop] = useState(8);
+  const [hasPatternScroll, setHasPatternScroll] = useState(false);
+  const [isPatternDragging, setIsPatternDragging] = useState(false);
 
   const [selectedPattern, setSelectedPattern] = useState<string>('Gyroïde');
   const [isPatternPopupOpen, setIsPatternPopupOpen] = useState(false);
@@ -345,6 +352,27 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
 
     setThumbHeight(calculatedHeight);
     setThumbTop(calculatedTop);
+  };
+
+  const handlePatternScroll = () => {
+    if (!patternContentRef.current || isPatternDragging) return;
+    const { scrollTop, scrollHeight, clientHeight } = patternContentRef.current;
+    if (scrollHeight <= clientHeight) {
+      setHasPatternScroll(false);
+      return;
+    }
+    setHasPatternScroll(true);
+    
+    const margin = 8;
+    const trackHeight = clientHeight - (margin * 2);
+    const calculatedHeight = Math.max(32, (clientHeight / scrollHeight) * trackHeight);
+    
+    const maxScrollTop = scrollHeight - clientHeight;
+    const maxThumbTop = trackHeight - calculatedHeight;
+    const calculatedTop = maxScrollTop > 0 ? margin + (scrollTop / maxScrollTop) * maxThumbTop : margin;
+
+    setPatternThumbHeight(calculatedHeight);
+    setPatternThumbTop(calculatedTop);
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -383,6 +411,42 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
     document.removeEventListener('mouseup', handleMouseUp);
   };
 
+  const handlePatternMouseDown = (e: React.MouseEvent) => {
+    setIsPatternDragging(true);
+    startYRef.current = e.clientY;
+    if (patternContentRef.current) {
+      startScrollTopRef.current = patternContentRef.current.scrollTop;
+    }
+    document.addEventListener('mousemove', handlePatternMouseMove);
+    document.addEventListener('mouseup', handlePatternMouseUp);
+    e.preventDefault();
+  };
+
+  const handlePatternMouseMove = (e: MouseEvent) => {
+    if (!patternContentRef.current) return;
+    const deltaY = e.clientY - startYRef.current;
+    const { scrollHeight, clientHeight } = patternContentRef.current;
+    const margin = 8;
+    const trackHeight = clientHeight - (margin * 2);
+    const maxThumbTop = trackHeight - patternThumbHeight;
+    const maxScrollTop = scrollHeight - clientHeight;
+
+    if (maxThumbTop > 0) {
+      const scrollRatio = deltaY / maxThumbTop;
+      const newScrollTop = Math.max(0, Math.min(maxScrollTop, startScrollTopRef.current + scrollRatio * maxScrollTop));
+      patternContentRef.current.scrollTop = newScrollTop;
+      
+      const calculatedTop = margin + (newScrollTop / maxScrollTop) * maxThumbTop;
+      setPatternThumbTop(calculatedTop);
+    }
+  };
+
+  const handlePatternMouseUp = () => {
+    setIsPatternDragging(false);
+    document.removeEventListener('mousemove', handlePatternMouseMove);
+    document.removeEventListener('mouseup', handlePatternMouseUp);
+  };
+
   useEffect(() => {
     if (activeCategory) {
       setTimeout(handleScroll, 50);
@@ -390,6 +454,12 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
       setIsPatternPopupOpen(false);
     }
   }, [activeCategory]);
+
+  useEffect(() => {
+    if (isPatternPopupOpen) {
+      setTimeout(handlePatternScroll, 50);
+    }
+  }, [isPatternPopupOpen]);
 
   const activeCatData = CATEGORIES.find(c => c.id === activeCategory);
 
@@ -506,7 +576,9 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
                   transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                 >
                   <div 
+                    ref={patternContentRef}
                     className={styles.patternPopupContent}
+                    onScroll={handlePatternScroll}
                   >
                     <div className={styles.sectionGroup}>
                       <h4 className={styles.sectionTitle}>Motifs de remplissage</h4>
@@ -531,6 +603,17 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
                       </ul>
                     </div>
                   </div>
+
+                  {hasPatternScroll && (
+                    <div 
+                      className={clsx(styles.externalScrollThumb, { [styles.dragging]: isPatternDragging })}
+                      onMouseDown={handlePatternMouseDown}
+                      style={{
+                        height: `${patternThumbHeight}px`,
+                        top: `${patternThumbTop}px`
+                      }}
+                    />
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
