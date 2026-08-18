@@ -814,7 +814,7 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
                       >
                         <CustomTooltip 
                           content={cat.disabled ? "Bientôt disponible" : cat.name} 
-                          description={cat.disabled ? "Ce fabricant sera disponible dans une prochaine mise à jour." : ""}
+                          description={cat.disabled ? "La compatibilité d'Apex avec les autres fabricants sera implémenté dans de prochaines mises à jour." : ""}
                         >
                           <li 
                             className={clsx(styles.itemRow, { 
@@ -824,7 +824,7 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
                             style={cat.disabled ? { opacity: 0.35, cursor: 'not-allowed' } : {}}
                             onClick={() => {
                               if (cat.disabled) {
-                                showSuccess("Bientôt disponible");
+                                showSuccess("La compatibilité d'Apex avec les autres fabricants sera implémenté dans de prochaines mises à jour.");
                                 return;
                               }
                               setSelectedCategory(cat.id);
