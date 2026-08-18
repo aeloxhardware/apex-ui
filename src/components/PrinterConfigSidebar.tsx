@@ -16,7 +16,6 @@ export const OTHER_MANUFACTURERS_LIST: { id: string; name: string; models: strin
   { id: 'asiga', name: 'Asiga', models: ['ASIGA MAX UV', 'ASIGA PRO 4K'] },
   { id: 'bambu-lab', name: 'Bambu Lab', models: ['X1 Carbon', 'X1E Enterprise', 'P1S', 'P1P', 'A1', 'A1 Mini'] },
   { id: 'carbon', name: 'Carbon', models: ['Carbon M1', 'Carbon M2', 'Carbon M3'] },
-  { id: 'creality', name: 'Creality', models: [] },
   { id: 'dagoma', name: 'Dagoma', models: ['Magis', 'Sigma', 'Ultimate'] },
   { id: 'desktop-metal', name: 'Desktop Metal', models: ['Shop System', 'Production System', 'Studio System 2'] },
   { id: 'elegoo', name: 'Elegoo', models: ['Neptune 4 Max', 'Neptune 4 Pro', 'Saturn 3 Ultra', 'Mars 4 Ultra'] },
@@ -122,6 +121,8 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
       setTimeout(() => handleScroll(midContentRef, setMidThumbHeight, setMidThumbTop, setHasMidScroll, isMidDragging), 50);
     }
   }, [selectedCategory]);
+
+  const activeCategoryObj = PRINTER_CATEGORIES.find(c => c.id === selectedCategory);
 
   let titlePath = 'Profils imprimante';
   if (selectedCategory === 'aelox') {
