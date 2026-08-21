@@ -1,4 +1,4 @@
-# ![frontPhoto](./.github/assets/mini-logo.png) Apex Slicer UI
+# ![pex-logo](./public/mini-logo.png) Apex Slicer UI
 
 ![frontPhoto](./.github/assets/title.png)
 
