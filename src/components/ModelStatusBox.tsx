@@ -18,10 +18,23 @@ interface ModelItem {
 export const ModelStatusBox: React.FC = () => {
   const [models, setModels] = useState<ModelItem[]>([]);
   const [selectedModelName, setSelectedModelName] = useState<string | null>(null);
+  const [selectedModelNames, setSelectedModelNames] = useState<Set<string>>(new Set());
   const [expandedModels, setExpandedModels] = useState<Record<string, boolean>>({});
+  const [previewActive, setPreviewActive] = useState(false);
 
   useEffect(() => {
-    const handleMeshSelected = (e: CustomEvent<{ name: string | null; subMeshes?: SubMeshItem[] }>) => {
+    const handlePreviewToggled = (e: CustomEvent<{ active: boolean }>) => {
+      setPreviewActive(!!e.detail?.active);
+    };
+    window.addEventListener('apex-preview-toggled', handlePreviewToggled as EventListener);
+    return () => {
+      window.removeEventListener('apex-preview-toggled', handlePreviewToggled as EventListener);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleMeshSelected = (e: CustomEvent<{ name: string | null; names?: string[]; subMeshes?: SubMeshItem[] }>) => {
+      setSelectedModelNames(new Set(e.detail?.names ?? (e.detail?.name ? [e.detail.name] : [])));
       if (e.detail?.name) {
         setSelectedModelName(e.detail.name);
         if (e.detail.subMeshes) {
@@ -56,9 +69,15 @@ export const ModelStatusBox: React.FC = () => {
         if (selectedModelName === deletedName) {
           setSelectedModelName(null);
         }
+        setSelectedModelNames(prev => {
+          const next = new Set(prev);
+          next.delete(deletedName);
+          return next;
+        });
       } else {
         setModels([]);
         setSelectedModelName(null);
+        setSelectedModelNames(new Set());
       }
     };
 
@@ -82,8 +101,19 @@ export const ModelStatusBox: React.FC = () => {
   };
 
   return (
-    <div className={styles.container}>
-      <div className={styles.toolbar}>
+    <div className={styles.container} data-apex-chrome-panel>
+      <AnimatePresence>
+        {!previewActive && (
+          <motion.div
+            className={styles.toolbar}
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{
+              opacity: { duration: 0.9, ease: 'linear' },
+              x: { duration: 0.9, ease: 'easeInOut' },
+            }}
+          >
         <div className={styles.content}>
           {models.length === 0 ? (
             <motion.div 
@@ -98,7 +128,7 @@ export const ModelStatusBox: React.FC = () => {
             <ul className={styles.treeList}>
               <AnimatePresence>
                 {models.map((model) => {
-                  const isSelected = selectedModelName === model.name;
+                  const isSelected = selectedModelNames.has(model.name);
                   const isExpanded = !!expandedModels[model.name];
                   return (
                     <motion.li 
@@ -111,7 +141,12 @@ export const ModelStatusBox: React.FC = () => {
                     >
                       <div 
                         className={`${styles.nodeRow} ${isSelected ? styles.selectedNode : ''}`}
-                        onClick={() => setSelectedModelName(model.name)}
+                        onClick={(e) => {
+                          setSelectedModelName(model.name);
+                          window.dispatchEvent(new CustomEvent('apex-select-model', {
+                            detail: { name: model.name, additive: e.ctrlKey || e.metaKey }
+                          }));
+                        }}
                       >
                         <button 
                           className="bg-transparent border-none cursor-pointer p-0 flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
@@ -153,7 +188,9 @@ export const ModelStatusBox: React.FC = () => {
             </ul>
           )}
         </div>
-      </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

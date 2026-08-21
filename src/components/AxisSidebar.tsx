@@ -40,7 +40,7 @@ export const AxisSidebar: React.FC = () => {
   }, [axisMode]);
 
   return (
-    <div className={styles.container}>
+    <div className={styles.container} data-apex-chrome-panel>
       <div ref={toolbarRef} className={styles.toolbar}>
         <div className={styles.activeIndicator} style={indicatorStyle} />
 
@@ -64,7 +64,7 @@ export const AxisSidebar: React.FC = () => {
             })}
             onClick={() => handleSelect('5-axes')}
           >
-            5 AXES
+            4 AXES
           </button>
         </CustomTooltip>
       </div>

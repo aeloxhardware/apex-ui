@@ -22,7 +22,7 @@ export const FileSidebar: React.FC<FileSidebarProps> = ({
   selectedFilament = 'PLA Premium 1.75mm',
 }) => {
   return (
-    <div className={styles.container}>
+    <div className={styles.container} data-apex-chrome-panel>
       <div className={styles.toolbar}>
         <CustomTooltip content="Ouvrir un Projet" description="Chargez un projet 3D enregistré précédemment avec ses configurations complètes.">
           <button

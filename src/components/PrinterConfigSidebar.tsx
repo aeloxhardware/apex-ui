@@ -51,9 +51,7 @@ export const PRINTER_CATEGORIES: PrinterCategory[] = [
     name: 'Aelox Hardware',
     isDirectList: true,
     models: [
-      { id: 'aelox-aetheris-4', name: 'Aetheris-4' },
-      { id: 'aelox-fusion-pro', name: 'Aelox Fusion Pro' },
-      { id: 'aelox-compact', name: 'Aelox Compact X' }
+      { id: 'aelox-aetheris-4', name: 'Aetheris-4' }
     ]
   },
   {
@@ -602,6 +600,38 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
 
   const [activeDetailsPrinter, setActiveDetailsPrinter] = useState<string | null>(null);
 
+  // Séquence de fermeture jouée après la sélection d'une imprimante : chaque niveau de
+  // sous-menu se réduit (fondu + glissement, comme l'arborescence de modèles) l'un après
+  // l'autre, puis la base et enfin le bandeau chemin d'accès (celui-ci vers le bas).
+  const [baseCollapsing, setBaseCollapsing] = useState(false);
+  const [breadcrumbCollapsing, setBreadcrumbCollapsing] = useState(false);
+
+  const runClosingSequence = () => {
+    const STAGGER = 50;
+    const FADE = 200;
+    let t = 0;
+    setActiveDetailsPrinter(null);
+    setTimeout(() => setSelectedSubCat(null), t); t += STAGGER;
+    setTimeout(() => setSelectedNestedCat(null), t); t += STAGGER;
+    setTimeout(() => setSelectedManufacturer(null), t); t += STAGGER;
+    setTimeout(() => setSelectedCategory(null), t); t += STAGGER;
+    setTimeout(() => setBaseCollapsing(true), t); t += STAGGER;
+    const afterBase = t + FADE;
+    setTimeout(() => setBreadcrumbCollapsing(true), afterBase);
+    const afterBreadcrumb = afterBase + FADE;
+    setTimeout(() => {
+      onClose();
+      setBaseCollapsing(false);
+      setBreadcrumbCollapsing(false);
+    }, afterBreadcrumb);
+  };
+
+  const handleSelectPrinter = (name: string) => {
+    onSelectPrinter(name);
+    showSuccess(`Imprimante active : ${name}`);
+    runClosingSequence();
+  };
+
   const startYRef = useRef(0);
   const startScrollTopRef = useRef(0);
 
@@ -741,14 +771,17 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
     <AnimatePresence>
       {isOpen && (
         <>
-          <motion.div 
-            className={clsx(styles.fusionTitleContainer, { 
+          <motion.div
+            className={clsx(styles.fusionTitleContainer, {
               [styles.expandedWidthTwo]: windowCount === 2,
               [styles.expandedWidthThree]: windowCount === 3,
               [styles.expandedWidthFour]: windowCount === 4
             })}
+            data-apex-chrome-panel
             initial={{ opacity: 0, scale: 0.95, x: -10, y: -20 }}
-            animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
+            animate={breadcrumbCollapsing
+              ? { opacity: 0, y: 20, transition: { opacity: { duration: 0.2, ease: 'linear' }, y: { duration: 0.2, ease: 'easeInOut' } } }
+              : { opacity: 1, scale: 1, x: 0, y: 0, transition: { duration: 0.25, ease: [0.16, 1, 0.3, 1] } }}
             exit={{ opacity: 0, scale: 0.95, x: -10, y: -20 }}
             transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
           >
@@ -800,7 +833,9 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
           <motion.div 
             className={styles.fusionMenuContainer}
             initial={{ opacity: 0, scale: 0.95, x: -15, y: 20 }}
-            animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
+            animate={baseCollapsing
+              ? { opacity: 0, x: -20, transition: { opacity: { duration: 0.2, ease: 'linear' }, x: { duration: 0.2, ease: 'easeInOut' } } }
+              : { opacity: 1, scale: 1, x: 0, y: 0, transition: { duration: 0.25, ease: [0.16, 1, 0.3, 1] } }}
             exit={{ opacity: 0, scale: 0.95, x: -15, y: 20 }}
             transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
           >
@@ -872,9 +907,8 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
               <motion.div 
                 className={styles.patternPopup}
                 initial={{ opacity: 0, scale: 0.95, x: -15 }}
-                animate={{ opacity: 1, scale: 1, x: 0 }}
-                exit={{ opacity: 0, scale: 0.95, x: -15 }}
-                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                animate={{ opacity: 1, scale: 1, x: 0, transition: { duration: 0.25, ease: [0.16, 1, 0.3, 1] } }}
+                exit={{ opacity: 0, x: -20, transition: { opacity: { duration: 0.2, ease: 'linear' }, x: { duration: 0.2, ease: 'easeInOut' } } }}
               >
                 <div 
                   ref={midContentRef}
@@ -900,13 +934,12 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
                                 <li 
                                   className={clsx(styles.patternItem, { [styles.activePattern]: isSelected })}
                                   onClick={() => {
-                                    onSelectPrinter(model.name);
                                     if (model.name.toLowerCase().includes('aetheris')) {
                                       setActiveDetailsPrinter(model.name);
                                     } else {
                                       setActiveDetailsPrinter(null);
+                                      handleSelectPrinter(model.name);
                                     }
-                                    showSuccess(`Imprimante active : ${model.name}`);
                                   }}
                                 >
                                   <span className={styles.itemName}>{model.name}</span>
@@ -967,9 +1000,10 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
           </AnimatePresence>
 
           {/* Third Window: Details for Aetheris-4 or Models/Series for others */}
-          <PrinterDetailModal 
-            printerName={activeDetailsPrinter} 
-            onClose={() => setActiveDetailsPrinter(null)} 
+          <PrinterDetailModal
+            printerName={activeDetailsPrinter}
+            onClose={() => setActiveDetailsPrinter(null)}
+            onSelect={(name) => handleSelectPrinter(name)}
           />
 
           {/* Third Window for Autres fabricants (Series/Models) */}
@@ -978,9 +1012,8 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
               <motion.div 
                 className={styles.thirdPopup}
                 initial={{ opacity: 0, scale: 0.95, x: -15 }}
-                animate={{ opacity: 1, scale: 1, x: 0 }}
-                exit={{ opacity: 0, scale: 0.95, x: -15 }}
-                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                animate={{ opacity: 1, scale: 1, x: 0, transition: { duration: 0.25, ease: [0.16, 1, 0.3, 1] } }}
+                exit={{ opacity: 0, x: -20, transition: { opacity: { duration: 0.2, ease: 'linear' }, x: { duration: 0.2, ease: 'easeInOut' } } }}
               >
                 <div 
                   ref={modelsContentRef}
@@ -1031,8 +1064,7 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
                                 <li 
                                   className={clsx(styles.patternItem, { [styles.activePattern]: isSelected })}
                                   onClick={() => {
-                                    onSelectPrinter(model.name);
-                                    showSuccess(`Imprimante active : ${model.name}`);
+                                    handleSelectPrinter(model.name);
                                   }}
                                 >
                                   <span className={styles.itemName}>{model.name}</span>
@@ -1067,9 +1099,8 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
               <motion.div 
                 className={styles.fourthPopup}
                 initial={{ opacity: 0, scale: 0.95, x: -15 }}
-                animate={{ opacity: 1, scale: 1, x: 0 }}
-                exit={{ opacity: 0, scale: 0.95, x: -15 }}
-                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                animate={{ opacity: 1, scale: 1, x: 0, transition: { duration: 0.25, ease: [0.16, 1, 0.3, 1] } }}
+                exit={{ opacity: 0, x: -20, transition: { opacity: { duration: 0.2, ease: 'linear' }, x: { duration: 0.2, ease: 'easeInOut' } } }}
               >
                 <div 
                   ref={fourthContentRef}
@@ -1126,9 +1157,8 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
               <motion.div 
                 className={clsx(styles.fifthPopup, "pointer-events-auto")}
                 initial={{ opacity: 0, scale: 0.95, x: -15 }}
-                animate={{ opacity: 1, scale: 1, x: 0 }}
-                exit={{ opacity: 0, scale: 0.95, x: -15 }}
-                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                animate={{ opacity: 1, scale: 1, x: 0, transition: { duration: 0.25, ease: [0.16, 1, 0.3, 1] } }}
+                exit={{ opacity: 0, x: -20, transition: { opacity: { duration: 0.2, ease: 'linear' }, x: { duration: 0.2, ease: 'easeInOut' } } }}
               >
                 <div className={styles.patternPopupContent}>
                   <div className={styles.sectionGroup}>
@@ -1147,8 +1177,7 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
                               <li 
                                 className={clsx(styles.patternItem, { [styles.activePattern]: isSelected })}
                                 onClick={() => {
-                                  onSelectPrinter(model.name);
-                                  showSuccess(`Imprimante active : ${model.name}`);
+                                  handleSelectPrinter(model.name);
                                 }}
                               >
                                 <span className={styles.itemName}>{model.name}</span>

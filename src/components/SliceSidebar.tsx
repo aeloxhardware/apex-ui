@@ -43,7 +43,7 @@ export const SliceSidebar: React.FC<SliceSidebarProps> = ({ onSlice }) => {
   }, []);
 
   return (
-    <div className={styles.container}>
+    <div className={styles.container} data-apex-chrome-panel>
       <div className={styles.toolbar}>
         <CustomTooltip 
           content={hasModels ? "Lancer le Slicing (Découpe)" : "Aucun modèle sur le plateau"} 

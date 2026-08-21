@@ -17,6 +17,11 @@ import { Viewport3D } from '@/components/Viewport3D';
 import { Box } from 'lucide-react';
 import { showSuccess } from '@/utils/toast';
 
+interface ModelStatus {
+  name: string;
+  dimensions: { x: number; y: number; z: number } | null;
+}
+
 const Index = () => {
   const [activeTab, setActiveTab] = useState<'3d-view' | 'settings' | 'developer'>('3d-view');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -24,12 +29,46 @@ const Index = () => {
   const [selectedPrinter, setSelectedPrinter] = useState('Prusa MK4');
   const [selectedFilament, setSelectedFilament] = useState('PLA Premium (eSUN / Prusament)');
   const [isSliceModalOpen, setIsSliceModalOpen] = useState(false);
+  const [modelStatus, setModelStatus] = useState<ModelStatus | null>(null);
+
+  React.useEffect(() => {
+    const handleModelSelected = (event: CustomEvent<{
+      name: string | null;
+      dimensions?: { x: number; y: number; z: number };
+    }>) => {
+      if (!event.detail?.name) {
+        setModelStatus(null);
+        return;
+      }
+
+      setModelStatus({
+        name: event.detail.name,
+        dimensions: event.detail.dimensions ?? null,
+      });
+    };
+
+    const handleModelImported = (event: CustomEvent<File>) => {
+      if (event.detail?.name) {
+        setModelStatus({ name: event.detail.name, dimensions: null });
+      }
+    };
+
+    window.addEventListener('apex-mesh-selected', handleModelSelected as EventListener);
+    window.addEventListener('apex-import-model', handleModelImported as EventListener);
+
+    return () => {
+      window.removeEventListener('apex-mesh-selected', handleModelSelected as EventListener);
+      window.removeEventListener('apex-import-model', handleModelImported as EventListener);
+    };
+  }, []);
 
   const handleSlice = () => {
+    window.dispatchEvent(new CustomEvent('apex-request-slice-models'));
     setIsSliceModalOpen(true);
   };
 
   const handleConfirmSlice = () => {
+    window.dispatchEvent(new CustomEvent('apex-slice-all-models'));
     setIsSliceModalOpen(false);
     showSuccess("Slicing plate completed successfully!");
   };
@@ -106,16 +145,24 @@ const Index = () => {
         </div>
 
         {/* Bottom status / stats overlay */}
-        <div className="absolute bottom-4 left-36 right-24 z-20 flex items-center justify-between pointer-events-none">
+        <div className="absolute bottom-4 left-4 right-24 z-20 flex items-center justify-start pointer-events-none">
           <div className="bg-[rgba(10,15,26,0.25)] backdrop-blur-[4px] -webkit-backdrop-blur-[4px] border-none rounded-lg px-3 py-2 text-xs text-zinc-300 flex items-center space-x-4 pointer-events-auto shadow-[0_8px_32px_0_rgba(0,0,0,0.4),0_2px_8px_0_rgba(0,0,0,0.3)]">
-            <span className="flex items-center"><Box className="w-3.5 h-3.5 mr-1.5 text-blue-400" /> Benchy_v3.stl</span>
-            <span className="text-zinc-600">|</span>
-            <span>Dimensions: 60.0 x 31.0 x 48.0 mm</span>
-            <span className="text-zinc-600">|</span>
-            <span className="text-emerald-400 font-medium">Ready to slice</span>
+            {modelStatus ? (
+              <>
+                <span className="flex items-center"><Box className="w-3.5 h-3.5 mr-1.5 text-blue-400" /> {modelStatus.name}</span>
+                {modelStatus.dimensions && (
+                  <>
+                    <span className="text-zinc-600">|</span>
+                    <span>Dimensions: {modelStatus.dimensions.x.toFixed(1)} x {modelStatus.dimensions.z.toFixed(1)} x {modelStatus.dimensions.y.toFixed(1)} mm</span>
+                  </>
+                )}
+                <span className="text-zinc-600">|</span>
+                <span className="text-emerald-400 font-medium">Ready to slice</span>
+              </>
+            ) : (
+              <span className="text-zinc-400">Aucun modèle sur le plateau</span>
+            )}
           </div>
-
-          <div />
         </div>
       </main>
     </div>

@@ -34,7 +34,7 @@ export const TopRightMenu: React.FC = () => {
   }, []);
 
   return (
-    <div className={styles.container}>
+    <div className={styles.container} data-apex-chrome-panel>
       <div className={clsx(styles.toolbar, styles.secondaryToolbar)}>
         <div className={styles.infoDisplayBottom}>
           {tooltipDesc}

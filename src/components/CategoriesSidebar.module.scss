@@ -1,8 +1,7 @@
 .leftSidebarContainer {
   position: fixed;
   left: 24px;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 212px;
   display: flex;
   flex-direction: column;
   z-index: 1000;
@@ -11,7 +10,12 @@
 
 .categoriesToolbar {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  width: 293px;
+  max-width: 293px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
   gap: 6px;
   pointer-events: auto;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -22,14 +26,29 @@
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
   padding: 8px;
   border-radius: 20px;
+
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  > div {
+    width: auto;
+    flex: 0 0 auto;
+  }
 }
 
 .categoryButton {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
+  width: auto;
+  min-width: 40px;
   height: 40px;
+  padding: 0 12px;
+  gap: 8px;
+  flex: 0 0 auto;
   background: transparent;
   border: none;
   color: rgba(255, 255, 255, 0.7);
@@ -48,41 +67,24 @@
     color: #00f0ff;
     box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
   }
-}
 
-.fusionTitleContainer {
-  position: fixed;
-  left: 82px;
-  top: calc(50% - 240px);
-  width: 320px;
-  height: 48px;
-  border: none;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
-  border-radius: 14px;
-  z-index: 1001;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 16px;
-  isolation: isolate;
-
-  &::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 180, 255, 0.08);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-    z-index: -1;
-    border-radius: inherit;
+  &.disabledButton {
+    opacity: 0.35;
+    cursor: not-allowed;
     pointer-events: none;
   }
 }
 
+.categoryLabel {
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+}
+
 .fusionMenuContainer {
   position: fixed;
-  left: 82px;
-  top: calc(50% - 180px);
+  left: 24px;
+  top: 280px;
   width: 320px;
   max-height: 400px;
   border: none;
@@ -104,29 +106,6 @@
     z-index: -1;
     border-radius: inherit;
     pointer-events: none;
-  }
-}
-
-.fusionMenuTitle {
-  font-size: 13px;
-  font-weight: 600;
-  color: #00f0ff;
-  letter-spacing: 0.3px;
-}
-
-.fusionCloseBtn {
-  background: transparent;
-  border: none;
-  color: rgba(255, 255, 255, 0.6);
-  cursor: pointer;
-  font-size: 14px;
-  padding: 2px 6px;
-  border-radius: 6px;
-  transition: all 0.2s;
-
-  &:hover {
-    color: #fff;
-    background: rgba(255, 255, 255, 0.1);
   }
 }
 

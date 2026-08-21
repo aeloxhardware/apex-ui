@@ -15,23 +15,31 @@ export const SliceModal: React.FC<SliceModalProps> = ({ isOpen, onClose, onConfi
   const [triangleCount, setTriangleCount] = useState(48200);
 
   useEffect(() => {
+    const handleSliceModels = (e: CustomEvent<{ names: string[] }>) => {
+      setModelCount(e.detail?.names?.length ?? 0);
+    };
+
     const handleAxisChanged = (e: CustomEvent<{ mode: string }>) => {
       if (e.detail?.mode) {
         setIs5Axes(e.detail.mode === '5-axes');
       }
     };
 
-    const handleMeshSelected = (e: CustomEvent<{ name: string | null; subMeshes?: any[] }>) => {
+    const handleMeshSelected = (e: CustomEvent<{ name: string | null; names?: string[]; subMeshes?: { id: string; name: string; color: string }[] }>) => {
+      const selectedModelNames = e.detail?.names ?? (e.detail?.name ? [e.detail.name] : []);
+      setModelCount(selectedModelNames.length);
+
       if (e.detail?.name) {
-        setModelCount(1);
         setTriangleCount(Math.floor(Math.random() * 60000) + 25000);
       }
     };
 
+    window.addEventListener('apex-slice-models', handleSliceModels as EventListener);
     window.addEventListener('apex-axis-changed', handleAxisChanged as EventListener);
     window.addEventListener('apex-mesh-selected', handleMeshSelected as EventListener);
 
     return () => {
+      window.removeEventListener('apex-slice-models', handleSliceModels as EventListener);
       window.removeEventListener('apex-axis-changed', handleAxisChanged as EventListener);
       window.removeEventListener('apex-mesh-selected', handleMeshSelected as EventListener);
     };
