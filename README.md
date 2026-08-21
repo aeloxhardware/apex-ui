@@ -46,7 +46,7 @@ The future UI for Apex Slicer, including modern UX effects. Still in developemen
 
 ## TODO
 
-- [ ] Floating 3/4/5-Axis Selector
+- [x] Floating 3/4/5-Axis Selector
 - [ ] Light Theme
 - [ ] Toolbar Moving
 - [ ] Liquid Jello Menus
