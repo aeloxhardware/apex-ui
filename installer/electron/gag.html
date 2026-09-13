@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<title>Apex Slicer</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Inter:wght@400;500;600&display=swap" />
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    /* Transparent pour laisser voir les coins arrondis de .windowSurface
+       (frame:false + transparent:true cote Electron), meme logique que la
+       fenetre principale de l'installateur. */
+    background: transparent;
+    overflow: hidden;
+    font-family: 'Inter', sans-serif;
+    color: rgba(255, 255, 255, 0.92);
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* Habillage reprenant exactement celui du vrai installateur (voir
+     src/styles.css .windowSurface) : fond sombre, coins arrondis, liseré
+     clair et ombre portee large. */
+  .windowSurface {
+    position: absolute;
+    inset: 0;
+    border-radius: 20px;
+    background: #080c14;
+    box-shadow:
+      0 24px 64px rgba(0, 0, 0, 0.7),
+      0 0 0 1px rgba(255, 255, 255, 0.06);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-app-region: drag;
+  }
+
+  /* Lueur cyan diffuse en fond, pour ne pas laisser la surface totalement
+     plate le temps des trois repliques. */
+  .glow {
+    position: absolute;
+    width: 420px;
+    height: 420px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0, 240, 255, 0.13), transparent 68%);
+    filter: blur(14px);
+  }
+
+  .stage {
+    position: relative;
+    z-index: 1;
+    padding: 0 46px;
+    text-align: center;
+  }
+
+  /* Les trois repliques sont superposees et n'apparaissent qu'une a la
+     fois (opacity pilotee en JS), d'ou le positionnement absolu sur une
+     scene de hauteur fixe : evite tout saut de mise en page entre deux
+     textes de longueurs differentes. */
+  .line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%) translateY(8px);
+    opacity: 0;
+    transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 21px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    line-height: 1.35;
+  }
+  .line.visible {
+    opacity: 1;
+    transform: translateY(-50%) translateY(0);
+  }
+  /* La derniere replique (l'info reelle) est en cyan d'accent, les vannes
+     restent en blanc. */
+  .line.accent { color: #00f0ff; font-size: 18px; }
+  /* Signature : plus discrete et en italique, comme une vraie signature en
+     bas de mot. */
+  .line.signature {
+    font-family: 'Inter', sans-serif;
+    font-style: italic;
+    font-size: 16px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.6);
+    letter-spacing: 0.01em;
+  }
+
+  .stage { height: 110px; width: 420px; }
+</style>
+</head>
+<body>
+  <div class="windowSurface">
+    <div class="glow"></div>
+    <div class="stage">
+      <p class="line" data-line="0">non, je rigole</p>
+      <p class="line" data-line="1">je t'ai eu</p>
+      <p class="line signature" data-line="2">signé : le développeur</p>
+      <p class="line accent" data-line="3">Ouverture de la boîte d'élévation des droits.</p>
+    </div>
+  </div>
+
+  <script>
+    // Enchainement des trois repliques en fondu : chacune apparait, tient
+    // un temps, puis disparait avant la suivante (jamais deux visibles en
+    // meme temps). Quand la derniere s'est affichee, on previent le main
+    // process qui declenche alors l'invite UAC.
+    const FADE_MS = 600;
+    const HOLD_MS = 1250;
+    const lines = [...document.querySelectorAll('.line')];
+
+    function showLine(i) {
+      return new Promise((resolve) => {
+        const el = lines[i];
+        el.classList.add('visible');
+        setTimeout(() => {
+          el.classList.remove('visible');
+          // On attend la fin du fondu sortant avant d'enchainer, sinon la
+          // replique suivante se superposerait a celle qui s'efface.
+          setTimeout(resolve, FADE_MS);
+        }, FADE_MS + HOLD_MS);
+      });
+    }
+
+    (async () => {
+      for (let i = 0; i < lines.length; i++) {
+        await showLine(i);
+      }
+      window.gagApi.done();
+    })();
+  </script>
+</body>
+</html>

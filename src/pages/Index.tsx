@@ -12,6 +12,7 @@ import { ModelStatusBox } from '@/components/ModelStatusBox';
 import { ModelHoverTooltip } from '@/components/ModelHoverTooltip';
 import { TextureEditorModal } from '@/components/TextureEditorModal';
 import { SliceModal } from '@/components/SliceModal';
+import { SlicingProgressModal } from '@/components/SlicingProgressModal';
 import { ViewCube } from '@/components/ViewCube';
 import { Viewport3D } from '@/components/Viewport3D';
 import { Box } from 'lucide-react';
@@ -29,6 +30,7 @@ const Index = () => {
   const [selectedPrinter, setSelectedPrinter] = useState('Prusa MK4');
   const [selectedFilament, setSelectedFilament] = useState('PLA Premium (eSUN / Prusament)');
   const [isSliceModalOpen, setIsSliceModalOpen] = useState(false);
+  const [isSlicingProgressOpen, setIsSlicingProgressOpen] = useState(false);
   const [modelStatus, setModelStatus] = useState<ModelStatus | null>(null);
 
   React.useEffect(() => {
@@ -70,6 +72,11 @@ const Index = () => {
   const handleConfirmSlice = () => {
     window.dispatchEvent(new CustomEvent('apex-slice-all-models'));
     setIsSliceModalOpen(false);
+    setIsSlicingProgressOpen(true);
+  };
+
+  const handleSlicingFinished = () => {
+    setIsSlicingProgressOpen(false);
     showSuccess("Slicing plate completed successfully!");
   };
 
@@ -101,10 +108,15 @@ const Index = () => {
       <ModelStatusBox />
       <ModelHoverTooltip />
       <TextureEditorModal />
-      <SliceModal 
-        isOpen={isSliceModalOpen} 
-        onClose={() => setIsSliceModalOpen(false)} 
-        onConfirm={handleConfirmSlice} 
+      <SliceModal
+        isOpen={isSliceModalOpen}
+        onClose={() => setIsSliceModalOpen(false)}
+        onConfirm={handleConfirmSlice}
+      />
+      <SlicingProgressModal
+        isOpen={isSlicingProgressOpen}
+        onClose={() => setIsSlicingProgressOpen(false)}
+        onFinished={handleSlicingFinished}
       />
 
       <Sidebar 

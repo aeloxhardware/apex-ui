@@ -1,0 +1,1169 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  /* Transparent : necessaire pour que les coins arrondis de .windowSurface
+     ne laissent pas voir un rectangle blanc/noir derriere (frame:false +
+     transparent:true cote Electron, voir electron/main.cjs). */
+  background: transparent;
+  overflow: hidden;
+  font-family: 'Inter', sans-serif;
+  color: rgba(255, 255, 255, 0.92);
+  user-select: none;
+}
+
+.app {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Surface de la fenetre : sans backdrop-filter systeme (flou du bureau
+   abandonne, voir CLAUDE.md). Le fond fixe precedent est remplace par
+   .meshBackground (canvas plein-cadre, voir plus bas + mesh-background.js) ;
+   .windowSurface garde juste la forme (radius/ombre) et une couleur de
+   base identique en secours (avant que le premier frame du canvas soit
+   peint). C'est aussi la zone draggable (-webkit-app-region: drag)
+   puisqu'il n'y a plus de barre de titre native avec frame:false. */
+.windowSurface {
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  background: #080c14;
+  box-shadow:
+    0 24px 64px rgba(0, 0, 0, 0.7),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+/* Canvas du degrade meshique : plein-cadre, tout au fond (z-index le plus
+   bas de .windowSurface). Tout le reste du contenu (dragHandle, boutons,
+   ecrans...) n'a pas de z-index explicite mais suit dans l'ordre du DOM,
+   donc apparait naturellement au-dessus en empilement normal. */
+.meshBackground {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+}
+
+/* Bande de drag dediee en haut de la fenetre, entre les deux boutons ronds.
+   Mettre -webkit-app-region: drag sur .windowSurface entiere rendait le
+   hover/clic morts sur TOUS les boutons/champs sous Electron+Windows (meme
+   ceux marques no-drag) : Chromium semble d'abord router l'evenement au
+   niveau de la zone draggable avant hit-testing des enfants. En limitant le
+   drag a cette bande neutre (aucun controle ne s'y trouve), le reste de la
+   fenetre recupere un hover/clic normal. */
+.dragHandle {
+  position: absolute;
+  top: 0;
+  /* Marge (56px) strictement superieure a la zone occupee par closeBtn/
+     devReplayBtn (14px de bord + 28px de diametre = 42px) pour ne jamais
+     chevaucher leur zone cliquable, meme partiellement : un chevauchement,
+     meme de quelques px, suffisait a rendre hover/clic morts sur ces
+     boutons (drag prioritaire sur le hit-test des enfants, voir plus haut). */
+  left: 56px;
+  right: 56px;
+  height: 42px;
+  z-index: 5;
+  -webkit-app-region: drag;
+}
+
+.closeBtn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all 0.2s;
+  z-index: 10;
+}
+
+.closeBtn:hover {
+  background: rgba(239, 68, 68, 0.25);
+  color: #ff6b6b;
+}
+
+/* Bouton dev (rejoue les animations) : a retirer avant la release finale. */
+.devReplayBtn {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all 0.2s;
+  z-index: 10;
+}
+
+.devReplayBtn:hover {
+  background: rgba(0, 240, 255, 0.25);
+  color: #00f0ff;
+  transform: rotate(90deg);
+}
+
+.devReplayBtn.isSpinning {
+  animation: devReplaySpin 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes devReplaySpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(180deg); }
+}
+
+.screen {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 40px 48px;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(12px) scale(0.98);
+  pointer-events: none;
+  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.screen[data-active='true'] {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+/* Animation d'entree par element : chaque enfant direct anime porte
+   .animItem, applique par renderer.js (avec un --stagger par index) chaque
+   fois que l'ecran devient actif. Separe de la transition opacity/transform
+   du .screen lui-meme pour pouvoir decaler chaque bloc independamment.
+   Duree/amplitude augmentees (0.5s->0.85s, translateY 10px->22px) et
+   stagger plus large (voir STAGGER_STEP_MS dans renderer.js) pour une
+   sequence plus lente et plus lisible, element par element. */
+.animItem {
+  opacity: 0;
+  transform: translateY(22px) scale(0.94);
+}
+
+.screen[data-active='true'] .animItem {
+  animation: itemIn 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation-delay: var(--stagger, 0s);
+}
+
+@keyframes itemIn {
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Animation d'entree ligne-par-ligne pour les listes d'options. */
+.optionList .animItem {
+  transform: translateX(-26px) scale(0.96);
+}
+
+@keyframes itemInRow {
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.optionList.animItem,
+.optionRow.animItem {
+  animation-name: itemInRow;
+}
+
+/* Titre et texte de description animes separement (et non plus comme un
+   seul bloc .screenHeader) pour une sequence en deux temps : le titre
+   arrive, puis le texte juste apres. */
+.screenHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.screenHeader.animItem {
+  opacity: 1;
+  transform: none;
+  animation: none;
+}
+
+.screenHeader > .animItem {
+  display: block;
+}
+
+.screenHeader h2 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: #00f0ff;
+  letter-spacing: 0.02em;
+}
+
+.screenLead {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
+  line-height: 1.5;
+}
+
+/* ---- Ecran d'intro ---- */
+
+/* L'anneau (fond/bordure/lueur) et son pulse ne doivent apparaitre qu'une
+   fois le second logo (.logoMark, taille normale) pris le relais - pas
+   pendant le tracage du grand logo (.logoDraw) qui doit rester seul, sans
+   cercle autour de lui. D'ou les valeurs "vides" par defaut ci-dessous,
+   activees seulement par .logoRing.drawDone plus bas. */
+.logoRing {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  box-shadow: none;
+  transition: background 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
+}
+
+.logoRing.drawDone {
+  background: rgba(0, 240, 255, 0.08);
+  border-color: rgba(0, 240, 255, 0.35);
+  box-shadow: 0 0 40px rgba(0, 240, 255, 0.25);
+}
+
+.logoRingPulse {
+  position: absolute;
+  inset: -8px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 240, 255, 0.4);
+  opacity: 0;
+}
+
+.logoRing.drawDone .logoRingPulse {
+  opacity: 1;
+  animation: ringPulse 2.2s ease-out infinite;
+}
+
+@keyframes ringPulse {
+  0% { transform: scale(0.9); opacity: 0.8; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+
+/* Logo source (res/logo.svg) en noir quasi pur (#1d1d1b) : filtre CSS pour
+   le teinter dans le cyan d'accent (#00f0ff) utilise partout ailleurs
+   (brandTitle, boutons primaires...). brightness(0) ramene le trait a du
+   noir pur (annule l'anti-aliasing gris), puis invert+sepia+saturate+
+   hue-rotate reconstruit la teinte cyan cible ; drop-shadow ajoute la
+   meme lueur que le reste des elements cyan de l'UI (logoRing, doneTitle).
+   logoBreathe (en plus de l'apparition .animItem ponctuelle) fait "vivre"
+   le logo en continu pendant toute la duree de l'ecran intro (~15s, cale
+   sur prestart.mp3 - voir PRESTART_DURATION_MS dans renderer.js), au lieu
+   de rester fige une fois son animation d'entree terminee.
+   Reste cache (opacity:0) tant que .logoRing n'a pas .drawDone : c'est
+   .logoDraw (le SVG "trace+remplissage", voir plus bas) qui joue en
+   premier, en grand, puis .logoMark prend le relais en fondu. */
+.logoMark {
+  position: absolute;
+  width: 46px;
+  height: auto;
+  /* drop-shadow sombre (relief) + drop-shadow cyan (lueur d'accent,
+     deja presente) : deux drop-shadow s'empilent sans se remplacer. */
+  filter: brightness(0) saturate(100%) invert(80%) sepia(45%) saturate(2500%) hue-rotate(140deg) brightness(1.05) drop-shadow(0 3px 8px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 10px rgba(0, 240, 255, 0.5));
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+.logoRing.drawDone .logoMark {
+  position: static;
+  opacity: 1;
+  animation: logoBreathe 2.2s ease-in-out infinite;
+}
+
+/* .logoDraw : le SVG "trace+remplissage" (genere par SVG Artista), affiche
+   2.5x plus grand que .logoMark (115px vs 46px) le temps de son animation.
+   Une fois le trace termine (classe .active, ~1.7s : dernier stroke a
+   0.48s + duree 1s), renderer.js ajoute .shrinking pour le faire revenir
+   en fondu vers sa taille normale pendant que .logoMark prend le relais
+   (drawDone, voir ci-dessus) - transition fluide entre les deux. */
+.logoDraw {
+  position: absolute;
+  /* Centrage explicite sur le milieu de .logoRing : le viewBox de ce SVG
+     (354.3x454.1) n'a pas le meme ratio ni le meme centrage de contenu que
+     celui de .logoMark (139.5x123.4, res/logo.svg), donc sans ce
+     top/left/transform les deux logos apparaissaient visiblement decales
+     l'un par rapport a l'autre au moment de la transition. */
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 115px;
+  height: auto;
+  overflow: visible;
+  /* Remplissage blanc uni (voir #logoDrawSvg.active dans index.html) avec
+     ombre portee sombre + legere lueur cyan - effet verre depoli tente
+     puis abandonne (backdrop-filter+mask-image ne se rendait pas
+     correctement dans ce contexte Electron). */
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.45)) drop-shadow(0 0 14px rgba(0, 240, 255, 0.4));
+  transition: width 0.7s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.6s ease 0.1s;
+}
+
+.logoDraw.shrinking {
+  width: 46px;
+  opacity: 0;
+}
+
+.logoRing.drawDone .logoDraw {
+  display: none;
+}
+
+@keyframes logoBreathe {
+  0%, 100% {
+    transform: scale(1);
+    filter: brightness(0) saturate(100%) invert(80%) sepia(45%) saturate(2500%) hue-rotate(140deg) brightness(1.05) drop-shadow(0 3px 8px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 10px rgba(0, 240, 255, 0.5));
+  }
+  50% {
+    transform: scale(1.06);
+    filter: brightness(0) saturate(100%) invert(80%) sepia(45%) saturate(2500%) hue-rotate(140deg) brightness(1.2) drop-shadow(0 3px 8px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 18px rgba(0, 240, 255, 0.75));
+  }
+}
+
+.brandTitle {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  /* Espace supplementaire par rapport au logo au-dessus (le gap generique
+     de .screen, 18px, les collait trop pres de l'anneau/logo). */
+  margin-top: 14px;
+}
+
+.brandSubtitle {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Deux blocs de texte superposes (pre/post), meme crossfade que les deux
+   logos : "Aelox Hardware / Chargement en cours" pendant le tracage du
+   grand logo, puis "Apex Slicer / Assistant d'installation" une fois le
+   petit logo pris le relais. :has() cible .logoRing.drawDone depuis le
+   parent .screen commun, evitant d'avoir a dupliquer la logique JS. */
+.introTextSwap {
+  position: relative;
+  width: 100%;
+  margin-top: 14px;
+}
+
+.introTextPre,
+.introTextPost {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+
+.introTextPre .brandTitle,
+.introTextPost .brandTitle {
+  margin-top: 0;
+}
+
+.introTextPre {
+  opacity: 1;
+}
+
+.screen[data-screen='intro']:has(.logoRing.drawDone) .introTextPre {
+  opacity: 0;
+}
+
+.screen[data-screen='intro']:has(.logoRing.drawDone) .introTextPost {
+  opacity: 1;
+  position: static;
+}
+
+/* ---- Champs / boutons ---- */
+
+.field {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+}
+
+.fieldLabel {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.pathRow {
+  display: flex;
+  gap: 8px;
+}
+
+.pathInput {
+  flex: 1;
+  background: rgba(10, 15, 26, 0.45);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+  transition: border-color 0.25s, box-shadow 0.25s;
+}
+
+.pathInput:focus {
+  outline: none;
+  border-color: rgba(0, 240, 255, 0.45);
+  box-shadow: 0 0 0 3px rgba(0, 240, 255, 0.12);
+}
+
+.btn {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 10px 20px;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s, color 0.2s, box-shadow 0.2s, filter 0.2s;
+  white-space: nowrap;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn:active {
+  transform: translateY(0) scale(0.96);
+  transition-duration: 0.08s;
+}
+
+.btnGhost {
+  background: rgba(10, 15, 26, 0.45);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  color: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.btnGhost:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+}
+
+.btnPrimary {
+  background: rgba(0, 240, 255, 0.25);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  color: #00f0ff;
+  box-shadow: 0 8px 24px rgba(0, 240, 255, 0.25);
+}
+
+.btnPrimary:hover {
+  background: rgba(0, 240, 255, 0.35);
+  filter: brightness(1.15);
+}
+
+/* Variante destructive (ex : "Annuler l'installation" dans la confirmation
+   de fermeture) - meme traitement que .btnPrimary mais en rouge plutot
+   qu'en cyan, pour signaler une action irreversible. */
+.btnDanger {
+  background: rgba(255, 70, 70, 0.25);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  color: #ff8080;
+  box-shadow: 0 8px 24px rgba(255, 70, 70, 0.25);
+}
+
+.btnDanger:hover {
+  background: rgba(255, 70, 70, 0.35);
+  filter: brightness(1.15);
+}
+
+/* Ancre en bas de la fenetre plutot que dans le flux centre de .screen :
+   le bouton de gauche (Annuler/Precedent) va au coin inferieur gauche, celui
+   de droite (Suivant/Installer/Terminer) au coin inferieur droit. */
+.screenFooter {
+  position: absolute;
+  left: 32px;
+  right: 32px;
+  bottom: 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  width: auto;
+}
+
+/* Ecrans a un seul bouton (Options n'a que "Installer" a droite, "Fin" n'a
+   que "Terminer") : le premier featureless push l'unique bouton a droite. */
+.screenFooter:has(> :only-child) {
+  justify-content: flex-end;
+}
+
+/* ---- Options (checkboxes) ---- */
+
+.optionList {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.optionRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(10, 15, 26, 0.35);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.2s, border-color 0.2s, transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.optionRow:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.optionRow:active {
+  transform: scale(0.985);
+}
+
+.optionRowCentered {
+  justify-content: center;
+}
+
+.optionRow input {
+  display: none;
+}
+
+.optionCheck {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  flex-shrink: 0;
+  position: relative;
+  transition: all 0.2s;
+}
+
+.optionRow input:checked + .optionCheck {
+  background: #00f0ff;
+  border-color: #00f0ff;
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.5);
+  animation: checkPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes checkPop {
+  0% { transform: scale(0.8); }
+  60% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+
+.optionRow input:checked + .optionCheck::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 1px;
+  width: 5px;
+  height: 10px;
+  border: solid #0a0f1a;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) scale(0);
+  animation: checkMarkIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) 0.08s forwards;
+}
+
+@keyframes checkMarkIn {
+  to { transform: rotate(45deg) scale(1); }
+}
+
+.optionText {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* ---- Plans d'interface (cartes, pas des cases a cocher) ---- */
+/* Systeme de selection a la "carte" : chaque plan/choix est un <button>
+   pleine largeur, un seul actif a la fois (aria-pressed piloté en JS),
+   avec un glow/bordure cyan quand selectionne - pas de checkbox visible. */
+
+.planList {
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.planCard {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(10, 15, 26, 0.35);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.planCard:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.planCard:active {
+  transform: scale(0.99);
+}
+
+.planCard[aria-pressed='true'] {
+  border-color: rgba(0, 240, 255, 0.5);
+  background: rgba(0, 240, 255, 0.08);
+  box-shadow: 0 0 24px rgba(0, 240, 255, 0.22);
+}
+
+.planCardHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 8px;
+}
+
+.planTitle {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.planCard[aria-pressed='true'] .planTitle {
+  color: #00f0ff;
+}
+
+.planRecommend {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.planFeatures {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.planFeatures li {
+  position: relative;
+  padding-left: 14px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.planFeatures li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 7px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(0, 240, 255, 0.6);
+}
+
+/* ---- Choix binaires Oui/Non (moteur non-planaire, axes, modelisateur) ---- */
+/* Meme esprit que .planCard mais deux cartes cote a cote plutot qu'une
+   liste verticale : plus adapte a un choix a 2 options. */
+
+.choiceList {
+  width: 100%;
+  display: flex;
+  gap: 12px;
+}
+
+.choiceSubList {
+  flex-wrap: wrap;
+}
+
+.choiceSubLabel {
+  width: 100%;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
+  margin-bottom: 4px;
+}
+
+.choiceCard {
+  flex: 1;
+  text-align: left;
+  padding: 16px;
+  border-radius: 14px;
+  background: rgba(10, 15, 26, 0.35);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.choiceCard:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.choiceCard:active {
+  transform: scale(0.99);
+}
+
+.choiceCard[aria-pressed='true'] {
+  border-color: rgba(0, 240, 255, 0.5);
+  background: rgba(0, 240, 255, 0.08);
+  box-shadow: 0 0 24px rgba(0, 240, 255, 0.22);
+}
+
+.choiceTitle {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.choiceCard[aria-pressed='true'] .choiceTitle {
+  color: #00f0ff;
+}
+
+.choiceDesc {
+  font-size: 12px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+/* Carte desactivee (ex : "4/5 axes" tant que le non-planaire n'est pas
+   installe) : grisee et non-cliquable, meme si aria-pressed='true' sur
+   celle qui est auto-selectionnee ("Non") - la couleur d'accent cyan de
+   [aria-pressed='true'] est neutralisee ci-dessous pour rester grise. */
+.choiceCard:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  filter: grayscale(0.6);
+}
+
+.choiceCard:disabled:hover {
+  background: rgba(10, 15, 26, 0.35);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.choiceCard:disabled[aria-pressed='true'] {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: none;
+}
+
+.choiceCard:disabled[aria-pressed='true'] .choiceTitle {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.choiceSubBlock {
+  width: 100%;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.choiceSubHint {
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: #ffb020;
+  background: rgba(255, 176, 32, 0.1);
+  border: 1px solid rgba(255, 176, 32, 0.25);
+  border-radius: 8px;
+  padding: 7px 10px;
+  margin: 6px 0 10px;
+}
+
+/* ---- Progression ---- */
+
+.progressBarTrack {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.4);
+}
+
+.progressBarFill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #00b3c6, #00f0ff);
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.6);
+  transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.progressCount {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  font-family: 'Orbitron', sans-serif;
+}
+
+/* ---- Ecran final ---- */
+
+.doneCheck {
+  width: 72px;
+  height: 72px;
+}
+
+.doneCheckSvg {
+  width: 100%;
+  height: 100%;
+}
+
+.doneCheckCircle {
+  stroke: #00f0ff;
+  stroke-width: 2;
+  stroke-dasharray: 151;
+  stroke-dashoffset: 151;
+  animation: drawCircle 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.doneCheckMark {
+  stroke: #00f0ff;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 36;
+  stroke-dashoffset: 36;
+  animation: drawCheck 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.5s forwards;
+}
+
+@keyframes drawCircle {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes drawCheck {
+  to { stroke-dashoffset: 0; }
+}
+
+.doneTitle {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: #00f0ff;
+}
+
+/* ---- Confirmation de fermeture (croix sur l'ecran "done") ---- */
+
+.confirmOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(4, 6, 12, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-radius: 20px;
+  animation: confirmFadeIn 0.2s ease;
+}
+
+/* L'attribut [hidden] doit rester prioritaire sur le display:flex ci-dessus
+   (sinon l'overlay - display:flex par defaut - reste visible en permanence,
+   y compris avant tout clic sur la croix). */
+.confirmOverlay[hidden] {
+  display: none;
+}
+
+@keyframes confirmFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.confirmBox {
+  width: 82%;
+  max-width: 340px;
+  padding: 22px 22px 18px;
+  border-radius: 16px;
+  background: rgba(10, 15, 26, 0.9);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: none;
+  box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.55),
+    0 0 50px rgba(255, 80, 80, 0.35);
+  text-align: center;
+  animation: confirmPop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes confirmPop {
+  from { opacity: 0; transform: scale(0.94) translateY(6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.confirmTitle {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: #ff8080;
+  letter-spacing: 0.02em;
+  margin-bottom: 10px;
+}
+
+.confirmText {
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 18px;
+}
+
+.confirmActions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+/* ---- Alerte critique (triangles "attention" derriere la confirmation) ---- */
+/* Fond assombri encore plus profond + glow rouge pulsant : distingue cette
+   alerte de la simple confirmation ghost/cyan utilisee ailleurs. */
+
+.criticalOverlay {
+  /* Colonne plutot que la ligne centree par defaut de .confirmOverlay : les
+     triangles (premier enfant) s'empilent ainsi AU-DESSUS de .criticalStack
+     (second enfant) dans le flux normal, au lieu d'etre centres au meme
+     endroit qu'elle (voir .alertTriangles). */
+  flex-direction: column;
+  background: rgba(10, 2, 2, 0.75);
+  /* Flou plus marque que la confirmation ghost standard (6px) : l'arriere-
+     plan (ecran en cours) doit rester illisible pendant cette alerte. */
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.alertTriangles {
+  /* Plus de position absolute+inset+margin:auto (ca centrait le SVG pile au
+     milieu de l'overlay, exactement ou se trouve aussi .criticalStack -
+     donc superpose a la boite). .criticalOverlay est en colonne flex (voir
+     plus bas) : ce SVG est simplement le premier enfant du flux, empile
+     au-dessus de .criticalStack plutot que superpose dessus. */
+  position: relative;
+  width: 320px;
+  height: auto;
+  margin-bottom: 28px;
+  overflow: visible;
+}
+
+.alertTri path {
+  fill: none;
+  stroke: #ff2020;
+  stroke-width: 6;
+  stroke-linejoin: round;
+}
+
+.alertTri-0 rect,
+.alertTri-0 circle {
+  fill: #ff2020;
+}
+
+/* Chaque triangle partage EXACTEMENT le meme <path> (equilateral, coins
+   arrondis, centre en 0,0). Une variable CSS seule (--tx anime via
+   transform: translate(var(--tx))) ne s'anime PAS en @keyframes tant
+   qu'elle n'est pas declaree via @property (sinon le navigateur l'traite
+   comme une valeur discrete, sans interpolation - c'etait le bug precedent :
+   les triangles "sautaient" directement a leur position finale, jamais
+   superposes). Remplace par une @keyframes DEDIEE par position
+   (alertTriExpandLeft1/2/3, alertTriExpandRight1/2/3, alertTriExpandCenter),
+   chacune interpolant translateX de 0 (tous superposes au centre commun) a
+   sa valeur finale en dur - un vrai transform standard, interpolable sans
+   condition. */
+.alertTri {
+  opacity: 0;
+  transform: translateX(0) scale(0.001);
+}
+
+.alertTri-center {
+  animation: alertTriExpandCenter 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.alertTri-left1 {
+  animation: alertTriExpandLeft1 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.08s forwards;
+}
+.alertTri-left2 {
+  animation: alertTriExpandLeft2 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.16s forwards;
+}
+.alertTri-left3 {
+  animation: alertTriExpandLeft3 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.24s forwards;
+}
+.alertTri-right1 {
+  animation: alertTriExpandRight1 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.08s forwards;
+}
+.alertTri-right2 {
+  animation: alertTriExpandRight2 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.16s forwards;
+}
+.alertTri-right3 {
+  animation: alertTriExpandRight3 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.24s forwards;
+}
+
+.alertTri-0 { --final-opacity: 1; }
+.alertTri-1 { --final-opacity: 0.55; }
+.alertTri-2 { --final-opacity: 0.32; }
+.alertTri-3 { --final-opacity: 0.16; }
+
+@keyframes alertTriExpandCenter {
+  from { opacity: 0; transform: translateX(0) scale(0.001); }
+  60% { opacity: var(--final-opacity); }
+  to { opacity: var(--final-opacity); transform: translateX(0) scale(1); }
+}
+@keyframes alertTriExpandLeft1 {
+  from { opacity: 0; transform: translateX(0) scale(0.001); }
+  60% { opacity: var(--final-opacity); }
+  to { opacity: var(--final-opacity); transform: translateX(-60px) scale(1); }
+}
+@keyframes alertTriExpandLeft2 {
+  from { opacity: 0; transform: translateX(0) scale(0.001); }
+  60% { opacity: var(--final-opacity); }
+  to { opacity: var(--final-opacity); transform: translateX(-120px) scale(1); }
+}
+@keyframes alertTriExpandLeft3 {
+  from { opacity: 0; transform: translateX(0) scale(0.001); }
+  60% { opacity: var(--final-opacity); }
+  to { opacity: var(--final-opacity); transform: translateX(-180px) scale(1); }
+}
+@keyframes alertTriExpandRight1 {
+  from { opacity: 0; transform: translateX(0) scale(0.001); }
+  60% { opacity: var(--final-opacity); }
+  to { opacity: var(--final-opacity); transform: translateX(60px) scale(1); }
+}
+@keyframes alertTriExpandRight2 {
+  from { opacity: 0; transform: translateX(0) scale(0.001); }
+  60% { opacity: var(--final-opacity); }
+  to { opacity: var(--final-opacity); transform: translateX(120px) scale(1); }
+}
+@keyframes alertTriExpandRight3 {
+  from { opacity: 0; transform: translateX(0) scale(0.001); }
+  60% { opacity: var(--final-opacity); }
+  to { opacity: var(--final-opacity); transform: translateX(180px) scale(1); }
+}
+
+/* Apres l'eclatement initial (ci-dessus), la pulsation continue est geree
+   ENTIEREMENT en JS (voir updateCriticalAlertPulse() dans renderer.js) via
+   l'opacite inline de chaque triangle (sauf le central, qui reste fixe) -
+   plus d'animation CSS de brightness ici, uniquement l'expansion initiale
+   ci-dessus. */
+.criticalOverlay:not([hidden]) .alertTri-center {
+  animation: alertTriExpandCenter 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.criticalOverlay:not([hidden]) .alertTri-left1 {
+  animation: alertTriExpandLeft1 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.08s forwards;
+}
+.criticalOverlay:not([hidden]) .alertTri-left2 {
+  animation: alertTriExpandLeft2 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.16s forwards;
+}
+.criticalOverlay:not([hidden]) .alertTri-left3 {
+  animation: alertTriExpandLeft3 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.24s forwards;
+}
+.criticalOverlay:not([hidden]) .alertTri-right1 {
+  animation: alertTriExpandRight1 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.08s forwards;
+}
+.criticalOverlay:not([hidden]) .alertTri-right2 {
+  animation: alertTriExpandRight2 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.16s forwards;
+}
+.criticalOverlay:not([hidden]) .alertTri-right3 {
+  animation: alertTriExpandRight3 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.24s forwards;
+}
+
+/* La boite de confirmation (titre + texte) et les boutons apparaissent
+   SEPAREMENT et APRES les triangles (delai cale sur la fin de leur
+   eclatement, ~0.24s + 0.55s), pour un effet sequence plutot que tout
+   simultane. */
+.criticalStack {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  opacity: 0;
+  transform: translateY(8px);
+  animation: criticalStackIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.75s forwards;
+}
+
+@keyframes criticalStackIn {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Boite sans contour : flou d'arriere-plan + leger filtre de couleur
+   (teinte rouge) plutot qu'une bordure - le glow vient du drop-shadow, pas
+   d'un trait. Fond nettement plus transparent que .confirmBox standard
+   (rgba(10,15,26,0.9)) : sinon le backdrop-filter n'a presque rien a
+   flouter derriere un fond quasi-opaque. */
+.criticalBox {
+  border: none;
+  background: rgba(20, 8, 8, 0.45);
+  backdrop-filter: blur(24px) saturate(1.4) hue-rotate(-10deg);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4) hue-rotate(-10deg);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+}
+
+.criticalTitle {
+  animation: criticalTitlePulse 1.2s ease-in-out infinite;
+}
+
+@keyframes criticalTitlePulse {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.35); }
+}
+
+/* Boutons flottants EN DEHORS de la boite (pas dans .criticalBox) : leur
+   propre fond glassmorphism, pas celui de la boite. */
+.criticalActions {
+  width: 100%;
+}

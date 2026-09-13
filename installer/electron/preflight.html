@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<title>Preflight</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body {
+    font-family: "Segoe UI", Tahoma, sans-serif;
+    font-size: 12px;
+    color: #000;
+    background: #f0f0f0;
+    user-select: none;
+    -webkit-user-select: none;
+    border: 1px solid #8a8a8a;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* --- Barre de titre (chrome Windows simule : titre a gauche, boutons
+         minimiser / maximiser / fermer a droite) --- */
+  .titleBar {
+    display: flex;
+    align-items: center;
+    height: 31px;
+    padding-left: 9px;
+    background: #f0f0f0;
+    flex: none;
+    -webkit-app-region: drag;
+  }
+  .titleBar .icon {
+    width: 15px;
+    height: 15px;
+    flex: none;
+    margin-right: 7px;
+  }
+  .titleBar .titleText {
+    flex: 1;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .winButtons {
+    display: flex;
+    align-items: stretch;
+    align-self: stretch;
+    -webkit-app-region: no-drag;
+  }
+  .winBtn {
+    width: 45px;
+    border: 0;
+    background: transparent;
+    font-family: "Segoe MDL2 Assets", "Segoe UI Symbol", sans-serif;
+    font-size: 10px;
+    color: #000;
+    cursor: default;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .winBtn:hover { background: #e0e0e0; }
+  .winBtn.close:hover { background: #c42b1c; color: #fff; }
+
+  /* --- Bande d'en-tete blanche + filet de separation --- */
+  .headerBand {
+    position: relative;
+    background: #fff;
+    border-bottom: 1px solid #dcdcdc;
+    padding: 11px 0 12px 18px;
+    flex: none;
+    min-height: 74px;
+  }
+  .headerBand .heading {
+    font-size: 12px;
+    font-weight: 700;
+    margin: 0 0 5px;
+  }
+  .headerBand .desc {
+    margin: 0;
+    line-height: 1.45;
+    max-width: 74%;
+  }
+  /* Placeholder de l'illustration : collee aux bords haut/droit de la bande,
+     pleine hauteur de celle-ci (comme le portrait de la reference). */
+  .sideArt {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 74px;
+    object-fit: cover;
+    display: block;
+  }
+
+  /* --- Corps gris (progression) --- */
+  .body {
+    flex: 1;
+    padding: 18px 18px 0;
+    background: #f0f0f0;
+  }
+  .stepLabel { margin: 0 0 12px; }
+  .fileLine {
+    margin: 0 0 7px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .progressRow {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+  .progressTrack {
+    flex: 1;
+    height: 16px;
+    border: 1px solid #bcbcbc;
+    background: #fff;
+    position: relative;
+    overflow: hidden;
+  }
+  .progressFill {
+    position: absolute;
+    inset: 0;
+    width: 0;
+    background: #1aa11a;
+  }
+  .progressPct { flex: none; }
+  .metaRow {
+    display: flex;
+    gap: 58px;
+    margin-top: 13px;
+    white-space: nowrap;
+  }
+
+  /* --- Footer : icone son coupe + liens sur deux lignes + Cancel --- */
+  .footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 10px 14px 12px;
+    background: #f0f0f0;
+    border-top: 1px solid #dcdcdc;
+    flex: none;
+  }
+  .footerLeft {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 11px;
+    min-width: 0;
+  }
+  .muteBtn {
+    -webkit-app-region: no-drag;
+    flex: none;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    line-height: 0;
+    cursor: pointer;
+  }
+  .muteIcon {
+    display: block;
+    width: 26px;
+    height: 22px;
+    color: #d02020;
+  }
+  /* Etat sonore : ondes visibles, croix masquee. L'inverse en .muted. */
+  .muteIcon .cross { display: none; }
+  .muteBtn.muted .muteIcon .waves { display: none; }
+  .muteBtn.muted .muteIcon .cross { display: block; }
+  .footerLeft a {
+    color: #2f5fd0;
+    text-decoration: none;
+    line-height: 1.25;
+  }
+  .footerLeft a:hover { text-decoration: underline; }
+  .cancelBtn {
+    -webkit-app-region: no-drag;
+    flex: none;
+    width: 132px;
+    padding: 7px 0;
+    font-family: inherit;
+    font-size: 12px;
+    border: 1px solid #adadad;
+    background: #e1e1e1;
+    cursor: pointer;
+  }
+  .cancelBtn:hover { background: #e8e8e8; border-color: #7a7a7a; }
+  .cancelBtn:active { background: #d5d5d5; }
+</style>
+</head>
+<body>
+  <div class="titleBar">
+    <img class="icon" src="./icon.svg" alt="" />
+    <span class="titleText">Setup - Apex Slicer</span>
+    <div class="winButtons">
+      <button class="winBtn" type="button" tabindex="-1">&#xE921;</button>
+      <button class="winBtn" type="button" tabindex="-1">&#xE922;</button>
+      <button class="winBtn close" id="winClose" type="button" tabindex="-1">&#xE8BB;</button>
+    </div>
+  </div>
+
+  <div class="headerBand">
+    <p class="heading">Installing</p>
+    <p class="desc">Please wait while Setup installs Apex Slicer on your computer.</p>
+    <img class="sideArt" src="./fitgirl.jpg" alt="" />
+  </div>
+
+  <div class="body">
+    <p class="stepLabel">Unpacking...</p>
+    <p class="fileLine">End\Content\Paks\pakchunk0_s18-WindowsNoEditor.pak</p>
+    <div class="progressRow">
+      <div class="progressTrack"><div class="progressFill" id="progressFill"></div></div>
+      <span class="progressPct" id="progressPct">0.0%</span>
+    </div>
+    <div class="metaRow">
+      <span>Elapsed time:&nbsp;&nbsp;<span id="elapsed">00:00:00</span></span>
+      <span>Time left:&nbsp;&nbsp;<span id="timeLeft">00:00:00</span></span>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="footerLeft">
+      <!-- Haut-parleur cliquable (coupe / rétablit la musique de fond,
+           comme sur la reference) : dessine en SVG inline pour eviter un
+           asset de plus. La croix n'est visible qu'en etat muet. -->
+      <button class="muteBtn" id="muteBtn" type="button" title="Couper le son">
+        <svg class="muteIcon" viewBox="0 0 26 22" fill="none" aria-hidden="true">
+          <path d="M2 8h3.2L11 3.2v15.6L5.2 14H2z" fill="currentColor" />
+          <path class="waves" d="M14.5 7.5a6.5 6.5 0 010 7M18 5a10 10 0 010 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+          <path class="cross" d="M16 7.5l7 7M23 7.5l-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+        </svg>
+      </button>
+      <a href="#" id="siteLink">FitGirl Repacks<br />official site</a>
+      <a href="#" id="infoLink">Game Info</a>
+    </div>
+    <button class="cancelBtn" id="cancelBtn" type="button">Cancel</button>
+  </div>
+
+  <script>
+    document.getElementById('cancelBtn').addEventListener('click', () => {
+      stopTheme();
+      window.preflightApi.continue();
+    });
+    document.getElementById('winClose').addEventListener('click', () => {
+      stopTheme();
+      window.preflightApi.cancel();
+    });
+
+    // Progression simulee : part de 0 et avance par paliers de taille
+    // irreguliere (un decompactage reel n'est jamais lineaire), avec
+    // "Time left" deduit du debit observe pour rester coherent avec
+    // "Elapsed time". Plafonnee sous 100% : la fenetre attend de toute
+    // facon le clic utilisateur, elle ne doit jamais paraitre terminee.
+    const fillEl = document.getElementById('progressFill');
+    const pctEl = document.getElementById('progressPct');
+    const elapsedEl = document.getElementById('elapsed');
+    const leftEl = document.getElementById('timeLeft');
+
+    const DURATION_MS = 75000;
+    const MAX_PCT = 99.4;
+    const started = Date.now();
+
+    function fmt(totalSeconds) {
+      const s = Math.max(0, Math.floor(totalSeconds));
+      const hh = String(Math.floor(s / 3600)).padStart(2, '0');
+      const mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+      const ss = String(s % 60).padStart(2, '0');
+      return `${hh}:${mm}:${ss}`;
+    }
+
+    function tick() {
+      const elapsedMs = Date.now() - started;
+      const t = Math.min(1, elapsedMs / DURATION_MS);
+      // Paliers : une base lineaire modulee par deux sinus de periodes
+      // differentes (nuls a t=0, pour demarrer vraiment a 0%), ce qui donne
+      // des phases d'acceleration et de quasi-plateau sans jamais reculer.
+      const eased = t * 0.82 + Math.sin(t * 7.3) * 0.05 + Math.sin(t * 2.1) * 0.13;
+      const pct = Math.min(MAX_PCT, Math.max(0, eased) * 100);
+
+      fillEl.style.width = `${pct}%`;
+      pctEl.textContent = `${pct.toFixed(1)}%`;
+      elapsedEl.textContent = fmt(elapsedMs / 1000);
+      // Extrapolation du restant depuis le debit moyen courant.
+      leftEl.textContent = pct > 0.5
+        ? fmt(((elapsedMs / pct) * (100 - pct)) / 1000)
+        : '00:00:00';
+
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+
+    // Musique de fond, en boucle, jusqu'a la fermeture de cette fenetre :
+    // le process non-eleve qui la porte se termine juste apres le clic
+    // (relance elevee ou annulation), donc l'audio s'arrete avec lui - on
+    // le coupe malgre tout explicitement pour ne pas dependre de ce timing.
+    const theme = new Audio('./fgr_music_theme.mp3');
+    theme.loop = true;
+    theme.volume = 0.55;
+    theme.play().catch(() => {
+      // Autoplay refuse : on retente au premier geste utilisateur.
+      const retry = () => {
+        theme.play().catch(() => {});
+        window.removeEventListener('pointerdown', retry);
+      };
+      window.addEventListener('pointerdown', retry);
+    });
+
+    const muteBtn = document.getElementById('muteBtn');
+    muteBtn.addEventListener('click', () => {
+      theme.muted = !theme.muted;
+      muteBtn.classList.toggle('muted', theme.muted);
+      muteBtn.title = theme.muted ? 'Rétablir le son' : 'Couper le son';
+    });
+
+    function stopTheme() {
+      theme.pause();
+      theme.currentTime = 0;
+    }
+    document.getElementById('siteLink').addEventListener('click', (e) => e.preventDefault());
+    document.getElementById('infoLink').addEventListener('click', (e) => e.preventDefault());
+  </script>
+</body>
+</html>

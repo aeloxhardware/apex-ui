@@ -10,6 +10,7 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+release
 *.local
 
 # Editor directories and files
@@ -23,3 +24,7 @@ dist-ssr
 *.sln
 *.sw?
 .dyad/
+
+# .NET build artifacts (installer-wpf-prototype/)
+bin/
+obj/
