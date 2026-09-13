@@ -20,7 +20,7 @@
       "output": "release"
     },
     "win": {
-      "executableName": "apex_installer",
+      "executableName": "apex-installer",
       "icon": "../public/mini-logo.png",
       "requestedExecutionLevel": "requireAdministrator",
       "legalTrademarks": "Aelox Hardware",

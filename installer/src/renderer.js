@@ -21,6 +21,9 @@ const SOUND_FILES = {
   // non-planaire/axes/modelisateur) - distinct du 'click' generique des
   // boutons classiques, pour bien marquer un changement de choix.
   select: './sounds/select.mp3',
+  // Joue sur "Continuer l'installation" dans la boite de confirmation
+  // critique (annule l'annulation) - distinct du 'click' generique.
+  cancelAbort: './sounds/cancel-abort.mp3',
 };
 
 // Suivi des sons actuellement en train de jouer, pour pouvoir laisser le
@@ -533,6 +536,7 @@ document.addEventListener('click', async (event) => {
       break;
     case 'close-confirm-stay':
       hideCloseConfirm();
+      playSound('cancelAbort');
       break;
     case 'close-confirm-quit':
       hideCloseConfirm();
