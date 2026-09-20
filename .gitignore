@@ -7,11 +7,31 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependency folders
 node_modules
+**/node_modules/
+installer/**/node_modules/
+icons-main/**/node_modules/
+
+# Build / generated output
+/dist/
 dist
 dist-ssr
 release
+build/
+coverage/
+*.tsbuildinfo
+installer/**/dist/
+installer/**/build/
+installer/**/release/
+icons-main/**/dist/
+icons-main/**/.next/
+
+# Local env / generated files
 *.local
+*.pem
+installer/**/*.log
+icons-main/**/*.log
 
 # Editor directories and files
 .vscode/*
@@ -28,3 +48,7 @@ release
 # .NET build artifacts (installer-wpf-prototype/)
 bin/
 obj/
+
+# Project-specific generated folders
+installer/
+icons-main/
