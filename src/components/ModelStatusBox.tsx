@@ -21,14 +21,22 @@ export const ModelStatusBox: React.FC = () => {
   const [selectedModelNames, setSelectedModelNames] = useState<Set<string>>(new Set());
   const [expandedModels, setExpandedModels] = useState<Record<string, boolean>>({});
   const [previewActive, setPreviewActive] = useState(false);
+  // Le mode modélisation a sa propre arborescence (les corps) : celle des modèles importés
+  // ferait doublon, on l'escamote comme en mode Prévisualisation.
+  const [modelingActive, setModelingActive] = useState(false);
 
   useEffect(() => {
     const handlePreviewToggled = (e: CustomEvent<{ active: boolean }>) => {
       setPreviewActive(!!e.detail?.active);
     };
+    const handleModeChanged = (e: CustomEvent<{ mode: 'slicer' | 'modeling' }>) => {
+      setModelingActive(e.detail?.mode === 'modeling');
+    };
     window.addEventListener('apex-preview-toggled', handlePreviewToggled as EventListener);
+    window.addEventListener('apex-mode-changed', handleModeChanged as EventListener);
     return () => {
       window.removeEventListener('apex-preview-toggled', handlePreviewToggled as EventListener);
+      window.removeEventListener('apex-mode-changed', handleModeChanged as EventListener);
     };
   }, []);
 
@@ -103,7 +111,7 @@ export const ModelStatusBox: React.FC = () => {
   return (
     <div className={styles.container} data-apex-chrome-panel>
       <AnimatePresence>
-        {!previewActive && (
+        {!previewActive && !modelingActive && (
           <motion.div
             className={styles.toolbar}
             initial={{ opacity: 0, x: -20 }}

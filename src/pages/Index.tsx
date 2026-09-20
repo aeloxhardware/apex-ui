@@ -7,6 +7,7 @@ import { SliceSidebar } from '@/components/SliceSidebar';
 import { CategoriesSidebar } from '@/components/CategoriesSidebar';
 import { PrinterConfigSidebar } from '@/components/PrinterConfigSidebar';
 import { AxisSidebar } from '@/components/AxisSidebar';
+import { ModelingSidebar } from '@/components/ModelingSidebar';
 import { TopRightMenu } from '@/components/TopRightMenu';
 import { ModelStatusBox } from '@/components/ModelStatusBox';
 import { ModelHoverTooltip } from '@/components/ModelHoverTooltip';
@@ -15,6 +16,7 @@ import { SliceModal } from '@/components/SliceModal';
 import { SlicingProgressModal } from '@/components/SlicingProgressModal';
 import { ViewCube } from '@/components/ViewCube';
 import { Viewport3D } from '@/components/Viewport3D';
+import { AnimatePresence } from 'framer-motion';
 import { Box } from 'lucide-react';
 import { showSuccess } from '@/utils/toast';
 
@@ -32,6 +34,9 @@ const Index = () => {
   const [isSliceModalOpen, setIsSliceModalOpen] = useState(false);
   const [isSlicingProgressOpen, setIsSlicingProgressOpen] = useState(false);
   const [modelStatus, setModelStatus] = useState<ModelStatus | null>(null);
+
+  /** L'onglet « Modélisation » de la Sidebar porte la valeur 'settings'. */
+  const isModeling = activeTab === 'settings';
 
   React.useEffect(() => {
     const handleModelSelected = (event: CustomEvent<{
@@ -132,24 +137,34 @@ const Index = () => {
       <AxisSidebar />
       <ViewCube />
 
-      <CategoriesSidebar
-        activeCategory={activeCategory} 
-        onSelectCategory={(cat) => {
-          setActiveCategory(cat);
-          if (cat) setIsPrinterConfigOpen(false);
-        }} 
-      />
+      {/* Les panneaux slicer et le panneau modélisation s'excluent mutuellement : basculer
+          d'onglet échange les deux avec un fondu, plutôt que de les empiler. */}
+      <AnimatePresence mode="wait">
+        {isModeling ? (
+          <ModelingSidebar key="modeling" />
+        ) : (
+          <React.Fragment key="slicer">
+            <CategoriesSidebar
+              activeCategory={activeCategory}
+              onSelectCategory={(cat) => {
+                setActiveCategory(cat);
+                if (cat) setIsPrinterConfigOpen(false);
+              }}
+            />
 
-      <PrinterConfigSidebar
-        isOpen={isPrinterConfigOpen}
-        onClose={() => setIsPrinterConfigOpen(false)}
-        selectedPrinter={selectedPrinter}
-        onSelectPrinter={setSelectedPrinter}
-        selectedFilament={selectedFilament}
-        onSelectFilament={setSelectedFilament}
-      />
+            <PrinterConfigSidebar
+              isOpen={isPrinterConfigOpen}
+              onClose={() => setIsPrinterConfigOpen(false)}
+              selectedPrinter={selectedPrinter}
+              onSelectPrinter={setSelectedPrinter}
+              selectedFilament={selectedFilament}
+              onSelectFilament={setSelectedFilament}
+            />
 
-      <SliceSidebar onSlice={handleSlice} />
+            <SliceSidebar onSlice={handleSlice} />
+          </React.Fragment>
+        )}
+      </AnimatePresence>
 
       <main className="flex-1 flex flex-col relative overflow-hidden z-10 bg-transparent">
         <div className="flex-1 w-full h-full">

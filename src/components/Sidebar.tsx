@@ -39,6 +39,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const buttonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [indicatorStyle, setIndicatorStyle] = React.useState<React.CSSProperties>({});
 
+  /** L'onglet « Modélisation » porte la valeur 'settings'. */
+  const isModeling = activeTab === 'settings';
+
   const handleUploadClick = () => {
     fileInputRef.current?.click();
   };
@@ -238,23 +241,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
         ref={bottomToolbarRef}
         className={clsx(styles.toolbar, styles.bottomToolbar)}
         initial={false}
-        animate={isPreviewActive && naturalWidth !== null ? {
+        animate={isModeling ? {
+          // Mode modélisation : la barre slicer se rétracte sur elle-même pour céder sa
+          // place à la barre d'opérations CAD, qui vient occuper le même emplacement.
+          // On ne peut pas compter sur un clip : `.bottomToolbar` force `overflow: visible`,
+          // donc c'est l'opacité qui escamote réellement les icônes.
+          x: 0,
+          opacity: 0,
+          width: 0,
+          height: 0,
+          paddingTop: 0,
+          paddingBottom: 0,
+          marginTop: -10, // absorbe le `gap: 10px` de la pile pour ne pas laisser de trou
+          borderRadius: 22
+        } : isPreviewActive && naturalWidth !== null ? {
           x: [0, 0, 480],
           width: [naturalWidth, naturalWidth, 56],
           height: [44, 44, 340],
-          borderRadius: [22, 22, 20]
+          borderRadius: [22, 22, 20],
+          opacity: 1,
+          marginTop: 0
         } : {
           x: 0,
           width: "auto",
           height: 44,
-          borderRadius: 22
+          borderRadius: 22,
+          opacity: 1,
+          marginTop: 0
         }}
-        transition={{
+        transition={isModeling ? {
+          duration: 0.45,
+          ease: [0.4, 0, 0.2, 1]
+        } : {
           duration: 1.1,
           times: [0, 0.45, 1],
           ease: [0.25, 1, 0.5, 1]
         }}
-        style={{ originX: 0.5, originY: 0.5 }}
+        style={{ originX: 0.5, originY: 0.5, pointerEvents: isModeling ? 'none' : 'auto' }}
       >
         <motion.div custom={0} variants={iconVariants} animate={isPreviewActive ? "hidden" : "visible"} initial="visible" className="flex items-center">
           <CustomTooltip content="Outil de Sélection" description="Cliquez sur n'importe quel modèle 3D sur le plateau pour le sélectionner et afficher ses propriétés.">
