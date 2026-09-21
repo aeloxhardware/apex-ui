@@ -18,6 +18,42 @@ const CENTER = SIZE / 2;
 const REACH = 34;
 const POINT_R = 8;
 
+/**
+ * Flèches de roulis ±45°, en haut à droite du gizmo, hors du cercle des axes. Chaque icône est
+ * dessinée dans son propre repère local (centré en 0,0, rayon `R`) façon icône "refresh" — un
+ * arc à ¾ de tour avec une pointe à une extrémité — puis simplement translatée à sa position
+ * finale. `mirror` inverse l'axe X du repère local pour obtenir le sens antihoraire à partir du
+ * même tracé que le sens horaire, sans dupliquer la géométrie de l'arc.
+ */
+const ROLL_ARROW_R = 8;
+const ROLL_ARROW_GAP = 6; // espace entre les deux icônes, pour ne pas qu'elles se touchent
+const ROLL_ARROWS: { degrees: number; cx: number; cy: number; mirror: boolean }[] = [
+  { degrees: -45, cx: SIZE - (2 * ROLL_ARROW_R + ROLL_ARROW_GAP / 2) - 2, cy: ROLL_ARROW_R + 2, mirror: true },
+  { degrees: 45, cx: SIZE - ROLL_ARROW_R - 2, cy: ROLL_ARROW_R + 2, mirror: false },
+];
+// Arc horaire de -200° à 20° (240° de tour) dans le repère local de rayon R, pointe à 20°.
+const ROLL_ARC_START = -200;
+const ROLL_ARC_END = 20;
+const localPolar = (r: number, deg: number) => {
+  const rad = (deg * Math.PI) / 180;
+  return { x: r * Math.cos(rad), y: r * Math.sin(rad) };
+};
+const rollArrowGeometry = (mirror: boolean) => {
+  const mx = mirror ? -1 : 1;
+  const start = localPolar(ROLL_ARROW_R, ROLL_ARC_START);
+  const tip = localPolar(ROLL_ARROW_R, ROLL_ARC_END);
+  const path = `M ${start.x * mx} ${start.y} A ${ROLL_ARROW_R} ${ROLL_ARROW_R} 0 1 ${mirror ? 0 : 1} ${tip.x * mx} ${tip.y}`;
+  // Triangle de pointe centré sur `tip`, sa base perpendiculaire à la tangente de l'arc en ce
+  // point (donc alignée avec le rayon local à `ROLL_ARC_END`) pour pointer dans le sens du tracé.
+  const tangentDeg = ROLL_ARC_END + (mirror ? -90 : 90);
+  const baseCenter = { x: tip.x - localPolar(5, tangentDeg + 180).x, y: tip.y - localPolar(5, tangentDeg + 180).y };
+  const side1 = { x: baseCenter.x + localPolar(3, tangentDeg + 90).x, y: baseCenter.y + localPolar(3, tangentDeg + 90).y };
+  const side2 = { x: baseCenter.x + localPolar(3, tangentDeg - 90).x, y: baseCenter.y + localPolar(3, tangentDeg - 90).y };
+  const flip = (p: { x: number; y: number }) => ({ x: p.x * mx, y: p.y });
+  const f = [tip, side1, side2].map(flip);
+  return { path, triangle: `${f[0].x},${f[0].y} ${f[1].x},${f[1].y} ${f[2].x},${f[2].y}` };
+};
+
 // Projection orthographique simple d'un axe 3D vers l'écran 2D selon les angles de la caméra
 function project(dir: [number, number, number], alpha: number, beta: number) {
   const [x, y, z] = dir;
@@ -49,11 +85,18 @@ export const ViewCube: React.FC = () => {
   const points = AXES.map((axis) => ({ ...axis, ...project(axis.dir, camAngles.alpha, camAngles.beta) }))
     .sort((a, b) => a.depth - b.depth);
 
-  // L'axe centré est celui le plus proche de la caméra (dernier après tri par profondeur)
-  const centeredKey = points[points.length - 1]?.key;
+  // L'inversion n'a lieu que si la caméra est EXACTEMENT sur la vue prédéfinie de l'axe
+  // (i.e. on a déjà cliqué dessus) : un ajustement manuel proche ne compte pas.
+  // L'animation se termine sur la valeur exacte de la clé, donc l'égalité stricte tient
+  // (alpha comparé modulo 2π car la caméra peut avoir tourné d'un tour complet).
+  const TWO_PI = Math.PI * 2;
+  const isExactlyOnAxis = (axis: (typeof AXES)[number]) => {
+    const dAlpha = (((camAngles.alpha - axis.alpha) % TWO_PI) + TWO_PI) % TWO_PI;
+    return camAngles.beta === axis.beta && (dAlpha === 0 || dAlpha === TWO_PI);
+  };
 
   const handlePointClick = (p: (typeof points)[number]) => {
-    if (p.key === centeredKey) {
+    if (isExactlyOnAxis(p)) {
       const oppositeKey = p.key.endsWith('+') ? p.key.replace('+', '-') : p.key.replace('-', '+');
       const opposite = AXES.find((a) => a.key === oppositeKey);
       if (opposite) {
@@ -62,6 +105,14 @@ export const ViewCube: React.FC = () => {
       }
     }
     triggerView(p.label || p.key.toUpperCase(), p.alpha, p.beta);
+  };
+
+  // Les flèches de roulis n'ont de sens que face à un plan précisément sélectionné (comme
+  // dans Fusion 360) : un axe survolé/proche mais pas exactement centré ne les affiche pas.
+  const rollAxis = AXES.find((axis) => isExactlyOnAxis(axis));
+
+  const rollView = (degrees: number) => {
+    window.dispatchEvent(new CustomEvent('apex-roll-view', { detail: { degrees } }));
   };
 
   return (
@@ -86,6 +137,23 @@ export const ViewCube: React.FC = () => {
               )}
             </g>
           ))}
+          {rollAxis && ROLL_ARROWS.map(({ degrees, cx, cy, mirror }) => {
+            const { path, triangle } = rollArrowGeometry(mirror);
+            return (
+              <g
+                key={`roll-${degrees}`}
+                className={styles.rollArrow}
+                transform={`translate(${cx}, ${cy})`}
+                onClick={() => rollView(degrees)}
+              >
+                <title>{`Tourner la vue de ${degrees > 0 ? '+' : ''}${degrees}°`}</title>
+                {/* Cible de clic généreuse, invisible, pour compenser la petite taille de l'icône. */}
+                <circle r={ROLL_ARROW_R + 4} fill="transparent" />
+                <path d={path} fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" />
+                <polygon points={triangle} fill="currentColor" />
+              </g>
+            );
+          })}
         </svg>
       </CustomTooltip>
     </div>

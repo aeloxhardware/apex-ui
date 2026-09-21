@@ -143,10 +143,41 @@ export const Viewport3D = () => {
       }
     });
 
+    /**
+     * Roulis de la caméra (façon Fusion 360) : les deux flèches du gizmo d'axes tournent la
+     * vue de ±45° autour de l'axe de visée courant (sa normale), sans toucher alpha/beta.
+     * `ArcRotateCamera` n'a pas de roulis propre — sa matrice de vue est calculée chaque frame
+     * à partir de `upVector` — donc on fait pivoter ce vecteur autour de la direction de visée
+     * (cible → caméra) plutôt que d'utiliser le monde `(0,1,0)` fixe. Recalculé à chaque frame
+     * pour rester cohérent même si l'utilisateur réoriente la caméra à la souris entre-temps.
+     *
+     * IMPORTANT : le setter `upVector` de Babylon recalcule des matrices internes
+     * (`_upToYMatrix`/`_yToUpMatrix`) qui relient alpha/beta à la matrice de vue — c'est CE
+     * setter qu'il faut appeler (`camera.upVector = ...`), jamais muter le vecteur en place
+     * (`.set(...)`, `rotateByQuaternionToRef(..., camera.upVector)`) : cela désynchronise ces
+     * matrices et gèle le drag/pick de la souris (la doc TS du champ le précise explicitement).
+     */
+    const rollState = { value: 0 }; // en radians, appliqué en continu au-dessus de l'orientation naturelle
+    const rolledUpScratch = new BABYLON.Vector3(); // vecteur de travail, jamais `camera.upVector` lui-même
+    scene.onBeforeRenderObservable.add(() => {
+      if (rollState.value === 0) return;
+      const forward = camera.position.subtract(camera.target).normalize();
+      BABYLON.Vector3.Up().rotateByQuaternionToRef(
+        BABYLON.Quaternion.RotationAxis(forward, rollState.value),
+        rolledUpScratch,
+      );
+      camera.upVector = rolledUpScratch; // passe par le setter : recalcule les matrices internes
+    });
+
     const handleSetView = (e: Event) => {
       const customEvent = e as CustomEvent<{ view: string }>;
       const view = customEvent.detail?.view;
       if (!camera) return;
+
+      // Repartir d'un roulis nul : cliquer une face du gizmo revient toujours à son "haut"
+      // canonique, comme dans Fusion 360, plutôt que de conserver un roulis résiduel.
+      camera.upVector = BABYLON.Vector3.Up(); // passe par le setter (cf. commentaire plus haut)
+      rollState.value = 0;
 
       const targetRadius = 300;
       const targetLookAt = new BABYLON.Vector3(0, HEIGHT / 2, 0);
@@ -181,8 +212,14 @@ export const Viewport3D = () => {
           break;
       }
 
+      // Chemin le plus court : `camera.alpha` accumule les tours faits à la souris, donc on
+      // vise la copie de la cible la plus proche de l'angle courant modulo 2π plutôt que
+      // `targetAlpha` telle quelle (cf. `handleCustomView`).
+      const TWO_PI = Math.PI * 2;
+      const shortestTargetAlpha = targetAlpha + Math.round((camera.alpha - targetAlpha) / TWO_PI) * TWO_PI;
+
       const animAlpha = new BABYLON.Animation("animAlpha", "alpha", 60, BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
-      animAlpha.setKeys([{ frame: 0, value: camera.alpha }, { frame: 20, value: targetAlpha }]);
+      animAlpha.setKeys([{ frame: 0, value: camera.alpha }, { frame: 20, value: shortestTargetAlpha }]);
 
       const animBeta = new BABYLON.Animation("animBeta", "beta", 60, BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
       animBeta.setKeys([{ frame: 0, value: camera.beta }, { frame: 20, value: targetBeta }]);
@@ -195,8 +232,19 @@ export const Viewport3D = () => {
       const { alpha, beta } = customEvent.detail;
       if (!camera) return;
 
+      // Repartir d'un roulis nul, comme pour `handleSetView`.
+      camera.upVector = BABYLON.Vector3.Up(); // passe par le setter (cf. commentaire plus haut)
+      rollState.value = 0;
+
+      // `camera.alpha` accumule les tours faits à la souris (orbiter plusieurs fois ne le
+      // ramène pas dans [0, 2π[) : interpoler directement vers `alpha` ferait donc tourner sur
+      // tout cet écart. On vise plutôt la copie de la cible la plus proche de l'angle courant,
+      // modulo 2π, pour toujours prendre le chemin le plus court.
+      const TWO_PI = Math.PI * 2;
+      const shortestTarget = alpha + Math.round((camera.alpha - alpha) / TWO_PI) * TWO_PI;
+
       const animAlpha = new BABYLON.Animation("animAlpha", "alpha", 60, BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
-      animAlpha.setKeys([{ frame: 0, value: camera.alpha }, { frame: 20, value: alpha }]);
+      animAlpha.setKeys([{ frame: 0, value: camera.alpha }, { frame: 20, value: shortestTarget }]);
 
       const animBeta = new BABYLON.Animation("animBeta", "beta", 60, BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
       animBeta.setKeys([{ frame: 0, value: camera.beta }, { frame: 20, value: beta }]);
@@ -206,6 +254,18 @@ export const Viewport3D = () => {
 
     window.addEventListener('apex-set-camera-view', handleSetView);
     window.addEventListener('apex-set-camera-custom', handleCustomView);
+
+    const handleRollView = (e: Event) => {
+      const customEvent = e as CustomEvent<{ degrees: number }>;
+      const degrees = customEvent.detail?.degrees ?? 0;
+      if (!camera) return;
+
+      const targetRoll = rollState.value + (degrees * Math.PI) / 180;
+      const anim = new BABYLON.Animation("animRoll", "value", 60, BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+      anim.setKeys([{ frame: 0, value: rollState.value }, { frame: 20, value: targetRoll }]);
+      scene.beginDirectAnimation(rollState, [anim], 0, 20, false);
+    };
+    window.addEventListener('apex-roll-view', handleRollView);
 
     new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
     const hl = new BABYLON.HighlightLayer("hl1", scene);
@@ -671,9 +731,10 @@ export const Viewport3D = () => {
     /**
      * Chiffres de mesure le long des axes X/Z, à chaque graduation majeure — de petits panneaux
      * texturés (`DynamicTexture`) plutôt qu'un module GUI, qui n'est pas une dépendance du
-     * projet. Ils sont couchés DANS le plan du sol et orientés le long de leur axe (comme la
-     * règle d'un plan CAO), pas en billboard : le chiffre reste ainsi visuellement attaché à sa
-     * graduation quel que soit l'angle de caméra. Une même valeur apparaît 4 fois (±X, ±Z) :
+     * projet. Ils sont couchés DANS le plan du sol, pas en billboard, avec la ligne de texte
+     * PERPENDICULAIRE à leur axe. Leur sens (0 ou π) est réévalué à chaque frame pour que le
+     * texte se lise toujours de gauche à droite à l'écran, jamais à l'envers ni en miroir.
+     * Une même valeur apparaît 4 fois (±X, ±Z) :
      * texture et matériau sont mutualisés par texte pour ne pas en créer 4 copies.
      */
     const gridLabelMatCache = new Map<string, BABYLON.StandardMaterial>();
@@ -696,27 +757,39 @@ export const Viewport3D = () => {
     // Les étiquettes sont placées sur les lignes de décade (multiples de 10 unités de tuile) :
     // on mémorise leur valeur et leur position en unités de tuile, à multiplier par le pas
     // courant `S`. Comme les lignes, elles ne bougent donc pas d'une décade à l'autre.
-    interface GridLabel { mesh: BABYLON.Mesh; tileValue: number; tilePosition: BABYLON.Vector3 }
+    interface GridLabel { mesh: BABYLON.Mesh; tileValue: number; tilePosition: BABYLON.Vector3; alongX: boolean }
     const modelingGridLabels: GridLabel[] = [];
-    const makeGridTickLabel = (tileValue: number, tilePosition: BABYLON.Vector3, yaw: number) => {
+    const makeGridTickLabel = (tileValue: number, tilePosition: BABYLON.Vector3, alongX: boolean) => {
       const label = BABYLON.MeshBuilder.CreatePlane(
         `gridTick_${tilePosition.x}_${tilePosition.z}`, { width: 9, height: 4.5 }, scene,
       );
-      // Couché à plat (pitch π/2) puis pivoté pour se lire le long de son axe.
-      label.rotation = new BABYLON.Vector3(Math.PI / 2, yaw, 0);
+      // Couché à plat (pitch π/2) ; le yaw est fixé à chaque frame par `orientGridLabels`.
+      label.rotation = new BABYLON.Vector3(Math.PI / 2, 0, 0);
       label.isPickable = false;
       label.renderingGroupId = 1; // par-dessus les lignes de grille
       label.setEnabled(false);
-      modelingGridLabels.push({ mesh: label, tileValue, tilePosition: tilePosition.clone() });
+      modelingGridLabels.push({ mesh: label, tileValue, tilePosition: tilePosition.clone(), alongX });
     };
-    // Décalage perpendiculaire pour que le chiffre borde son axe sans le recouvrir.
-    const gridLabelOffset = 3;
+    // Décalage perpendiculaire à l'axe : le texte (largeur 9) s'étend dans cette direction,
+    // il faut donc l'écarter d'une demi-largeur + marge pour ne pas recouvrir l'axe.
+    const gridLabelOffset = 2.5;
     for (let k = 10; k <= GRID_TILE_EXTENT; k += 10) {
-      makeGridTickLabel(k, new BABYLON.Vector3(k, 0.01, gridLabelOffset), 0);
-      makeGridTickLabel(-k, new BABYLON.Vector3(-k, 0.01, gridLabelOffset), 0);
-      makeGridTickLabel(k, new BABYLON.Vector3(gridLabelOffset, 0.01, k), Math.PI / 2);
-      makeGridTickLabel(-k, new BABYLON.Vector3(gridLabelOffset, 0.01, -k), Math.PI / 2);
+      makeGridTickLabel(k, new BABYLON.Vector3(k, 0.01, gridLabelOffset), true);
+      makeGridTickLabel(-k, new BABYLON.Vector3(-k, 0.01, gridLabelOffset), true);
+      makeGridTickLabel(k, new BABYLON.Vector3(gridLabelOffset, 0.01, k), false);
+      makeGridTickLabel(-k, new BABYLON.Vector3(gridLabelOffset, 0.01, -k), false);
     }
+
+    // Yaw (autour de Y) → direction de lecture du texte : (cos ψ, 0, -sin ψ). Pour un label
+    // sur l'axe X, la ligne de texte est portée par Z (ψ = ±π/2) ; sur l'axe Z, par X (ψ = 0 ou π).
+    // On garde celui des deux sens dont la lecture part vers la DROITE de l'écran.
+    const orientGridLabels = () => {
+      const view = camera.getViewMatrix();
+      const rightOnScreen = (x: number, z: number) => BABYLON.Vector3.TransformNormal(new BABYLON.Vector3(x, 0, z), view).x;
+      const yawAlongX = rightOnScreen(0, -1) >= rightOnScreen(0, 1) ? Math.PI / 2 : -Math.PI / 2;
+      const yawAlongZ = rightOnScreen(1, 0) >= rightOnScreen(-1, 0) ? 0 : Math.PI;
+      modelingGridLabels.forEach(({ mesh, alongX }) => { mesh.rotation.y = alongX ? yawAlongX : yawAlongZ; });
+    };
 
     const modelingGridMeshes = [gridSubFine, gridSubMain, gridDecade, modelingGridAxisX, modelingGridAxisZ];
     const modelingGrid = [...modelingGridMeshes, ...modelingGridLabels.map((l) => l.mesh)];
@@ -785,6 +858,7 @@ export const Viewport3D = () => {
       return snapped * pow;
     };
 
+    const MODELING_START_MM_PER_PX = 0.06;
     let modelingActive = false;
     let lastScaleBarLabel = '';
     const gridZoomObserver = scene.onBeforeRenderObservable.add(() => {
@@ -794,14 +868,16 @@ export const Viewport3D = () => {
       if (!Number.isFinite(worldPerPixel) || worldPerPixel <= 0) return;
 
       updateGrid(worldPerPixel);
+      orientGridLabels();
 
       const length = niceLength(SCALE_BAR_TARGET_PX * worldPerPixel);
       const label = formatDistance(length);
       const px = Math.round(length / worldPerPixel);
-      if (label !== lastScaleBarLabel) {
-        lastScaleBarLabel = label;
-        setScaleBar({ px, label });
-      }
+      // `px` doit suivre le zoom en continu même quand `label` ne change pas (ex. entre deux
+      // décades ayant le même arrondi affiché) : sinon la barre reste figée à sa dernière
+      // largeur pendant que la grille sous-jacente, elle, continue de défiler.
+      lastScaleBarLabel = label;
+      setScaleBar({ px, label });
     });
 
     // Bascule slicer ↔ modélisation : on échange le volume d'impression contre la grille
@@ -814,7 +890,13 @@ export const Viewport3D = () => {
       modelingActive = modeling;
       volumeRoot.setEnabled(!modeling);
       // Cadrer la grille AVANT de l'afficher, sinon elle apparaît une frame au pas par défaut.
-      if (modeling) updateGrid((2 * camera.radius * Math.tan(camera.fov / 2)) / engine.getRenderHeight());
+      if (modeling) {
+        // Départ zoomé sur l'origine : ~0.06 mm/px → pas S = 1, donc graduations tous les 10 mm.
+        camera.target = BABYLON.Vector3.Zero();
+        camera.radius = (MODELING_START_MM_PER_PX * engine.getRenderHeight()) / (2 * Math.tan(camera.fov / 2));
+        updateGrid(MODELING_START_MM_PER_PX);
+        orientGridLabels();
+      }
       modelingGrid.forEach((g) => g.setEnabled(modeling));
       if (!modeling) {
         lastScaleBarLabel = '';
@@ -2206,6 +2288,7 @@ export const Viewport3D = () => {
       window.removeEventListener('apex-request-textures', onRequestTextures);
       window.removeEventListener('apex-set-camera-view', handleSetView);
       window.removeEventListener('apex-set-camera-custom', handleCustomView);
+      window.removeEventListener('apex-roll-view', handleRollView);
       window.removeEventListener('keydown', handleKeyDown);
       scene.onPointerObservable.remove(pointerObserver);
       scene.onBeforeRenderObservable.remove(gridZoomObserver);

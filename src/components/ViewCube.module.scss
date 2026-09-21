@@ -35,3 +35,14 @@
   pointer-events: none;
   user-select: none;
 }
+
+.rollArrow {
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.7);
+  transition: color 0.15s ease, filter 0.15s ease;
+
+  &:hover {
+    color: #ffffff;
+    filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.6));
+  }
+}
