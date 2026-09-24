@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import styles from './ViewCube.module.scss';
 import { CustomTooltip } from './CustomTooltip';
 import { showSuccess } from '@/utils/toast';
@@ -17,6 +17,12 @@ const SIZE = 100;
 const CENTER = SIZE / 2;
 const REACH = 34;
 const POINT_R = 8;
+// Tolérance d'alignement (~1,7°) : assez large pour absorber l'arrivée d'une transition de
+// caméra animée, assez étroite pour qu'une orbite manuelle désarme aussitôt l'inversion.
+const ANGLE_EPSILON = 0.03;
+// Durée de la transition de caméra déclenchée par un clic (20 frames à 60 fps dans
+// Viewport3D), plus une marge : tant qu'elle court, un écart d'angle ne signale pas une orbite.
+const VIEW_TRANSITION_MS = 450;
 
 // Projection orthographique simple d'un axe 3D vers l'écran 2D selon les angles de la caméra
 function project(dir: [number, number, number], alpha: number, beta: number) {
@@ -30,10 +36,29 @@ function project(dir: [number, number, number], alpha: number, beta: number) {
 
 export const ViewCube: React.FC = () => {
   const [camAngles, setCamAngles] = useState({ alpha: Math.PI / 4, beta: Math.PI / 3 });
+  // Dernier axe atteint par un clic sur le gizmo, seul état qui autorise l'inversion.
+  const lastClickedKeyRef = useRef<string | null>(null);
+  // Angles visés par ce clic et instant où il a eu lieu, pour reconnaître la vue qu'il a
+  // produite une fois la transition terminée.
+  const lastClickedAnglesRef = useRef<{ alpha: number; beta: number; at: number } | null>(null);
 
   useEffect(() => {
     const handleCameraUpdated = (e: CustomEvent<{ alpha: number; beta: number }>) => {
-      if (e.detail) setCamAngles(e.detail);
+      if (!e.detail) return;
+      setCamAngles(e.detail);
+
+      // `apex-camera-updated` ne dit pas d'où vient le mouvement. Un clic sur le gizmo lance une
+      // transition animée : pendant celle-ci les angles diffèrent encore de la cible, et les
+      // comparer désarmerait aussitôt le marqueur que le clic vient de poser. On laisse donc
+      // passer la durée de l'animation avant de considérer qu'un écart vient d'une orbite
+      // manuelle de l'utilisateur, seul cas où l'inversion doit être désarmée.
+      const target = lastClickedAnglesRef.current;
+      if (!target || performance.now() - target.at < VIEW_TRANSITION_MS) return;
+      const delta = (a: number, b: number) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+      if (delta(e.detail.alpha, target.alpha) > ANGLE_EPSILON || delta(e.detail.beta, target.beta) > ANGLE_EPSILON) {
+        lastClickedKeyRef.current = null;
+        lastClickedAnglesRef.current = null;
+      }
     };
     window.addEventListener('apex-camera-updated', handleCameraUpdated as EventListener);
     return () => {
@@ -41,7 +66,9 @@ export const ViewCube: React.FC = () => {
     };
   }, []);
 
-  const triggerView = (label: string, alpha: number, beta: number) => {
+  const triggerView = (key: string, label: string, alpha: number, beta: number) => {
+    lastClickedKeyRef.current = key;
+    lastClickedAnglesRef.current = { alpha, beta, at: performance.now() };
     window.dispatchEvent(new CustomEvent('apex-set-camera-custom', { detail: { alpha, beta } }));
     showSuccess(`Vue orientée : ${label}`);
   };
@@ -49,19 +76,19 @@ export const ViewCube: React.FC = () => {
   const points = AXES.map((axis) => ({ ...axis, ...project(axis.dir, camAngles.alpha, camAngles.beta) }))
     .sort((a, b) => a.depth - b.depth);
 
-  // L'axe centré est celui le plus proche de la caméra (dernier après tri par profondeur)
-  const centeredKey = points[points.length - 1]?.key;
-
   const handlePointClick = (p: (typeof points)[number]) => {
-    if (p.key === centeredKey) {
+    // L'inversion n'est offerte que si la vue courante vient d'un clic sur CE point précis.
+    // Se fier à l'axe géométriquement le plus proche de la caméra inverserait aussi une vue
+    // simplement orientée « à peu près » à la souris, que l'utilisateur voulait juste cadrer.
+    if (p.key === lastClickedKeyRef.current) {
       const oppositeKey = p.key.endsWith('+') ? p.key.replace('+', '-') : p.key.replace('-', '+');
       const opposite = AXES.find((a) => a.key === oppositeKey);
       if (opposite) {
-        triggerView(opposite.label || opposite.key.toUpperCase(), opposite.alpha, opposite.beta);
+        triggerView(opposite.key, opposite.label || opposite.key.toUpperCase(), opposite.alpha, opposite.beta);
         return;
       }
     }
-    triggerView(p.label || p.key.toUpperCase(), p.alpha, p.beta);
+    triggerView(p.key, p.label || p.key.toUpperCase(), p.alpha, p.beta);
   };
 
   return (

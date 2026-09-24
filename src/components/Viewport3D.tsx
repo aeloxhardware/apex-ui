@@ -3,16 +3,26 @@
 import React, { useRef, useState, useLayoutEffect } from 'react';
 import * as BABYLON from 'babylonjs';
 import 'babylonjs-loaders';
-import { showSuccess } from '@/utils/toast';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { Upload, BoxSelect, LayoutGrid, Trash2 } from 'lucide-react';
+import { showSuccess, showWarning } from '@/utils/toast';
 
 const DEFAULT_BLUR_LEVEL = 40;
 
 export const Viewport3D = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  // Le clic droit qui ouvre le menu déclenche ensuite, sur ce même clic, l'événement DOM natif
+  // `contextmenu` : au moment où celui-ci se déclenche, le rideau de fermeture (qui couvre tout
+  // l'écran) est déjà monté sous le curseur et en reçoit la cible — sans ce garde-fou, son
+  // propre `onContextMenu` referme le menu qui vient tout juste de s'ouvrir. On l'arme juste
+  // avant d'ouvrir et on l'ignore une seule fois, côté rideau.
+  const suppressNextBackdropContextMenuRef = useRef(false);
   const [blurLevel, setBlurLevel] = useState(DEFAULT_BLUR_LEVEL);
   // Info-bulle qui suit le curseur pendant la sélection du plan d'esquisse (façon Fusion 360).
   const [sketchPlaneHint, setSketchPlaneHint] = useState<{ x: number; y: number } | null>(null);
+  const [plateActionHint, setPlateActionHint] = useState<{ title: string; x: number; y: number } | null>(null);
+  const plateImportInputRef = useRef<HTMLInputElement>(null);
   // Échelle dynamique du mode modélisation : largeur du repère en px + distance réelle qu'il
   // représente. `null` hors mode modélisation, où la barre n'est pas affichée.
   const [scaleBar, setScaleBar] = useState<{ px: number; label: string } | null>(null);
@@ -25,7 +35,6 @@ export const Viewport3D = () => {
   const modelsRef = useRef<Set<BABYLON.AbstractMesh>>(new Set());
   const currentToolRef = useRef<string>("select");
   const [, setSelectedMeshName] = useState<string | null>(null);
-
   // Dimensions : 250mm de diamètre (rayon 125) et 130mm de haut
   const RADIUS = 125;
   const HEIGHT = 130;
@@ -98,7 +107,65 @@ export const Viewport3D = () => {
 
     const camera = new BABYLON.ArcRotateCamera("camera", Math.PI / 4, Math.PI / 3, 300, new BABYLON.Vector3(0, HEIGHT / 2, 0), scene);
     camera.attachControl(canvas, true);
-    camera.wheelPrecision = 2;
+
+    /**
+     * Zoom molette VERS LE CURSEUR, multiplicatif. Remplace l'entrée molette de Babylon :
+     *  - multiplicatif : chaque cran change le rayon d'un même pourcentage, quelle que soit
+     *    l'échelle (une distance fixe ne faisait rien de loin et envoyait en butée de près) ;
+     *  - vers le curseur : le point du plan horizontal passant par la cible, sous la souris, reste
+     *    fixe à l'écran — caméra ET cible sont rapprochées de ce point du même facteur. On avance
+     *    donc vers ce qu'on vise sans devoir translater tous les trois crans. En modélisation ce
+     *    plan est le sol, et la cible y reste.
+     * `zoomToMouseLocation` de Babylon fait l'équivalent, mais son inertie s'arrête sur des seuils
+     * ABSOLUS qui tronquent le mouvement aux petites échelles (même défaut que l'ancien pan).
+     * L'adoucissement est donc refait ici, en échelle logarithmique, indépendant de l'échelle.
+     */
+    camera.inputs.removeByType("ArcRotateCameraMouseWheelInput");
+    const ZOOM_LOG_PER_WHEEL_UNIT = 0.15 / 100; // cran standard (deltaY 100) ≈ ×1,16 / ÷1,16
+    const ZOOM_SMOOTHING_PER_FRAME = 0.35; // part du zoom restant appliquée à chaque image (60 i/s)
+    // Au-delà, le point visé est quasi à l'horizon : on zoome alors vers la cible, sans quoi un
+    // cran projetterait la caméra à des kilomètres.
+    const ZOOM_MAX_ANCHOR_DISTANCE_RADII = 20;
+    let pendingZoomLog = 0;
+    const zoomAnchor = new BABYLON.Vector3();
+    const onCanvasWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const unit = event.deltaMode === 1 ? 33 : event.deltaMode === 2 ? 100 : 1; // lignes / pages
+      pendingZoomLog += event.deltaY * unit * ZOOM_LOG_PER_WHEEL_UNIT;
+    };
+    canvas.addEventListener("wheel", onCanvasWheel, { passive: false });
+    const zoomTowardCursorObserver = scene.onBeforeRenderObservable.add(() => {
+      if (pendingZoomLog === 0) return;
+      const frames = engine.getDeltaTime() / (1000 / 60);
+      const portion = 1 - Math.pow(1 - ZOOM_SMOOTHING_PER_FRAME, Math.max(frames, 0.01));
+      let stepLog = Math.abs(pendingZoomLog) < 1e-4 ? pendingZoomLog : pendingZoomLog * portion;
+      pendingZoomLog -= stepLog;
+
+      // Respect des butées : on écrête le facteur plutôt que de laisser Babylon ramener le rayon
+      // (ce qui décalerait le point visé).
+      const minR = camera.lowerRadiusLimit ?? 0;
+      const maxR = camera.upperRadiusLimit ?? Number.POSITIVE_INFINITY;
+      const targetR = Math.min(Math.max(camera.radius * Math.exp(stepLog), minR), maxR);
+      if (targetR === camera.radius) { pendingZoomLog = 0; return; }
+      stepLog = Math.log(targetR / camera.radius);
+      const factor = Math.exp(stepLog);
+
+      // Point visé : intersection du rayon souris avec le plan horizontal de la cible.
+      zoomAnchor.copyFrom(camera.target);
+      const ray = scene.createPickingRay(scene.pointerX, scene.pointerY, BABYLON.Matrix.Identity(), camera);
+      if (Math.abs(ray.direction.y) > 1e-9) {
+        const t = (camera.target.y - ray.origin.y) / ray.direction.y;
+        if (t > 0 && t <= camera.radius * ZOOM_MAX_ANCHOR_DISTANCE_RADII) {
+          ray.origin.addToRef(ray.direction.scale(t), zoomAnchor);
+          zoomAnchor.y = camera.target.y;
+        }
+      }
+      // Homothétie de centre `zoomAnchor` : cible et caméra (via le rayon) se rapprochent de lui
+      // du même facteur, orientation inchangée — le point visé reste donc fixe à l'écran.
+      const newTarget = zoomAnchor.add(camera.target.subtract(zoomAnchor).scale(factor));
+      camera.target.copyFrom(newTarget);
+      camera.radius = targetR;
+    });
 
     // Le MSAA du contexte WebGL (2ᵉ argument `true` de BABYLON.Engine) ne couvre que le
     // rendu direct — les contours (LinesMesh, edgesRendering des voxels) et le compositing
@@ -109,9 +176,25 @@ export const Viewport3D = () => {
 
     camera.angularSensibilityX = 3500;
     camera.angularSensibilityY = 3500;
+    // Recalculée à chaque image (cf. observer plus bas) : le pan doit suivre l'échelle du zoom.
     camera.panningSensibility = 40;
     camera.maxZ = 10000;
     cameraRef.current = camera;
+
+    // Pan sans inertie, comme en CAO : le sol colle au curseur. L'inertie de Babylon s'arrête sur
+    // des seuils ABSOLUS (≈ 0,001 unité monde, et une vitesse plancher de 1e-6) : à petite échelle
+    // tout le mouvement passe sous ces seuils et la glissade était tronquée, pas à grande échelle
+    // — le même geste déplaçait alors la vue de 1× ou de 1,4× selon le zoom.
+    camera.panningInertia = 0;
+    camera.movement.panInertia = 0;
+    // Pan proportionnel au zoom : Babylon déplace la cible de `pixels / panningSensibility` ; avec
+    // cette valeur, un glisser de N px la déplace de N × (taille monde d'un pixel au niveau de la
+    // cible), qu'on soit à 0,001 mm ou à 1 m.
+    scene.onBeforeRenderObservable.add(() => {
+      const worldPerPixel = (2 * camera.radius * Math.tan(camera.fov / 2)) / engine.getRenderHeight();
+      if (!Number.isFinite(worldPerPixel) || worldPerPixel <= 0) return;
+      camera.panningSensibility = 1 / worldPerPixel;
+    });
 
     // Fond 3D : un plan texturé avec l'image de fond, parenté à la caméra pour toujours
     // remplir le cadre. Contrairement au fond CSS derrière le canvas, cette géométrie
@@ -561,9 +644,12 @@ export const Viewport3D = () => {
     glassDisc.position.y = -0.02;
     glassDisc.material = glassDiscMat;
     glassDisc.parent = volumeRoot;
-    blurRT.renderList = scene.meshes.filter((m) => m !== glassDisc);
+    // Les maillages qui échantillonnent eux-mêmes `blurRT` (disque, boutons d'action du plateau)
+    // n'y sont pas rendus : ils liraient la texture en cours d'écriture.
+    const capturedInBlur = (m: BABYLON.AbstractMesh) => m !== glassDisc && !m.name.startsWith('plateAction');
+    blurRT.renderList = scene.meshes.filter(capturedInBlur);
     scene.onNewMeshAddedObservable.add((m) => {
-      if (m !== glassDisc && blurRT.renderList) blurRT.renderList.push(m);
+      if (capturedInBlur(m) && blurRT.renderList) blurRT.renderList.push(m);
     });
 
     const outlinePoints = [];
@@ -586,24 +672,7 @@ export const Viewport3D = () => {
 
     // Grille d'esquisse du mode modélisation : masquée tant qu'on est en mode slicer, elle
     // remplace le volume d'impression pour donner un repère de travail neutre au modéliseur.
-    // Deux niveaux (mineur/majeur), en gris neutre plutôt qu'en cyan à faible opacité, pour
-    // qu'elle reste lisible comme repère de fond même sans rien dessiner par-dessus.
-    /**
-     * Hiérarchie à trois niveaux (subdivisions / décades / axes), distingués par l'ÉPAISSEUR
-     * autant que par la couleur. Un `LinesMesh` fait toujours 1 px : on passe donc par
-     * `GreasedLine`, qui produit un vrai ruban d'épaisseur réglable — un seul mesh par niveau,
-     * `points` acceptant un tableau de polylignes, donc un draw call chacun.
-     *
-     * `sizeAttenuation: true` = largeur CONSTANTE à l'écran (le shader divise l'offset par la
-     * résolution au lieu de le laisser subir la division perspective) ; l'unité vaut alors
-     * `width / 2` pixels. Indispensable ici : la grille change d'échelle avec le zoom, une
-     * largeur en unités monde la réduirait à des cheveux.
-     */
-    const GRID_WIDTH_MINOR = 2;   // ~1 px
-    const GRID_WIDTH_MAJOR = 3.5; // ~1.75 px
-    const GRID_WIDTH_AXIS = 6;    // ~3 px
-    const GRID_ALPHA_MINOR = 0.22;
-    const GRID_ALPHA_MAJOR = 0.45;
+    const GRID_WIDTH_AXIS = 6; // ~3 px — épaisseur des deux axes colorés (cf. plus bas)
 
     const makeGridLines = (
       name: string,
@@ -624,49 +693,182 @@ export const Viewport3D = () => {
       return mesh;
     };
 
-    /**
-     * Grille infinie, façon Fusion 360 : les traits ne se DÉPLACENT jamais quand on zoome, on
-     * ne fait qu'ajouter ou retirer un niveau de subdivision. C'est possible parce que la
-     * tuile est décimale — un trait tous les 1, les décades tous les 10 — donc la mettre à
-     * l'échelle ×10 replace exactement ses traits sur un sous-ensemble des précédents.
-     *
-     * Trois maillages construits sur cette même tuile, avec `S` = pas courant :
-     *  - `gridSubFine` : pas S/10, en fondu (c'est LUI qui apparaît/disparaît au zoom) ;
-     *  - `gridSubMain` : pas S, toujours opaque ;
-     *  - `gridDecade`  : pas 10·S, plus épais.
-     * Quand `S` descend d'une décade, l'ancien `gridSubFine` (opaque à ce moment-là) devient
-     * le nouveau `gridSubMain` au même pas : la transition ne fait donc bouger aucun trait.
-     */
-    const GRID_TILE_EXTENT = 100; // en unités de tuile (→ ±100·S en monde)
-    const gridTileSub: BABYLON.Vector3[][] = [];
-    const gridTileDecade: BABYLON.Vector3[][] = [];
-    for (let k = -GRID_TILE_EXTENT; k <= GRID_TILE_EXTENT; k++) {
-      if (k === 0) continue; // les deux lignes centrales sont les axes colorés, tracés à part
-      const target = k % 10 === 0 ? gridTileDecade : gridTileSub;
-      const e = GRID_TILE_EXTENT;
-      target.push([new BABYLON.Vector3(-e, 0, k), new BABYLON.Vector3(e, 0, k)]);
-      target.push([new BABYLON.Vector3(k, 0, -e), new BABYLON.Vector3(k, 0, e)]);
-    }
-
-    const gridColorMinor = new BABYLON.Color3(0.6, 0.65, 0.72);
-    const gridSubFine = makeGridLines("gridSubFine", gridTileSub, gridColorMinor, GRID_WIDTH_MINOR, 0);
-    const gridSubMain = makeGridLines("gridSubMain", gridTileSub, gridColorMinor, GRID_WIDTH_MINOR, GRID_ALPHA_MINOR);
-    const gridDecade = makeGridLines(
-      "gridDecade", gridTileDecade, new BABYLON.Color3(0.78, 0.83, 0.89), GRID_WIDTH_MAJOR, GRID_ALPHA_MAJOR,
-    );
-    // Les deux axes du sol traversent toute la grille : les plus épais des trois niveaux, et
-    // colorés comme le repère d'origine (X rouge / Z bleu — mêmes teintes que `AXIS_COLORS`
-    // plus bas, l'axe vertical Y vert étant porté par les plans d'esquisse).
+    // Portée en unités monde des axes colorés et des graduations chiffrées (cf. plus bas) —
+    // n'a plus besoin de borner un pavage de lignes : le quadrillage lui-même est maintenant un
+    // shader procédural, sans étendue finie (cf. `modelingGridGround` ci-dessous).
+    const GRID_TILE_EXTENT = 100;
+    // Les deux axes du sol : les plus épais des traits de la grille, colorés comme le repère
+    // d'origine (X rouge / Z bleu — mêmes teintes que `AXIS_COLORS` plus bas, l'axe vertical Y
+    // vert étant porté par les plans d'esquisse). Légèrement surélevés (`y` non nul) pour ne pas
+    // z-fighter avec le quadrillage procédural, coplanaire, juste en dessous.
     const modelingGridAxisX = makeGridLines(
       "modelingGridAxisX",
-      [[new BABYLON.Vector3(-GRID_TILE_EXTENT, 0, 0), new BABYLON.Vector3(GRID_TILE_EXTENT, 0, 0)]],
+      [[new BABYLON.Vector3(-GRID_TILE_EXTENT, 0.02, 0), new BABYLON.Vector3(GRID_TILE_EXTENT, 0.02, 0)]],
       new BABYLON.Color3(0.85, 0.22, 0.22), GRID_WIDTH_AXIS, 0.9,
     );
     const modelingGridAxisZ = makeGridLines(
       "modelingGridAxisZ",
-      [[new BABYLON.Vector3(0, 0, -GRID_TILE_EXTENT), new BABYLON.Vector3(0, 0, GRID_TILE_EXTENT)]],
+      [[new BABYLON.Vector3(0, 0.02, -GRID_TILE_EXTENT), new BABYLON.Vector3(0, 0.02, GRID_TILE_EXTENT)]],
       new BABYLON.Color3(0.25, 0.5, 0.95), GRID_WIDTH_AXIS, 0.9,
     );
+
+    /**
+     * Quadrillage procédural : un unique plan, dont le fragment shader dessine les traits
+     * analytiquement à partir de la position monde de chaque pixel — plutôt que des maillages de
+     * lignes à un pas UNIQUE choisi pour toute la scène (l'ancienne approche, cf. historique Git),
+     * ce qui donnait un effet de « grosse grille au milieu de petites » : en perspective, la
+     * distance caméra-sol varie fortement d'un bord à l'autre de l'écran, donc le pas idéal
+     * (dérivé de `GRID_MIN_PX` pixels à l'écran) varie lui aussi — un seul pas global ne peut
+     * convenir partout à la fois. Ici, `fwidth()` donne au shader la dérivée écran de la
+     * position monde EN CHAQUE PIXEL, donc le même calcul que `updateGrid` (log10 + arrondi
+     * décade) s'applique localement : chaque zone de l'écran affiche la subdivision qui LUI
+     * convient, avec une transition en fondu continue plutôt qu'un saut global.
+     *
+     * Le plan suit la cible caméra (translation pure, cf. `gridZoomObserver`) pour rester sous
+     * le point regardé : le motif étant recalculé analytiquement à chaque pixel (pas de tuile
+     * finie à raccorder), cette translation n'a aucune contrainte d'alignement contrairement à
+     * l'ancien pavage de lignes.
+     */
+    BABYLON.Effect.ShadersStore["modelingGridVertexShader"] = `
+      precision highp float;
+      attribute vec3 position;
+      uniform mat4 worldViewProjection;
+      uniform float uScale;
+      uniform vec2 uOffset;
+      // Position dans le plan du motif, relative à l'ancre de la grille (cf. recenterGridGround).
+      // Le plan est un carré unité recentré sur la cible et mis à l'échelle du rayon caméra à
+      // chaque frame : ses sommets restent donc à une distance de l'ordre du champ visible, et
+      // l'interpolation float32 de cette varying garde une précision proportionnelle au zoom.
+      // Avec un plan fixe géant (sommets à des dizaines de mètres), l'erreur d'interpolation
+      // (~taille x 6e-8) dépassait la taille d'un pixel, puis du champ entier au zoom extrême :
+      // fwidth() devenait bruité, d'où des bandes, puis une grille vide. uOffset (cible - ancre)
+      // est calculé côté CPU en double précision et reste petit.
+      varying vec2 vGridPos;
+      varying vec2 vUnitPos;
+      void main(void) {
+        vGridPos = position.xz * uScale + uOffset;
+        vUnitPos = position.xz;
+        gl_Position = worldViewProjection * vec4(position, 1.0);
+      }
+    `;
+    BABYLON.Effect.ShadersStore["modelingGridFragmentShader"] = `
+      precision highp float;
+      varying vec2 vGridPos;
+      varying vec2 vUnitPos;
+      uniform vec3 uMinorColor;
+      uniform vec3 uMajorColor;
+      uniform float uMinorAlpha;
+      uniform float uMajorAlpha;
+      uniform float uMinPx;
+      uniform float uMinExponent;
+
+      // Distance (en pixels) au trait le plus proche d'un quadrillage de pas spacing, à partir
+      // d'une position ET d'une dérivée déjà calculées — jamais de fwidth() ici : spacing
+      // varie de façon DISCONTINUE d'un pixel à l'autre (cf. plus bas), et rappeler fwidth() sur
+      // une expression qui en dépend (position / spacing) ferait comparer par différence finie
+      // deux pixels voisins avec des pas différents pile à la frontière — le GPU y calculerait
+      // n'importe quoi, masquant les traits par bandes entières à cet endroit précis de l'écran
+      // (fixe, puisque lié à la distance caméra-sol, pas à la position qu'on regarde).
+      float gridMask(vec2 worldXZ, vec2 worldDeriv, float spacing, float halfWidthPx) {
+        vec2 coord = worldXZ / spacing;
+        vec2 coordDeriv = worldDeriv / spacing;
+        vec2 dist = abs(fract(coord + 0.5) - 0.5) / max(coordDeriv, vec2(1e-6));
+        float d = min(dist.x, dist.y);
+        return 1.0 - clamp(d / halfWidthPx, 0.0, 1.0);
+      }
+
+      void main(void) {
+        // Seul appel à fwidth() du shader, sur une grandeur continue (vGridPos) — tout le reste
+        // s'en déduit par simple arithmétique (cf. gridMask ci-dessus).
+        vec2 worldDeriv = fwidth(vGridPos);
+        float worldPerPixel = max(max(worldDeriv.x, worldDeriv.y), 1e-12);
+
+        // Seuils, en pixels d'écart à l'écran entre deux traits d'une même famille : un trait fin
+        // apparaît en fondu entre FINE_IN et FINE_FULL, puis s'éclaircit et s'épaissit jusqu'au
+        // rendu « principal » entre MAIN_IN et MAIN_FULL.
+        float fineIn = 0.6 * uMinPx;
+        float fineFull = 1.4 * uMinPx;
+        float mainIn = 5.0 * uMinPx;
+        float mainFull = 12.0 * uMinPx;
+
+        // Familles de traits de pas 1·10^k et 2·10^k : 10^(k+1) ⊂ 2·10^k ⊂ 10^k, donc en zoomant un
+        // carreau principal se divise d'abord en 5 (pas 2·10^k), puis en 10 (pas 10^k), et ces
+        // traits fins deviennent à leur tour principaux — sans qu'aucun trait ne bouge. Chaque
+        // famille a une intensité, une couleur et une épaisseur fonctions CONTINUES de son propre
+        // écart à l'écran : aucune bascule brutale quand le pixel change d'échelle.
+        // Plancher à uMinExponent : le plus fin des pas tracés ne descend jamais sous
+        // 10^uMinExponent (limite de précision, cf. CPU).
+        float baseExp = max(floor(log(fineIn * worldPerPixel) / log(10.0)), uMinExponent);
+        vec3 color = uMinorColor;
+        float alpha = 0.0;
+        for (int e = 0; e <= 3; e++) {
+          for (int m = 0; m < 2; m++) {
+            float spacing = pow(10.0, baseExp + float(e)) * (m == 0 ? 1.0 : 2.0);
+            float spacingPx = spacing / worldPerPixel;
+            float visible = smoothstep(fineIn, fineFull, spacingPx);
+            if (visible <= 0.0) continue;
+            float major = smoothstep(mainIn, mainFull, spacingPx);
+            float mask = gridMask(vGridPos, worldDeriv, spacing, mix(0.55, 0.95, major));
+            float a = mask * visible * mix(uMinorAlpha, uMajorAlpha, major);
+            if (a > alpha) {
+              alpha = a;
+              color = mix(uMinorColor, uMajorColor, major);
+            }
+          }
+        }
+
+        // Fondu vers le bord du plan : sa limite ne se voit jamais, même en vue rasante.
+        alpha *= 1.0 - smoothstep(0.6, 1.0, length(vUnitPos));
+
+        if (alpha < 0.004) discard;
+        gl_FragColor = vec4(color, alpha);
+      }
+    `;
+    const GRID_MIN_PX = 10;
+    // En dessous de ce pas (mm), la géométrie flotte en simple précision : les coordonnées
+    // locales divisées par un pas aussi microscopique perdent toute précision fractionnaire
+    // (c'est la cause des artefacts constatés « sous 1 mm »). On plafonne donc l'affinement —
+    // CPU (étiquettes/axes, cf. updateGrid) et shader (uMinExponent) — à cette décade, et on y
+    // arrête aussi le zoom caméra (cf. camera.lowerRadiusLimit plus bas) plutôt que de laisser
+    // l'utilisateur zoomer sur une grille devenue incohérente.
+    const GRID_MIN_STEP_EXPONENT = -6; // 0,000001 mm
+    // Demi-taille du plan en multiples du rayon caméra (cf. recenterGridGround). Surtout pas
+    // démesurée : un plan de milliers de rayons produisait des triangles immenses que le GPU
+    // redécoupe contre le cadre de la caméra, et l'interpolation par pixel se faussait le long de
+    // la diagonale du carré — d'où un grand losange de traits clairs pile à l'azimut 45° (celui
+    // du démarrage), qui disparaissait dès qu'on orbitait. 60 rayons couvrent largement le sol
+    // visible en vue plongeante ; au-delà, le fondu de bord (cf. shader) masque la limite.
+    const GRID_GROUND_RADIUS_FACTOR = 60;
+    // Carré unité (±1), subdivisé pour garder des triangles de taille modeste ; sa taille réelle
+    // est fixée à chaque frame par `scaling`.
+    const modelingGridGround = BABYLON.MeshBuilder.CreateGround(
+      "modelingGridGround", { width: 2, height: 2, subdivisions: 16 }, scene,
+    );
+    // Taille et position changent à chaque frame : on ne laisse pas Babylon l'écarter sur une
+    // boîte englobante périmée.
+    modelingGridGround.alwaysSelectAsActiveMesh = true;
+    const modelingGridMat = new BABYLON.ShaderMaterial(
+      "modelingGridMat", scene, { vertex: "modelingGrid", fragment: "modelingGrid" },
+      {
+        attributes: ["position"],
+        uniforms: [
+          "worldViewProjection", "uMinorColor", "uMajorColor", "uMinorAlpha", "uMajorAlpha", "uMinPx", "uMinExponent",
+          "uScale", "uOffset",
+        ],
+      },
+    );
+    modelingGridMat.setColor3("uMinorColor", new BABYLON.Color3(0.6, 0.65, 0.72));
+    modelingGridMat.setColor3("uMajorColor", new BABYLON.Color3(0.9, 0.94, 1.0));
+    modelingGridMat.setFloat("uMinorAlpha", 0.2);
+    modelingGridMat.setFloat("uMajorAlpha", 0.75);
+    modelingGridMat.setFloat("uMinPx", GRID_MIN_PX);
+    modelingGridMat.setFloat("uMinExponent", GRID_MIN_STEP_EXPONENT);
+    modelingGridMat.alpha = 0.999; // active le blend alpha ; la valeur réelle vient du shader
+    modelingGridMat.backFaceCulling = false;
+    modelingGridMat.needDepthPrePass = false;
+    modelingGridGround.material = modelingGridMat;
+    modelingGridGround.isPickable = false;
+    modelingGridGround.setEnabled(false);
 
     /**
      * Chiffres de mesure le long des axes X/Z, à chaque graduation majeure — de petits panneaux
@@ -677,93 +879,284 @@ export const Viewport3D = () => {
      * texture et matériau sont mutualisés par texte pour ne pas en créer 4 copies.
      */
     const gridLabelMatCache = new Map<string, BABYLON.StandardMaterial>();
+    // Oxanium est servie depuis /public/fonts, mais reste chargée de façon asynchrone : si elle
+    // n'est pas prête au premier dessin, le canvas retombe silencieusement sur sans-serif. On
+    // garde les textures pour les redessiner une fois la police disponible.
+    const gridLabelTextures = new Map<string, BABYLON.DynamicTexture>();
+    // Dessin par le contexte canvas plutôt que `drawText` : celui-ci gère mal un fond
+    // transparent (il peint un rectangle au lieu d'effacer) et son dernier paramètre `update`
+    // conditionne le réupload GPU. Ici on efface vraiment, et on force l'upload.
+    const drawGridLabel = (texture: BABYLON.DynamicTexture, text: string) => {
+      const ctx = texture.getContext() as CanvasRenderingContext2D;
+      const { width, height } = texture.getSize();
+      ctx.clearRect(0, 0, width, height);
+      ctx.font = '600 40px Oxanium, sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, width / 2, height / 2);
+      texture.update(true); // `invertY` compense le retournement induit par le plan couché
+    };
+    // Largeur de texture adaptée au texte (hauteur fixe 64) : à 128 px fixes, les longs nombres
+    // (« -0.0007 ») étaient tronqués. Le rapport largeur/hauteur est gardé pour que
+    // `layoutGridLabels` donne au panneau les mêmes proportions que sa texture.
+    const GRID_LABEL_TEX_HEIGHT = 64;
+    const gridLabelAspect = new Map<string, number>();
+    const measureGridLabel = (text: string) => {
+      const ctx = document.createElement('canvas').getContext('2d');
+      if (!ctx) return 128;
+      ctx.font = '600 40px Oxanium, sans-serif';
+      // Marge pour la police définitive (Oxanium, chargée en différé) un peu plus large que le
+      // repli sans-serif mesuré ici au premier affichage.
+      return Math.ceil(ctx.measureText(text).width * 1.15 + 16);
+    };
     const getGridLabelMaterial = (text: string): BABYLON.StandardMaterial => {
       const cached = gridLabelMatCache.get(text);
       if (cached) return cached;
-      const texture = new BABYLON.DynamicTexture(`gridTickTex_${text}`, { width: 128, height: 64 }, scene, false);
+      const texWidth = Math.max(64, measureGridLabel(text));
+      gridLabelAspect.set(text, texWidth / GRID_LABEL_TEX_HEIGHT);
+      const texture = new BABYLON.DynamicTexture(
+        `gridTickTex_${text}`, { width: texWidth, height: GRID_LABEL_TEX_HEIGHT }, scene, true,
+      );
       texture.hasAlpha = true;
-      texture.drawText(text, null, null, "bold 44px sans-serif", "rgba(255,255,255,0.75)", "transparent", true);
+      drawGridLabel(texture, text);
+      gridLabelTextures.set(text, texture);
       const mat = new BABYLON.StandardMaterial(`gridTickMat_${text}`, scene);
+      // `hasAlpha` sur la diffuse suffit à découper le texte. Réutiliser la même texture en
+      // `opacityTexture` multiplierait l'alpha par lui-même et, ce canal n'étant pas configuré
+      // via `getAlphaFromRGB`, rendait les étiquettes entièrement invisibles.
       mat.diffuseTexture = texture;
-      mat.opacityTexture = texture;
+      mat.emissiveTexture = texture;
       mat.emissiveColor = new BABYLON.Color3(1, 1, 1);
+      mat.useAlphaFromDiffuseTexture = true;
       mat.disableLighting = true;
       mat.backFaceCulling = false;
       gridLabelMatCache.set(text, mat);
       return mat;
     };
 
-    // Les étiquettes sont placées sur les lignes de décade (multiples de 10 unités de tuile) :
-    // on mémorise leur valeur et leur position en unités de tuile, à multiplier par le pas
-    // courant `S`. Comme les lignes, elles ne bougent donc pas d'une décade à l'autre.
-    interface GridLabel { mesh: BABYLON.Mesh; tileValue: number; tilePosition: BABYLON.Vector3 }
+    // Une étiquette par graduation : on mémorise son rang `tileValue` (± 1…GRID_TILE_EXTENT) et
+    // son axe ; sa position monde vaut rang × pas courant `S`. Taille et visibilité sont
+    // recalculées à chaque frame par `layoutGridLabels`.
+    interface GridLabel {
+      mesh: BABYLON.Mesh; tileValue: number; axis: 'x' | 'z';
+      aspect: number; // largeur / hauteur de la texture du texte affiché
+    }
     const modelingGridLabels: GridLabel[] = [];
-    const makeGridTickLabel = (tileValue: number, tilePosition: BABYLON.Vector3, yaw: number) => {
+    const GRID_LABEL_WIDTH = 0.8;
+    const GRID_LABEL_HEIGHT = 0.4;
+    const makeGridTickLabel = (tileValue: number, axis: 'x' | 'z') => {
       const label = BABYLON.MeshBuilder.CreatePlane(
-        `gridTick_${tilePosition.x}_${tilePosition.z}`, { width: 9, height: 4.5 }, scene,
+        // Proportions de la texture (128 × 64) ; la taille réelle est fixée par `layoutGridLabels`.
+        `gridTick_${axis}_${tileValue}`, { width: GRID_LABEL_WIDTH, height: GRID_LABEL_HEIGHT }, scene,
       );
-      // Couché à plat (pitch π/2) puis pivoté pour se lire le long de son axe.
-      label.rotation = new BABYLON.Vector3(Math.PI / 2, yaw, 0);
+      // Face à la caméra : couché au sol, le chiffre était écrasé par l'angle de vue et devenait
+      // illisible en vue rasante, même à taille constante. Il reste ancré à sa graduation.
+      label.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL;
       label.isPickable = false;
       label.renderingGroupId = 1; // par-dessus les lignes de grille
       label.setEnabled(false);
-      modelingGridLabels.push({ mesh: label, tileValue, tilePosition: tilePosition.clone() });
+      modelingGridLabels.push({
+        mesh: label, tileValue, axis, aspect: GRID_LABEL_WIDTH / GRID_LABEL_HEIGHT,
+      });
     };
-    // Décalage perpendiculaire pour que le chiffre borde son axe sans le recouvrir.
-    const gridLabelOffset = 3;
-    for (let k = 10; k <= GRID_TILE_EXTENT; k += 10) {
-      makeGridTickLabel(k, new BABYLON.Vector3(k, 0.01, gridLabelOffset), 0);
-      makeGridTickLabel(-k, new BABYLON.Vector3(-k, 0.01, gridLabelOffset), 0);
-      makeGridTickLabel(k, new BABYLON.Vector3(gridLabelOffset, 0.01, k), Math.PI / 2);
-      makeGridTickLabel(-k, new BABYLON.Vector3(gridLabelOffset, 0.01, -k), Math.PI / 2);
+    // Une étiquette par unité de tuile (et non toutes les 10) : avec un pas `S` de 10 mm, la
+    // graduation tombe ainsi tous les 10 mm. Les matériaux étant mutualisés par texte, ces
+    // quelques centaines de plans ne coûtent qu'une poignée de textures.
+    for (let k = 1; k <= GRID_TILE_EXTENT; k += 1) {
+      makeGridTickLabel(k, 'x');
+      makeGridTickLabel(-k, 'x');
+      makeGridTickLabel(k, 'z');
+      makeGridTickLabel(-k, 'z');
     }
 
-    const modelingGridMeshes = [gridSubFine, gridSubMain, gridDecade, modelingGridAxisX, modelingGridAxisZ];
+    void document.fonts?.load('600 40px Oxanium').then(() => {
+      if (scene.isDisposed) return;
+      gridLabelTextures.forEach((texture, text) => drawGridLabel(texture, text));
+    }).catch(() => { /* police indisponible : le repli sans-serif déjà dessiné reste lisible */ });
+
+    const modelingGridMeshes = [modelingGridGround, modelingGridAxisX, modelingGridAxisZ];
     const modelingGrid = [...modelingGridMeshes, ...modelingGridLabels.map((l) => l.mesh)];
 
     // Formate une graduation sans zéros parasites (250, 25, 2.5, 0.25 …).
     const formatGridValue = (v: number) => String(Number(v.toPrecision(6)));
 
     /**
-     * Choix du pas `S` : on le veut compris entre `GRID_MIN_PX` et 10×`GRID_MIN_PX` pixels à
-     * l'écran, ce qui revient à subdiviser dès que la grille « prend toute la place ». Le
-     * niveau fin (pas S/10) apparaît en fondu au fur et à mesure qu'il atteint lui aussi cette
-     * taille lisible ; quand il y arrive tout à fait, `S` descend d'une décade et ce niveau
-     * fin devient le niveau principal — au même pas, donc sans qu'aucun trait ne se déplace.
+     * Pas `S` des axes colorés et de leurs graduations chiffrées : on le veut compris entre
+     * `GRID_MIN_PX` et 10×`GRID_MIN_PX` pixels à l'écran AU NIVEAU DE LA CIBLE — même seuil que
+     * `uMinPx` dans le shader du quadrillage, pour que les nombres affichés restent cohérents
+     * avec ce qu'on voit près du centre de l'écran (le quadrillage lui-même, lui, s'affine en
+     * continu vers la caméra : cf. le commentaire sur `modelingGridGround` plus haut).
      */
-    const GRID_MIN_PX = 10;
+    // Demi-étendue visée à l'entrée du mode modélisation, en mm : cadre une dizaine de
+    // graduations de part et d'autre de l'origine, le pas restant à 10 mm.
+    const GRID_DEFAULT_HALF_EXTENT_MM = 90;
     let gridStepScale = 0; // 0 = jamais appliqué, force le premier passage
     const updateGrid = (worldPerPixel: number) => {
       const l = Math.log10(GRID_MIN_PX * worldPerPixel);
-      const exponent = Math.ceil(l);
+      const exponent = Math.max(Math.ceil(l), GRID_MIN_STEP_EXPONENT);
       const step = Math.pow(10, exponent);
-      // `fade` ∈ [0,1) : 0 quand le niveau fin serait trop dense, 1 juste avant qu'il ne
-      // devienne le niveau principal. Lissé pour que l'apparition ne soit pas linéaire.
-      const t = exponent - l;
-      const fade = t * t * (3 - 2 * t);
-
-      if (gridSubFine.material) gridSubFine.material.alpha = fade * GRID_ALPHA_MINOR;
-      gridSubFine.setEnabled(fade > 0.02);
-
       if (step === gridStepScale) return;
       gridStepScale = step;
 
-      gridSubFine.scaling.setAll(step / 10);
-      gridSubMain.scaling.setAll(step);
-      gridDecade.scaling.setAll(step);
       modelingGridAxisX.scaling.setAll(step);
       modelingGridAxisZ.scaling.setAll(step);
-      modelingGridLabels.forEach(({ mesh, tileValue, tilePosition }) => {
-        mesh.scaling.setAll(step);
-        mesh.position.copyFrom(tilePosition).scaleInPlace(step);
-        mesh.material = getGridLabelMaterial(formatGridValue(tileValue * step));
+      modelingGridLabels.forEach((label) => {
+        const text = formatGridValue(label.tileValue * step);
+        label.mesh.material = getGridLabelMaterial(text);
+        label.aspect = gridLabelAspect.get(text) ?? GRID_LABEL_WIDTH / GRID_LABEL_HEIGHT;
       });
     };
 
+    /**
+     * Chiffres de taille CONSTANTE à l'écran. Dimensionnés en unités monde, ils rétrécissaient
+     * avec la distance jusqu'à devenir du micro-texte au loin. On les met donc à l'échelle, à
+     * chaque frame, de la taille monde d'un pixel à LEUR distance de la caméra. Des chiffres de
+     * taille fixe se chevaucheraient là où les graduations se resserrent à l'écran (au loin, ou
+     * sur un axe qui file vers l'horizon) : on n'y garde qu'une graduation sur 2, 10, 20… (valeurs
+     * rondes), selon l'espacement réellement disponible à cet endroit.
+     */
+    const GRID_LABEL_PLANE_PX = 22; // hauteur du panneau à l'écran (glyphe ≈ 60 % de celle-ci)
+    const GRID_LABEL_GAP_PX = 6; // marge entre deux chiffres, et entre un chiffre et son axe
+    // Suite emboîtée (chaque pas divise le suivant) : une graduation affichée de loin le reste de
+    // près, sans suites irrégulières (30, 35, 38, 40…) aux changements de pas. Même rythme que la
+    // grille : division par 5 (×2) puis par 10.
+    const GRID_LABEL_DECIMATIONS = [1, 2, 10, 20, 100];
+    const labelAxisPoint = new BABYLON.Vector3();
+    const labelNextPoint = new BABYLON.Vector3();
+    const labelToCamera = new BABYLON.Vector3();
+    const labelScreen = new BABYLON.Vector3();
+    const labelNextScreen = new BABYLON.Vector3();
+    const layoutGridLabels = () => {
+      const step = gridStepScale;
+      if (step <= 0) return;
+      const renderW = engine.getRenderWidth();
+      const renderH = engine.getRenderHeight();
+      const pixelsPerWorldAtUnitDistance = renderH / (2 * Math.tan(camera.fov / 2));
+      const camPos = camera.globalPosition;
+      const transform = scene.getTransformMatrix();
+      const viewport = camera.viewport.toGlobal(renderW, renderH);
+      const identity = BABYLON.Matrix.IdentityReadOnly;
+      const planeH = GRID_LABEL_PLANE_PX;
+      // Écart à l'écran (px) entre les graduations de rang `rank` et `rank + 1` d'un axe, mis en
+      // cache par frame : chaque bloc le demande pour ses deux bornes.
+      const spacingCache = new Map<string, number>();
+      const spacingPxAt = (axis: 'x' | 'z', rank: number) => {
+        const key = `${axis}${rank}`;
+        const cached = spacingCache.get(key);
+        if (cached !== undefined) return cached;
+        const a = rank * step;
+        const b = (rank + 1) * step;
+        labelAxisPoint.set(axis === 'x' ? a : 0, 0, axis === 'z' ? a : 0);
+        labelNextPoint.set(axis === 'x' ? b : 0, 0, axis === 'z' ? b : 0);
+        BABYLON.Vector3.ProjectToRef(labelAxisPoint, identity, transform, viewport, labelScreen);
+        BABYLON.Vector3.ProjectToRef(labelNextPoint, identity, transform, viewport, labelNextScreen);
+        const px = Math.hypot(labelNextScreen.x - labelScreen.x, labelNextScreen.y - labelScreen.y);
+        spacingCache.set(key, px);
+        return px;
+      };
+      modelingGridLabels.forEach(({ mesh, tileValue, axis, aspect }) => {
+        const planeW = planeH * aspect;
+        const along = tileValue * step;
+        labelAxisPoint.set(axis === 'x' ? along : 0, 0, axis === 'z' ? along : 0);
+        camPos.subtractToRef(labelAxisPoint, labelToCamera);
+        const distance = labelToCamera.length();
+        if (distance <= 0) { mesh.isVisible = false; return; }
+        const worldPerPixel = distance / pixelsPerWorldAtUnitDistance;
+        // Écart RÉEL à l'écran avec la graduation suivante (vers l'extérieur), perspective
+        // comprise : un axe qui file vers l'horizon resserre ses graduations bien plus vite que
+        // ne le dit la seule distance.
+        const next = along + Math.sign(tileValue) * step;
+        labelNextPoint.set(axis === 'x' ? next : 0, 0, axis === 'z' ? next : 0);
+        BABYLON.Vector3.ProjectToRef(labelAxisPoint, identity, transform, viewport, labelScreen);
+        BABYLON.Vector3.ProjectToRef(labelNextPoint, identity, transform, viewport, labelNextScreen);
+        const dx = labelNextScreen.x - labelScreen.x;
+        const dy = labelNextScreen.y - labelScreen.y;
+        const spacingPx = Math.hypot(dx, dy);
+        // Place qu'occupe un chiffre (boîte W × H face caméra) dans la direction de l'axe à
+        // l'écran ; le glyphe n'occupe qu'une partie du panneau.
+        const footprintPx = spacingPx > 1e-6
+          ? (Math.abs(dx) * planeW + Math.abs(dy) * planeH) / spacingPx
+          : planeW;
+        const needed = footprintPx * 0.6 + GRID_LABEL_GAP_PX;
+        // Pas choisi PAR BLOC, pas par étiquette : un bloc (de la taille du pas suivant) garde un
+        // pas uniforme, décidé sur sa graduation la plus serrée (l'une de ses deux bornes, l'écart
+        // variant de façon monotone le long de l'axe). Sinon un bloc se remplissait à moitié à la
+        // transition, d'où des suites comme 30, 38, 40.
+        let decimation: number | undefined;
+        for (let i = 0; i < GRID_LABEL_DECIMATIONS.length; i++) {
+          const d = GRID_LABEL_DECIMATIONS[i];
+          const blockSize = GRID_LABEL_DECIMATIONS[i + 1] ?? d * 10;
+          const lo = Math.floor(tileValue / blockSize) * blockSize;
+          const tightest = Math.min(spacingPxAt(axis, lo), spacingPxAt(axis, lo + blockSize - 1));
+          if (d * tightest >= needed) { decimation = d; break; }
+        }
+        const visible = decimation !== undefined && Math.abs(tileValue) % decimation === 0;
+        mesh.isVisible = visible;
+        if (!visible) return;
+        const scaleY = (planeH * worldPerPixel) / GRID_LABEL_HEIGHT;
+        // Le panneau de base a le rapport GRID_LABEL_WIDTH / GRID_LABEL_HEIGHT : on l'étire en X
+        // pour épouser celui de la texture du texte, sans le déformer.
+        mesh.scaling.set(scaleY * aspect / (GRID_LABEL_WIDTH / GRID_LABEL_HEIGHT), scaleY, scaleY);
+        // Décalé perpendiculairement à l'axe (dans le sol), juste assez pour ne pas le recouvrir.
+        const offset = (planeH * 0.9 + GRID_LABEL_GAP_PX) * worldPerPixel;
+        mesh.position.set(axis === 'x' ? along : offset, 0, axis === 'z' ? along : offset);
+      });
+    };
+
+    /**
+     * Place le plan du quadrillage et fixe l'origine de son motif.
+     *
+     * Deux rôles, découplés :
+     *  - le PLAN (géométrie) est recentré sur la cible et mis à l'échelle du rayon caméra à
+     *    chaque frame, pour couvrir le sol visible avec des sommets toujours proches du champ
+     *    (précision d'interpolation, cf. le vertex shader) ;
+     *  - le MOTIF est calculé relativement à une ANCRE (`gridAnchorX/Z`), qui ne bouge que
+     *    rarement, par sauts multiples exacts d'une puissance de dix bien plus grande que tout
+     *    pas affiché : translater le motif d'un multiple exact de son pas ne déplace aucun
+     *    trait. `uOffset` = cible − ancre, calculé ici en double précision, reste petit — c'est
+     *    lui (et non une position monde absolue) qui entre dans le shader.
+     */
+    let gridAnchorX = 0;
+    let gridAnchorZ = 0;
+    // Nombre de pas centraux que la cible peut parcourir avant ré-ancrage : grand pour que ce
+    // soit rare, borné pour que `uOffset / pas` reste bien dans la précision float32.
+    const GRID_RECENTER_MARGIN_STEPS = 200;
+    // Période d'ancrage : 5 décades au-dessus du pas central, pour couvrir les pixels lointains
+    // qui, en perspective, affichent localement un pas bien plus grossier (cf. shader).
+    const GRID_ANCHOR_PERIOD_STEPS = 100000;
+    const recenterGridGround = () => {
+      const step = Math.max(gridStepScale, Math.pow(10, GRID_MIN_STEP_EXPONENT));
+      const margin = GRID_RECENTER_MARGIN_STEPS * step;
+      if (Math.abs(camera.target.x - gridAnchorX) > margin || Math.abs(camera.target.z - gridAnchorZ) > margin) {
+        const period = step * GRID_ANCHOR_PERIOD_STEPS;
+        gridAnchorX = Math.round(camera.target.x / period) * period;
+        gridAnchorZ = Math.round(camera.target.z / period) * period;
+      }
+      const scale = camera.radius * GRID_GROUND_RADIUS_FACTOR;
+      modelingGridGround.position.set(camera.target.x, 0, camera.target.z);
+      modelingGridGround.scaling.set(scale, 1, scale);
+      modelingGridMat.setFloat("uScale", scale);
+      modelingGridMat.setVector2(
+        "uOffset", new BABYLON.Vector2(camera.target.x - gridAnchorX, camera.target.z - gridAnchorZ),
+      );
+    };
+
     // Empêche de « passer au travers » du plan de travail en zoomant : au lieu de traverser,
-    // la grille se subdivise et la caméra reste à distance de sa cible.
-    camera.lowerRadiusLimit = 0.5;
+    // la grille se subdivise et la caméra reste à distance de sa cible — jusqu'à ce que le pas
+    // touche `GRID_MIN_STEP_EXPONENT` (cf. plus haut), où la caméra s'arrête tout à fait plutôt
+    // que de continuer sur une grille devenue incohérente en simple précision. Inverse exact de
+    // `worldPerPixel = 2·radius·tan(fov/2) / hauteur` pour le `worldPerPixel` qui fait tout juste
+    // atteindre ce pas plancher.
+    const minWorldPerPixel = Math.pow(10, GRID_MIN_STEP_EXPONENT) / GRID_MIN_PX;
+    camera.lowerRadiusLimit = (minWorldPerPixel * engine.getRenderHeight()) / (2 * Math.tan(camera.fov / 2));
     camera.upperRadiusLimit = 100000;
+    // Plan de clipping proche d'origine (0,1 par défaut), restauré en quittant la modélisation.
+    // En modélisation il suit le rayon (cf. gridZoomObserver) : fixe, il coupait toute la scène
+    // une fois la caméra plus proche que lui ; fixé au plus petit rayon possible, il ruinait la
+    // précision du tampon de profondeur au zoom normal (rapport far/near démesuré).
+    const DEFAULT_CAMERA_MIN_Z = camera.minZ;
+    let gridZoomLimitReached = false;
 
     /**
      * Barre d'échelle du mode modélisation. Pour une caméra en perspective, un pixel au niveau
@@ -787,19 +1180,48 @@ export const Viewport3D = () => {
 
     let modelingActive = false;
     let lastScaleBarLabel = '';
+    let lastScaleBarPx = 0;
     const gridZoomObserver = scene.onBeforeRenderObservable.add(() => {
       if (!modelingActive) return;
+
+      // Le panoramique par défaut de l'ArcRotateCamera déplace la cible le long des axes écran
+      // de la caméra, pas dans le plan du sol : à chaque glisser elle dérive donc un peu hors du
+      // plan y=0 où vit la grille. Une fois bien zoomé (rayon petit), cette dérive verticale
+      // dépasse le rayon caméra et la grille sort du champ. On recloue la cible au sol à chaque
+      // image, comme le ferait un vrai outil CAO — seuls x/z restent libres au panoramique.
+      if (camera.target.y !== 0) camera.target.y = 0;
+      // Plan proche proportionnel au rayon : jamais devant ce qu'on regarde, et un rapport
+      // far/near qui reste raisonnable pour le tampon de profondeur (cf. DEFAULT_CAMERA_MIN_Z).
+      camera.minZ = camera.radius / 1000;
+
+      // Signale une seule fois l'arrivée au plancher de zoom (`camera.lowerRadiusLimit`, déjà
+      // appliqué par Babylon) plutôt qu'à chaque frame passée collé dessus ; le drapeau se relève
+      // dès qu'on redézoome un peu, pour pouvoir re-déclencher le message la prochaine fois.
+      if (camera.radius <= camera.lowerRadiusLimit * 1.001) {
+        if (!gridZoomLimitReached) {
+          gridZoomLimitReached = true;
+          showWarning(`Zoom maximal atteint (pas de grille : ${formatGridValue(Math.pow(10, GRID_MIN_STEP_EXPONENT))} mm)`);
+        }
+      } else if (camera.radius > camera.lowerRadiusLimit * 1.05) {
+        gridZoomLimitReached = false;
+      }
 
       const worldPerPixel = (2 * camera.radius * Math.tan(camera.fov / 2)) / engine.getRenderHeight();
       if (!Number.isFinite(worldPerPixel) || worldPerPixel <= 0) return;
 
       updateGrid(worldPerPixel);
+      recenterGridGround();
+      layoutGridLabels();
 
       const length = niceLength(SCALE_BAR_TARGET_PX * worldPerPixel);
       const label = formatDistance(length);
       const px = Math.round(length / worldPerPixel);
-      if (label !== lastScaleBarLabel) {
+      // Suivre `px` et pas seulement le libellé : entre deux changements d'unité la largeur
+      // varie continûment avec le zoom, et ne la réappliquer qu'au changement de libellé
+      // laisserait la barre figée alors que la distance qu'elle représente a bougé.
+      if (label !== lastScaleBarLabel || px !== lastScaleBarPx) {
         lastScaleBarLabel = label;
+        lastScaleBarPx = px;
         setScaleBar({ px, label });
       }
     });
@@ -813,14 +1235,38 @@ export const Viewport3D = () => {
       const modeling = mode === 'modeling';
       modelingActive = modeling;
       volumeRoot.setEnabled(!modeling);
-      // Cadrer la grille AVANT de l'afficher, sinon elle apparaît une frame au pas par défaut.
-      if (modeling) updateGrid((2 * camera.radius * Math.tan(camera.fov / 2)) / engine.getRenderHeight());
+      // Entrer en modélisation sur un cadrage fixe plutôt que d'hériter du zoom du slicer, qui
+      // donnerait une graduation arbitraire et pouvait laisser les étiquettes hors champ.
+      // `radius = demi-étendue / tan(fov/2)` est l'inverse exact de la demi-hauteur visible à
+      // la distance de la cible ; le pas de 10 mm en découle via `updateGrid`.
+      if (modeling) {
+        // La cible héritée du slicer est à mi-hauteur du volume d'impression ; la grille, elle,
+        // est au sol. Sans ce recentrage le cadrage viserait au-dessus du plan de travail.
+        camera.setTarget(BABYLON.Vector3.Zero());
+        camera.radius = GRID_DEFAULT_HALF_EXTENT_MM / Math.tan(camera.fov / 2);
+        // Vue de trois quarts plongeante : à beta rasant la grille est vue par la tranche et
+        // les étiquettes, couchées dans son plan, deviennent illisibles.
+        camera.beta = Math.min(camera.beta, 0.9);
+        const worldPerPixel = (2 * camera.radius * Math.tan(camera.fov / 2)) / engine.getRenderHeight();
+        // `gridStepScale` survit à la sortie du mode : sans cette remise à zéro, rentrer à
+        // nouveau sur le même pas ferait sortir `updateGrid` par son court-circuit et les
+        // étiquettes resteraient sans matériau ni position, donc invisibles.
+        gridStepScale = 0;
+        updateGrid(worldPerPixel);
+        // Reforce le recalcul même si l'ancre précédente couvrait déjà l'origine (marge oblige) :
+        // une session antérieure a pu la laisser loin du centre.
+        gridAnchorX = Number.POSITIVE_INFINITY;
+        gridAnchorZ = Number.POSITIVE_INFINITY;
+        recenterGridGround();
+      }
       modelingGrid.forEach((g) => g.setEnabled(modeling));
+
       if (!modeling) {
         lastScaleBarLabel = '';
+        lastScaleBarPx = 0;
         setScaleBar(null);
-      } else if (gridSubFine.material && gridSubFine.material.alpha <= 0.02) {
-        gridSubFine.setEnabled(false); // le niveau fin reste masqué tant qu'il est trop dense
+        gridZoomLimitReached = false;
+        camera.minZ = DEFAULT_CAMERA_MIN_Z;
       }
 
       if (modeling) {
@@ -831,6 +1277,250 @@ export const Viewport3D = () => {
       }
     };
     window.addEventListener('apex-mode-changed', onModeChanged);
+
+    // En Préparation, l'orbite tourne autour du centre du plateau et non de la cible, que le pan
+    // et le zoom vers le curseur déplacent. Babylon tourne la caméra autour de la cible ; on
+    // applique ensuite la même rotation à la cible autour du pivot, ce qui revient à tourner
+    // tout le point de vue autour du pivot. Seuls les changements d'alpha/beta faits par les
+    // entrées (souris, clavier, inertie) sont concernés : les vues programmées (ViewCube,
+    // recadrage) posent leur propre cible.
+    const SLICER_ORBIT_PIVOT = BABYLON.Vector3.Zero();
+    const orbitBasis = (alpha: number, beta: number) => {
+      const d = new BABYLON.Vector3(Math.cos(alpha) * Math.sin(beta), Math.cos(beta), Math.sin(alpha) * Math.sin(beta));
+      const e = new BABYLON.Vector3(-Math.sin(alpha), 0, Math.cos(alpha));
+      return [d, e, BABYLON.Vector3.Cross(d, e)] as const;
+    };
+    const originalCheckInputs = camera._checkInputs.bind(camera);
+    camera._checkInputs = () => {
+      const alpha0 = camera.alpha;
+      const beta0 = camera.beta;
+      originalCheckInputs();
+      if (modelingActive || (camera.alpha === alpha0 && camera.beta === beta0)) return;
+      const [d0, e0, u0] = orbitBasis(alpha0, beta0);
+      const [d1, e1, u1] = orbitBasis(camera.alpha, camera.beta);
+      const v = camera.target.subtract(SLICER_ORBIT_PIVOT);
+      const rotated = d1.scale(BABYLON.Vector3.Dot(v, d0))
+        .addInPlace(e1.scale(BABYLON.Vector3.Dot(v, e0)))
+        .addInPlace(u1.scale(BABYLON.Vector3.Dot(v, u0)));
+      camera.target.copyFrom(rotated.addInPlace(SLICER_ORBIT_PIVOT));
+    };
+
+    // Rangée de boutons d'action couchée à plat autour du bord du plateau (mode Préparation) :
+    // de vrais maillages de la scène, qui suivent donc la perspective, l'orbite et le zoom comme
+    // le plateau lui-même. Chaque bouton est un secteur d'anneau ; les extrémités de la rangée
+    // sont arrondies. Survol et clic passent par le picking Babylon.
+    const PLATE_ACTION_INNER_R = RADIUS + 6; // mm : léger jour entre le plateau et la rangée
+    const PLATE_ACTION_WIDTH = 20; // mm, dans le sens radial
+    const PLATE_ACTION_SPAN_DEG = 15; // étendue angulaire d'un bouton
+    const PLATE_ACTION_SPACING_DEG = 1.2;
+    // Milieu de la rangée, en angle monde (atan2(z, x)) : à l'avant gauche du plateau dans la
+    // vue par défaut (caméra à alpha = π/4).
+    const PLATE_ACTION_CENTER_DEG = -35;
+    const PLATE_ACTION_Y = 0.3;
+    const PLATE_ACTION_ICON_MM = 12;
+    const plateActions = [
+      { icon: Upload, title: 'Importer un modèle', description: 'Ajoutez un fichier STL, GLB ou GLTF sur le plateau.' },
+      { icon: BoxSelect, title: 'Tout sélectionner', description: 'Sélectionnez tous les modèles présents sur le plateau.' },
+      { icon: LayoutGrid, title: 'Disposer automatiquement', description: 'Réorganisez les modèles au plus près du centre du plateau, sans chevauchement.' },
+      { icon: Trash2, title: 'Tout supprimer', description: 'Retirez tous les modèles du plateau.' },
+    ];
+    // Même verre dépoli que le plateau, sans teinte : le shader `glassDisc` échantillonne `blurRT`
+    // en coordonnées écran, il s'applique donc tel quel à n'importe quelle forme. Au survol, le
+    // verre s'éclaircit légèrement vers le blanc (toujours sans couleur) et le contour s'affirme.
+    BABYLON.Effect.ShadersStore["plateActionGlassHoverFragmentShader"] = `
+      precision highp float;
+      varying vec4 vClip;
+      uniform sampler2D blurTex;
+      void main(void) {
+        vec2 uv = (vClip.xy / vClip.w) * 0.5 + 0.5;
+        vec3 color = mix(texture2D(blurTex, uv).rgb, vec3(1.0), 0.12);
+        gl_FragColor = vec4(color, 1.0);
+      }
+    `;
+    const plateActionHoverMat = new BABYLON.ShaderMaterial("plateActionGlassHoverMat", scene, { vertex: "glassDisc", fragment: "plateActionGlassHover" }, {
+      attributes: ["position"],
+      uniforms: ["worldViewProjection"],
+      samplers: ["blurTex"],
+    });
+    plateActionHoverMat.setTexture("blurTex", blurRT);
+    plateActionHoverMat.backFaceCulling = false;
+
+    const plateActionRoot = new BABYLON.TransformNode('plateActionRoot', scene);
+    const plateActionButtons: { mesh: BABYLON.Mesh; outline: BABYLON.LinesMesh; iconMat: BABYLON.StandardMaterial }[] = [];
+    const rowSpan = plateActions.length * PLATE_ACTION_SPAN_DEG + (plateActions.length - 1) * PLATE_ACTION_SPACING_DEG;
+    const midR = PLATE_ACTION_INNER_R + PLATE_ACTION_WIDTH / 2;
+    const capR = PLATE_ACTION_WIDTH / 2;
+    const polar = (r: number, theta: number) => new BABYLON.Vector3(r * Math.cos(theta), PLATE_ACTION_Y, r * Math.sin(theta));
+
+    plateActions.forEach((action, k) => {
+      const first = k === 0;
+      const last = k === plateActions.length - 1;
+      const startDeg = PLATE_ACTION_CENTER_DEG - rowSpan / 2 + k * (PLATE_ACTION_SPAN_DEG + PLATE_ACTION_SPACING_DEG);
+      // Les demi-cercles d'extrémité prennent sur la longueur du bouton, pour que tous les
+      // boutons gardent la même taille apparente.
+      const capDeg = (capR / midR) * (180 / Math.PI);
+      const t0 = ((startDeg + (first ? capDeg : 0)) * Math.PI) / 180;
+      const t1 = ((startDeg + PLATE_ACTION_SPAN_DEG - (last ? capDeg : 0)) * Math.PI) / 180;
+
+      // Contour fermé (bord intérieur → cap de fin → bord extérieur à rebours → cap de début),
+      // triangulé en éventail depuis le centre du bouton : le secteur est assez peu courbé
+      // pour rester étoilé par rapport à ce centre.
+      const STEPS = 12;
+      const CAP_STEPS = 10;
+      const contour: BABYLON.Vector3[] = [];
+      for (let j = 0; j <= STEPS; j++) contour.push(polar(PLATE_ACTION_INNER_R, t0 + ((t1 - t0) * j) / STEPS));
+      const cap = (theta: number, dir: 1 | -1, fromInner: boolean) => {
+        const c = polar(midR, theta);
+        const radial = new BABYLON.Vector3(Math.cos(theta), 0, Math.sin(theta));
+        const tangent = new BABYLON.Vector3(-Math.sin(theta), 0, Math.cos(theta)).scale(dir);
+        for (let j = 1; j < CAP_STEPS; j++) {
+          const psi = (Math.PI * j) / CAP_STEPS;
+          const toward = radial.scale((fromInner ? -1 : 1) * Math.cos(psi) * capR).addInPlace(tangent.scale(Math.sin(psi) * capR));
+          contour.push(c.add(toward));
+        }
+      };
+      if (last) cap(t1, 1, true);
+      for (let j = STEPS; j >= 0; j--) contour.push(polar(PLATE_ACTION_INNER_R + PLATE_ACTION_WIDTH, t0 + ((t1 - t0) * j) / STEPS));
+      if (first) cap(t0, -1, false);
+
+      const tMid = (t0 + t1) / 2 + (first ? -capDeg / 2 : last ? capDeg / 2 : 0) * (Math.PI / 180);
+      const center = polar(midR, tMid);
+      const positions: number[] = [center.x, center.y, center.z];
+      contour.forEach((p) => positions.push(p.x, p.y, p.z));
+      const indices: number[] = [];
+      for (let j = 0; j < contour.length; j++) indices.push(0, 1 + j, 1 + ((j + 1) % contour.length));
+      const normals = positions.map((_, i) => (i % 3 === 1 ? 1 : 0));
+      const mesh = new BABYLON.Mesh(`plateAction${k}`, scene);
+      const vd = new BABYLON.VertexData();
+      vd.positions = positions;
+      vd.indices = indices;
+      vd.normals = normals;
+      vd.applyToMesh(mesh);
+      mesh.parent = plateActionRoot;
+
+      mesh.material = glassDiscMat;
+
+      const outline = BABYLON.MeshBuilder.CreateLines(
+        `plateActionOutline${k}`,
+        { points: [...contour, contour[0]].map((p) => p.add(new BABYLON.Vector3(0, 0.05, 0))) },
+        scene,
+      );
+      outline.color = new BABYLON.Color3(1, 1, 1);
+      outline.alpha = 0.28;
+      outline.isPickable = false;
+      outline.parent = plateActionRoot;
+
+      // Icône couchée sur le bouton, le haut tourné vers le centre du plateau : la caméra regarde
+      // le plateau depuis l'extérieur, le « haut » de l'écran y pointe donc vers l'intérieur.
+      const icon = BABYLON.MeshBuilder.CreateGround(`plateActionIcon${k}`, { width: PLATE_ACTION_ICON_MM, height: PLATE_ACTION_ICON_MM }, scene);
+      icon.position = center.add(new BABYLON.Vector3(0, 0.1, 0));
+      icon.rotation.y = -Math.PI / 2 - tMid;
+      icon.isPickable = false;
+      icon.parent = plateActionRoot;
+      const iconTex = new BABYLON.DynamicTexture(`plateActionIconTex${k}`, { width: 128, height: 128 }, scene, true);
+      iconTex.hasAlpha = true;
+      const iconMat = new BABYLON.StandardMaterial(`plateActionIconMat${k}`, scene);
+      iconMat.diffuseTexture = iconTex;
+      iconMat.useAlphaFromDiffuseTexture = true;
+      iconMat.disableLighting = true;
+      iconMat.emissiveColor = new BABYLON.Color3(0.9, 0.93, 1);
+      iconMat.backFaceCulling = false;
+      iconMat.alpha = 0.8;
+      icon.material = iconMat;
+      const svg = renderToStaticMarkup(React.createElement(action.icon, { size: 128, color: '#ffffff', strokeWidth: 2.4 }));
+      const img = new Image();
+      img.onload = () => {
+        if (scene.isDisposed) return;
+        const ctx = iconTex.getContext();
+        ctx.clearRect(0, 0, 128, 128);
+        ctx.drawImage(img, 12, 12, 104, 104);
+        iconTex.update();
+      };
+      img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+
+      plateActionButtons.push({ mesh, outline, iconMat });
+    });
+
+    let plateActionPreviewActive = false;
+    const updatePlateActionVisibility = () => {
+      plateActionRoot.setEnabled(!modelingActive && !plateActionPreviewActive);
+    };
+    updatePlateActionVisibility();
+    const onPlateActionModeChanged = () => updatePlateActionVisibility();
+    const onPlateActionPreviewToggled = (e: Event) => {
+      plateActionPreviewActive = !!(e as CustomEvent<{ active: boolean }>).detail?.active;
+      updatePlateActionVisibility();
+    };
+    // Enregistré après `onModeChanged` : `modelingActive` est donc déjà à jour ici.
+    window.addEventListener('apex-mode-changed', onPlateActionModeChanged);
+    window.addEventListener('apex-preview-toggled', onPlateActionPreviewToggled);
+
+    let plateActionHovered: number | null = null;
+    let plateActionHintShown = false;
+    const setPlateActionHovered = (index: number | null, clientX = 0, clientY = 0) => {
+      if (index !== plateActionHovered) {
+        if (plateActionHovered !== null) {
+          const prev = plateActionButtons[plateActionHovered];
+          prev.mesh.material = glassDiscMat;
+          prev.outline.alpha = 0.28;
+          prev.iconMat.alpha = 0.8;
+        }
+        if (index !== null) {
+          const next = plateActionButtons[index];
+          next.mesh.material = plateActionHoverMat;
+          next.outline.alpha = 0.6;
+          next.iconMat.alpha = 1;
+          const action = plateActions[index];
+          window.dispatchEvent(new CustomEvent('apex-set-tooltip', { detail: { title: action.title, desc: action.description } }));
+        } else {
+          window.dispatchEvent(new CustomEvent('apex-reset-tooltip'));
+        }
+        plateActionHovered = index;
+        canvas.style.cursor = index !== null ? 'pointer' : '';
+      }
+      // L'étiquette suit le curseur tant qu'un bouton est survolé ; hors survol, on ne touche
+      // plus à l'état React pour ne pas re-rendre à chaque mouvement de souris.
+      if (index !== null) setPlateActionHint({ title: plateActions[index].title, x: clientX, y: clientY });
+      else if (plateActionHintShown) setPlateActionHint(null);
+      plateActionHintShown = index !== null;
+    };
+    const pickPlateAction = () => {
+      if (!plateActionRoot.isEnabled()) return null;
+      const pick = scene.pick(scene.pointerX, scene.pointerY, (m) => m.name.startsWith('plateAction') && m.isPickable);
+      if (!pick?.hit || !pick.pickedMesh) return null;
+      const index = plateActionButtons.findIndex((b) => b.mesh === pick.pickedMesh);
+      return index >= 0 ? index : null;
+    };
+    const runPlateAction = (index: number) => {
+      switch (index) {
+        case 0: plateImportInputRef.current?.click(); break;
+        case 1: window.dispatchEvent(new CustomEvent('apex-select-all-models')); break;
+        case 2: window.dispatchEvent(new CustomEvent('apex-arrange-models')); break;
+        case 3: window.dispatchEvent(new CustomEvent('apex-delete-all-models')); break;
+      }
+    };
+    const PLATE_ACTION_CLICK_THRESHOLD_PX = 5;
+    let plateActionDown: { index: number; x: number; y: number } | null = null;
+    const plateActionPointerObserver = scene.onPointerObservable.add((pointerInfo) => {
+      const evt = pointerInfo.event as PointerEvent;
+      if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERMOVE) {
+        const index = evt.buttons === 0 ? pickPlateAction() : null;
+        setPlateActionHovered(index, evt.clientX, evt.clientY);
+      } else if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERDOWN && evt.button === 0) {
+        const index = pickPlateAction();
+        plateActionDown = index !== null ? { index, x: evt.clientX, y: evt.clientY } : null;
+      } else if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERUP && evt.button === 0) {
+        const down = plateActionDown;
+        plateActionDown = null;
+        if (!down || Math.hypot(evt.clientX - down.x, evt.clientY - down.y) > PLATE_ACTION_CLICK_THRESHOLD_PX) return;
+        if (pickPlateAction() === down.index) runPlateAction(down.index);
+      }
+    });
+    const disposePlateActions = () => {
+      window.removeEventListener('apex-mode-changed', onPlateActionModeChanged);
+      window.removeEventListener('apex-preview-toggled', onPlateActionPreviewToggled);
+      scene.onPointerObservable.remove(plateActionPointerObserver);
+    };
 
     // ---------------------------------------------------------------------------------
     // Outil « Boîte » (primitive) : dessiner un rectangle au sol, l'extruder en hauteur,
@@ -1860,9 +2550,19 @@ export const Viewport3D = () => {
 
     const pointerObserver = scene.onPointerObservable.add((pointerInfo) => {
       const excluded: BABYLON.AbstractMesh[] = [glassDisc, outline, topOutline, backdrop, groundPickPlane, ...modelingGrid];
+      // Repères de mise en scène (axes d'origine, éléments du plan d'esquisse) : jamais
+      // sélectionnables ni ce qui alimente l'infobulle au survol.
+      const isPickableForUi = (mesh: BABYLON.AbstractMesh) =>
+        !excluded.includes(mesh)
+        && !mesh.name.includes("Gizmo")
+        && !mesh.name.startsWith("boxDraw")
+        && !mesh.name.startsWith("pyramidDraw")
+        && !mesh.name.startsWith("sketchPlane")
+        && !mesh.name.startsWith("originAxis")
+        && !mesh.name.startsWith("plateAction");
 
       if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERMOVE) {
-        const pick = scene.pick(scene.pointerX, scene.pointerY, (mesh) => !excluded.includes(mesh) && !mesh.name.includes("Gizmo") && !mesh.name.startsWith("boxDraw") && !mesh.name.startsWith("pyramidDraw") && !mesh.name.startsWith("sketchPlanePlate"));
+        const pick = scene.pick(scene.pointerX, scene.pointerY, isPickableForUi);
         const clientX = pointerInfo.event.clientX;
         const clientY = pointerInfo.event.clientY;
 
@@ -1893,7 +2593,7 @@ export const Viewport3D = () => {
       }
 
       if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERUP) {
-        const pick = scene.pick(scene.pointerX, scene.pointerY, (mesh) => !excluded.includes(mesh) && !mesh.name.includes("Gizmo") && !mesh.name.startsWith("boxDraw") && !mesh.name.startsWith("pyramidDraw") && !mesh.name.startsWith("sketchPlanePlate"));
+        const pick = scene.pick(scene.pointerX, scene.pointerY, isPickableForUi);
         if (pick?.hit && pick.pickedMesh) {
           let targetMesh = pick.pickedMesh;
 
@@ -1904,6 +2604,32 @@ export const Viewport3D = () => {
           const additive = !!(pointerInfo.event as PointerEvent).ctrlKey || !!(pointerInfo.event as PointerEvent).metaKey;
           selectMesh(targetMesh, additive);
         }
+      }
+    });
+
+    // Menu contextuel : piloté depuis Babylon plutôt que depuis l'événement DOM `contextmenu`
+    // du canvas (cf. le commentaire sur `onContextMenu` dans le JSX) — Babylon attache déjà ses
+    // propres écouteurs natifs pointerdown/pointerup sur ce même canvas pour la caméra, donc
+    // `scene.onPointerObservable` est le seul point d'écoute garanti de recevoir l'événement.
+    // On ne l'ouvre que sur un clic droit franc, pas sur un clic-drag-relâche (orbite/pan).
+    const RIGHT_CLICK_DRAG_THRESHOLD_PX = 5;
+    let rightPointerDownPos: { x: number; y: number } | null = null;
+    const contextMenuPointerObserver = scene.onPointerObservable.add((pointerInfo) => {
+      const evt = pointerInfo.event as PointerEvent;
+      if (evt.button !== 2) return;
+
+      if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERDOWN) {
+        rightPointerDownPos = { x: evt.clientX, y: evt.clientY };
+      } else if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERUP) {
+        const down = rightPointerDownPos;
+        rightPointerDownPos = null;
+        if (down) {
+          const dx = evt.clientX - down.x;
+          const dy = evt.clientY - down.y;
+          if (Math.hypot(dx, dy) > RIGHT_CLICK_DRAG_THRESHOLD_PX) return;
+        }
+        suppressNextBackdropContextMenuRef.current = true;
+        setContextMenu({ x: evt.clientX, y: evt.clientY });
       }
     });
 
@@ -1922,8 +2648,11 @@ export const Viewport3D = () => {
     // bord du plateau, soit à un modèle existant, soit à deux modèles existants à la fois — on
     // génère donc ces candidats géométriques précis plutôt que d'échantillonner au hasard, avec
     // une recherche par grille fine en filet de sécurité si aucun candidat n'est valide.
-    const findFreeSpot = (footprintRadius: number): { x: number; z: number } => {
-      const existing = Array.from(modelsRef.current).map((m) => {
+    const findFreeSpot = (
+      footprintRadius: number,
+      obstacles: Iterable<BABYLON.AbstractMesh> = modelsRef.current,
+    ): { x: number; z: number } => {
+      const existing = Array.from(obstacles).map((m) => {
         m.computeWorldMatrix(true);
         const b = m.getHierarchyBoundingVectors(true);
         const c = b.min.add(b.max).scale(0.5);
@@ -2171,6 +2900,30 @@ export const Viewport3D = () => {
     };
     window.addEventListener('apex-delete-all-models', onDeleteAll);
 
+    // Disposition automatique : on replace les modèles un par un, du plus encombrant au plus
+    // petit, chacun à l'emplacement libre le plus proche du centre parmi ceux déjà replacés —
+    // le même algorithme que pour un import.
+    const onArrangeModels = () => {
+      const footprints = Array.from(modelsRef.current).map((mesh) => {
+        mesh.computeWorldMatrix(true);
+        const b = mesh.getHierarchyBoundingVectors(true);
+        return { mesh, radius: Math.max(b.max.x - b.min.x, b.max.z - b.min.z) / 2 };
+      });
+      if (footprints.length === 0) return;
+      footprints.sort((p, q) => q.radius - p.radius);
+      const placed: BABYLON.AbstractMesh[] = [];
+      footprints.forEach(({ mesh, radius }) => {
+        const spot = findFreeSpot(radius, placed);
+        const b = mesh.getHierarchyBoundingVectors(true);
+        mesh.position.x += spot.x - (b.min.x + b.max.x) / 2;
+        mesh.position.z += spot.z - (b.min.z + b.max.z) / 2;
+        mesh.computeWorldMatrix(true);
+        placed.push(mesh);
+      });
+      updateSelectedPosition();
+    };
+    window.addEventListener('apex-arrange-models', onArrangeModels);
+
     const handleResize = () => {
       engine.resize();
     };
@@ -2208,7 +2961,12 @@ export const Viewport3D = () => {
       window.removeEventListener('apex-set-camera-custom', handleCustomView);
       window.removeEventListener('keydown', handleKeyDown);
       scene.onPointerObservable.remove(pointerObserver);
+      scene.onPointerObservable.remove(contextMenuPointerObserver);
       scene.onBeforeRenderObservable.remove(gridZoomObserver);
+      scene.onBeforeRenderObservable.remove(zoomTowardCursorObserver);
+      window.removeEventListener('apex-arrange-models', onArrangeModels);
+      disposePlateActions();
+      canvas.removeEventListener("wheel", onCanvasWheel);
       renderPipeline.dispose();
       gizmoManager.dispose();
       scene.dispose();
@@ -2307,9 +3065,39 @@ export const Viewport3D = () => {
         id="babylon-canvas"
         ref={canvasRef}
         style={{ width: '100%', height: '100%', outline: 'none', touchAction: 'none' }}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          setContextMenu({ x: e.clientX, y: e.clientY });
+        // L'ouverture du menu est pilotée depuis `scene.onPointerObservable` (cf. plus bas dans
+        // l'effet) plutôt que depuis ce `contextmenu` DOM : Babylon attache ses propres
+        // écouteurs natifs `pointerdown`/`contextmenu` directement sur ce canvas pour la caméra,
+        // et un `stopPropagation()` de sa part empêcherait un handler React (délégué à la
+        // racine) de jamais recevoir l'événement. On ne garde ici que le blocage du menu natif
+        // du navigateur.
+        onContextMenu={(e) => e.preventDefault()}
+      />
+
+      {plateActionHint && (
+        <div
+          style={{
+            position: 'fixed', left: plateActionHint.x + 16, top: plateActionHint.y + 16, zIndex: 1000,
+            pointerEvents: 'none', background: 'rgba(20,22,30,0.85)', color: 'rgba(255,255,255,0.92)',
+            fontSize: 12, padding: '5px 10px', borderRadius: 6, whiteSpace: 'nowrap',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.35)',
+          }}
+        >
+          {plateActionHint.title}
+        </div>
+      )}
+
+      {/* Sélecteur de fichier du bouton « Importer » de la rangée d'actions du plateau. */}
+      <input
+        type="file"
+        ref={plateImportInputRef}
+        style={{ display: 'none' }}
+        accept=".stl,.glb,.gltf"
+        onChange={(e) => {
+          if (e.target.files?.[0]) {
+            window.dispatchEvent(new CustomEvent('apex-import-model', { detail: e.target.files[0] }));
+          }
+          e.target.value = '';
         }}
       />
 
@@ -2358,7 +3146,16 @@ export const Viewport3D = () => {
           <div
             style={{ position: 'fixed', inset: 0, zIndex: 999 }}
             onClick={() => setContextMenu(null)}
-            onContextMenu={(e) => { e.preventDefault(); setContextMenu(null); }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              if (suppressNextBackdropContextMenuRef.current) {
+                // Écho du contextmenu natif du clic qui vient d'ouvrir ce menu : on l'avale une
+                // fois plutôt que de refermer ce qu'on vient d'ouvrir.
+                suppressNextBackdropContextMenuRef.current = false;
+                return;
+              }
+              setContextMenu(null);
+            }}
           />
           <div
             ref={menuRef}

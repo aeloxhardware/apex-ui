@@ -1,4 +1,47 @@
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&display=swap');
+/* Orbitron servie depuis /public/fonts, comme Oxanium (voir globals.css) : aucune requête
+   vers Google Fonts, donc un rendu identique hors ligne. */
+@font-face {
+  font-family: 'Orbitron';
+  font-style: normal;
+  font-weight: 400;
+  src: url('/fonts/orbitron-v35-latin-regular.woff2') format('woff2');
+  font-display: block;
+}
+@font-face {
+  font-family: 'Orbitron';
+  font-style: normal;
+  font-weight: 500;
+  src: url('/fonts/orbitron-v35-latin-500.woff2') format('woff2');
+  font-display: block;
+}
+@font-face {
+  font-family: 'Orbitron';
+  font-style: normal;
+  font-weight: 600;
+  src: url('/fonts/orbitron-v35-latin-600.woff2') format('woff2');
+  font-display: block;
+}
+@font-face {
+  font-family: 'Orbitron';
+  font-style: normal;
+  font-weight: 700;
+  src: url('/fonts/orbitron-v35-latin-700.woff2') format('woff2');
+  font-display: block;
+}
+@font-face {
+  font-family: 'Orbitron';
+  font-style: normal;
+  font-weight: 800;
+  src: url('/fonts/orbitron-v35-latin-800.woff2') format('woff2');
+  font-display: block;
+}
+@font-face {
+  font-family: 'Orbitron';
+  font-style: normal;
+  font-weight: 900;
+  src: url('/fonts/orbitron-v35-latin-900.woff2') format('woff2');
+  font-display: block;
+}
 
 @tailwind base;
 @tailwind components;

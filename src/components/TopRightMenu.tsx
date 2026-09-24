@@ -6,14 +6,6 @@ export const TopRightMenu: React.FC = () => {
   const [tooltipDesc, setTooltipDesc] = useState("Survolez n'importe quel élément interactif de l'interface pour afficher sa description détaillée en temps réel.");
 
   useEffect(() => {
-    if (!document.getElementById('google-font-oxanium')) {
-      const link = document.createElement('link');
-      link.id = 'google-font-oxanium';
-      link.rel = 'stylesheet';
-      link.href = 'https://fonts.googleapis.com/css2?family=Oxanium:wght@400;500;600;700&display=swap';
-      document.head.appendChild(link);
-    }
-
     const handleGlobalTooltip = (e: CustomEvent<{ title: string; desc: string }>) => {
       if (e.detail) {
         setTooltipDesc(e.detail.desc);
