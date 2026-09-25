@@ -7,8 +7,7 @@
 The future UI for Apex Slicer, including modern UX effects. Still in developement.
 
 ## Online Demo
-
-[Online Demo is here, but you can experience some serious lag issues with your browser, it is recommended to compile first](online.demo.apex.aeloxhardware.com)
+*There is no demo of this interface for now.*
 
 ## Screenshots
 
@@ -37,11 +36,11 @@ The future UI for Apex Slicer, including modern UX effects. Still in developemen
 
 ## Technical Highlights
 
-- WebGL2 / WebGPU dual-backend rendering for high-performance graphics
-- Multipass rendering for high-quality & performant Gaussian blur
-- Using SDF Defined shapes and smooth merge function
-- Custom shader implementations for realistic glass effects
-- Custom Leva UI components for intuitive parameter controls
+- Babylon.js (WebGL2) viewport for the build plate, printer boundary and model manipulation
+- Custom GLSL shader for the printer build-volume boundary (out-of-bounds highlighting, fresnel glass look)
+- CSS/backdrop-filter based glassmorphism panels, with an adjustable blur level
+- UI built with shadcn/ui + Radix primitives, styled with Tailwind and per-component SCSS modules
+- Panels and viewport communicate through a lightweight custom event bus (no shared state/store)
 
 
 ## TODO
