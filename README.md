@@ -37,7 +37,7 @@ The future UI for Apex Slicer, including modern UX effects. Still in developemen
 
 ## Technical Highlights
 
-- WebGL2 / WebGPU dual-backend rendering for high-performance graphics
+- React dual-backend rendering for high-performance graphics
 - Multipass rendering for high-quality & performant Gaussian blur
 - Using SDF Defined shapes and smooth merge function
 - Custom shader implementations for realistic glass effects
