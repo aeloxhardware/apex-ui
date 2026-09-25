@@ -64,6 +64,7 @@ Thanks to the following resources and inspirations:
 - Android Blur Effects
 - Orca Slicer
 - Cura
+- [Iyinchao's work](https://github.com/iyinchao/liquid-glass-studio)
 
 ## License
 
