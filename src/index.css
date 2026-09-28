@@ -42,6 +42,13 @@
   src: url('/fonts/orbitron-v35-latin-900.woff2') format('woff2');
   font-display: block;
 }
+@font-face {
+  font-family: 'Ethnocentric';
+  font-style: normal;
+  font-weight: 400;
+  src: url('/fonts/Ethnocentric-Regular.otf') format('opentype');
+  font-display: block;
+}
 
 @tailwind base;
 @tailwind components;
@@ -50,5 +57,8 @@
 @layer utilities {
   .font-orbitron {
     font-family: 'Orbitron', sans-serif;
+  }
+  .font-ethnocentric {
+    font-family: 'Ethnocentric', 'Orbitron', sans-serif;
   }
 }

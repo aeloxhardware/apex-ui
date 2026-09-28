@@ -52,3 +52,6 @@ obj/
 # Project-specific generated folders
 installer/
 icons-main/
+
+# Matériel de recherche non nécessaire au slicer (exemples de G-code de slicers tiers…)
+/research/

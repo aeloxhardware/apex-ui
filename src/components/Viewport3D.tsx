@@ -6,6 +6,10 @@ import 'babylonjs-loaders';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Upload, BoxSelect, LayoutGrid, Trash2 } from 'lucide-react';
 import { showSuccess, showWarning } from '@/utils/toast';
+import styles from './Viewport3D.module.scss';
+import { createGCodeLayer, GCODE_MESH_PREFIX, type ParsedGCode, type ColorByMode } from './gcodeLayer';
+import type { ColorByScope } from './gcodeColormap';
+import type { LineTypeVisibility } from './gcodeLineTypes';
 
 const DEFAULT_BLUR_LEVEL = 40;
 
@@ -22,6 +26,12 @@ export const Viewport3D = () => {
   // Info-bulle qui suit le curseur pendant la sélection du plan d'esquisse (façon Fusion 360).
   const [sketchPlaneHint, setSketchPlaneHint] = useState<{ x: number; y: number } | null>(null);
   const [plateActionHint, setPlateActionHint] = useState<{ title: string; x: number; y: number } | null>(null);
+  // Rectangle de la fenêtre de sélection (clic gauche + drag), en coordonnées écran relatives
+  // au conteneur — `null` quand aucun drag de sélection n'est en cours. `mode` dépend du sens du
+  // drag, comme dans la plupart des logiciels de CAO : vers la droite = « window » (ne retient
+  // que les objets entièrement englobés, contour plein) ; vers la gauche = « crossing » (retient
+  // tout objet touché, contour pointillé animé + surlignage blanc).
+  const [selectionBox, setSelectionBox] = useState<{ x: number; y: number; width: number; height: number; mode: 'window' | 'crossing' } | null>(null);
   const plateImportInputRef = useRef<HTMLInputElement>(null);
   // Échelle dynamique du mode modélisation : largeur du repère en px + distance réelle qu'il
   // représente. `null` hors mode modélisation, où la barre n'est pas affichée.
@@ -33,12 +43,23 @@ export const Viewport3D = () => {
   const gizmoManagerRef = useRef<BABYLON.GizmoManager | null>(null);
   const selectedMeshesRef = useRef<Set<BABYLON.AbstractMesh>>(new Set());
   const modelsRef = useRef<Set<BABYLON.AbstractMesh>>(new Set());
+  // Presse-papier interne pour Ctrl+C / Ctrl+V sur les modèles du plateau : noms des modèles
+  // sélectionnés au moment du copier (pas les meshes eux-mêmes, qui peuvent être supprimés entre
+  // temps) — résolus à nouveau contre `modelsRef` au moment du coller.
+  const clipboardMeshNamesRef = useRef<string[]>([]);
   const currentToolRef = useRef<string>("select");
   const [, setSelectedMeshName] = useState<string | null>(null);
   // Dimensions : 250mm de diamètre (rayon 125) et 130mm de haut
   const RADIUS = 125;
   const HEIGHT = 130;
   const HOLE_RADIUS = 20;
+  // Élévation MONDE de la surface réelle du plateau (le disque "verre dépoli", cf. glassDisc) :
+  // volumeRoot (le socle du plateau) est à HEIGHT * 0.5, et glassDisc est posé 0.1mm au-dessus de
+  // ce socle, dans son repère local. Les modèles importés/déplacés (posés directement à la racine
+  // de la scène, jamais parentés à volumeRoot) doivent reposer sur cette élévation plutôt que sur
+  // y = 0 (qui n'est que le niveau du fond quadrillé, cf. backdrop) — sans quoi ils tombent à
+  // travers le plateau jusqu'à la grille de fond, ~65mm plus bas.
+  const PLATE_SURFACE_Y = HEIGHT * 0.5 + 0.1;
 
   const createBoundaryMaterial = (scene: BABYLON.Scene) => {
     BABYLON.Effect.ShadersStore["boundaryVertexShader"] = `
@@ -107,6 +128,20 @@ export const Viewport3D = () => {
 
     const camera = new BABYLON.ArcRotateCamera("camera", Math.PI / 4, Math.PI / 3, 300, new BABYLON.Vector3(0, HEIGHT / 2, 0), scene);
     camera.attachControl(canvas, true);
+
+    // Le clic gauche est réservé à la sélection rectangulaire (fenêtre de sélection, cf. plus
+    // bas). Cette version de Babylon ne route plus les boutons souris via les propriétés
+    // `buttons`/`panningMouseButton` de `ArcRotateCameraPointersInput` (qui n'ont plus d'effet
+    // sur le pointeur) mais via `camera.movement.input.inputMap`, une table ordonnée
+    // { bouton → interaction } — cf. `resolveInteraction()` dans le moteur. Ses entrées pointeur
+    // par défaut sont [bouton 0 + Ctrl → pan], [bouton 0 → rotate], [bouton 2 → pan] ; on les
+    // retire et on les remplace par [bouton 1 → pan] et [bouton 2 → rotate], en gardant intactes
+    // les entrées clavier/molette/tactile du même tableau.
+    camera.movement.input.inputMap = [
+      ...camera.movement.input.inputMap.filter((entry) => entry.source !== "pointer"),
+      { source: "pointer", button: 1, interaction: "pan" },
+      { source: "pointer", button: 2, interaction: "rotate" },
+    ];
 
     /**
      * Zoom molette VERS LE CURSEUR, multiplicatif. Remplace l'entrée molette de Babylon :
@@ -196,23 +231,70 @@ export const Viewport3D = () => {
       camera.panningSensibility = 1 / worldPerPixel;
     });
 
-    // Fond 3D : un plan texturé avec l'image de fond, parenté à la caméra pour toujours
-    // remplir le cadre. Contrairement au fond CSS derrière le canvas, cette géométrie
-    // réelle peut être capturée et floutée par le disque "verre dépoli" du plateau.
-    const backdropDistance = 4000;
-    const backdropHeight = 2 * backdropDistance * Math.tan(camera.fov / 2);
-    const backdropWidth = backdropHeight * (engine.getRenderWidth() / engine.getRenderHeight());
-    const backdrop = BABYLON.MeshBuilder.CreatePlane("backdrop", { width: backdropWidth, height: backdropHeight }, scene);
-    backdrop.parent = camera;
-    backdrop.position = new BABYLON.Vector3(0, 0, backdropDistance);
-    backdrop.rotation.y = Math.PI;
-    backdrop.isPickable = false;
-    const backdropMat = new BABYLON.StandardMaterial("backdropMat", scene);
-    backdropMat.emissiveTexture = new BABYLON.Texture("/background.jpg", scene);
-    backdropMat.diffuseColor = BABYLON.Color3.Black();
-    backdropMat.specularColor = BABYLON.Color3.Black();
-    backdropMat.disableLighting = true;
+    // Fond 3D : un sol infini (pas de murs ni de plafond), fixe dans le monde (pas parenté à la
+    // caméra) pour que la grille affiche une vraie perspective en fonction de l'angle de vue.
+    // Un shader procédural dessine la grille et l'estompe radialement vers la couleur de fond à
+    // mesure qu'on s'éloigne du centre, pour donner l'impression d'une étendue sans limite
+    // visible plutôt qu'une pièce fermée. Contrairement à l'ancien fond CSS derrière le canvas,
+    // cette géométrie réelle peut être capturée et floutée par le disque "verre dépoli" du plateau.
+    const backdropColor = "#2A2D33";
+    const backdropSize = 20000;
+    BABYLON.Effect.ShadersStore["backdropGridVertexShader"] = `
+      precision highp float;
+      attribute vec3 position;
+      uniform mat4 worldViewProjection;
+      uniform mat4 world;
+      varying vec3 vWorldPos;
+      void main(void) {
+        vec4 worldPos = world * vec4(position, 1.0);
+        vWorldPos = worldPos.xyz;
+        gl_Position = worldViewProjection * vec4(position, 1.0);
+      }
+    `;
+    BABYLON.Effect.ShadersStore["backdropGridFragmentShader"] = `
+      precision highp float;
+      varying vec3 vWorldPos;
+      uniform vec3 uBgColor;
+      uniform vec3 uLineColor;
+      uniform vec3 uCenter;
+      uniform float uStep;
+      uniform float uLineWidth;
+      uniform float uFadeStart;
+      uniform float uFadeEnd;
+      void main(void) {
+        vec2 p = vWorldPos.xz - uCenter.xz;
+        vec2 g = abs(fract(p / uStep - 0.5) - 0.5) * uStep;
+        vec2 derivative = fwidth(p);
+        vec2 lineAA = smoothstep(uLineWidth - derivative, uLineWidth + derivative, g);
+        float line = 1.0 - min(lineAA.x, lineAA.y);
+        float dist = length(p);
+        float fade = 1.0 - smoothstep(uFadeStart, uFadeEnd, dist);
+        float alpha = line * fade;
+        gl_FragColor = vec4(uLineColor, alpha);
+      }
+    `;
+    const backdropMat = new BABYLON.ShaderMaterial("backdropMat", scene, { vertex: "backdropGrid", fragment: "backdropGrid" }, {
+      attributes: ["position"],
+      uniforms: ["worldViewProjection", "world", "uBgColor", "uLineColor", "uCenter", "uStep", "uLineWidth", "uFadeStart", "uFadeEnd"],
+      needAlphaBlending: true,
+    });
+    backdropMat.setColor3("uBgColor", BABYLON.Color3.FromHexString(backdropColor));
+    // Lignes discrètes : léger éclaircissement du gris de fond, pas un blanc pur.
+    backdropMat.setColor3("uLineColor", BABYLON.Color3.FromHexString(backdropColor).add(new BABYLON.Color3(0.05, 0.05, 0.05)));
+    backdropMat.setVector3("uCenter", BABYLON.Vector3.Zero());
+    backdropMat.setFloat("uStep", 25);
+    backdropMat.setFloat("uLineWidth", 0.5);
+    // La grille s'estompe bien avant le bord réel du plan, pour qu'aucune limite ne soit visible.
+    backdropMat.setFloat("uFadeStart", 600);
+    backdropMat.setFloat("uFadeEnd", 3500);
     backdropMat.backFaceCulling = false;
+    // Seules les lignes claires sont opaques : le reste du plan est transparent pour qu'on
+    // voie au travers (plateau, grille de modélisation) plutôt qu'un fond plein superposé.
+    backdropMat.alpha = 0.999;
+
+    const backdrop = BABYLON.MeshBuilder.CreateGround("backdrop", { width: backdropSize, height: backdropSize }, scene);
+    backdrop.position.y = -0.05;
+    backdrop.isPickable = false;
     backdrop.material = backdropMat;
 
     // Broadcast camera position on move
@@ -419,7 +501,10 @@ export const Viewport3D = () => {
 
       const boundingInfo = activeMesh.getHierarchyBoundingVectors(true);
       const minHeight = boundingInfo.min.y;
-      const targetY = (activeMesh.position.y - minHeight) > 0 ? (activeMesh.position.y - minHeight) : 0;
+      // La base du modèle doit reposer sur la surface du plateau (PLATE_SURFACE_Y), jamais sur
+      // y = 0 (le niveau du fond quadrillé, ~65mm plus bas) — cf. le commentaire sur cette
+      // constante.
+      const targetY = Math.max(activeMesh.position.y - minHeight + PLATE_SURFACE_Y, PLATE_SURFACE_Y);
 
       if (activeMesh.position.y > targetY + 1) {
         let currentY = activeMesh.position.y;
@@ -569,17 +654,28 @@ export const Viewport3D = () => {
     window.addEventListener('apex-request-textures', onRequestTextures);
 
     const volumeRoot = new BABYLON.TransformNode("volumeRoot", scene);
+    // Plateau surélevé à mi-hauteur du volume d'impression (0.5 × HEIGHT) pour le détacher
+    // visuellement du fond quadrillé. `plateActionRoot` (boutons d'action) suit la même élévation.
+    volumeRoot.position.y = HEIGHT * 0.5;
 
     const originAxisLength = HOLE_RADIUS * 1.4;
+    // Sous la surface du plateau (glassDisc est à y = 0.1) : le disque, opaque, les occlut vus
+    // du dessus (le depth-test les cache), mais ils entrent dans la capture `blurRT` et
+    // apparaissent floutés dans le reflet vu du dessous — cf. capturedInBlur plus bas.
+    const originAxisBase = new BABYLON.Vector3(0, 0.08, 0);
     const originAxes: [BABYLON.Vector3, BABYLON.Color3][] = [
-      [new BABYLON.Vector3(originAxisLength, 0, 0), new BABYLON.Color3(1, 0.23, 0.23)],
+      [new BABYLON.Vector3(originAxisLength, 0.08, 0), new BABYLON.Color3(1, 0.23, 0.23)],
       [new BABYLON.Vector3(0, originAxisLength, 0), new BABYLON.Color3(0.23, 1, 0.36)],
-      [new BABYLON.Vector3(0, 0, originAxisLength), new BABYLON.Color3(0.23, 0.48, 1)],
+      [new BABYLON.Vector3(0, 0.08, originAxisLength), new BABYLON.Color3(0.23, 0.48, 1)],
     ];
+    // Pivot commun des axes : en Prévisualisation, il suit la rotation C du plateau G-code
+    // (cf. gcodeLayer plus bas) pour que les axes tournent avec la pièce ; ailleurs, fixe.
+    const originAxesRoot = new BABYLON.TransformNode("originAxesRoot", scene);
+    originAxesRoot.parent = volumeRoot;
     originAxes.forEach(([dir, color], i) => {
-      const axisLine = BABYLON.MeshBuilder.CreateLines(`originAxis${i}`, { points: [BABYLON.Vector3.Zero(), dir] }, scene) as BABYLON.LinesMesh;
+      const axisLine = BABYLON.MeshBuilder.CreateLines(`originAxis${i}`, { points: [originAxisBase, dir] }, scene) as BABYLON.LinesMesh;
       axisLine.color = color;
-      axisLine.parent = volumeRoot;
+      axisLine.parent = originAxesRoot;
     });
 
     // Disque flouté au centre du plateau : capture la scène dans une render target à pleine
@@ -591,7 +687,10 @@ export const Viewport3D = () => {
     const blurRT = new BABYLON.RenderTargetTexture("blurRT", { width: rtWidth, height: rtHeight }, scene, { generateMipMaps: false });
     blurRT.activeCamera = camera;
     blurRT.ignoreCameraViewport = true;
-    blurRT.clearColor = new BABYLON.Color4(0, 0, 0, 1);
+    // Même teinte que le fond quadrillé (désormais transparent hors de ses lignes) : sans ça,
+    // le disque reflète le noir de la clear color par défaut aux endroits où rien n'est dessiné.
+    const blurRTClearColor = BABYLON.Color4.FromColor3(BABYLON.Color3.FromHexString(backdropColor), 1);
+    blurRT.clearColor = blurRTClearColor;
     blurRT.updateSamplingMode(BABYLON.Texture.BILINEAR_SAMPLINGMODE);
     scene.customRenderTargets.push(blurRT);
 
@@ -641,12 +740,19 @@ export const Viewport3D = () => {
 
     const glassDisc = BABYLON.MeshBuilder.CreateDisc("glassDisc", { radius: RADIUS, tessellation: 96 }, scene);
     glassDisc.rotation.x = Math.PI / 2;
-    glassDisc.position.y = -0.02;
+    // Nettement au-dessus du fond quadrillé (backdrop, y = -0.05) : l'ancien écart de 0.03 mm
+    // était trop fin pour se voir et frôlait le z-fighting à distance. Reste sous 1 mm pour ne
+    // pas creuser d'écart visible avec les modèles, posés sur la surface du plateau — cf.
+    // PLATE_SURFACE_Y, qui reprend ce même offset de 0.1 (voir handleDragEnd/onImportModel).
+    glassDisc.position.y = 0.1;
     glassDisc.material = glassDiscMat;
     glassDisc.parent = volumeRoot;
     // Les maillages qui échantillonnent eux-mêmes `blurRT` (disque, boutons d'action du plateau)
-    // n'y sont pas rendus : ils liraient la texture en cours d'écriture.
-    const capturedInBlur = (m: BABYLON.AbstractMesh) => m !== glassDisc && !m.name.startsWith('plateAction');
+    // n'y sont pas rendus : ils liraient la texture en cours d'écriture. La trajectoire G-code
+    // non plus : entièrement au-dessus du disque, elle n'y ajouterait qu'un halo flou autour du
+    // tracé, pour le prix d'un second rendu de lignes pouvant compter des millions de sommets.
+    const capturedInBlur = (m: BABYLON.AbstractMesh) =>
+      m !== glassDisc && !m.name.startsWith('plateAction') && !m.name.startsWith(GCODE_MESH_PREFIX);
     blurRT.renderList = scene.meshes.filter(capturedInBlur);
     scene.onNewMeshAddedObservable.add((m) => {
       if (capturedInBlur(m) && blurRT.renderList) blurRT.renderList.push(m);
@@ -655,7 +761,8 @@ export const Viewport3D = () => {
     const outlinePoints = [];
     for (let i = 0; i <= 64; i++) {
       const angle = (i / 64) * Math.PI * 2;
-      outlinePoints.push(new BABYLON.Vector3(Math.cos(angle) * RADIUS, 0, Math.sin(angle) * RADIUS));
+      // Même hauteur que glassDisc : sans ça le contour cerclait le vide sous le disque surélevé.
+      outlinePoints.push(new BABYLON.Vector3(Math.cos(angle) * RADIUS, glassDisc.position.y, Math.sin(angle) * RADIUS));
     }
     const outline = BABYLON.MeshBuilder.CreateLines("plateOutline", { points: outlinePoints }, scene) as BABYLON.LinesMesh;
     outline.color = new BABYLON.Color3(0, 0.94, 1); 
@@ -1235,6 +1342,9 @@ export const Viewport3D = () => {
       const modeling = mode === 'modeling';
       modelingActive = modeling;
       volumeRoot.setEnabled(!modeling);
+      // Sans ça, le quadrillage de fond (backdrop) restait visible sous la grille graduée
+      // d'esquisse et les deux se superposaient (lignes doubles) en mode Modélisation.
+      backdrop.setEnabled(!modeling);
       // Entrer en modélisation sur un cadrage fixe plutôt que d'hériter du zoom du slicer, qui
       // donnerait une graduation arbitraire et pouvait laisser les étiquettes hors champ.
       // `radius = demi-étendue / tan(fov/2)` est l'inverse exact de la demi-hauteur visible à
@@ -1346,6 +1456,7 @@ export const Viewport3D = () => {
     plateActionHoverMat.backFaceCulling = false;
 
     const plateActionRoot = new BABYLON.TransformNode('plateActionRoot', scene);
+    plateActionRoot.position.y = HEIGHT * 0.5;
     const plateActionButtons: { mesh: BABYLON.Mesh; outline: BABYLON.LinesMesh; iconMat: BABYLON.StandardMaterial }[] = [];
     const rowSpan = plateActions.length * PLATE_ACTION_SPAN_DEG + (plateActions.length - 1) * PLATE_ACTION_SPACING_DEG;
     const midR = PLATE_ACTION_INNER_R + PLATE_ACTION_WIDTH / 2;
@@ -1410,11 +1521,13 @@ export const Viewport3D = () => {
       outline.isPickable = false;
       outline.parent = plateActionRoot;
 
-      // Icône couchée sur le bouton, le haut tourné vers le centre du plateau : la caméra regarde
-      // le plateau depuis l'extérieur, le « haut » de l'écran y pointe donc vers l'intérieur.
+      // Icône couchée sur le bouton, orientation fixe : son haut suit la tangente de l'arc (sens
+      // des θ décroissants), ce qui la garde droite à l'écran dans la vue par défaut tout en
+      // l'inclinant légèrement avec la courbure du plateau. Le haut de la texture d'un
+      // `CreateGround` est du côté +Z local, d'où le +π.
       const icon = BABYLON.MeshBuilder.CreateGround(`plateActionIcon${k}`, { width: PLATE_ACTION_ICON_MM, height: PLATE_ACTION_ICON_MM }, scene);
       icon.position = center.add(new BABYLON.Vector3(0, 0.1, 0));
-      icon.rotation.y = -Math.PI / 2 - tMid;
+      icon.rotation.y = Math.PI - tMid;
       icon.isPickable = false;
       icon.parent = plateActionRoot;
       const iconTex = new BABYLON.DynamicTexture(`plateActionIconTex${k}`, { width: 128, height: 128 }, scene, true);
@@ -1454,6 +1567,61 @@ export const Viewport3D = () => {
     // Enregistré après `onModeChanged` : `modelingActive` est donc déjà à jour ici.
     window.addEventListener('apex-mode-changed', onPlateActionModeChanged);
     window.addEventListener('apex-preview-toggled', onPlateActionPreviewToggled);
+
+    // Espace Prévisualisation : trajectoire G-code polaire (cf. gcodeLayer.ts) posée sur le
+    // plateau de cette même scène, pour garder exactement le décor de Préparation. Les modèles
+    // de préparation sont masqués le temps de l'espace, sans être touchés. Le chargement de
+    // fichier, la lecture et les réglages vivent dans GCodePreview, qui pilote ce calque.
+    const gcodeAnchor = new BABYLON.TransformNode("gcodeAnchor", scene);
+    gcodeAnchor.parent = volumeRoot;
+    gcodeAnchor.position.y = glassDisc.position.y + 0.05; // Z = 0 du G-code : juste sur le disque
+    let gcodePreviewActive = false;
+    const gcodeLayer = createGCodeLayer(scene, gcodeAnchor, (rotationY) => {
+      if (gcodePreviewActive) originAxesRoot.rotation.y = rotationY;
+    });
+    const onGCodePreviewToggled = (e: Event) => {
+      const active = !!(e as CustomEvent<{ active: boolean }>).detail?.active;
+      gcodePreviewActive = active;
+      originAxesRoot.rotation.y = active ? gcodeLayer.getPlateRotation() : 0;
+      gcodeLayer.setEnabled(active);
+      modelsRef.current.forEach((m) => { if (!m.isDisposed()) m.setEnabled(!active); });
+    };
+    const onGCodeLoaded = (e: Event) => {
+      const parsed = (e as CustomEvent<{ parsed: ParsedGCode }>).detail?.parsed;
+      if (parsed) gcodeLayer.load(parsed);
+    };
+    const onGCodeTime = (e: Event) => {
+      const t = (e as CustomEvent<{ t: number }>).detail?.t;
+      if (typeof t === 'number') gcodeLayer.setTime(t);
+    };
+    const onGCodeLineVisibility = (e: Event) => {
+      const visibility = (e as CustomEvent<{ visibility: LineTypeVisibility }>).detail?.visibility;
+      if (visibility) gcodeLayer.setLineTypeVisibility(visibility);
+    };
+    const onGCodeHighlightOffPlate = (e: Event) => {
+      const detail = (e as CustomEvent<{ show: boolean; blinking?: boolean }>).detail;
+      gcodeLayer.setOffPlateHighlight(!!detail?.show);
+      gcodeLayer.setOffPlateBlinking(!!detail?.blinking);
+    };
+    const onGCodeShowFullHead = (e: Event) => {
+      gcodeLayer.setFullHead(!!(e as CustomEvent<{ show: boolean }>).detail?.show);
+    };
+    const onGCodeColorBy = (e: Event) => {
+      const detail = (e as CustomEvent<{ mode: ColorByMode; scope?: ColorByScope }>).detail;
+      if (detail?.mode) gcodeLayer.setColorBy(detail.mode, detail.scope);
+    };
+    const onGCodeRenderPrecision = (e: Event) => {
+      const mm = (e as CustomEvent<{ mm: number | null }>).detail?.mm;
+      gcodeLayer.setRenderPrecision(mm ?? null);
+    };
+    window.addEventListener('apex-preview-toggled', onGCodePreviewToggled);
+    window.addEventListener('apex-gcode-loaded', onGCodeLoaded);
+    window.addEventListener('apex-gcode-time', onGCodeTime);
+    window.addEventListener('apex-gcode-line-visibility', onGCodeLineVisibility);
+    window.addEventListener('apex-gcode-highlight-offplate', onGCodeHighlightOffPlate);
+    window.addEventListener('apex-gcode-show-full-head', onGCodeShowFullHead);
+    window.addEventListener('apex-gcode-color-by', onGCodeColorBy);
+    window.addEventListener('apex-gcode-render-precision', onGCodeRenderPrecision);
 
     let plateActionHovered: number | null = null;
     let plateActionHintShown = false;
@@ -1520,6 +1688,15 @@ export const Viewport3D = () => {
       window.removeEventListener('apex-mode-changed', onPlateActionModeChanged);
       window.removeEventListener('apex-preview-toggled', onPlateActionPreviewToggled);
       scene.onPointerObservable.remove(plateActionPointerObserver);
+      window.removeEventListener('apex-preview-toggled', onGCodePreviewToggled);
+      window.removeEventListener('apex-gcode-loaded', onGCodeLoaded);
+      window.removeEventListener('apex-gcode-time', onGCodeTime);
+      window.removeEventListener('apex-gcode-line-visibility', onGCodeLineVisibility);
+      window.removeEventListener('apex-gcode-highlight-offplate', onGCodeHighlightOffPlate);
+      window.removeEventListener('apex-gcode-show-full-head', onGCodeShowFullHead);
+      window.removeEventListener('apex-gcode-color-by', onGCodeColorBy);
+      window.removeEventListener('apex-gcode-render-precision', onGCodeRenderPrecision);
+      gcodeLayer.dispose();
     };
 
     // ---------------------------------------------------------------------------------
@@ -1542,6 +1719,7 @@ export const Viewport3D = () => {
       scene,
     );
     groundPickPlane.rotation.x = Math.PI / 2;
+    groundPickPlane.position.y = HEIGHT * 0.5; // suit l'élévation du plateau (volumeRoot)
     // `isVisible = false` exclurait ce mesh du picking en plus du rendu — on veut l'inverse
     // (invisible à l'écran mais pickable) : c'est `visibility = 0` qu'il faut utiliser, avec
     // `isPickable` comme seul verrou pour n'entrer en jeu que pendant le dessin.
@@ -2126,33 +2304,173 @@ export const Viewport3D = () => {
       }
     });
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        const selection = selectedMeshesRef.current;
-        if (selection.size > 0) {
-          let confirmed = true;
-          if (selection.size > 1) {
-            confirmed = window.confirm(`Voulez-vous vraiment supprimer les ${selection.size} modèles sélectionnés ?`);
+    // Duplique un modèle du plateau (clone profond de sa hiérarchie) : nom unique à la Explorer
+    // ("(copie)", puis "(copie 2)"...), matériaux partagés avec l'original (comme un vrai clone),
+    // posé sur un emplacement libre du plateau plutôt que superposé à la source. Reprend les mêmes
+    // briques que `onImportModel` (findFreeSpot, PLATE_SURFACE_Y, construction de subMeshesList)
+    // pour qu'un modèle collé se comporte à l'identique d'un modèle importé.
+    const cloneModelToPlate = (source: BABYLON.AbstractMesh): BABYLON.AbstractMesh | null => {
+      const existingNames = new Set(Array.from(modelsRef.current).map((m) => m.name));
+      const baseName = source.name.replace(/ \(copie(?: \d+)?\)$/, '');
+      let uniqueName = `${baseName} (copie)`;
+      let copyIndex = 2;
+      while (existingNames.has(uniqueName)) {
+        uniqueName = `${baseName} (copie ${copyIndex})`;
+        copyIndex++;
+      }
+
+      const clone = source.clone(uniqueName, null, false);
+      if (!clone) return null;
+      clone.setEnabled(true);
+
+      clone.computeWorldMatrix(true);
+      const boundingInfo = clone.getHierarchyBoundingVectors(true);
+      const center = boundingInfo.min.add(boundingInfo.max).scale(0.5);
+      const footprintRadius = Math.max(boundingInfo.max.x - boundingInfo.min.x, boundingInfo.max.z - boundingInfo.min.z) / 2;
+      const spot = findFreeSpot(footprintRadius);
+      clone.position.addInPlace(new BABYLON.Vector3(spot.x - center.x, PLATE_SURFACE_Y - boundingInfo.min.y, spot.z - center.z));
+
+      modelsRef.current.add(clone);
+      return clone;
+    };
+
+    const pasteClipboard = () => {
+      const names = clipboardMeshNamesRef.current;
+      if (names.length === 0) return;
+      const sources = names
+        .map((name) => Array.from(modelsRef.current).find((m) => m.name === name))
+        .filter((m): m is BABYLON.AbstractMesh => !!m && !m.isDisposed());
+      if (sources.length === 0) return;
+
+      const clones = sources
+        .map((source) => cloneModelToPlate(source))
+        .filter((m): m is BABYLON.AbstractMesh => !!m);
+      if (clones.length === 0) return;
+
+      selectedMeshesRef.current.clear();
+      clones.forEach((m) => selectedMeshesRef.current.add(m));
+      const last = clones[clones.length - 1];
+      setSelectedMeshName(last.name || "Modèle 3D");
+      updateHighlight();
+      updateSelectedPosition();
+      updateSelectedRotation();
+
+      const subMeshesList: { id: string; name: string; color: string }[] = [];
+      if (clones.length === 1) {
+        const childMeshes = [last, ...last.getChildMeshes()];
+        childMeshes.forEach((cm, idx) => {
+          let hex = '#00f0ff';
+          if (cm.material) {
+            const mat = cm.material as InspectableMaterial;
+            if (mat.albedoColor) hex = mat.albedoColor.toHexString();
+            else if (mat.diffuseColor) hex = mat.diffuseColor.toHexString();
           }
-          if (confirmed) {
-            selection.forEach(mesh => {
-              if (mesh && !mesh.isDisposed()) {
-                const meshName = mesh.name;
-                modelsRef.current.delete(mesh);
-                mesh.dispose();
-                window.dispatchEvent(new CustomEvent('apex-mesh-deleted', { detail: { name: meshName } }));
-              }
-            });
-            selection.clear();
-            setSelectedMeshName(null);
-            updateHighlight();
-            gizmoManager.positionGizmoEnabled = false;
-            gizmoManager.rotationGizmoEnabled = false;
-            gizmoManager.scaleGizmoEnabled = false;
-            gizmoManager.attachToMesh(null);
-            window.dispatchEvent(new CustomEvent('apex-mesh-selected', { detail: { name: null, names: [], subMeshes: [] } }));
-          }
+          subMeshesList.push({ id: `${last.name}-${idx}`, name: cm.name || `Partie ${idx + 1}`, color: hex });
+        });
+      }
+
+      window.dispatchEvent(
+        new CustomEvent('apex-mesh-selected', {
+          detail: {
+            name: last.name || "Modèle 3D",
+            names: clones.map((m) => m.name),
+            subMeshes: subMeshesList,
+          },
+        })
+      );
+
+      // Le presse-papier retient la copie collée (pas la source d'origine) : coller plusieurs
+      // fois de suite empile les copies l'une après l'autre plutôt que de reproduire toujours la
+      // même sélection d'origine, comme dans un logiciel de CAO classique.
+      clipboardMeshNamesRef.current = clones.map((m) => m.name);
+
+      if (currentToolRef.current === 'move') {
+        gizmoManager.rotationGizmoEnabled = false;
+        gizmoManager.scaleGizmoEnabled = false;
+        gizmoManager.positionGizmoEnabled = true;
+        applyCustomGizmoColors();
+        gizmoManager.attachToMesh(last);
+        setupGizmoDragEnd();
+      } else if (currentToolRef.current === 'rotate') {
+        gizmoManager.positionGizmoEnabled = false;
+        gizmoManager.scaleGizmoEnabled = false;
+        gizmoManager.rotationGizmoEnabled = true;
+        applyCustomGizmoColors();
+        gizmoManager.attachToMesh(last);
+      } else if (currentToolRef.current === 'scale') {
+        gizmoManager.positionGizmoEnabled = false;
+        gizmoManager.rotationGizmoEnabled = false;
+        gizmoManager.scaleGizmoEnabled = true;
+        gizmoManager.attachToMesh(last);
+      }
+    };
+
+    const deleteSelection = () => {
+      const selection = selectedMeshesRef.current;
+      if (selection.size === 0) return;
+      let confirmed = true;
+      if (selection.size > 1) {
+        confirmed = window.confirm(`Voulez-vous vraiment supprimer les ${selection.size} modèles sélectionnés ?`);
+      }
+      if (!confirmed) return;
+      selection.forEach(mesh => {
+        if (mesh && !mesh.isDisposed()) {
+          const meshName = mesh.name;
+          modelsRef.current.delete(mesh);
+          mesh.dispose();
+          window.dispatchEvent(new CustomEvent('apex-mesh-deleted', { detail: { name: meshName } }));
         }
+      });
+      selection.clear();
+      setSelectedMeshName(null);
+      updateHighlight();
+      gizmoManager.positionGizmoEnabled = false;
+      gizmoManager.rotationGizmoEnabled = false;
+      gizmoManager.scaleGizmoEnabled = false;
+      gizmoManager.attachToMesh(null);
+      window.dispatchEvent(new CustomEvent('apex-mesh-selected', { detail: { name: null, names: [], subMeshes: [] } }));
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Raccourcis par défaut du système (copier/coller/tout sélectionner/couper, saisie de texte,
+      // etc.) ne doivent jamais être volés ailleurs dans l'interface : dès que le focus est sur un
+      // champ éditable (input, textarea, contentEditable), ce gestionnaire — attaché sur `window` et
+      // donc traversé par toute frappe de l'appli — s'efface complètement, y compris pour
+      // Suppr/Retour arrière (auparavant vérifié APRÈS, ce qui pouvait supprimer un modèle 3D
+      // sélectionné pendant qu'on effaçait du texte ailleurs dans l'UI).
+      const target = e.target as HTMLElement | null;
+      const isTextField = !!target && (['INPUT', 'TEXTAREA'].includes(target.tagName) || target.isContentEditable);
+      if (isTextField) return;
+
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        deleteSelection();
+        return;
+      }
+
+      const ctrlOrCmd = e.ctrlKey || e.metaKey;
+      if (!ctrlOrCmd) return;
+
+      // Ctrl+C / Ctrl+V / Ctrl+X / Ctrl+A (Cmd sur Mac) : copier/coller/couper/tout sélectionner les
+      // modèles du plateau. Rien n'est intercepté hors du plateau (garde ci-dessus), donc les mêmes
+      // raccourcis restent disponibles pour le texte normal ailleurs dans l'interface.
+      const key = e.key.toLowerCase();
+      if (key === 'c') {
+        const selection = Array.from(selectedMeshesRef.current);
+        if (selection.length === 0) return;
+        clipboardMeshNamesRef.current = selection.map((m) => m.name);
+      } else if (key === 'v') {
+        e.preventDefault();
+        pasteClipboard();
+      } else if (key === 'x') {
+        const selection = Array.from(selectedMeshesRef.current);
+        if (selection.length === 0) return;
+        e.preventDefault();
+        clipboardMeshNamesRef.current = selection.map((m) => m.name);
+        deleteSelection();
+      } else if (key === 'a') {
+        if (modelsRef.current.size === 0) return;
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent('apex-select-all-models'));
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -2500,7 +2818,7 @@ export const Viewport3D = () => {
       const decor: BABYLON.AbstractMesh[] = [glassDisc, outline, topOutline, backdrop, groundPickPlane, ...modelingGrid];
       const pick = scene.pick(scene.pointerX, scene.pointerY, (mesh) =>
         sketchPlanePlates.includes(mesh as BABYLON.Mesh)
-        || (!decor.includes(mesh) && !mesh.name.includes("Gizmo") && !mesh.name.startsWith("boxDraw") && !mesh.name.startsWith("pyramidDraw")),
+        || (!decor.includes(mesh) && !mesh.name.includes("Gizmo") && !mesh.name.startsWith("boxDraw") && !mesh.name.startsWith("pyramidDraw") && !mesh.name.startsWith(GCODE_MESH_PREFIX)),
       );
       if (!pick?.hit || !pick.pickedMesh || !pick.pickedPoint) return;
 
@@ -2548,6 +2866,52 @@ export const Viewport3D = () => {
       }));
     });
 
+    // ---------------------------------------------------------------------------------
+    // Fenêtre de sélection (clic gauche + drag) : le clic gauche ne pilote plus la caméra
+    // (cf. remap des boutons plus haut) et sert désormais exclusivement à ouvrir un
+    // rectangle de sélection façon CAO, comme le clic droit dans la plupart des logiciels
+    // 3D. En dessous du seuil de drag, on retombe sur la sélection simple par clic.
+    // ---------------------------------------------------------------------------------
+    const SELECTION_BOX_DRAG_THRESHOLD_PX = 5;
+    let selectionDragStart: { x: number; y: number } | null = null;
+    let selectionDragging = false;
+    const canvasRectForSelection = () => canvas.getBoundingClientRect();
+
+    // Description du rectangle de sélection affichée dans le bandeau du bas (TopRightMenu),
+    // qui change selon le sens du drag (cf. règle « window »/« crossing » plus bas) — pour
+    // ne pas redispatcher à chaque pointermove, on ne le fait qu'au changement de mode.
+    const SELECTION_BOX_TOOLTIPS: Record<'window' | 'crossing', { title: string; desc: string }> = {
+      window: {
+        title: 'Sélection fenêtre',
+        desc: 'Sélectionnez tous les objets compris en entier dans la fenêtre de sélection.',
+      },
+      crossing: {
+        title: 'Sélection croisement',
+        desc: 'Sélectionnez tous les objets touchés partiellement ou en entier par la fenêtre de sélection.',
+      },
+    };
+    let lastTooltipMode: 'window' | 'crossing' | null = null;
+    const clearSelectionTooltip = () => {
+      if (lastTooltipMode !== null) {
+        lastTooltipMode = null;
+        window.dispatchEvent(new CustomEvent('apex-reset-tooltip'));
+      }
+    };
+
+    // Filet de sécurité : si le bouton est relâché hors du canvas, Babylon ne redéclenche pas
+    // toujours POINTERUP dessus — on efface quand même le rectangle et l'état de drag pour ne
+    // pas rester bloqué en sélection au prochain survol du canvas.
+    const onWindowPointerUpSafety = () => {
+      if (selectionDragStart) {
+        selectionDragStart = null;
+        selectionDragging = false;
+        setSelectionBox(null);
+        clearSelectionTooltip();
+      }
+    };
+    window.addEventListener('pointerup', onWindowPointerUpSafety);
+    window.addEventListener('pointercancel', onWindowPointerUpSafety);
+
     const pointerObserver = scene.onPointerObservable.add((pointerInfo) => {
       const excluded: BABYLON.AbstractMesh[] = [glassDisc, outline, topOutline, backdrop, groundPickPlane, ...modelingGrid];
       // Repères de mise en scène (axes d'origine, éléments du plan d'esquisse) : jamais
@@ -2559,12 +2923,51 @@ export const Viewport3D = () => {
         && !mesh.name.startsWith("pyramidDraw")
         && !mesh.name.startsWith("sketchPlane")
         && !mesh.name.startsWith("originAxis")
-        && !mesh.name.startsWith("plateAction");
+        && !mesh.name.startsWith("plateAction")
+        // Calque de prévisualisation G-code (tête, buse, trajets) : jamais un modèle du
+        // plateau. Un prédicat passé à `scene.pick` court-circuite `isPickable`, d'où ce filtre.
+        && !mesh.name.startsWith(GCODE_MESH_PREFIX);
 
       if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERMOVE) {
+        const evt = pointerInfo.event as PointerEvent;
+
+        if (selectionDragStart) {
+          const dx = evt.clientX - selectionDragStart.x;
+          const dy = evt.clientY - selectionDragStart.y;
+          if (!selectionDragging && Math.hypot(dx, dy) > SELECTION_BOX_DRAG_THRESHOLD_PX) {
+            selectionDragging = true;
+          }
+          if (selectionDragging) {
+            const rect = canvasRectForSelection();
+            const x0 = selectionDragStart.x - rect.left;
+            const y0 = selectionDragStart.y - rect.top;
+            const x1 = evt.clientX - rect.left;
+            const y1 = evt.clientY - rect.top;
+            // Sens du drag = direction depuis le point de départ, pas depuis le dernier move :
+            // sinon un léger retour en arrière en cours de glisser ferait clignoter le mode.
+            const dragMode: 'window' | 'crossing' = x1 >= x0 ? 'window' : 'crossing';
+            setSelectionBox({
+              x: Math.min(x0, x1),
+              y: Math.min(y0, y1),
+              width: Math.abs(x1 - x0),
+              height: Math.abs(y1 - y0),
+              mode: dragMode,
+            });
+            // Bandeau du bas : n'affiche/ne redispatche qu'au changement de mode, pas à
+            // chaque pointermove.
+            if (lastTooltipMode !== dragMode) {
+              lastTooltipMode = dragMode;
+              window.dispatchEvent(
+                new CustomEvent('apex-set-tooltip', { detail: SELECTION_BOX_TOOLTIPS[dragMode] }),
+              );
+            }
+            return; // Pendant le drag de sélection, on n'actualise pas le survol de modèle.
+          }
+        }
+
         const pick = scene.pick(scene.pointerX, scene.pointerY, isPickableForUi);
-        const clientX = pointerInfo.event.clientX;
-        const clientY = pointerInfo.event.clientY;
+        const clientX = evt.clientX;
+        const clientY = evt.clientY;
 
         if (pick?.hit && pick.pickedMesh) {
           let hoveredMesh = pick.pickedMesh;
@@ -2592,7 +2995,124 @@ export const Viewport3D = () => {
         }
       }
 
+      if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERDOWN) {
+        const evt = pointerInfo.event as PointerEvent;
+        // Un clic gauche sur une poignée de gizmo (déplacer/tourner/redimensionner) doit la
+        // faire glisser normalement, pas ouvrir un rectangle de sélection par-dessus.
+        const hitsGizmo = !!pointerInfo.pickInfo?.hit && !!pointerInfo.pickInfo.pickedMesh?.name.includes("Gizmo");
+        if (evt.button === 0 && !hitsGizmo) {
+          selectionDragStart = { x: evt.clientX, y: evt.clientY };
+          selectionDragging = false;
+        }
+      }
+
       if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERUP) {
+        const evt = pointerInfo.event as PointerEvent;
+
+        if (evt.button === 0 && selectionDragStart) {
+          const wasDragging = selectionDragging;
+          const dragStart = selectionDragStart;
+          selectionDragStart = null;
+          selectionDragging = false;
+
+          if (wasDragging) {
+            setSelectionBox(null);
+            clearSelectionTooltip();
+            const rect = canvasRectForSelection();
+            const x0 = dragStart.x - rect.left;
+            const y0 = dragStart.y - rect.top;
+            const x1 = evt.clientX - rect.left;
+            const y1 = evt.clientY - rect.top;
+            const minX = Math.min(x0, x1);
+            const maxX = Math.max(x0, x1);
+            const minY = Math.min(y0, y1);
+            const maxY = Math.max(y0, y1);
+            // Même règle de sens que l'aperçu pendant le drag (cf. plus haut) : vers la droite =
+            // fenêtre (ne retient que les objets ENTIÈREMENT englobés), vers la gauche =
+            // croisement (retient tout objet TOUCHÉ, même partiellement).
+            const mode: 'window' | 'crossing' = x1 >= x0 ? 'window' : 'crossing';
+
+            const hits: BABYLON.AbstractMesh[] = [];
+            modelsRef.current.forEach((mesh) => {
+              if (mesh.isDisposed()) return;
+              const meshes = [mesh, ...mesh.getChildMeshes()];
+              const inside = meshes.some((m) => {
+                if (!m.isEnabled() || !m.isVisible) return false;
+                const bounding = m.getBoundingInfo();
+                const min = bounding.boundingBox.minimumWorld;
+                const max = bounding.boundingBox.maximumWorld;
+                const corners = [
+                  new BABYLON.Vector3(min.x, min.y, min.z), new BABYLON.Vector3(max.x, min.y, min.z),
+                  new BABYLON.Vector3(min.x, max.y, min.z), new BABYLON.Vector3(max.x, max.y, min.z),
+                  new BABYLON.Vector3(min.x, min.y, max.z), new BABYLON.Vector3(max.x, min.y, max.z),
+                  new BABYLON.Vector3(min.x, max.y, max.z), new BABYLON.Vector3(max.x, max.y, max.z),
+                ];
+                const screenCorners = corners.map((corner) => BABYLON.Vector3.Project(
+                  corner, BABYLON.Matrix.Identity(), scene.getTransformMatrix(),
+                  camera.viewport.toGlobal(engine.getRenderWidth(), engine.getRenderHeight()),
+                ));
+                const inRect = (s: BABYLON.Vector3) =>
+                  s.z > 0 && s.z < 1 && s.x >= minX && s.x <= maxX && s.y >= minY && s.y <= maxY;
+                // « window » (drag vers la droite) : les 8 coins doivent tomber dans le rectangle
+                // — l'objet doit être entièrement englobé. « crossing » (drag vers la gauche) :
+                // un seul coin suffit — l'objet est retenu dès qu'il est simplement touché.
+                return mode === 'window' ? screenCorners.every(inRect) : screenCorners.some(inRect);
+              });
+              if (inside) hits.push(mesh);
+            });
+
+            const additive = evt.ctrlKey || evt.metaKey;
+            if (hits.length > 0) {
+              const nextSelection = additive ? new Set(selectedMeshesRef.current) : new Set<BABYLON.AbstractMesh>();
+              hits.forEach((m) => nextSelection.add(m));
+              selectedMeshesRef.current = nextSelection;
+              const all = Array.from(nextSelection);
+              const last = all[all.length - 1];
+              setSelectedMeshName(last.name || "Modèle 3D");
+              updateHighlight();
+              updateSelectedPosition();
+              updateSelectedRotation();
+              window.dispatchEvent(new CustomEvent('apex-mesh-selected', {
+                detail: { name: last.name, names: all.map((m) => m.name), subMeshes: [] }
+              }));
+              const gizmoTarget = all.length === 1 ? all[0] : null;
+              if (currentToolRef.current === 'move') {
+                gizmoManager.rotationGizmoEnabled = false;
+                gizmoManager.scaleGizmoEnabled = false;
+                gizmoManager.positionGizmoEnabled = !!gizmoTarget;
+                if (gizmoTarget) { applyCustomGizmoColors(); setupGizmoDragEnd(); }
+                gizmoManager.attachToMesh(gizmoTarget);
+              } else if (currentToolRef.current === 'rotate') {
+                gizmoManager.positionGizmoEnabled = false;
+                gizmoManager.scaleGizmoEnabled = false;
+                gizmoManager.rotationGizmoEnabled = !!gizmoTarget;
+                if (gizmoTarget) applyCustomGizmoColors();
+                gizmoManager.attachToMesh(gizmoTarget);
+              } else if (currentToolRef.current === 'scale') {
+                gizmoManager.positionGizmoEnabled = false;
+                gizmoManager.rotationGizmoEnabled = false;
+                gizmoManager.scaleGizmoEnabled = !!gizmoTarget;
+                gizmoManager.attachToMesh(gizmoTarget);
+              } else {
+                gizmoManager.positionGizmoEnabled = false;
+                gizmoManager.rotationGizmoEnabled = false;
+                gizmoManager.scaleGizmoEnabled = false;
+                gizmoManager.attachToMesh(null);
+              }
+            } else if (!additive) {
+              selectedMeshesRef.current.clear();
+              setSelectedMeshName(null);
+              updateHighlight();
+              gizmoManager.positionGizmoEnabled = false;
+              gizmoManager.rotationGizmoEnabled = false;
+              gizmoManager.scaleGizmoEnabled = false;
+              gizmoManager.attachToMesh(null);
+              window.dispatchEvent(new CustomEvent('apex-mesh-selected', { detail: { name: null, names: [], subMeshes: [] } }));
+            }
+            return; // Le rectangle a déjà tranché la sélection : pas de pick ponctuel en plus.
+          }
+        }
+
         const pick = scene.pick(scene.pointerX, scene.pointerY, isPickableForUi);
         if (pick?.hit && pick.pickedMesh) {
           let targetMesh = pick.pickedMesh;
@@ -2601,7 +3121,7 @@ export const Viewport3D = () => {
             targetMesh = getRootModel(targetMesh);
           }
 
-          const additive = !!(pointerInfo.event as PointerEvent).ctrlKey || !!(pointerInfo.event as PointerEvent).metaKey;
+          const additive = evt.ctrlKey || evt.metaKey;
           selectMesh(targetMesh, additive);
         }
       }
@@ -2768,11 +3288,13 @@ export const Viewport3D = () => {
           const spot = findFreeSpot(footprintRadius);
 
           // Place le modèle sur un emplacement libre du plateau (au lieu de toujours l'origine,
-          // ce qui le superposerait aux modèles déjà présents) et pose sa base sur y=0, sans
-          // passer par bakeCurrentTransformIntoVertices : pour les GLB/GLTF, meshes[0] est souvent
-          // le nœud racine __root__ sans géométrie propre, sur lequel le bake échoue silencieusement
-          // et interrompt l'import avant que le modèle ne soit positionné/rendu visible.
-          r.position.addInPlace(new BABYLON.Vector3(spot.x - center.x, -boundingInfo.min.y, spot.z - center.z));
+          // ce qui le superposerait aux modèles déjà présents) et pose sa base sur la surface du
+          // plateau (PLATE_SURFACE_Y, pas y=0 qui n'est que le fond quadrillé — cf. son
+          // commentaire), sans passer par bakeCurrentTransformIntoVertices : pour les GLB/GLTF,
+          // meshes[0] est souvent le nœud racine __root__ sans géométrie propre, sur lequel le
+          // bake échoue silencieusement et interrompt l'import avant que le modèle ne soit
+          // positionné/rendu visible.
+          r.position.addInPlace(new BABYLON.Vector3(spot.x - center.x, PLATE_SURFACE_Y - boundingInfo.min.y, spot.z - center.z));
 
           if (!isGlbOrGltf) {
             // Les STL ne portent aucune info de matériau : on applique une teinte neutre par
@@ -2960,6 +3482,8 @@ export const Viewport3D = () => {
       window.removeEventListener('apex-set-camera-view', handleSetView);
       window.removeEventListener('apex-set-camera-custom', handleCustomView);
       window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('pointerup', onWindowPointerUpSafety);
+      window.removeEventListener('pointercancel', onWindowPointerUpSafety);
       scene.onPointerObservable.remove(pointerObserver);
       scene.onPointerObservable.remove(contextMenuPointerObserver);
       scene.onBeforeRenderObservable.remove(gridZoomObserver);
@@ -3073,6 +3597,43 @@ export const Viewport3D = () => {
         // du navigateur.
         onContextMenu={(e) => e.preventDefault()}
       />
+
+      {/* Rectangle de la fenêtre de sélection (clic gauche + drag) : purement visuel, la
+          logique de hit-test vit dans le pointer observer Babylon ci-dessus. « window » (drag
+          vers la droite, ne retient que les objets entièrement englobés) reprend le style plein
+          cyan d'origine ; « crossing » (drag vers la gauche, retient tout objet touché) a un
+          contour pointillé animé et un surlignage interne blanc, comme dans les logiciels de CAO. */}
+      {selectionBox && selectionBox.mode === 'window' && (
+        <div
+          style={{
+            position: 'absolute',
+            left: selectionBox.x, top: selectionBox.y,
+            width: selectionBox.width, height: selectionBox.height,
+            border: '1px solid rgba(0,240,255,0.9)',
+            background: 'rgba(0,240,255,0.12)',
+            pointerEvents: 'none', zIndex: 30,
+          }}
+        />
+      )}
+      {selectionBox && selectionBox.mode === 'crossing' && (
+        <div
+          style={{
+            position: 'absolute',
+            left: selectionBox.x, top: selectionBox.y,
+            width: selectionBox.width, height: selectionBox.height,
+            pointerEvents: 'none', zIndex: 30,
+          }}
+        >
+          {/* Surlignage interne blanc. */}
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.18)' }} />
+          {/* Contour en 4 bandes fines (une par bord) plutôt qu'un `border` CSS : chacune anime
+              son propre dégradé tiled pour l'effet « rails de train » qui glisse en continu. */}
+          <div className={`${styles.edgeX} ${styles.edgeTop}`} />
+          <div className={`${styles.edgeX} ${styles.edgeBottom}`} />
+          <div className={`${styles.edgeY} ${styles.edgeLeft}`} />
+          <div className={`${styles.edgeY} ${styles.edgeRight}`} />
+        </div>
+      )}
 
       {plateActionHint && (
         <div

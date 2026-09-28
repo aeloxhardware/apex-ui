@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -11,8 +11,47 @@ import {
   Check
 } from 'lucide-react';
 import { CustomTooltip } from './CustomTooltip';
+import { LiquidGlassMorph, GLASS_BLUR_PX, PREVIEW_GLASS_BLUR_PX } from './LiquidGlassMorph';
 import styles from './CategoriesSidebar.module.scss';
 import { showSuccess } from '@/utils/toast';
+import { mitosisPath, rectPath, stretchPath, type GlassRect } from '@/utils/liquidGlass';
+import { PANEL_LEFT, PILL_TOP, PILL, PREVIEW_W, previewGeometry, FROM_PREVIEW_FADE_MS } from '@/utils/spaceMorphGeometry';
+
+// Géométrie du menu de catégorie, en px, dans le repère de la pilule (fixed, left 24 / top 212).
+// Doit rester alignée sur CategoriesSidebar.module.scss (.leftSidebarContainer,
+// .categoriesToolbar, .fusionMenuContainer).
+const MENU_OFFSET_Y = 68; // .fusionMenuContainer : top 280
+const MENU_W = 320;
+const MENU_R = 16;
+// Panneau (max-height 400) + la marge que prend le col en s'étirant avant de se rompre.
+const MENU_STAGE_H = MENU_OFFSET_Y + 400 + 40;
+const MENU_MORPH_MS = 700;
+
+// Prévisualisation : panneau du haut sur toute la hauteur disponible, panneau du bas de hauteur
+// fixe, le tout s'arrêtant à 236px du bas de l'écran (au-dessus de la barre d'aide).
+const PREVIEW_STRETCH_MS = 520;
+const PREVIEW_HOLD_MS = 90; // temps mort entre l'étirement et la division : deux gestes distincts
+const PREVIEW_DIVIDE_MS = 760;
+const PREVIEW_MORPH_MS = PREVIEW_STRETCH_MS + PREVIEW_HOLD_MS + PREVIEW_DIVIDE_MS;
+
+// Cascade des icônes de la pilule (Qualité/Solidité/Vitesse/...) autour d'un morph de Modélisation,
+// dans l'ordre d'affichage (gauche → droite) : disparition dès le clic vers Modélisation
+// (leavingToModeling), apparition au retour d'un morph de sortie (arrivingFromModeling). Symétrique
+// à la cascade du contenu du panneau Modélisation (cf. CONTENT_STAGGER_MS dans ModelingSidebar.tsx).
+// Avec ~8 catégories et 30ms de décalage, la cascade dure ~370ms : largement terminée avant que la
+// déformation ne commence (`onCovered`, ~900ms après le clic).
+const PILL_ICON_STAGGER_MS = 0.03;
+const PILL_ICON_FADE_MS = 0.16;
+
+const pillIconsContainerVariants = {
+  visible: { transition: { staggerChildren: PILL_ICON_STAGGER_MS } },
+  hidden: { transition: { staggerChildren: PILL_ICON_STAGGER_MS } },
+};
+
+const pillIconVariants = {
+  visible: { opacity: 1, y: 0, transition: { duration: PILL_ICON_FADE_MS, ease: [0.4, 0, 0.2, 1] } },
+  hidden: { opacity: 0, y: -6, transition: { duration: PILL_ICON_FADE_MS, ease: [0.4, 0, 0.2, 1] } },
+};
 
 const SolidityIcon = () => <BicepsFlexed size={20} />;
 
@@ -220,11 +259,49 @@ const CATEGORIES: CategoryItem[] = [
 interface CategoriesSidebarProps {
   activeCategory: string | null;
   onSelectCategory: (catId: string | null) => void;
+  /**
+   * Vrai quand ce composant est remonté directement dans l'espace Prévisualisation — après un
+   * morph de sortie de Modélisation joué par ModelingSidebar lui-même (cf. son prop `morph`) — au
+   * lieu d'y entrer par la mitose normale (pilule → panneaux). Les deux panneaux réels doivent
+   * alors être affichés tels quels dès le premier rendu, sans aucune animation ici : le morph a
+   * déjà eu lieu visuellement, ailleurs.
+   */
+  initialPreviewActive?: boolean;
+  /**
+   * Vrai dès le CLIC vers Modélisation (cf. apex-entering-modeling dans Index.tsx), ~900ms avant
+   * que ce composant ne soit démonté sous le rideau. Le contenu qui n'a pas sa place dans
+   * Modélisation disparaît en fondu-glissement : les icônes de la pilule (en cascade) et le panneau
+   * du bas de Prévisualisation — jamais la forme qui va se déformer (pilule ou panneau du haut),
+   * reprise telle quelle par ModelingSidebar.
+   */
+  leavingToModeling?: boolean;
+  /**
+   * Vrai quand ce composant est remonté à la fin d'un morph de sortie de Modélisation (lu une seule
+   * fois, au montage) : la pilule apparaît directement opaque (ModelingSidebar vient d'en prendre la
+   * forme) et seules ses icônes apparaissent, en cascade.
+   */
+  arrivingFromModeling?: boolean;
+  /** Contenu du panneau du haut de Prévisualisation (légende des types de ligne). */
+  previewUpperContent?: React.ReactNode;
+  /** Contenu posé en haut du panneau du bas de Prévisualisation (informations G-code). */
+  previewLowerHeader?: React.ReactNode;
+  /** Contenu posé au bas du panneau du bas de Prévisualisation (ex. sélecteur de vitesse). */
+  previewLowerContent?: React.ReactNode;
+  /** Élément à positionnement propre sous les deux panneaux (carte de conversion G-code), monté et
+   * estompé avec eux. */
+  previewBelowContent?: React.ReactNode;
 }
 
 export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
   activeCategory,
   onSelectCategory,
+  initialPreviewActive = false,
+  leavingToModeling = false,
+  arrivingFromModeling = false,
+  previewUpperContent,
+  previewLowerHeader,
+  previewLowerContent,
+  previewBelowContent,
 }) => {
   const iconRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
   const categoriesToolbarRef = useRef<HTMLDivElement>(null);
@@ -243,14 +320,65 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
 
   const [selectedPattern, setSelectedPattern] = useState<string>('Gyroïde');
   const [isPatternPopupOpen, setIsPatternPopupOpen] = useState(false);
-  const [previewActive, setPreviewActive] = useState(false);
+  const [previewActive, setPreviewActive] = useState(initialPreviewActive);
+  // Figé au montage, jamais réévalué : `initialPreviewActive` (la PROP) suit isPreviewActive en
+  // direct côté Index.tsx, qui devient vrai dès le tout début de la mitose normale (avant même
+  // qu'elle soit terminée) — si le JSX plus bas réagissait à la prop plutôt qu'à cette valeur
+  // figée, le panneau du bas basculerait du <div> normal vers le motion.div spécial EN PLEINE
+  // mitose (un changement de `key`, donc démontage/remontage avec `initial={{opacity:0,x:-20}}`) :
+  // exactement le clignotement observé, à la toute fin du dévoilement du rideau.
+  const [wasInitialPreviewActive] = useState(initialPreviewActive);
+  // Même principe : figé au montage (Index.tsx remet la prop à `false` juste après).
+  const [wasArrivingFromModeling] = useState(arrivingFromModeling);
+
+  // Morphings "verre liquide" (cf. LiquidGlassMorph). Pendant qu'une forme animée est à l'écran,
+  // les vrais éléments restent montés mais sans fond (classe .morphing) : seul leur contenu
+  // s'estompe, par-dessus le verre animé qui en tient lieu.
+  //
+  // Menu de catégorie :
+  //  - 'dividing' : la pilule enfante le panneau détaillé (ouverture)
+  //  - 'merging'  : le panneau remonte se refondre dans la pilule (fermeture)
+  const [morphPhase, setMorphPhase] = useState<'dividing' | 'merging' | null>(null);
+  const menuContainerRef = useRef<HTMLDivElement>(null);
+
+  // Espace Prévisualisation : à l'entrée, la pilule s'étire en panneau du haut, PUIS ce panneau
+  // enfante celui du bas (deux temps successifs d'une même timeline, cf. previewPathAt) ; les deux
+  // panneaux restent affichés tant qu'on reste dans l'espace. À la sortie, la même timeline est
+  // rejouée à l'envers (reverse) : les deux panneaux se refondent en pilule.
+  //  - 'forward' : pilule → panneau haut → panneau bas (ouverture)
+  //  - 'reverse' : panneau bas → panneau haut → pilule (fermeture)
+  const [previewMorphPhase, setPreviewMorphPhase] = useState<'forward' | 'reverse' | null>(null);
+  const [previewPanelsBorn, setPreviewPanelsBorn] = useState(initialPreviewActive);
+  const previewActiveRef = useRef(initialPreviewActive);
+  // Repousse la pilule quand l'arborescence des modèles (ModelStatusBox, juste au-dessus) déborde
+  // de sa hauteur de base, plutôt que de la laisser recouverte (cf. apex-model-tree-resized).
+  const [modelTreeOverflow, setModelTreeOverflow] = useState(0);
+  const onSelectCategoryRef = useRef(onSelectCategory);
+  onSelectCategoryRef.current = onSelectCategory;
 
   const startYRef = useRef(0);
   const startScrollTopRef = useRef(0);
 
   useEffect(() => {
     const handlePreviewToggled = (e: CustomEvent<{ active: boolean }>) => {
-      setPreviewActive(!!e.detail?.active);
+      const active = !!e.detail?.active;
+      if (active && !previewActiveRef.current) {
+        // La pilule devient le panneau du haut : un menu de catégorie encore ouvert se ferme
+        // sans animation plutôt que de se superposer à la mitose.
+        setMorphPhase(null);
+        onSelectCategoryRef.current(null);
+        setPreviewPanelsBorn(false);
+        setPreviewMorphPhase('forward');
+      } else if (!active && previewActiveRef.current) {
+        // Sortie de l'espace : les deux panneaux se refondent en pilule (même timeline, à
+        // l'envers) avant de démonter — jamais de disparition instantanée. `previewActive` lui-
+        // même ne repasse à false qu'à la fin de cette animation (cf. onDone du morph), pour que
+        // les panneaux réels restent montés (silencieux, cf. .morphing) tout du long.
+        setPreviewMorphPhase('reverse');
+        return;
+      }
+      previewActiveRef.current = active;
+      setPreviewActive(active);
     };
     window.addEventListener('apex-preview-toggled', handlePreviewToggled as EventListener);
     return () => {
@@ -258,17 +386,49 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
     };
   }, []);
 
+  useEffect(() => {
+    const handleModelTreeResized = (e: CustomEvent<{ overflow: number }>) => {
+      setModelTreeOverflow(e.detail?.overflow ?? 0);
+    };
+    window.addEventListener('apex-model-tree-resized', handleModelTreeResized as EventListener);
+    return () => {
+      window.removeEventListener('apex-model-tree-resized', handleModelTreeResized as EventListener);
+    };
+  }, []);
+
+  const menuPathAt = useCallback((t: number, dx: number, dy: number) => {
+    // Hauteur réelle du panneau (plafonnée par son max-height), lue sur l'élément monté invisible.
+    const menuH = menuContainerRef.current?.offsetHeight ?? 0;
+    return mitosisPath(PILL, { x: 0, y: MENU_OFFSET_Y, w: MENU_W, h: menuH, r: MENU_R }, t, dx, dy);
+  }, []);
+
+  const previewPathAt = useCallback((t: number, dx: number, dy: number) => {
+    const { upper, lower } = previewGeometry(window.innerHeight);
+    const ms = t * PREVIEW_MORPH_MS;
+    if (ms < PREVIEW_STRETCH_MS) return stretchPath(PILL, upper, ms / PREVIEW_STRETCH_MS, dx, dy);
+    if (ms < PREVIEW_STRETCH_MS + PREVIEW_HOLD_MS) return rectPath(upper, dx, dy);
+    return mitosisPath(upper, lower, (ms - PREVIEW_STRETCH_MS - PREVIEW_HOLD_MS) / PREVIEW_DIVIDE_MS, dx, dy);
+  }, []);
+
   const handleCategoryClick = (cat: CategoryItem) => {
     if (cat.disabled) {
       showSuccess("Bientôt disponible");
       return;
     }
+    // Pendant un morphing, ou en Prévisualisation où la pilule est en train de devenir un panneau.
+    if (morphPhase || previewActive) return;
+    setIsPatternPopupOpen(false);
+
     if (activeCategory === cat.id) {
-      onSelectCategory(null);
+      // Fermeture : le panneau se refond dans la pilule ; il n'est démonté qu'en fin d'animation.
+      setMorphPhase('merging');
+    } else if (activeCategory === null) {
+      setMorphPhase('dividing');
+      onSelectCategory(cat.id);
     } else {
+      // Un panneau est déjà ouvert : simple substitution de contenu, pas de mitose.
       onSelectCategory(cat.id);
     }
-    setIsPatternPopupOpen(false);
   };
 
   useEffect(() => {
@@ -414,16 +574,32 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
 
   const activeCatData = CATEGORIES.find(c => c.id === activeCategory);
 
+  const previewGeo = previewGeometry(window.innerHeight);
+
   return (
     <>
-      <div className={styles.leftSidebarContainer} data-apex-chrome-panel>
+      <div
+        className={styles.leftSidebarContainer}
+        data-apex-chrome-panel
+        style={modelTreeOverflow > 0 ? { top: PILL_TOP + modelTreeOverflow } : undefined}
+      >
         <AnimatePresence>
-          {!previewActive && (
+          {/* En Prévisualisation, la pilule reste démontée tant que les deux panneaux existent
+              (elle EST devenue le panneau du haut) ; elle remonte (sans fond, cf. .morphing) dès
+              que la fusion inverse démarre, jusqu'à avoir repris sa forme. */}
+          {(!previewActive || !previewPanelsBorn || previewMorphPhase === 'reverse') && (
             <motion.div
               ref={categoriesToolbarRef}
-              className={styles.categoriesToolbar}
+              className={clsx(styles.categoriesToolbar, {
+                [styles.morphing]: morphPhase !== null || previewMorphPhase !== null,
+              })}
               onWheel={handleCategoriesWheel}
-              initial={{ opacity: 0, x: -20 }}
+              // La pilule elle-même (sa forme de verre) ne s'estompe JAMAIS autour d'un morph de
+              // Modélisation : c'est elle que ModelingSidebar reprend à l'identique pour la
+              // déformer (même commit, cf. Index.tsx). Au retour d'un morph de sortie
+              // (wasArrivingFromModeling), elle est donc déjà opaque dès son montage : ModelingSidebar
+              // vient de prendre exactement sa forme.
+              initial={wasArrivingFromModeling ? false : { opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
               transition={{
@@ -431,46 +607,163 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
                 x: { duration: 0.9, ease: 'easeInOut' },
               }}
             >
-              {CATEGORIES.map((cat) => {
-                const isActive = activeCategory === cat.id;
-                return (
-                  <CustomTooltip
-                    key={cat.id}
-                    content="Arrive bientôt"
-                    description={cat.description}
-                  >
-                    <button
-                      ref={(el) => { iconRefs.current[cat.id] = el; }}
-                      className={clsx(styles.categoryButton, {
-                        [styles.active]: isActive,
-                        [styles.disabledButton]: true
-                      })}
-                      disabled
+              {/* Seules les icônes suivent l'espace : cascade de disparition dès le clic vers
+                  Modélisation (leavingToModeling), ~900ms avant que la pilule ne soit reprise par
+                  ModelingSidebar sous le rideau ; cascade d'apparition au retour d'un morph de
+                  sortie (wasArrivingFromModeling), une fois la déformation terminée. Hors de ces
+                  cas, `animate="visible"` sans délai, comme un menu statique normal. */}
+              <motion.div
+                variants={pillIconsContainerVariants}
+                initial={wasArrivingFromModeling ? 'hidden' : false}
+                animate={leavingToModeling ? 'hidden' : 'visible'}
+                style={{ display: 'contents' }}
+              >
+                {CATEGORIES.map((cat) => {
+                  const isActive = activeCategory === cat.id;
+                  return (
+                    <CustomTooltip
+                      key={cat.id}
+                      content={cat.label}
+                      description={cat.description}
                     >
-                      {cat.icon}
-                      <span className={styles.categoryLabel}>{cat.label}</span>
-                    </button>
-                  </CustomTooltip>
-                );
-              })}
+                      <motion.button
+                        ref={(el) => { iconRefs.current[cat.id] = el; }}
+                        variants={pillIconVariants}
+                        className={clsx(styles.categoryButton, {
+                          [styles.active]: isActive,
+                        })}
+                        onClick={() => handleCategoryClick(cat)}
+                      >
+                        {cat.icon}
+                        <span className={styles.categoryLabel}>{cat.label}</span>
+                      </motion.button>
+                    </CustomTooltip>
+                  );
+                })}
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
+      {/* Prévisualisation : la pilule s'étire en panneau du haut puis celui-ci enfante le panneau
+          du bas ('forward'), ou l'inverse à la sortie ('reverse', même timeline jouée à l'envers).
+          Le verre animé part/finit exactement sur la géométrie de la pilule et des deux panneaux
+          ci-dessous, qui le remplacent une fois l'animation terminée. */}
+      {previewMorphPhase && (
+        <LiquidGlassMorph
+          key={previewMorphPhase}
+          left={PANEL_LEFT}
+          top={PILL_TOP}
+          width={PREVIEW_W}
+          height={previewGeo.stageH}
+          duration={PREVIEW_MORPH_MS}
+          pathAt={previewPathAt}
+          reverse={previewMorphPhase === 'reverse'}
+          // Le flou passe de celui de la pilule à celui, plus fort, des panneaux de Prévisualisation.
+          blur={[GLASS_BLUR_PX, PREVIEW_GLASS_BLUR_PX]}
+          onDone={() => {
+            if (previewMorphPhase === 'reverse') {
+              previewActiveRef.current = false;
+              setPreviewActive(false);
+              setPreviewPanelsBorn(false);
+            } else {
+              setPreviewPanelsBorn(true);
+            }
+            setPreviewMorphPhase(null);
+          }}
+        />
+      )}
+
+      {/* Panneaux de Prévisualisation, nés de la mitose : contenu à brancher plus tard. Pas
+          d'animation d'entrée/sortie propre en temps normal — leur verre est identique à la
+          dernière image du morphing ; ils s'effacent (.morphing) dès que la fusion inverse démarre,
+          plutôt que de se démonter d'un coup. Exceptions, symétriques, jamais de refusion avec le
+          panneau du haut (qui, lui, se transforme ailleurs — cf. ModelingSidebar) : le panneau du
+          bas joue son propre fondu-glissement piloté directement par `animate` (JAMAIS par `exit` —
+          `leavingToModeling` devient vrai dès le CLIC, ~900ms avant que ce composant ne démonte
+          réellement à `onCovered` sous le rideau ; un `exit` ne jouerait qu'à ce moment bien trop
+          tardif, invisible). Toujours le MÊME élément (jamais de changement de `key`/type), pour
+          qu'`animate` puisse réagir à `leavingToModeling` sans jamais démonter/remonter. */}
+      {previewActive && previewPanelsBorn && (
+        <React.Fragment key="preview-panels">
+          <div
+            className={clsx(styles.previewPanelUpper, { [styles.morphing]: previewMorphPhase === 'reverse' })}
+          >
+            {/* Le contenu s'efface dès le clic vers Modélisation : seule la forme du panneau est
+                reprise par ModelingSidebar. */}
+            {previewUpperContent && (
+              <motion.div
+                className={styles.previewPanelBody}
+                animate={{ opacity: leavingToModeling ? 0 : 1 }}
+                transition={{ duration: FROM_PREVIEW_FADE_MS / 1000, ease: 'easeInOut' }}
+              >
+                {previewUpperContent}
+              </motion.div>
+            )}
+          </div>
+          <motion.div
+            className={clsx(styles.previewPanelLower, { [styles.morphing]: previewMorphPhase === 'reverse' })}
+            initial={wasInitialPreviewActive ? { opacity: 0, x: -20 } : false}
+            animate={{
+              opacity: leavingToModeling ? 0 : 1,
+              x: leavingToModeling ? -20 : 0,
+              transition: { duration: FROM_PREVIEW_FADE_MS / 1000, ease: 'easeInOut' },
+            }}
+          >
+            {previewLowerHeader && <div className={styles.previewPanelHeader}>{previewLowerHeader}</div>}
+            {previewLowerContent && <div className={styles.previewPanelFooter}>{previewLowerContent}</div>}
+          </motion.div>
+          {/* Opacité seule (jamais de transform) : le contenu est en `position: fixed`. */}
+          {previewBelowContent && (
+            <motion.div
+              className={clsx(styles.previewBelow, { [styles.morphing]: previewMorphPhase === 'reverse' })}
+              animate={{ opacity: leavingToModeling ? 0 : 1 }}
+              transition={{ duration: FROM_PREVIEW_FADE_MS / 1000, ease: 'easeInOut' }}
+            >
+              {previewBelowContent}
+            </motion.div>
+          )}
+        </React.Fragment>
+      )}
+
+      {/* Menu de catégorie : la pilule enfante le panneau (ouverture) ou le réabsorbe (fermeture,
+          même timeline jouée à l'envers). */}
+      {morphPhase && (
+        <LiquidGlassMorph
+          key={morphPhase}
+          left={PANEL_LEFT}
+          top={PILL_TOP}
+          width={MENU_W}
+          height={MENU_STAGE_H}
+          duration={MENU_MORPH_MS}
+          pathAt={menuPathAt}
+          reverse={morphPhase === 'merging'}
+          onDone={() => {
+            if (morphPhase === 'merging') onSelectCategory(null);
+            setMorphPhase(null);
+          }}
+        />
+      )}
+
       <AnimatePresence>
         {activeCatData && !activeCatData.disabled && (
           <>
-            <motion.div 
-              className={styles.fusionMenuContainer}
-              initial={{ opacity: 0, scale: 0.95, x: -10, y: 20 }}
-              animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, x: -10, y: 20 }}
-              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            {/* Toujours ouvert/fermé par un morphing : pas d'animation d'entrée ni de sortie
+                propre, le verre animé en tient lieu (.morphing masque le fond de ce panneau et
+                estompe son contenu pendant ce temps). */}
+            <motion.div
+              ref={menuContainerRef}
+              className={clsx(styles.fusionMenuContainer, {
+                [styles.morphing]: morphPhase !== null,
+              })}
+              initial={false}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0 }}
             >
-              <div 
+              <div
                 ref={contentRef}
-                className={styles.fusionMenuContent}
+                className={clsx(styles.fusionMenuContent, styles.contentInert)}
                 onScroll={handleScroll}
               >
                 {activeCatData.sections.map((section, idx) => (
@@ -478,25 +771,20 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
                     <h4 className={styles.sectionTitle}>{section.title}</h4>
                     <ul className={styles.itemsList}>
                       {section.items.map((item, iIdx) => (
-                        <CustomTooltip key={iIdx} content={item.label} description={item.description}>
-                          <li 
-                            className={clsx(styles.itemRow, { [styles.clickableRow]: item.isPatternDropdown })}
-                            onClick={() => {
-                              if (item.isPatternDropdown) {
-                                setIsPatternPopupOpen(!isPatternPopupOpen);
-                              }
-                            }}
-                          >
+                        <CustomTooltip key={iIdx} content="Arrive bientôt" description={item.description}>
+                          <li className={styles.itemRow}>
                             <span className={styles.itemName}>
                               {item.isPatternDropdown ? `Motif de remplissage (${selectedPattern})` : item.label}
                             </span>
                             {item.isPatternDropdown ? (
-                              <ChevronDown size={14} className="shrink-0 text-[#00f0ff] -rotate-90 ml-2" />
+                              <ChevronDown size={14} className="shrink-0 text-white/40 -rotate-90 ml-2" />
                             ) : (
-                              <input 
-                                type="text" 
-                                defaultValue={item.defaultValue} 
-                                className={styles.itemInput} 
+                              <input
+                                type="text"
+                                defaultValue={item.defaultValue}
+                                className={styles.itemInput}
+                                readOnly
+                                tabIndex={-1}
                               />
                             )}
                           </li>

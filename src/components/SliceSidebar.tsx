@@ -1,14 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import clsx from 'clsx';
-import { Play } from 'lucide-react';
+import { Play, Download } from 'lucide-react';
 import styles from './SliceSidebar.module.scss';
 import { CustomTooltip } from './CustomTooltip';
 
 interface SliceSidebarProps {
   onSlice?: () => void;
+  /** Espace Prévisualisation : le bouton exporte le G-code affiché au lieu de lancer le slicing. */
+  previewExport?: {
+    enabled: boolean;
+    onExport: () => void;
+    /** Pourquoi l'export est indisponible (tooltip). */
+    reason: string;
+  };
 }
 
-export const SliceSidebar: React.FC<SliceSidebarProps> = ({ onSlice }) => {
+export const SliceSidebar: React.FC<SliceSidebarProps> = ({ onSlice, previewExport }) => {
   const [hasModels, setHasModels] = useState(false);
 
   useEffect(() => {
@@ -41,6 +48,29 @@ export const SliceSidebar: React.FC<SliceSidebarProps> = ({ onSlice }) => {
       window.removeEventListener('apex-import-model', handleImportModel as EventListener);
     };
   }, []);
+
+  if (previewExport) {
+    const { enabled, onExport, reason } = previewExport;
+    return (
+      <div className={styles.container} data-apex-chrome-panel>
+        <div className={styles.toolbar}>
+          <CustomTooltip
+            content={enabled ? 'Exporter le G-code' : 'Export indisponible'}
+            description={enabled ? "Enregistre le G-code polaire affiché, prêt à être imprimé par l'Apex." : reason}
+          >
+            <button
+              className={clsx(styles.button, styles.sliceButton, 'w-full', { [styles.disabledButton]: !enabled })}
+              onClick={enabled ? onExport : undefined}
+              disabled={!enabled}
+            >
+              <Download size={16} className="mr-2 shrink-0" />
+              <span className="font-semibold text-xs tracking-wide">EXPORT</span>
+            </button>
+          </CustomTooltip>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.container} data-apex-chrome-panel>

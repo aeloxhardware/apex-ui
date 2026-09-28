@@ -237,11 +237,10 @@ html, body {
 
 /* ---- Ecran d'intro ---- */
 
-/* L'anneau (fond/bordure/lueur) et son pulse ne doivent apparaitre qu'une
-   fois le second logo (.logoMark, taille normale) pris le relais - pas
-   pendant le tracage du grand logo (.logoDraw) qui doit rester seul, sans
-   cercle autour de lui. D'ou les valeurs "vides" par defaut ci-dessous,
-   activees seulement par .logoRing.drawDone plus bas. */
+/* Anneau autour du logo Apex (res/logo.svg), affiche directement - le
+   logo Aelox anime (trace SVG) qui s'affichait avant lui a ete retire,
+   mais la pulsation du cercle est conservee via ::after (remplace la
+   div .logoRingPulse retiree du DOM avec le reste du logo Aelox). */
 .logoRing {
   position: relative;
   width: 96px;
@@ -250,28 +249,17 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent;
-  border: 1px solid transparent;
-  box-shadow: none;
-  transition: background 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
-}
-
-.logoRing.drawDone {
   background: rgba(0, 240, 255, 0.08);
-  border-color: rgba(0, 240, 255, 0.35);
+  border: 1px solid rgba(0, 240, 255, 0.35);
   box-shadow: 0 0 40px rgba(0, 240, 255, 0.25);
 }
 
-.logoRingPulse {
+.logoRing::after {
+  content: '';
   position: absolute;
   inset: -8px;
   border-radius: 50%;
   border: 1px solid rgba(0, 240, 255, 0.4);
-  opacity: 0;
-}
-
-.logoRing.drawDone .logoRingPulse {
-  opacity: 1;
   animation: ringPulse 2.2s ease-out infinite;
 }
 
@@ -289,61 +277,15 @@ html, body {
    logoBreathe (en plus de l'apparition .animItem ponctuelle) fait "vivre"
    le logo en continu pendant toute la duree de l'ecran intro (~15s, cale
    sur prestart.mp3 - voir PRESTART_DURATION_MS dans renderer.js), au lieu
-   de rester fige une fois son animation d'entree terminee.
-   Reste cache (opacity:0) tant que .logoRing n'a pas .drawDone : c'est
-   .logoDraw (le SVG "trace+remplissage", voir plus bas) qui joue en
-   premier, en grand, puis .logoMark prend le relais en fondu. */
+   de rester fige. Affiche directement (le logo Aelox anime qui jouait
+   avant lui, .logoDraw/.logoRingPulse, a ete retire). */
 .logoMark {
-  position: absolute;
   width: 46px;
   height: auto;
   /* drop-shadow sombre (relief) + drop-shadow cyan (lueur d'accent,
      deja presente) : deux drop-shadow s'empilent sans se remplacer. */
   filter: brightness(0) saturate(100%) invert(80%) sepia(45%) saturate(2500%) hue-rotate(140deg) brightness(1.05) drop-shadow(0 3px 8px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 10px rgba(0, 240, 255, 0.5));
-  opacity: 0;
-  transition: opacity 0.6s ease;
-}
-
-.logoRing.drawDone .logoMark {
-  position: static;
-  opacity: 1;
   animation: logoBreathe 2.2s ease-in-out infinite;
-}
-
-/* .logoDraw : le SVG "trace+remplissage" (genere par SVG Artista), affiche
-   2.5x plus grand que .logoMark (115px vs 46px) le temps de son animation.
-   Une fois le trace termine (classe .active, ~1.7s : dernier stroke a
-   0.48s + duree 1s), renderer.js ajoute .shrinking pour le faire revenir
-   en fondu vers sa taille normale pendant que .logoMark prend le relais
-   (drawDone, voir ci-dessus) - transition fluide entre les deux. */
-.logoDraw {
-  position: absolute;
-  /* Centrage explicite sur le milieu de .logoRing : le viewBox de ce SVG
-     (354.3x454.1) n'a pas le meme ratio ni le meme centrage de contenu que
-     celui de .logoMark (139.5x123.4, res/logo.svg), donc sans ce
-     top/left/transform les deux logos apparaissaient visiblement decales
-     l'un par rapport a l'autre au moment de la transition. */
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 115px;
-  height: auto;
-  overflow: visible;
-  /* Remplissage blanc uni (voir #logoDrawSvg.active dans index.html) avec
-     ombre portee sombre + legere lueur cyan - effet verre depoli tente
-     puis abandonne (backdrop-filter+mask-image ne se rendait pas
-     correctement dans ce contexte Electron). */
-  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.45)) drop-shadow(0 0 14px rgba(0, 240, 255, 0.4));
-  transition: width 0.7s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.6s ease 0.1s;
-}
-
-.logoDraw.shrinking {
-  width: 46px;
-  opacity: 0;
-}
-
-.logoRing.drawDone .logoDraw {
-  display: none;
 }
 
 @keyframes logoBreathe {
@@ -372,45 +314,24 @@ html, body {
   color: rgba(255, 255, 255, 0.6);
 }
 
-/* Deux blocs de texte superposes (pre/post), meme crossfade que les deux
-   logos : "Aelox Hardware / Chargement en cours" pendant le tracage du
-   grand logo, puis "Apex Slicer / Assistant d'installation" une fois le
-   petit logo pris le relais. :has() cible .logoRing.drawDone depuis le
-   parent .screen commun, evitant d'avoir a dupliquer la logique JS. */
+/* Bloc de texte unique "Apex Slicer / Assistant d'installation", affiche
+   des le debut de l'ecran intro (le crossfade avec "Aelox Hardware /
+   Chargement en cours" a ete retire). */
 .introTextSwap {
   position: relative;
   width: 100%;
   margin-top: 14px;
 }
 
-.introTextPre,
 .introTextPost {
-  position: absolute;
-  inset: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  opacity: 0;
-  transition: opacity 0.6s ease;
 }
 
-.introTextPre .brandTitle,
 .introTextPost .brandTitle {
   margin-top: 0;
-}
-
-.introTextPre {
-  opacity: 1;
-}
-
-.screen[data-screen='intro']:has(.logoRing.drawDone) .introTextPre {
-  opacity: 0;
-}
-
-.screen[data-screen='intro']:has(.logoRing.drawDone) .introTextPost {
-  opacity: 1;
-  position: static;
 }
 
 /* ---- Champs / boutons ---- */

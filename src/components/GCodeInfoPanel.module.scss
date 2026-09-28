@@ -1,0 +1,44 @@
+// Informations G-code : même vocabulaire que la légende des types de ligne (libellés blancs
+// translucides, valeurs plus claires) dans le verre du panneau du bas de Prévisualisation.
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  height: 18px;
+  font-size: 11px;
+  line-height: 18px;
+}
+
+.label {
+  flex: 0 0 auto;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.45);
+  white-space: nowrap;
+}
+
+.value {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  text-align: right;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty {
+  margin: 0;
+  font-size: 11px;
+  line-height: 16px;
+  color: rgba(255, 255, 255, 0.45);
+}

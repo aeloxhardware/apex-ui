@@ -7,8 +7,8 @@
 .tooltipBubble {
   position: fixed;
   background: rgba(10, 15, 26, 0.25);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   border: none;
   color: rgba(255, 255, 255, 0.95);
   font-size: 11px;

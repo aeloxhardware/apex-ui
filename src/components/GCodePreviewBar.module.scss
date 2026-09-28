@@ -1,0 +1,144 @@
+// Barre de lecture G-code (espace Prévisualisation) : même verre que les autres panneaux
+// flottants (.previewPanelUpper/.previewPanelLower dans CategoriesSidebar.module.scss,
+// .categoriesToolbar) pour rester cohérente avec le reste du chrome. Rendue comme enfant flex de
+// la même rangée que le statut du plateau (cf. Index.tsx) plutôt que positionnée
+// indépendamment : elle occupe l'espace restant à droite de la pastille de statut, exactement là
+// où se trouvait le rectangle vide.
+//
+// Contenu : bouton Play/Pause aligné à gauche puis, dans l'espace restant, le curseur de
+// prévisualisation (cf. GCodePreviewBar.tsx). Hauteur volontairement plus grande que la pastille
+// de statut voisine (~32px avec son padding) plutôt qu'égale à elle.
+.bar {
+  position: relative;
+  flex: 0 0 80%;
+  min-width: 0;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  border-radius: 14px;
+  border: none;
+  isolation: isolate;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
+  pointer-events: auto;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(10, 15, 26, 0.25);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+  }
+}
+
+// Bouton Play/Pause : au repos, seule l'icône est visible (aucun fond ni contour) ; au survol,
+// seul un léger fond carré apparaît derrière elle, comme un vrai bouton qui se révèle au survol
+// plutôt qu'un disque toujours visible — jamais de contour, même au survol.
+.playButton {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #e4e4e7;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+
+  // Le trait vertical de Pause (`fill-current`, 14px) atterrit visuellement décentré vers la
+  // gauche par rapport au triangle de Play : recentrage optique, pas géométrique.
+  svg {
+    margin-left: 1px;
+  }
+
+  &:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+}
+
+// Curseur de prévisualisation : occupe l'espace restant à droite du bouton Play. Zone de
+// interaction plus haute que le rail visuel (comme un <input type="range">) pour rester facile à
+// saisir, le rail (scindé en deux segments) et la poignée n'étant que des enfants centrés dedans.
+// --handle-gap : espace laissé de part et d'autre de la poignée, entre elle et chacun des deux
+// segments — jamais de ligne touchant directement le point de clic (cf. maquette).
+.track {
+  --handle-gap: 10px;
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  touch-action: none;
+
+  &[aria-disabled='true'] {
+    cursor: default;
+  }
+}
+
+// Segment parcouru (avant la poignée) et segment restant (après), strictement séparés — plus de
+// conteneur .trackRail commun, puisque le fond et le remplissage doivent chacun s'arrêter avant
+// la poignée plutôt que se chevaucher sous elle.
+.trackFill,
+.trackRemainder {
+  position: absolute;
+  top: 50%;
+  height: 3px;
+  border-radius: 2px;
+  transform: translateY(-50%);
+}
+
+.trackFill {
+  left: 0;
+  background: #00f0ff;
+}
+
+.trackRemainder {
+  right: 0;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+// Poignée : rectangle arrondi (pilule) plutôt qu'un simple point, en verre dépoli — même recette
+// que .bar (fond translucide + flou) plutôt qu'un disque plein ou lumineux. Pas de halo externe :
+// seule une ombre portée neutre la détache du rail, comme .playButton au repos.
+// `pointer-events: auto` (plutôt que `none` comme avant) : seul CE point doit déclencher le son
+// de survol des éléments interactifs (cf. data-ui-sound en JSX), pas le reste de la piste — il lui
+// faut donc être la cible réelle du survol. Le drag depuis n'importe où sur .track continue de
+// fonctionner malgré ça : `onPointerDown`/`onPointerMove` restent déclenchés par la remontée
+// normale de l'événement jusqu'au parent.
+.trackHandle {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 18px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  box-shadow: 0 2px 6px 0 rgba(0, 0, 0, 0.4);
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.track:hover .trackHandle {
+  background: rgba(255, 255, 255, 0.26);
+  border-color: rgba(255, 255, 255, 0.4);
+}

@@ -1,8 +1,9 @@
 import React from 'react';
 import clsx from 'clsx';
-import { FolderOpen, Save, Printer } from 'lucide-react';
+import { FolderOpen, Save, Printer, Volume2, VolumeX } from 'lucide-react';
 import styles from './FileSidebar.module.scss';
 import { CustomTooltip } from './CustomTooltip';
+import { useUiSoundMuted } from '@/hooks/use-ui-sounds';
 
 interface FileSidebarProps {
   onOpenModel?: () => void;
@@ -21,6 +22,8 @@ export const FileSidebar: React.FC<FileSidebarProps> = ({
   selectedPrinter = 'Prusa MK4',
   selectedFilament = 'PLA Premium 1.75mm',
 }) => {
+  const [soundMuted, toggleSoundMuted] = useUiSoundMuted();
+
   return (
     <div className={styles.container} data-apex-chrome-panel>
       <div className={styles.toolbar}>
@@ -50,6 +53,17 @@ export const FileSidebar: React.FC<FileSidebarProps> = ({
             onClick={onOpenPrinterConfig || onOpenSettings}
           >
             <Printer size={18} />
+          </button>
+        </CustomTooltip>
+
+        <div className={styles.separator} />
+
+        <CustomTooltip content={soundMuted ? 'Activer les sons' : 'Couper les sons'} description="Active ou coupe les sons de survol et de clic de l'interface. Coupés par défaut.">
+          <button
+            className={clsx(styles.button)}
+            onClick={toggleSoundMuted}
+          >
+            {soundMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
           </button>
         </CustomTooltip>
       </div>

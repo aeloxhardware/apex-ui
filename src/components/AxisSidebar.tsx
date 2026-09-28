@@ -3,14 +3,19 @@ import clsx from 'clsx';
 import styles from './AxisSidebar.module.scss';
 import { CustomTooltip } from './CustomTooltip';
 import { showSuccess } from '@/utils/toast';
+import type { ParsedGCode } from './gcodeLayer';
+
+type AxisMode = '3-axes' | '5-axes';
 
 export const AxisSidebar: React.FC = () => {
-  const [axisMode, setAxisMode] = useState<'3-axes' | '5-axes'>('5-axes');
+  const [axisMode, setAxisMode] = useState<AxisMode>('5-axes');
+  const axisModeRef = useRef(axisMode);
+  axisModeRef.current = axisMode;
   const toolbarRef = useRef<HTMLDivElement>(null);
   const buttonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [indicatorStyle, setIndicatorStyle] = useState<React.CSSProperties>({});
 
-  const handleSelect = (mode: '3-axes' | '5-axes') => {
+  const handleSelect = (mode: AxisMode) => {
     setAxisMode(mode);
     showSuccess(`Mode d'impression configuré : ${mode === '3-axes' ? '3 Axes Standard' : '5 Axes Avancé'}`);
     window.dispatchEvent(new CustomEvent('apex-axis-changed', { detail: { mode } }));
@@ -19,6 +24,22 @@ export const AxisSidebar: React.FC = () => {
   useEffect(() => {
     // Notify initial state on mount
     window.dispatchEvent(new CustomEvent('apex-axis-changed', { detail: { mode: '5-axes' } }));
+  }, []);
+
+  // Bascule automatique sur le type de G-code chargé en Prévisualisation : cartésien → 3 axes,
+  // polaire Apex → 4 axes.
+  useEffect(() => {
+    const onGCodeLoaded = (e: Event) => {
+      const kind = (e as CustomEvent<{ parsed: ParsedGCode }>).detail?.parsed?.kind;
+      if (!kind) return;
+      const mode: AxisMode = kind === 'cartesian' ? '3-axes' : '5-axes';
+      if (mode === axisModeRef.current) return;
+      setAxisMode(mode);
+      showSuccess(`G-code ${mode === '3-axes' ? '3 axes' : '4 axes'} détecté : mode ${mode === '3-axes' ? '3 AXES' : '4 AXES'} activé.`);
+      window.dispatchEvent(new CustomEvent('apex-axis-changed', { detail: { mode } }));
+    };
+    window.addEventListener('apex-gcode-loaded', onGCodeLoaded);
+    return () => window.removeEventListener('apex-gcode-loaded', onGCodeLoaded);
   }, []);
 
   useEffect(() => {

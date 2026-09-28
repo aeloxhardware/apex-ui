@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import clsx from 'clsx';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -12,7 +13,6 @@ import {
   MousePointerSquareDashed,
   PenLine,
   RotateCw,
-  Spline,
   Square,
   Trash2,
   Triangle,
@@ -20,6 +20,15 @@ import {
 } from 'lucide-react';
 import styles from './ModelingSidebar.module.scss';
 import { CustomTooltip } from './CustomTooltip';
+import { ChamferIcon, FilletIcon } from './ModelingIcons';
+import {
+  LiquidGlassShadow,
+  applyLiquidGlassShadow,
+  applyGlassBlur,
+  GLASS_BLUR_PX,
+  PREVIEW_GLASS_BLUR_PX,
+  type LiquidGlassShadowHandle,
+} from './LiquidGlassMorph';
 import { showError, showSuccess } from '@/utils/toast';
 import {
   FEATURE_LABELS,
@@ -32,6 +41,7 @@ import {
   type SketchPlane,
   type SketchPlaneRef,
 } from '@/modeling/types';
+import { modelingMorphStage, modelingPathAt, modelingMorphDuration } from '@/utils/spaceMorphGeometry';
 
 /** Sous-maillage d'un modèle importé, tel que le diffuse `apex-mesh-selected`. */
 interface SubMeshItem {
@@ -56,8 +66,8 @@ const TOOLS: {
   { kind: 'sketch', icon: PenLine, description: 'Créez des contours géométriques sur un plan ou une surface plane afin de définir la base d\'une conception tridimensionnelle.' },
   { kind: 'extrude', icon: Box, description: 'Extruder un profil d\'esquisse fermé le long de sa normale.' },
   { kind: 'revolve', icon: RotateCw, description: 'Faire tourner un profil autour d\'un axe.' },
-  { kind: 'fillet', icon: Spline, description: 'Arrondir les arêtes sélectionnées avec un rayon.' },
-  { kind: 'chamfer', icon: Triangle, description: 'Biseauter les arêtes sélectionnées.' },
+  { kind: 'fillet', icon: FilletIcon, description: 'Arrondir les arêtes sélectionnées avec un rayon.' },
+  { kind: 'chamfer', icon: ChamferIcon, description: 'Biseauter les arêtes sélectionnées.' },
   { kind: 'mirror', icon: FlipHorizontal2, description: 'Dupliquer le corps par symétrie autour d\'un point.' },
 ];
 
@@ -80,12 +90,55 @@ const FEATURE_ICONS: Record<FeatureKind, React.ElementType> = {
   sketch: PenLine,
   extrude: Box,
   revolve: RotateCw,
-  fillet: Spline,
-  chamfer: Triangle,
+  fillet: FilletIcon,
+  chamfer: ChamferIcon,
   mirror: FlipHorizontal2,
 };
 
-export const ModelingSidebar: React.FC = () => {
+// Fraction du morph ('enter' : t croissant de 0 à 1) au-delà de laquelle la silhouette est assez
+// proche de sa forme normale pour que le contenu (header, Sélection, Corps) commence à apparaître,
+// un groupe après l'autre (cf. contentVariants / CONTENT_STAGGER_MS). En dessous, le contenu reste
+// (cf. contentRevealed) invisible plutôt que de montrer un fragment illisible d'un texte/bouton bien
+// plus grand que la silhouette qui le découpe. `1` (pas moins) : le contenu ne doit apparaître
+// qu'UNE FOIS la déformation entièrement terminée, jamais pendant qu'elle est encore en cours (même
+// proche de la fin, la silhouette peut encore être trop étroite/basse pour l'accueillir proprement).
+const CONTENT_REVEAL_THRESHOLD = 1;
+const CONTENT_STAGGER_MS = 0.09;
+
+// Cascade dans les deux sens, toujours du haut vers le bas (header, Sélection, Corps) : apparition
+// à la fin d'un morph d'entrée, disparition dès le clic qui quitte Modélisation.
+const contentContainerVariants = {
+  hidden: { transition: { staggerChildren: CONTENT_STAGGER_MS } },
+  visible: { transition: { staggerChildren: CONTENT_STAGGER_MS } },
+};
+
+const contentGroupVariants = {
+  hidden: { opacity: 0, y: 6 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.22, ease: [0.4, 0, 0.2, 1] } },
+};
+
+interface ModelingSidebarProps {
+  /**
+   * Signale une transition d'espace en cours entre Modélisation et la pilule/les panneaux de
+   * Prévisualisation, dans un sens ou dans l'autre :
+   *  - 'enter' : ce panneau — déjà affiché avec son contenu réel — part de la forme/position de la
+   *    pilule (ou des deux panneaux de Prévisualisation si `fromPreview`) et se déforme en un seul
+   *    geste vers sa forme normale.
+   *  - 'exit' : mouvement inverse — parti de sa forme normale, ce panneau se déforme vers la
+   *    pilule ou les panneaux de Prévisualisation, puis Index.tsx le démonte (`onDone`) et affiche
+   *    à la place les vrais panneaux slicer, déjà dans leur état final (cf. `initialPreviewActive`
+   *    de CategoriesSidebar).
+   *
+   * Contrairement à l'ancienne approche (un calque de verre animé séparé, remplacé après coup par
+   * ce panneau), c'est ICI le même élément DOM, déjà monté avec son contenu réel, qui change de
+   * silhouette (`clip-path`, cf. useLiquidGlassClip) — aucun raccord entre deux éléments distincts,
+   * donc aucun risque de clignotement à la jonction. Reste monté pendant tout le morph (les effets
+   * de montage/démontage — restauration du mode 3D notamment — ne doivent avoir lieu qu'une fois).
+   */
+  morph?: { direction: 'enter' | 'exit'; fromPreview: boolean; onDone: () => void };
+}
+
+export const ModelingSidebar: React.FC<ModelingSidebarProps> = ({ morph }) => {
   const [models, setModels] = useState<ModelNode[]>([]);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(null);
@@ -97,6 +150,101 @@ export const ModelingSidebar: React.FC = () => {
   const segmentedRef = useRef<HTMLDivElement>(null);
   const segmentRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [indicatorStyle, setIndicatorStyle] = useState<React.CSSProperties>({});
+
+  // Morph d'espace (cf. la prop `morph`) : anime directement le `clip-path` de .panel entre la
+  // forme de la pilule/des panneaux Preview et sa forme normale — jamais de calque séparé à
+  // raccorder, c'est ce panneau réel, déjà affiché avec son contenu, qui change de silhouette.
+  //
+  // `stage` est DÉRIVÉ de `morph` pendant le rendu, jamais stocké dans un état mis à jour depuis la
+  // boucle RAF : l'app tourne sous `createRoot` (React 18 concurrent), où un `setState` hors
+  // gestionnaire d'événement n'est commité que dans une tâche ULTÉRIEURE — donc après la peinture de
+  // la frame courante. Mélanger une mutation DOM synchrone (retrait du clip-path) et un tel
+  // `setState` (retrait du stage et de `.morphing`) laissait passer une frame incohérente : panneau
+  // non découpé à la taille du stage (un rectangle plus large), ou masqué par le filet CSS de
+  // `.morphing` (un trou « transparent » entouré de l'ombre). Ici, tout ce qui décrit « un morph est
+  // en cours » disparaît dans le MÊME commit que `morph`, et le clip-path est retiré par le cleanup
+  // du layout effect ci-dessous, qui s'exécute pendant ce commit, avant la peinture.
+  const panelRef = useRef<HTMLDivElement>(null);
+  const shadowRef = useRef<LiquidGlassShadowHandle>(null);
+  const stage = morph ? modelingMorphStage(window.innerHeight) : null;
+  const morphRef = useRef(morph);
+  morphRef.current = morph;
+  // Le contenu (header, Sélection, Corps — cf. CONTENT_REVEAL_THRESHOLD) n'a de sens que quand la
+  // silhouette a sa forme normale. Calculé dès l'état initial (pas seulement dans le layout effect,
+  // qui ne corrigerait qu'APRÈS un premier rendu à `true`) : faux dès qu'un morph est en cours au
+  // montage.
+  const [contentRevealed, setContentRevealed] = useState(() => !morph);
+  // Vrai dès le CLIC qui quitte Modélisation (cf. apex-leaving-modeling, dispatché par Sidebar.tsx
+  // avant même que le rideau ne monte) : le contenu disparaît en cascade AVANT que la déformation ne
+  // commence (à `onCovered`, ~900ms plus tard). Ce composant est démonté à la fin du morph de
+  // sortie, jamais besoin de repasser à `false`.
+  const [contentLeaving, setContentLeaving] = useState(false);
+
+  useEffect(() => {
+    const handleLeaving = () => setContentLeaving(true);
+    window.addEventListener('apex-leaving-modeling', handleLeaving);
+    return () => window.removeEventListener('apex-leaving-modeling', handleLeaving);
+  }, []);
+
+  // Layout effect : la première silhouette est posée avant le premier affichage (sinon une image
+  // du panneau non clippé clignoterait — cf. aussi le filet CSS de `.panel.morphing`).
+  useLayoutEffect(() => {
+    if (!morph || !panelRef.current) return;
+    const stage = modelingMorphStage(window.innerHeight);
+    const el = panelRef.current;
+    // Le contenu n'est jamais visible pendant une déformation : en entrée il n'apparaît qu'à t = 1,
+    // en sortie il est déjà parti au clic (contentLeaving).
+    let revealed = false;
+    setContentRevealed(false);
+
+    const pathAt = (t: number, dx: number, dy: number) =>
+      modelingPathAt(morph.fromPreview, window.innerHeight, t, dx, dy - stage.dyOffset);
+
+    const apply = (progress: number) => {
+      const t = morph.direction === 'exit' ? 1 - progress : progress;
+      el.style.clipPath = `path('${pathAt(t, 0, 0)}')`;
+      // Depuis la Prévisualisation, le verre part du flou (plus fort) de ses panneaux.
+      if (morph.fromPreview) applyGlassBlur(el, PREVIEW_GLASS_BLUR_PX, GLASS_BLUR_PX, t);
+      // MÊME frame, MÊME `progress` que le panneau réel ci-dessus (cf. le commentaire de
+      // LiquidGlassShadow : deux boucles RAF séparées dériveraient l'une de l'autre).
+      applyLiquidGlassShadow(shadowRef, pathAt, stage.width, stage.height, morph.direction === 'exit', progress);
+      const shouldReveal = morph.direction === 'enter' && t >= CONTENT_REVEAL_THRESHOLD;
+      if (shouldReveal !== revealed) {
+        revealed = shouldReveal;
+        setContentRevealed(revealed);
+      }
+    };
+
+    const duration = modelingMorphDuration(morph.fromPreview);
+    apply(0);
+    const start = performance.now();
+    let raf = requestAnimationFrame(function tick(now) {
+      const progress = Math.min(1, (now - start) / duration);
+      apply(progress);
+      if (progress < 1) {
+        raf = requestAnimationFrame(tick);
+      } else {
+        // Rien d'autre ici : ni mutation DOM, ni état de géométrie. `onDone` fait passer `morph` à
+        // undefined (ou démonte ce composant en sortie) ; le commit qui en résulte retire le stage
+        // et `.morphing`, et le cleanup ci-dessous efface le clip-path dans ce même commit.
+        morphRef.current?.onDone();
+      }
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      el.style.clipPath = '';
+      el.style.backdropFilter = '';
+      el.style.removeProperty('-webkit-backdrop-filter');
+    };
+    // Dépendre de `morph` lui-même (plutôt que ses champs primitifs) relancerait cet effet — donc
+    // l'animation, depuis `t = 0` — à chaque re-render du parent pendant le morph : Index.tsx
+    // construit `{ ...modelingMorph, onDone }` à chaque rendu, un nouvel objet à chaque fois, alors
+    // que `onDone` (lu via morphRef, jamais capturé ici) fait toujours la même chose. `direction`/
+    // `fromPreview`, eux, restent figés pour la durée de CE morph (Index.tsx ne les change jamais
+    // sans démonter/remonter un nouveau cycle) : ce sont eux qui doivent déclencher l'effet, à
+    // l'exclusion de toute autre cause de re-render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [morph?.direction, morph?.fromPreview]);
 
   /** Le viewport a besoin de connaître l'état initial dès le montage du panneau. */
   useEffect(() => {
@@ -334,22 +482,62 @@ export const ModelingSidebar: React.FC = () => {
   const selectedFeature =
     targetModel?.features.find((f) => f.id === selectedFeatureId) ?? null;
 
+  // Slot exposé par Sidebar (même conteneur physique que la barre d'outils slicer, voir
+  // Sidebar.tsx) : Sidebar est toujours monté en parallèle, donc le noeud existe déjà quand
+  // ce composant apparaît — pas de souci d'ordre de montage à gérer.
+  const [toolbarSlot, setToolbarSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    setToolbarSlot(document.getElementById('apex-modeling-toolbar-slot'));
+  }, []);
+
   return (
     <>
+      {/* Pendant le morph (cf. `morph`), l'ombre portée est un calque séparé qui épouse la même
+          silhouette animée que .panel — box-shadow ne suivrait pas un clip-path complexe, il
+          resterait un rectangle fixe pendant que le contenu change de forme. Composant purement
+          passif : pilotée par `shadowRef`, dans la MÊME boucle RAF que .panel (cf. le
+          useLayoutEffect plus haut), jamais par sa propre boucle indépendante. */}
+      {stage && (
+        <LiquidGlassShadow
+          left={stage.left}
+          top={stage.top}
+          width={stage.width}
+          height={stage.height}
+          shadowRef={shadowRef}
+        />
+      )}
+
       {/* ---------- Panneau latéral : arborescence des corps ---------- */}
-      <div className={styles.container} data-apex-chrome-panel>
-        <motion.div
-          className={styles.panel}
-          initial={{ opacity: 0, x: -24 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -24 }}
-          transition={{ duration: 0.35, ease: [0.4, 0, 0.2, 1] }}
+      {/* Ni ce conteneur ni .panel ne sont des motion.div : Framer Motion pose un `transform`
+          inline sur tout ce qu'il anime, ce qui créerait un contexte d'empilement sur un ANCÊTRE
+          du panneau à `backdrop-filter` (cf. le commentaire de tête de LiquidGlassMorph.tsx). */}
+      <div
+        className={styles.container}
+        data-apex-chrome-panel
+        style={
+          stage
+            ? { position: 'fixed', left: stage.left, top: stage.top, width: stage.width, height: stage.height, maxHeight: 'none' }
+            : undefined
+        }
+      >
+        <div
+          ref={panelRef}
+          className={clsx(styles.panel, { [styles.morphing]: !!stage })}
         >
-          <div className={styles.header}>
+          {/* Jamais visible pendant une déformation : apparaît en cascade (header, Sélection,
+              Corps) une fois un morph d'entrée terminé, disparaît de même dès le clic qui quitte
+              Modélisation (contentLeaving). Hors morph, `animate="visible"` sans délai. */}
+          <motion.div
+            variants={contentContainerVariants}
+            initial={false}
+            animate={contentRevealed && !contentLeaving ? 'visible' : 'hidden'}
+          >
+          <motion.div className={styles.header} variants={contentGroupVariants}>
             <Box className={clsx('w-4 h-4', styles.headerIcon)} />
             Modélisation
-          </div>
+          </motion.div>
 
+          <motion.div variants={contentGroupVariants}>
           <div className={styles.sectionLabel}>Sélection</div>
           <div ref={segmentedRef} className={styles.segmented}>
             <div className={styles.activeIndicator} style={indicatorStyle} />
@@ -370,7 +558,9 @@ export const ModelingSidebar: React.FC = () => {
               </CustomTooltip>
             ))}
           </div>
+          </motion.div>
 
+          <motion.div variants={contentGroupVariants}>
           <div className={styles.sectionLabel}>Corps</div>
           <div className={styles.treeScroll}>
             {models.length === 0 ? (
@@ -476,6 +666,8 @@ export const ModelingSidebar: React.FC = () => {
               </ul>
             )}
           </div>
+          </motion.div>
+          </motion.div>
 
           {/* ---- Paramètres de la feature sélectionnée ---- */}
           <AnimatePresence initial={false}>
@@ -622,21 +814,16 @@ export const ModelingSidebar: React.FC = () => {
               </motion.div>
             )}
           </AnimatePresence>
-        </motion.div>
+        </div>
       </div>
 
-      {/* ---------- Barre d'opérations : icônes seules, pleine largeur, au-dessus du statut ---------- */}
-      <motion.div
-        className={styles.opsBar}
-        data-apex-chrome-panel
-        // Se déploie horizontalement pendant que la barre slicer se rétracte au même
-        // endroit : les deux mouvements se croisent et se lisent comme un seul morph.
-        initial={{ opacity: 0, scaleX: 0.55 }}
-        animate={{ opacity: 1, scaleX: 1 }}
-        exit={{ opacity: 0, scaleX: 0.55 }}
-        transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
-      >
-        <div className={styles.opsBarInner}>
+      {/* ---------- Boutons d'opérations CAD ----------
+          Injectés par portail dans le même conteneur physique que la barre d'outils slicer
+          (voir Sidebar.tsx : c'est LUI qui se vide/se déplace/se déforme entre les modes,
+          pas un composant séparé qui apparaît par-dessus) — ici on ne possède que la
+          logique (activeTool, handleToolClick, création de features), pas le conteneur. */}
+      {toolbarSlot && createPortal(
+        <>
           {TOOLS.map(({ kind, icon: Icon, description }) => (
             <CustomTooltip key={kind} content={FEATURE_LABELS[kind]} description={description}>
               <button
@@ -648,8 +835,9 @@ export const ModelingSidebar: React.FC = () => {
               </button>
             </CustomTooltip>
           ))}
-        </div>
-      </motion.div>
+        </>,
+        toolbarSlot,
+      )}
 
       {/* ---------- Petite barre des formes d'esquisse, juste sous la barre principale ---------- */}
       <AnimatePresence initial={false}>

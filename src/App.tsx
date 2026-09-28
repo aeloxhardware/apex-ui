@@ -4,8 +4,13 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Index from './pages/Index';
 import { Toaster } from '@/components/ui/sonner';
+import { useUiSounds } from '@/hooks/use-ui-sounds';
 
 function App() {
+  // Sons de survol/clic sur les éléments interactifs de toute l'interface
+  // (voir src/hooks/use-ui-sounds.ts) - monté une seule fois ici.
+  useUiSounds();
+
   return (
     <Router>
       <Routes>

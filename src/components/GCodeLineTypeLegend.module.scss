@@ -1,0 +1,552 @@
+// Légende « Type de ligne » : même vocabulaire visuel que GCodeSpeedSelector (libellés 11px/600
+// blancs translucides, cyan pour l'état actif) dans le verre du panneau du haut de Prévisualisation.
+.root {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 8px 10px 12px;
+}
+
+// En-tête et lignes partagent la même grille ; `scrollbar-gutter` réserve la même largeur de barre
+// de défilement des deux côtés pour garder les colonnes alignées.
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 56px 62px 48px 46px 16px;
+  column-gap: 5px;
+  align-items: center;
+  padding: 0 6px;
+}
+
+.header {
+  flex: 0 0 auto;
+  height: 26px;
+  overflow-y: hidden;
+  scrollbar-gutter: stable;
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.45);
+  white-space: nowrap;
+}
+
+.rows {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+
+.row {
+  height: 22px;
+  border-radius: 6px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
+}
+
+.name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.swatch {
+  flex: 0 0 10px;
+  height: 10px;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+.label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.numeric {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.row .numeric {
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.row .dash {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+// Type masqué dans le viewport : ligne atténuée, case restant pleinement lisible.
+.off {
+  .name,
+  .numeric {
+    opacity: 0.4;
+  }
+}
+
+.checkbox {
+  appearance: none;
+  justify-self: end;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border-radius: 5px;
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  position: relative;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.14);
+  }
+
+  &:checked {
+    background: rgba(0, 240, 255, 0.18);
+    box-shadow: 0 0 8px rgba(0, 240, 255, 0.25);
+
+    &::after {
+      content: '';
+      position: absolute;
+      left: 5px;
+      top: 2px;
+      width: 4px;
+      height: 9px;
+      border: solid #00f0ff;
+      border-width: 0 1px 1px 0;
+      transform: rotate(45deg);
+    }
+  }
+
+  &:focus-visible {
+    box-shadow: 0 0 0 1px rgba(0, 240, 255, 0.6);
+  }
+}
+
+// --- Sélecteur « Colorer par » (GCodeColorBySelector) ------------------------------------------
+
+// Déclencheur du sélecteur « colorer par » : le libellé de l'en-tête de colonne LUI-MÊME (« Type de
+// ligne », ou le nom du mode actif), pas un bandeau séparé — cadre visible seulement au survol,
+// chevron toujours accolé pour signaler qu'il ouvre un menu.
+.colorByTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  margin: 0 -6px 0 -2px;
+  padding: 0 6px 0 2px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
+  }
+
+  &:focus-visible {
+    box-shadow: 0 0 0 1px rgba(0, 240, 255, 0.6);
+  }
+}
+
+.colorByChevron {
+  flex: 0 0 auto;
+  opacity: 0.7;
+}
+
+// Popover : même design que les menus de catégorie de CategoriesSidebar.module.scss
+// (.fusionMenuContainer/.itemRow/.sectionTitle/.externalScrollThumb), recopié fidèlement ici plutôt
+// que partagé entre modules CSS (couplage fragile) — verre sombre + flou, cartes de ligne, curseur
+// de défilement externe glissable. Rendu dans un Portal (document.body, hors du panneau et de son
+// `isolation: isolate`) : son z-index doit donc dépasser celui du panneau le plus élevé de
+// CategoriesSidebar (1003), sans quoi il s'affiche derrière lui.
+.colorByMenu {
+  // !important : neutralise les classes Tailwind du composant shadcn par défaut (même spécificité,
+  // ordre d'injection CSS non garanti entre Tailwind et les modules SCSS) — z-index, et fond/flou
+  // posés directement ici (pas sur un ::before enfant) : Radix enveloppe ce Content dans un wrapper
+  // à `transform` pour le positionner, et un `backdrop-filter` ne floute que ce qui est peint DANS
+  // le même sous-arbre transformé — un ::before enfant de ce même élément n'a donc rien de réel à
+  // flouter derrière lui (d'où le fond gris plat observé) ; posé sur l'élément transformé lui-même,
+  // il capture correctement ce qu'il y a derrière LUI dans la page.
+  // !important sur TOUTE cette règle : le composant shadcn par défaut porte déjà des classes
+  // Tailwind (z-50, bg-popover, p-4, border, rounded-md, shadow-md...) de même spécificité que
+  // cette classe module — l'ordre d'injection CSS entre Tailwind et les modules SCSS n'est pas
+  // garanti, donc SANS !important certaines de ces propriétés s'affichaient (z-index, fond, ombre
+  // déjà rencontrés un par un) et d'autres non selon l'ordre du jour, silencieusement. Plus fiable
+  // de neutraliser tout le lot d'un coup que de découvrir chaque propriété écrasée au cas par cas.
+  z-index: 1100 !important;
+  position: relative !important;
+  background: rgba(10, 15, 26, 0.65) !important;
+  // Même intensité que Sidebar.module.scss (.toolbar) — 16px était trop prononcé pour ce menu.
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+  width: 260px !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 16px !important;
+  overflow: visible !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3) !important;
+}
+
+.colorByMenuContent {
+  max-height: 320px;
+  overflow-y: scroll;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  border-radius: inherit;
+  color: rgba(255, 255, 255, 0.85);
+
+  &::-webkit-scrollbar {
+    width: 0;
+    background: transparent;
+  }
+}
+
+// Même piste que .externalScrollThumb (CategoriesSidebar.module.scss) : hors du conteneur
+// scrollable, posée à droite du menu, glissable (cf. useExternalScrollThumb).
+.externalScrollThumb {
+  position: absolute;
+  left: calc(100% + 4px);
+  width: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border-radius: 999px;
+  pointer-events: auto;
+  cursor: default;
+  z-index: 1;
+  transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease;
+
+  &:hover,
+  &.dragging {
+    width: 12px;
+    background: rgba(255, 255, 255, 0.35);
+  }
+}
+
+.sectionGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+  letter-spacing: 0.5px;
+}
+
+.itemsList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.itemRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: perspective(400px) translateZ(0px);
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: perspective(400px) translateZ(6px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
+
+  &:focus-visible {
+    box-shadow: 0 0 0 1px rgba(0, 240, 255, 0.6);
+  }
+}
+
+.activeItemRow {
+  background: rgba(0, 240, 255, 0.14);
+  border-color: rgba(0, 240, 255, 0.3);
+  color: #00f0ff;
+}
+
+.itemName {
+  flex: 1;
+  padding-right: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+
+.colorByItemSwatch {
+  flex: 0 0 20px;
+  height: 6px;
+  border-radius: 3px;
+}
+
+// --- Corps de la légende en mode continu (dégradé + curseurs + min/moy/max) --------------------
+
+.gradientPanel {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 6px;
+}
+
+// Enveloppe l'échelle + la case « hors-portée en gris » sous elle.
+.gradientScaleWrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+// Échelle verticale : la piste de la barre (Max en haut, Min en bas — sens habituel d'une légende
+// thermique) et la colonne Min/Moy./Max côte à côte, chacune alignée sur son repère le long de la
+// barre.
+.gradientScale {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  gap: 20px;
+  padding: 12px 8px 12px 0;
+}
+
+// Piste : largeur élargie par rapport à la barre visuelle elle-même, pour laisser de la place aux
+// poignées qui débordent de part et d'autre (cf. .gradientHandle) sans être coupées.
+.gradientBarTrack {
+  position: relative;
+  flex: 0 0 20px;
+  width: 20px;
+}
+
+// Piste grise pleine hauteur : ce que représente la barre AU-DELÀ de la portée choisie (gris ou
+// écrêté selon la case « hors-portée », mais jamais coloré par le dégradé) — posée en dessous de
+// .gradientBar, qui ne couvre que [min, max] par-dessus elle (cf. GCodeGradientScale).
+.gradientBarOut {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 10px;
+  transform: translateX(-50%);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+// Bande de dégradé recadrée sur [min, max] (cf. GCodeGradientScale, top/bottom en style inline) :
+// même radius/ombre intérieure que .gradientBarOut, mais coins arrondis seulement à ses propres
+// extrémités (elle ne couvre pas forcément toute la piste).
+.gradientBar {
+  position: absolute;
+  left: 50%;
+  width: 10px;
+  transform: translateX(-50%);
+  border-radius: 5px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+// Poignée glissable (curseur min ou max) : disque plein sans contour, centré horizontalement sur la
+// barre, positionné verticalement par `bottom` (cf. GCodeGradientScale, fraction des bornes du
+// fichier) — ombre portée marquée pour bien se détacher de la piste sous elle.
+.gradientHandle {
+  position: absolute;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  transform: translate(-50%, 50%);
+  border-radius: 50%;
+  background: #fff;
+  border: none;
+  box-shadow: 0 3px 10px 0 rgba(0, 0, 0, 0.6), 0 1px 3px 0 rgba(0, 0, 0, 0.5);
+  cursor: grab;
+  touch-action: none;
+
+  &:hover {
+    box-shadow: 0 3px 10px 0 rgba(0, 0, 0, 0.6), 0 1px 3px 0 rgba(0, 0, 0, 0.5), 0 0 0 4px rgba(255, 255, 255, 0.12);
+  }
+}
+
+.gradientHandleActive {
+  cursor: grabbing;
+  box-shadow: 0 3px 10px 0 rgba(0, 0, 0, 0.6), 0 1px 3px 0 rgba(0, 0, 0, 0.5), 0 0 0 5px rgba(0, 240, 255, 0.25);
+}
+
+.gradientStats {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.gradientStat {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+// Moyenne du fichier tombée hors de la portée resserrée (cf. GCodeGradientScale) : atténuée pour
+// signaler qu'elle n'est plus représentative de ce qui est affiché sur le tracé.
+.gradientStatOutOfScope {
+  opacity: 0.4;
+}
+
+.gradientStatLabel {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.gradientStatValue {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  font-variant-numeric: tabular-nums;
+}
+
+// Case « hors-portée en gris » : même vocabulaire visuel que .checkboxRow (GCodeSpeedSelector).
+.grayOutOfScopeRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  user-select: none;
+
+  &:hover {
+    color: rgba(255, 255, 255, 0.95);
+  }
+}
+
+.gradientEmpty {
+  margin: 0;
+  text-align: center;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+// --- Curseur « Précision du rendu » (GCodeRenderPrecisionSlider) — même piste que .track
+// (GCodeSpeedSelector.module.scss), en plus compact (pas de préréglages segmentés dessous). -------
+
+.precisionRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.precisionLabelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.precisionLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.precisionValue {
+  font-size: 11px;
+  font-weight: 600;
+  color: #00f0ff;
+  font-variant-numeric: tabular-nums;
+}
+
+.precisionTrack {
+  position: relative;
+  height: 16px;
+  cursor: pointer;
+  touch-action: none;
+  outline: none;
+
+  // Fond de piste (partie non remplie) : posé en ::before pour ne pas gêner le positionnement en
+  // `left`/`top` de .precisionTrackFill et .precisionHandle, tous deux `position: absolute` sur ce
+  // même parent.
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 3px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.12);
+    transform: translateY(-50%);
+  }
+
+  &:focus-visible .precisionHandle {
+    border-color: rgba(0, 240, 255, 0.7);
+  }
+}
+
+.precisionTrackFill {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  height: 3px;
+  border-radius: 2px;
+  background: #00f0ff;
+  transform: translateY(-50%);
+}
+
+.precisionHandle {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 16px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  box-shadow: 0 2px 6px 0 rgba(0, 0, 0, 0.4);
+  transform: translate(-50%, -50%);
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.precisionTrack:hover .precisionHandle {
+  background: rgba(255, 255, 255, 0.26);
+  border-color: rgba(255, 255, 255, 0.4);
+}

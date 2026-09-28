@@ -1,0 +1,84 @@
+// Plein écran (monté à la racine dans Index.tsx, hors du bloc chrome démonté en Paramètres) :
+// les panneaux en superposition (sidebars, menus, tooltips), tous en `position: fixed` avec un
+// z-index ≥ 1000, forment leur propre contexte d'empilement et restent ainsi visibles par-dessus,
+// sans flou ni voile.
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+// Étape 1 : flou seul, sans aucune teinte — une simple loupe sur ce qu'il y a derrière.
+.blurLayer {
+  position: absolute;
+  inset: 0;
+  -webkit-backdrop-filter: blur(0px);
+}
+
+// Étape 2 : grille de grosses tuiles peintes une à une (cf. TSX) plutôt qu'un voile continu.
+.tileGrid {
+  position: absolute;
+  inset: 0;
+}
+
+.tile {
+  position: absolute;
+  // Léger débord pour recouvrir la jointure avec les tuiles voisines (anti-aliasing/arrondis).
+  margin: -1px;
+  // Voile gris neutre (plus de teinte bleue) : dégradé clair → sombre, même construction
+  // radiale qu'avant pour garder le même effet de balayage une fois toutes les tuiles posées.
+  background:
+    radial-gradient(140% 160% at 100% 0%, rgba(150, 152, 156, 0.9), rgba(58, 60, 66, 0.97) 55%, rgba(20, 21, 24, 1) 100%);
+  // Chaque tuile lit le dégradé à sa propre position dans le viewport (pas re-scalé par tuile),
+  // pour que l'ensemble reforme un dégradé continu une fois toutes les tuiles posées.
+  background-attachment: fixed;
+  background-size: 100vw 100vh;
+  background-position: 0 0;
+}
+
+.textBlock {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+}
+
+.brand {
+  font-family: 'Ethnocentric', 'Orbitron', sans-serif;
+  font-weight: 400;
+  font-size: clamp(64px, 11vw, 160px);
+  line-height: 1;
+  letter-spacing: 0.05em;
+  color: #eafcff;
+  // Halo blanc seul, sans teinte bleue/cyan.
+  text-shadow: 0 0 16px rgba(255, 255, 255, 0.6);
+}
+
+// Petit, tout en majuscules et très espacé — le style "M O D É L I S A T I O N". L'espacement
+// des lettres est calculé dynamiquement (voir SpaceTransitionOverlay.tsx) pour que le mot
+// remplisse toujours la même largeur, que le nom de l'espace fasse 3 lettres ("Dev") ou 16
+// ("Prévisualisation") — un letter-spacing fixe en em ne le permettrait pas.
+.spaceName {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 600;
+  font-size: 15px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.scanline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -12px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #ffffff, transparent);
+  transform-origin: center;
+}

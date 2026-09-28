@@ -1,14 +1,22 @@
 $accent: #00f0ff;
-$panel-bg: rgba(10, 15, 26, 0.3);
+$panel-bg: rgba(10, 15, 26, 0.25);
 $panel-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
 
 .container {
   position: fixed;
   top: 96px;
   left: 24px;
-  bottom: 96px;
   width: 268px;
-  z-index: 100;
+  // Même règle que modelingGeometry() dans spaceMorphGeometry.ts (MODELING_H plafonné par la
+  // place entre top 96 et une marge basse de 96) : la dernière image du morph doit tomber
+  // exactement sur cette boîte.
+  height: 712px;
+  max-height: calc(100vh - 192px);
+  // Même niveau que les autres panneaux principaux (FileSidebar, Sidebar, SliceSidebar…) :
+  // au-dessus du rideau de transition d'espace (SpaceTransitionOverlay, z-index 30) ET du calque
+  // d'ombre du morph (LiquidGlassMorph, $morph-z 999, cf. ModelingSidebar.tsx), qui doit rester
+  // SOUS ce panneau pendant que sa silhouette change de forme.
+  z-index: 1000;
   display: flex;
   flex-direction: column;
   pointer-events: none;
@@ -20,13 +28,31 @@ $panel-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
   flex: 1;
   min-height: 0;
   background: $panel-bg;
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   border: none;
   border-radius: 18px;
   box-shadow: $panel-shadow;
   pointer-events: auto;
   overflow: hidden;
+
+  // Pendant un morph d'espace (cf. la prop `morph` de ModelingSidebar) : la silhouette réelle est
+  // dessinée par le `clip-path` animé (cf. useLayoutEffect dans ModelingSidebar.tsx), qui inclut
+  // déjà ses propres coins arrondis — `border-radius` n'aurait plus aucun effet visible sur un
+  // contour non rectangulaire mais resterait coûteux à calculer ; `box-shadow` ne suivrait de toute
+  // façon jamais un `clip-path` complexe (cf. LiquidGlassShadow, le calque qui le remplace).
+  &.morphing {
+    border-radius: 0;
+    box-shadow: none;
+    // Filet de sécurité CSS (même valeur que .glass dans LiquidGlassMorph.module.scss) : masque
+    // tout par défaut tant que le premier `clip-path` inline n'a pas été posé par JS (cf. le
+    // useLayoutEffect). Cette classe est appliquée dès le même rendu React que le style de
+    // `.container` (le stage, 364px+) — sans ce filet, une frame entre le commit DOM et
+    // l'exécution du layout effect afficherait ce panneau à sa pleine largeur de stage, sans
+    // découpe : un rectangle visiblement plus large que la pilule/le panneau final, l'instant
+    // d'une frame.
+    clip-path: inset(0 0 100% 0);
+  }
 }
 
 .header {
@@ -284,45 +310,16 @@ $panel-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
   line-height: 1.6;
 }
 
-/* ---- Barre d'opérations : icônes seules, sous la barre d'onglets ---- */
-
-.opsBar {
-  position: fixed;
-  // Pleine largeur + centrage par flex : un translateX(-50%) serait écrasé par la
-  // transform que framer-motion pose pour animer `y`.
-  //
-  // La Sidebar est une pile verticale centrée à partir de top:20px — onglets (20→78px),
-  // gap 10px, puis outils slicer (88→132px) — le tout en z-index 1000. En mode
-  // modélisation la barre slicer se rétracte : on vient occuper exactement son
-  // emplacement (88px) pour que l'échange se lise comme un morph d'une barre à l'autre.
-  // z-index supérieur à la pile pour rester au-dessus pendant le croisement.
-  top: 88px;
-  left: 0;
-  right: 0;
-  z-index: 1001;
-  display: flex;
-  justify-content: center;
-  pointer-events: none;
-}
-
-.opsBarInner {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px;
-  background: $panel-bg;
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  border: none;
-  border-radius: 14px;
-  box-shadow: $panel-shadow;
-  pointer-events: auto;
-}
+/* ---- Barre d'opérations CAD ----
+   Les boutons eux-mêmes n'ont plus de conteneur ici : ils sont injectés par portail dans
+   le conteneur unique de Sidebar.tsx (`.bottomToolbar` / `.modelingSlot`), qui porte sa
+   propre apparence (fond, ombre, rayon). Ce fichier ne garde que `.barButton`, réutilisé
+   tel quel par le portail et par `.sketchBar` ci-dessous. */
 
 // Petite barre secondaire des formes d'esquisse (Ligne, Rectangle, Cercle, Triangle,
-// Courbe) : distincte de `.opsBar` plutôt qu'incluse dedans, positionnée juste en-dessous
-// pour ne jamais élargir la barre principale — visible seulement quand l'outil Esquisse
-// de `.opsBar` est actif.
+// Courbe) : positionnée juste sous le conteneur d'outils commun (voir Sidebar.tsx,
+// `.bottomToolbar` reste à top:88px en mode modélisation) plutôt qu'incluse dedans, pour
+// ne jamais élargir la barre principale — visible seulement quand l'outil Esquisse est actif.
 .sketchBar {
   position: fixed;
   top: 144px;
@@ -340,8 +337,8 @@ $panel-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
   gap: 4px;
   padding: 5px;
   background: $panel-bg;
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   border: none;
   border-radius: 12px;
   box-shadow: $panel-shadow;

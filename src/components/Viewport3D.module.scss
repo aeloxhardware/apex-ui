@@ -1,0 +1,52 @@
+// Fenêtre de sélection (clic gauche + drag) : le mode « crossing » (drag vers la gauche) a un
+// contour pointillé bleu qui défile en boucle, dans le même sens tout autour du rectangle
+// (horaire), façon « rails de train ». Un `border` CSS classique ne sait pas animer un pointillé
+// en boucle, et un unique élément avec 4 dégradés de fond en repeat-x/repeat-y déborde sur toute
+// la surface plutôt que de rester sur les bords (chaque dégradé garde la taille de l'élément sur
+// l'axe non répété) — on utilise donc 4 bandes fines, une par bord, chacune avec son propre
+// dégradé tiled ; le sens de chaque bord est choisi pour que les 4 mis bout à bout tournent tous
+// horaire (haut → droite, droite → bas, bas → gauche, gauche → haut).
+@keyframes marchingAntsX {
+  to { background-position: 8px 0; }
+}
+@keyframes marchingAntsXReverse {
+  to { background-position: -8px 0; }
+}
+@keyframes marchingAntsY {
+  to { background-position: 0 8px; }
+}
+@keyframes marchingAntsYReverse {
+  to { background-position: 0 -8px; }
+}
+
+$dash-color: #38bdf8; // bleu (accent), remplace le blanc précédent
+
+.crossingBox {
+  position: absolute;
+  inset: 0;
+}
+
+.edgeX {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background-image: linear-gradient(90deg, $dash-color 50%, transparent 50%);
+  background-size: 8px 1px;
+  background-repeat: repeat-x;
+}
+
+.edgeY {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background-image: linear-gradient(0deg, $dash-color 50%, transparent 50%);
+  background-size: 1px 8px;
+  background-repeat: repeat-y;
+}
+
+.edgeTop { top: 0; animation: marchingAntsX 0.35s linear infinite; } // vers la droite
+.edgeBottom { bottom: 0; animation: marchingAntsXReverse 0.35s linear infinite; } // vers la gauche
+.edgeLeft { left: 0; animation: marchingAntsYReverse 0.35s linear infinite; } // vers le haut
+.edgeRight { right: 0; animation: marchingAntsY 0.35s linear infinite; } // vers le bas

@@ -10,23 +10,47 @@
   pointer-events: none;
 }
 
+// Espace Prévisualisation : coin bas gauche, juste au-dessus de la barre de statut d'Index.tsx
+// (bottom 16px, ~32px de haut), alignée sur son bord gauche.
+.containerPreview {
+  left: 16px;
+  bottom: 72px;
+  transform: none;
+  align-items: flex-start;
+}
+
+// Pendant l'animation de changement d'espace : origine au coin bas gauche de la fenêtre, la
+// position est entièrement donnée par x / y (voir TopRightMenu.tsx).
+.containerAnimating {
+  left: 0;
+  bottom: 0;
+  transform: none;
+  align-items: flex-start;
+}
+
 .toolbar {
   display: flex;
   align-items: center;
   justify-content: center;
   pointer-events: auto;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  
-  background: rgba(10, 15, 26, 0.45);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  // Pas de `transition: all` : le déplacement entre espaces est animé par framer-motion
+  // (transform, largeur), qu'une transition CSS ferait traîner.
+  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  background: rgba(10, 15, 26, 0.25);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   border: none;
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
-  padding: 10px 24px;
   border-radius: 20px;
-  width: auto;
+  padding: 10px 24px;
+  // Largeur en style inline (TopRightMenu.tsx) : `auto` en temps normal, fixe en Prévisualisation.
   max-width: 90vw;
   white-space: nowrap;
+}
+
+.containerPreview .toolbar {
+  max-width: calc(100vw - 32px);
 }
 
 .secondaryToolbar {

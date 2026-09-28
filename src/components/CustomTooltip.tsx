@@ -44,11 +44,24 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({ content, descripti
     window.dispatchEvent(new CustomEvent('apex-reset-tooltip'));
   };
 
+  // Un clic est une intention d'action, pas un survol prolongé : sans ce reset, la bulle reste
+  // affichée (la souris n'a pas bougé) et chevauche l'élément que le clic vient de faire
+  // apparaître juste en dessous (ex. le panneau de catégorie qui naît sous son bouton).
+  const handleMouseDown = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    setVisible(false);
+    window.dispatchEvent(new CustomEvent('apex-reset-tooltip'));
+  };
+
   return (
-    <div 
+    <div
       ref={wrapperRef}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      onMouseDown={handleMouseDown}
       className={`${styles.tooltipWrapper} w-full flex`}
     >
       {children}

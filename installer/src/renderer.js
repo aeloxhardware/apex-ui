@@ -152,76 +152,11 @@ async function initInstallPath() {
 // de jouer independamment jusqu'a sa fin naturelle (~15.05s, echo de
 // sortie deja present dans le fichier) sans etre coupe par le changement
 // d'ecran : playSound() cree une instance audio autonome (voir plus haut).
-const SCREEN_INTRO_DURATION_MS = 6500;
-
-// Sequence du logo au tout debut de l'ecran intro : le SVG "trace +
-// remplissage" (#logoDrawSvg, voir index.html/styles.css) joue en grand
-// (2.5x la taille normale du logo), PUIS une fois termine, se retrecit en
-// fondu (.shrinking) pendant que le logo normal (.logoMark) prend le
-// relais a sa taille habituelle (drawDone). Duree du trace : dernier trait
-// demarre a 0.48s et dure 1s (=1.48s), dernier remplissage demarre a 1.2s
-// et dure 0.7s (=1.9s) -> on laisse une marge a 2000ms avant de retrecir.
-const LOGO_DRAW_DURATION_MS = 2000;
-
-function playLogoDrawSequence() {
-  const logoRing = document.querySelector('.logoRing');
-  const drawSvg = document.getElementById('logoDrawSvg');
-  const logoMark = document.querySelector('.logoMark');
-  const logoRingPulse = document.querySelector('.logoRingPulse');
-  if (!logoRing || !drawSvg) return;
-
-  // Si on relance la sequence alors que le petit logo + son anneau
-  // etaient deja affiches (ex: bouton dev ⟲ clique en cours de route,
-  // voir replayFromStart), retirer .drawDone declenche normalement :
-  // - le fondu de sortie de .logoMark (transition opacity 0.6s)
-  // - la fin en cours de l'@keyframes ringPulse sur .logoRingPulse, qui
-  //   contrairement a une transition ne s'arrete pas instantanement au
-  //   retrait de la classe : le navigateur affiche encore un frame ou
-  //   deux de l'anneau avant qu'il ne disparaisse, visible comme "une
-  //   bribe du cercle".
-  // Les deux sont donc neutralises instantanement (animation/transition
-  // coupees le temps d'un reflow) avant tout le reste, puis restaures au
-  // frame suivant pour que leur PROCHAINE apparition (fin de sequence)
-  // se comporte normalement.
-  if (logoMark) {
-    logoMark.style.transition = 'none';
-    logoMark.style.opacity = '0';
-  }
-  if (logoRingPulse) {
-    logoRingPulse.style.animation = 'none';
-    logoRingPulse.style.opacity = '0';
-  }
-  void logoRing.offsetWidth;
-
-  logoRing.classList.remove('drawDone');
-  drawSvg.classList.remove('shrinking');
-  // Force un reflow pour permettre de rejouer .active depuis zero si
-  // playIntro() est rappele (ne devrait pas arriver en usage normal, mais
-  // coherent avec le reste du fichier - voir primeScreenAnimations).
-  void drawSvg.getBBox();
-  drawSvg.classList.add('active');
-
-  requestAnimationFrame(() => {
-    if (logoMark) {
-      logoMark.style.transition = '';
-      logoMark.style.opacity = '';
-    }
-    if (logoRingPulse) {
-      logoRingPulse.style.animation = '';
-      logoRingPulse.style.opacity = '';
-    }
-  });
-
-  setTimeout(() => {
-    drawSvg.classList.add('shrinking');
-    logoRing.classList.add('drawDone');
-  }, LOGO_DRAW_DURATION_MS);
-}
+const SCREEN_INTRO_DURATION_MS = 4500;
 
 function playIntro() {
   showScreen('intro');
   playSound('prestart');
-  playLogoDrawSequence();
   setTimeout(() => showScreen('welcome'), SCREEN_INTRO_DURATION_MS);
 }
 

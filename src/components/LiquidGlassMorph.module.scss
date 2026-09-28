@@ -1,0 +1,40 @@
+// Sous les panneaux (z-index 1000+) : pendant un morphing, les vrais panneaux restent montés mais
+// sans fond (classe .morphing de leur composant), leur contenu s'estompe par-dessus le verre.
+$morph-z: 999;
+
+// Même verre que .categoriesToolbar / .fusionMenuContainer, pour que la bascule vers les vrais
+// panneaux en fin d'animation soit invisible. Masqué tant que la première silhouette n'est pas
+// posée (cf. le layout effect de LiquidGlassMorph).
+.glass {
+  position: fixed;
+  z-index: $morph-z;
+  pointer-events: none;
+  background: rgba(10, 15, 26, 0.25);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  clip-path: inset(0 0 100% 0);
+}
+
+// Ombre portée équivalente à `0 8px 32px rgba(0, 0, 0, 0.4)` : forme noircie, décalée et floutée
+// (shadowBlur/shadowShape), puis découpée à l'extérieur de la silhouette (shadowClip) — comme un
+// box-shadow, rien n'est dessiné sous le verre.
+.shadowClip {
+  position: fixed;
+  z-index: $morph-z;
+  pointer-events: none;
+  clip-path: inset(0 0 100% 0);
+}
+
+.shadowBlur {
+  position: absolute;
+  inset: 0;
+  transform: translateY(8px);
+  filter: blur(16px);
+}
+
+.shadowShape {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  clip-path: inset(0 0 100% 0);
+}

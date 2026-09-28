@@ -1,0 +1,13 @@
+// Calque d'interface au-dessus du viewport (le rendu 3D reste celui de Viewport3D) : il laisse
+// passer la souris vers la caméra, seuls ses enfants la captent. Sous le rideau de transition
+// (SpaceTransitionOverlay, z-index 30) et sous la barre d'aide de TopRightMenu (z-index 1000).
+.container {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  pointer-events: none;
+
+  > * {
+    pointer-events: auto;
+  }
+}

@@ -18,7 +18,6 @@
   scroll-behavior: smooth;
   gap: 6px;
   pointer-events: auto;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   background: rgba(10, 15, 26, 0.25);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
@@ -36,6 +35,21 @@
   > div {
     width: auto;
     flex: 0 0 auto;
+    transition: opacity 0.2s ease;
+  }
+
+  // Pendant un morphing (cf. LiquidGlassMorph), le verre animé tient lieu de fond : la pilule
+  // perd le sien instantanément (aucune transition, sinon il se superposerait au verre animé) et
+  // son contenu s'estompe.
+  &.morphing {
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
+
+    > div {
+      opacity: 0;
+    }
   }
 }
 
@@ -81,6 +95,106 @@
   font-weight: 600;
 }
 
+// Base commune des deux panneaux de Prévisualisation — même verre que .fusionMenuContainer
+// ci-dessous et que le morphing qui les fait naître (LiquidGlassMorph), pour une bascule invisible.
+// Géométrie alignée sur previewGeometry() dans CategoriesSidebar.tsx : départ au niveau de la
+// pilule (top 212), fin à 236px du bas de l'écran.
+%previewPanelBase {
+  position: fixed;
+  left: 24px;
+  width: 440px; // PREVIEW_W (spaceMorphGeometry.ts)
+  border: none;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
+  border-radius: 20px;
+  z-index: 1000;
+  overflow: hidden;
+  isolation: isolate;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(10, 15, 26, 0.25);
+    // 2,5× le verre standard (4px) — même valeur que PREVIEW_GLASS_BLUR_PX (LiquidGlassMorph.tsx),
+    // flou de fin du morphing qui fait naître ces panneaux.
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+  }
+
+  // Pendant la fusion inverse (retour vers Préparation, cf. previewMorphPhase dans
+  // CategoriesSidebar.tsx), le verre animé (LiquidGlassMorph) tient lieu de fond : celui du
+  // panneau disparaît instantanément, sans transition (sinon il se superposerait au verre animé).
+  &.morphing {
+    box-shadow: none;
+
+    &::before {
+      opacity: 0;
+    }
+  }
+}
+
+// Panneau du haut : ce que la pilule devient (légende des types de ligne, cf. `previewUpperContent`).
+.previewPanelUpper {
+  @extend %previewPanelBase;
+  top: 212px;
+  height: max(120px, 100vh - 714px);
+}
+
+// Panneau du bas, né par mitose du panneau du haut (contenu à brancher plus tard).
+.previewPanelLower {
+  @extend %previewPanelBase;
+  top: calc(212px + max(120px, 100vh - 714px) + 16px);
+  height: 250px;
+}
+
+// Contenu du panneau du haut, sur toute sa surface ; s'estompe pendant la fusion inverse comme
+// .previewPanelFooter.
+.previewPanelBody {
+  position: absolute;
+  inset: 0;
+  transition: opacity 0.2s ease;
+
+  .morphing > & {
+    opacity: 0 !important;
+  }
+}
+
+// Haut du panneau du bas (informations G-code, cf. `previewLowerHeader`).
+.previewPanelHeader {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 12px;
+  transition: opacity 0.2s ease;
+
+  .morphing > & {
+    opacity: 0;
+  }
+}
+
+// Enveloppe de `previewBelowContent` (carte de conversion, positionnée par elle-même) : ne porte
+// que le fondu, et disparaît d'un coup pendant la fusion inverse comme les panneaux.
+.previewBelow.morphing {
+  opacity: 0 !important;
+}
+
+// Bas du panneau du bas (sélecteur de vitesse, cf. `previewLowerContent`). S'estompe avec le
+// fond pendant la fusion inverse, comme le contenu de la pilule (.morphing).
+.previewPanelFooter {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  transition: opacity 0.2s ease;
+
+  .morphing > & {
+    opacity: 0;
+  }
+}
+
 .fusionMenuContainer {
   position: fixed;
   left: 24px;
@@ -106,6 +220,44 @@
     z-index: -1;
     border-radius: inherit;
     pointer-events: none;
+  }
+
+  > * {
+    transition: opacity 0.2s ease;
+  }
+
+  // Pendant le morphing d'ouverture/fermeture, le verre animé (LiquidGlassMorph) tient lieu de
+  // fond : celui du panneau disparaît instantanément et le contenu s'estompe par-dessus.
+  &.morphing {
+    box-shadow: none;
+
+    &::before {
+      opacity: 0;
+    }
+
+    > * {
+      opacity: 0;
+    }
+  }
+}
+
+// Le mécanisme d'ouverture/fermeture du panneau est fonctionnel, mais son contenu (réglages
+// qualité/solidité/vitesse) n'est pas encore branché : grisé et non interactif, tooltip "Arrive
+// bientôt" sur chaque ligne (cf. CategoriesSidebar.tsx).
+.contentInert {
+  opacity: 0.45;
+  filter: grayscale(1);
+
+  .itemRow {
+    cursor: default;
+    pointer-events: none;
+  }
+
+  // grayscale() désature mais ne neutralise pas la luminosité : le cyan très saturé de
+  // .itemInput (#00f0ff, cf. plus bas) restait visuellement "vif" une fois désaturé en gris
+  // clair. On écrase sa couleur ici pour un gris terne sans ambiguïté.
+  .itemInput {
+    color: rgba(255, 255, 255, 0.5);
   }
 }
 

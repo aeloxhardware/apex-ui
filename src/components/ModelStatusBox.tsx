@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import styles from './ModelStatusBox.module.scss';
 import { Box, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ELEMENTS_FADE_MS, MODEL_TREE_TOP, MODEL_TREE_PILL_GAP, PILL_TOP } from '@/utils/spaceMorphGeometry';
 
 interface SubMeshItem {
   id: string;
@@ -24,6 +25,7 @@ export const ModelStatusBox: React.FC = () => {
   // Le mode modélisation a sa propre arborescence (les corps) : celle des modèles importés
   // ferait doublon, on l'escamote comme en mode Prévisualisation.
   const [modelingActive, setModelingActive] = useState(false);
+  const toolbarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handlePreviewToggled = (e: CustomEvent<{ active: boolean }>) => {
@@ -32,11 +34,19 @@ export const ModelStatusBox: React.FC = () => {
     const handleModeChanged = (e: CustomEvent<{ mode: 'slicer' | 'modeling' }>) => {
       setModelingActive(e.detail?.mode === 'modeling');
     };
+    // Dispatché par Sidebar.tsx dès le CLIC vers Modélisation, avant même que le rideau plein écran
+    // ne commence à monter — ce panneau doit disparaître EN TRANSPARENCE À TRAVERS le rideau qui
+    // monte (cf. ELEMENTS_FADE_MS), pas seulement une fois `apex-mode-changed` reçu (dispatché par
+    // ModelingSidebar à son montage, lui-même retardé jusqu'à ce que le rideau ait fini de couvrir
+    // l'écran — bien trop tard pour ce fondu).
+    const handleEnteringModeling = () => setModelingActive(true);
     window.addEventListener('apex-preview-toggled', handlePreviewToggled as EventListener);
     window.addEventListener('apex-mode-changed', handleModeChanged as EventListener);
+    window.addEventListener('apex-entering-modeling', handleEnteringModeling);
     return () => {
       window.removeEventListener('apex-preview-toggled', handlePreviewToggled as EventListener);
       window.removeEventListener('apex-mode-changed', handleModeChanged as EventListener);
+      window.removeEventListener('apex-entering-modeling', handleEnteringModeling);
     };
   }, []);
 
@@ -108,15 +118,53 @@ export const ModelStatusBox: React.FC = () => {
     }));
   };
 
+  // Ce panneau grandit avec l'arborescence (dépliage d'un modèle) : la pilule Qualité/Solidité/
+  // Vitesse (CategoriesSidebar), positionnée juste en-dessous, doit alors être repoussée d'autant
+  // pour que la marge (MODEL_TREE_PILL_GAP) reste TOUJOURS respectée, plutôt que de se faire
+  // recouvrir ou coller. On mesure la hauteur réellement rendue et on ne diffuse un décalage que
+  // lorsque le bord bas réel + la marge dépasse la position par défaut de la pilule (PILL_TOP).
+  useEffect(() => {
+    const el = toolbarRef.current;
+    if (!el || previewActive || modelingActive) {
+      window.dispatchEvent(new CustomEvent('apex-model-tree-resized', { detail: { overflow: 0 } }));
+      return;
+    }
+    const notify = () => {
+      const requiredTop = MODEL_TREE_TOP + el.offsetHeight + MODEL_TREE_PILL_GAP;
+      const overflow = Math.max(0, requiredTop - PILL_TOP);
+      window.dispatchEvent(new CustomEvent('apex-model-tree-resized', { detail: { overflow } }));
+    };
+    const observer = new ResizeObserver(notify);
+    observer.observe(el);
+    notify();
+    return () => {
+      observer.disconnect();
+      window.dispatchEvent(new CustomEvent('apex-model-tree-resized', { detail: { overflow: 0 } }));
+    };
+  }, [previewActive, modelingActive]);
+
   return (
     <div className={styles.container} data-apex-chrome-panel>
       <AnimatePresence>
         {!previewActive && !modelingActive && (
           <motion.div
+            ref={toolbarRef}
             className={styles.toolbar}
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
+            // Vers Modélisation : ce panneau doit avoir fini de disparaître AVANT que le morph du
+            // panneau catégories/pilule ne commence à se déformer (cf. ELEMENTS_FADE_MS, le temps
+            // mort au tout début de modelingPathAt) — sa propre durée de sortie doit donc
+            // correspondre exactement à ce délai, plus court que la transition générique (0.9s)
+            // utilisée pour les autres sorties (ex. vers Dev).
+            exit={{
+              opacity: 0,
+              x: -20,
+              transition: {
+                duration: modelingActive ? ELEMENTS_FADE_MS / 1000 : 0.9,
+                ease: modelingActive ? 'easeInOut' : 'linear',
+              },
+            }}
             transition={{
               opacity: { duration: 0.9, ease: 'linear' },
               x: { duration: 0.9, ease: 'easeInOut' },

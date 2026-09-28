@@ -27,9 +27,9 @@
 }
 
 .modalCard {
-  background: rgba(10, 15, 26, 0.3);
-  backdrop-filter: blur(28px);
-  -webkit-backdrop-filter: blur(28px);
+  background: rgba(10, 15, 26, 0.25);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   border: none;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.7), 0 0 30px rgba(0, 0, 0, 0.4);
   border-radius: 20px;
@@ -127,9 +127,9 @@
 }
 
 .cancelBtn {
-  background: rgba(10, 15, 26, 0.45);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  background: rgba(10, 15, 26, 0.25);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   border: none;
   color: rgba(255, 255, 255, 0.8);
   font-family: 'Orbitron', sans-serif !important;
@@ -149,8 +149,8 @@
 
 .confirmBtn {
   background: rgba(0, 240, 255, 0.25);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   border: none;
   color: #00f0ff;
   font-family: 'Orbitron', sans-serif !important;

@@ -13,14 +13,42 @@ import {
   Maximize2,
   Eye,
   Palette,
-  Layers
+  Layers,
+  Settings
 } from 'lucide-react';
 import styles from './Sidebar.module.scss';
 import { CustomTooltip } from './CustomTooltip';
+import { playUiSound, type UiSoundName } from '@/utils/uiSound';
+import { GCODE_FILE_EXT } from '@/hooks/use-gcode-preview';
+
+// Doit correspondre à ViewCube.module.scss (`.container`) : la colonne d'outils du mode
+// Prévisualisation vient se coller au même bord droit, juste sous le gizmo.
+const VIEWCUBE_RIGHT = 24;
+const VIEWCUBE_BOTTOM = 70 + 130; // top + height
+const PREVIEW_TOOLBAR_TOP_GAP = 10; // marge entre le bas du ViewCube et le haut de la colonne
+const PREVIEW_TOOLBAR_WIDTH = 56; // largeur de la colonne de calques en mode Prévisualisation
+
+// Position de repos (mode box, sans transformation) du haut de `.bottomToolbar` : top du
+// `.container` (20px) + hauteur du `.topToolbar` (42px de bouton + 8px de padding de
+// chaque côté = 58px) + le gap de la pile flex (10px). Doit rester en phase avec
+// Sidebar.module.scss si ces valeurs changent.
+const BOTTOM_TOOLBAR_REST_TOP = 20 + 58 + 10;
+
+// Durée totale de l'animation de déplacement/déformation du conteneur `.bottomToolbar`
+// (voir son `transition` plus bas) : c'est le délai avant lequel les icônes du mode cible
+// ne doivent JAMAIS commencer à apparaître (cf. `iconVariants.visible`), dans tous les sens
+// de transition. Partagée par les deux pour qu'elles ne puissent pas diverger.
+const CONTAINER_RESHAPE_DURATION = 1.1;
 
 interface SidebarProps {
-  activeTab: '3d-view' | 'settings' | 'developer';
-  onTabChange: (tab: 'box' | 'settings' | 'developer') => void;
+  activeTab: '3d-view' | 'settings' | 'developer' | 'params';
+  /**
+   * `toPreview` n'est vrai que pour l'unique cas où `tab === 'box'` signifie « vers
+   * Prévisualisation » plutôt que « vers Préparation » (cf. handleLayerClick, branche `entering`) —
+   * Index.tsx en a besoin pour savoir, en sortant de Modélisation, vers quelle forme (pilule ou
+   * panneaux de Prévisualisation) jouer le morph.
+   */
+  onTabChange: (tab: 'box' | 'settings' | 'developer' | 'params', toPreview?: boolean) => void;
   onOpenModel?: () => void;
 }
 
@@ -31,26 +59,126 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [activeTool, setActiveTool] = useState<'select' | 'move' | 'rotate' | 'scale' | 'texture' | 'layers'>('select');
   const [isPreviewActive, setIsPreviewActive] = useState(false);
-  const [naturalWidth, setNaturalWidth] = useState<number | null>(null);
+  // Géométrie du conteneur juste avant de lancer la transition en cours : mesurée à la volée
+  // (voir `playSpaceTransition`) quel que soit le mode de départ (slicer, prévisualisation
+  // ou modélisation), pour que l'animation de conteneur parte toujours de sa forme réelle et
+  // non d'une valeur figée valable pour un seul sens de transition.
+  const [fromGeometry, setFromGeometry] = useState<{ x: number; y: number; width: number; height: number; borderRadius: number } | null>(null);
+  // Largeur naturelle de la barre slicer (mode "box") : son contenu (8 boutons + 2
+  // séparateurs) ne change jamais, donc une mesure une fois montée suffit — c'est la valeur
+  // cible numérique vers laquelle animer au retour au mode slicer (une keyframe `"auto"`
+  // mélangée à des nombres dans le même tableau n'anime pas correctement avec framer-motion).
+  const [boxWidth, setBoxWidth] = useState<number | null>(null);
+  // Décalage horizontal (en x) à appliquer en mode Prévisualisation pour que la colonne
+  // d'outils vienne se coller au bord droit de l'écran, juste sous le gizmo ViewCube
+  // (position fixe à `right: 24px`, voir ViewCube.module.scss) — recalculé au resize car
+  // `.bottomToolbar` est centré par le flex column de `.container` (`left: 50%`), donc son
+  // décalage nécessaire dépend de la largeur de la fenêtre.
+  const [previewX, setPreviewX] = useState(0);
+  // Décalage vertical (en y) additionnel en mode Prévisualisation, calculé pour amener le
+  // haut de la colonne juste sous le ViewCube, quelle que soit sa position de repos réelle
+  // (dépend de la hauteur du bandeau d'onglets du haut).
+  const [previewY, setPreviewY] = useState(0);
   const bottomToolbarRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const topToolbarRef = useRef<HTMLDivElement>(null);
+  // Slot où ModelingSidebar injecte ses boutons CAD via un portail (id stable plutôt qu'un
+  // ref transmis en prop : les deux composants sont des siblings montés indépendamment dans
+  // Index.tsx, un id DOM est la façon la plus simple de se retrouver).
+  const modelingSlotRef = useRef<HTMLDivElement>(null);
   const buttonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [indicatorStyle, setIndicatorStyle] = React.useState<React.CSSProperties>({});
 
   /** L'onglet « Modélisation » porte la valeur 'settings'. */
   const isModeling = activeTab === 'settings';
+  /** L'onglet « Paramètres » porte la valeur 'params' : le viewport et ses outils n'ont plus
+   * de sens dans cet espace, cf. le fondu-glissement sur `.bottomToolbar` plus bas. */
+  const isParams = activeTab === 'params';
+
+  // Gabarit cible du conteneur commun pour chaque mode — voir le commentaire au-dessus de
+  // `.bottomToolbar` dans le JSX pour la logique d'animation qui s'en sert. En mode
+  // Prévisualisation, x/y viennent coller la colonne au bord droit de l'écran juste sous le
+  // ViewCube (voir l'effet qui calcule `previewX`/`previewY` plus haut) plutôt qu'un
+  // décalage fixe indépendant de la largeur de la fenêtre.
+  const targetGeometry = isModeling
+    ? { x: 0, y: 0, width: 260, height: 50, borderRadius: 14 } // barre CAD (6 boutons de 38px)
+    : isPreviewActive
+      ? { x: previewX, y: previewY, width: PREVIEW_TOOLBAR_WIDTH, height: 340, borderRadius: 20 } // colonne de calques
+      : { x: 0, y: 0, width: boxWidth ?? 332, height: 44, borderRadius: 22 }; // barre slicer
 
   const handleUploadClick = () => {
     fileInputRef.current?.click();
   };
 
-  const handleTopTabClick = (tabName: 'box' | 'settings' | 'developer') => {
-    setActiveTool('select');
-    onTabChange(tabName);
-    setIsPreviewActive(false);
-    window.dispatchEvent(new CustomEvent('apex-preview-toggled', { detail: { active: false } }));
+  const SPACE_LABELS: Record<'box' | 'settings' | 'developer' | 'layers' | 'params', string> = {
+    box: 'Préparation',
+    settings: 'Modélisation',
+    developer: 'Dev',
+    layers: 'Prévisualisation',
+    params: 'Paramètres',
+  };
+
+  // Son propre à l'espace d'arrivée. Pas de son pour la console Dev ni pour les Paramètres.
+  const SPACE_SOUNDS: Record<'box' | 'settings' | 'developer' | 'layers' | 'params', UiSoundName | null> = {
+    box: 'spacePreparation',
+    settings: 'spaceModeling',
+    developer: null,
+    layers: 'spacePreview',
+    params: null,
+  };
+
+  /**
+   * Joue le rideau "APEX / <espace>" (voir SpaceTransitionOverlay) puis exécute `onCovered`
+   * une fois l'écran masqué — c'est là, et pas avant, que le vrai changement d'onglet doit
+   * avoir lieu pour ne jamais être visible pendant la transition. Mesure aussi la forme
+   * actuelle du conteneur d'outils juste avant : quel que soit le mode de départ (slicer,
+   * prévisualisation ou modélisation), c'est de là que doit partir l'animation de
+   * déformation vers le mode suivant — jamais une valeur figée valable pour un seul sens.
+   */
+  const playSpaceTransition = (space: keyof typeof SPACE_LABELS, onCovered: () => void) => {
+    const label = SPACE_LABELS[space];
+    const sound = SPACE_SOUNDS[space];
+    if (sound) playUiSound(sound);
+    if (bottomToolbarRef.current) {
+      const rect = bottomToolbarRef.current.getBoundingClientRect();
+      const computedRadius = parseFloat(getComputedStyle(bottomToolbarRef.current).borderTopLeftRadius) || 22;
+      // `x`/`y` ne sont pas lisibles depuis le DOM (ce sont des translate posés par
+      // framer-motion, pas une position absolue) : on reprend ceux du mode qu'on est en
+      // train de quitter, calculés par la même table que `targetGeometry` ci-dessous.
+      setFromGeometry({
+        x: targetGeometry.x,
+        y: targetGeometry.y,
+        width: rect.width,
+        height: rect.height,
+        borderRadius: computedRadius,
+      });
+    }
+    window.dispatchEvent(new CustomEvent('apex-space-transition', { detail: { label, onCovered } }));
+  };
+
+  const handleTopTabClick = (tabName: 'box' | 'settings' | 'developer' | 'params') => {
+    if (tabName === 'settings' && !isModeling) {
+      // Signale DÈS LE CLIC — avant même que le rideau plein écran ne commence à monter, pas
+      // seulement une fois l'écran couvert (`onCovered`, ~900ms plus tard) — que les éléments sans
+      // place dans l'espace Modélisation (ModelStatusBox, panneau du bas de Prévisualisation)
+      // doivent commencer à disparaître : ce fondu-glissement doit être visible EN TRANSPARENCE À
+      // TRAVERS le rideau (z-index 1000+ pour ces éléments, contre 30 pour le rideau), jamais
+      // caché derrière lui comme le vrai changement d'onglet (`onTabChange`, lui, reste dans
+      // `onCovered` ci-dessous : le panneau Modélisation ne doit apparaître qu'une fois l'écran
+      // couvert).
+      window.dispatchEvent(new CustomEvent('apex-entering-modeling'));
+    } else if (tabName !== 'settings' && isModeling) {
+      // Symétrique : le contenu du panneau Modélisation disparaît en cascade dès le clic, avant
+      // que sa forme ne commence à se déformer (à `onCovered`, cf. ModelingSidebar).
+      window.dispatchEvent(new CustomEvent('apex-leaving-modeling'));
+    }
+    playSpaceTransition(tabName, () => {
+      setActiveTool('select');
+      onTabChange(tabName);
+      setIsPreviewActive(false);
+      window.dispatchEvent(new CustomEvent('apex-preview-toggled', { detail: { active: false } }));
+    });
   };
 
   const handleToolClick = (tool: 'select' | 'move' | 'rotate' | 'scale' | 'texture') => {
@@ -59,36 +187,92 @@ export const Sidebar: React.FC<SidebarProps> = ({
     window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: newTool } }));
   };
 
-  // Durée du fondu de l'Arborescence des modèles et de la barre Qualité/Solidité/Vitesse
-  // (ModelStatusBox / CategoriesSidebar) — doit rester synchronisée avec leur `transition.duration`.
-  const PANELS_FADE_DURATION = 900;
+  /**
+   * Bascule animée vers l'espace Prévisualisation (rideau + déformation de la pilule), factorisée
+   * hors de `handleLayerClick` pour être aussi déclenchée par le dépôt d'un fichier G-code en
+   * Préparation (cf. l'écouteur `drop` plus bas) — même geste que le clic sur l'icône Prévisualisation,
+   * simplement déclenché autrement. `pendingFile`, s'il est fourni, est réémis (`apex-gcode-loaded`
+   * en pointillé via `apex-entering-preview-with-file`) une fois l'écran couvert, PAS avant : au
+   * moment du dépôt, l'espace Prévisualisation n'a pas encore son hook de lecture actif
+   * (`useGCodePreview(isPreviewActive)` dans Index.tsx), lequel n'écoute le dépôt/chargement que
+   * lorsque `active` — le charger avant ce basculement n'aurait donc aucun effet.
+   */
+  const enterPreview = (pendingFile?: File) => {
+    // Depuis Modélisation : même signal au clic que handleTopTabClick (cf. apex-leaving-modeling).
+    if (isModeling) window.dispatchEvent(new CustomEvent('apex-leaving-modeling'));
+    // L'ancien fondu séquencé des panneaux (avant le rideau plein écran) n'a plus de raison
+    // d'être : le rideau masque déjà tout pendant que ce switch se produit, donc tout bascule
+    // d'un coup sous le voile plutôt qu'en deux temps visibles.
+    playSpaceTransition('layers', () => {
+      setActiveTool('layers');
+      // Prévisualisation est un sous-mode du slicer (Préparation), jamais de la
+      // Modélisation : sans ce `onTabChange`, entrer en Prévisualisation depuis
+      // Modélisation laissait `activeTab` sur 'settings', et donc le bouton
+      // "Modélisation" restait actif (cyan) par-dessus "Prévisualisation". Le second argument
+      // signale spécifiquement ce cas-là à Index.tsx (venant de Modélisation, vers
+      // Prévisualisation et non vers Préparation), pour qu'il joue le bon morph de sortie.
+      onTabChange('box', true);
+      setIsPreviewActive(true);
+      window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'layers' } }));
+      window.dispatchEvent(new CustomEvent('apex-preview-toggled', { detail: { active: true } }));
+      // Dispatché en DERNIER, une fois `apex-preview-toggled` déjà parti : useGCodePreview
+      // (Index.tsx) doit être passé à `active` avant de recevoir le fichier, sans quoi son
+      // écouteur de dépôt (qui double aussi comme point d'entrée de chargement, cf.
+      // use-gcode-preview.ts) ignorerait l'événement.
+      if (pendingFile) {
+        window.dispatchEvent(new CustomEvent('apex-entering-preview-with-file', { detail: { file: pendingFile } }));
+      }
+    });
+  };
 
   const handleLayerClick = () => {
     const entering = activeTool !== 'layers';
 
     if (entering) {
-      // Phase 1 : les panneaux latéraux s'effacent en premier — l'icône ne passe en bleu
-      // et la barre d'outils du bas ne se transforme qu'une fois cette phase terminée.
-      window.dispatchEvent(new CustomEvent('apex-preview-toggled', { detail: { active: true } }));
-      setTimeout(() => {
-        setActiveTool('layers');
-        if (bottomToolbarRef.current) {
-          setNaturalWidth(bottomToolbarRef.current.getBoundingClientRect().width);
-        }
-        setIsPreviewActive(true);
-        window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'layers' } }));
-      }, PANELS_FADE_DURATION);
+      enterPreview();
     } else {
-      setActiveTool('select');
-      setIsPreviewActive(false);
-      window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'select' } }));
-      window.dispatchEvent(new CustomEvent('apex-preview-toggled', { detail: { active: false } }));
+      playSpaceTransition('box', () => {
+        setActiveTool('select');
+        setIsPreviewActive(false);
+        window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'select' } }));
+        window.dispatchEvent(new CustomEvent('apex-preview-toggled', { detail: { active: false } }));
+      });
     }
   };
 
+  // Dépôt d'un fichier G-code n'importe où dans la fenêtre pendant qu'on est en Préparation (hors
+  // Prévisualisation, hors Modélisation) : bascule automatiquement vers l'espace Prévisualisation,
+  // avec la même animation que le clic sur son icône, puis charge le fichier une fois l'écran
+  // découvert (cf. `enterPreview`). Un simple survol (dragenter/dragover) sans dépôt ne déclenche
+  // rien — jamais de bascule sur un simple passage de fichier au-dessus de la fenêtre.
+  useEffect(() => {
+    if (isPreviewActive || isModeling) return;
+    const hasFiles = (e: DragEvent) => !!e.dataTransfer?.types.includes('Files');
+    const onDragOver = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+    };
+    const onDrop = (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      const file = e.dataTransfer?.files?.[0];
+      if (!file || !GCODE_FILE_EXT.test(file.name)) return;
+      e.preventDefault();
+      enterPreview(file);
+    };
+    window.addEventListener('dragover', onDragOver);
+    window.addEventListener('drop', onDrop);
+    return () => {
+      window.removeEventListener('dragover', onDragOver);
+      window.removeEventListener('drop', onDrop);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPreviewActive, isModeling]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) {
+      const target = e.target as HTMLElement | null;
+      if (target && (['INPUT', 'TEXTAREA'].includes(target.tagName) || target.isContentEditable)) {
         return;
       }
 
@@ -121,6 +305,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
     };
   }, [activeTool]);
 
+  // Mesure la largeur naturelle de la barre slicer dès qu'on la voit au repos (mode box,
+  // aucune transition en cours) — la toute première fois, et à nouveau si jamais elle
+  // n'a pas encore été capturée (ex : l'app démarre directement sur un autre onglet).
+  useEffect(() => {
+    if (boxWidth === null && !isModeling && !isPreviewActive && bottomToolbarRef.current) {
+      setBoxWidth(bottomToolbarRef.current.getBoundingClientRect().width);
+    }
+  }, [boxWidth, isModeling, isPreviewActive]);
+
+  // Décalage x/y nécessaire pour que la colonne d'outils du mode Prévisualisation vienne se
+  // coller au bord droit de l'écran, juste sous le ViewCube. `.container` (l'ancêtre direct)
+  // est centré par `left: 50%` quel que soit l'état, donc son centre horizontal vaut
+  // toujours exactement `window.innerWidth / 2` — inutile de mesurer le DOM, une formule
+  // suffit et reste valable pendant toute animation. Le `top` de repos du conteneur est lui
+  // fixe (posé par le CSS de `.container`/`.topToolbar`, pas par une mesure runtime).
+  useEffect(() => {
+    const recompute = () => {
+      const restCenterX = window.innerWidth / 2;
+      const targetCenterX = window.innerWidth - VIEWCUBE_RIGHT - PREVIEW_TOOLBAR_WIDTH / 2;
+      const targetTop = VIEWCUBE_BOTTOM + PREVIEW_TOOLBAR_TOP_GAP;
+
+      setPreviewX(targetCenterX - restCenterX);
+      setPreviewY(targetTop - BOTTOM_TOOLBAR_REST_TOP);
+    };
+
+    recompute();
+    window.addEventListener('resize', recompute);
+    return () => window.removeEventListener('resize', recompute);
+  }, []);
+
   useEffect(() => {
     if (topToolbarRef.current && buttonRefs.current.size > 0) {
       const activeButtonKey = activeTool === 'layers' ? 'layers' : (activeTab === '3d-view' ? 'box' : activeTab);
@@ -144,16 +358,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }, [activeTab, activeTool]);
 
   const iconVariants: Variants = {
+    // Les icônes du mode cible n'apparaissent qu'UNE FOIS le reshape du conteneur terminé
+    // (durée totale de l'animation de `.bottomToolbar`, voir CONTAINER_RESHAPE_DURATION) —
+    // dans tous les sens de transition, pas seulement Prévisualisation→Modélisation. Sans ce
+    // délai de base, les icônes du nouveau mode démarraient leur propre petit délai en
+    // cascade (`i*0.04`) dès le changement de state React, bien avant que le conteneur ait
+    // fini de se déplacer/déformer.
     visible: (i: number) => ({
       opacity: 1,
       y: 0,
       scale: 1,
       transition: {
-        delay: i * 0.04,
+        delay: CONTAINER_RESHAPE_DURATION + i * 0.04,
         duration: 0.3,
         ease: [0.16, 1, 0.3, 1] as const
       }
     }),
+    // La sortie, elle, doit rester immédiate : les icônes du mode qu'on quitte doivent avoir
+    // disparu AVANT que le conteneur ne commence à se déformer (cf. keyframes `times` de
+    // `.bottomToolbar` : vidage sur les premiers 45%, déformation sur les 55% restants).
     hidden: (i: number) => ({
       opacity: 0,
       y: 15,
@@ -234,52 +457,75 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span className={styles.topButtonLabel}>Dev</span>
           </button>
         </CustomTooltip>
+
+        <CustomTooltip content="Paramètres" description="Réglages généraux de l'application, sans le viewport 3D.">
+          <button
+            ref={(el) => { if (el) buttonRefs.current.set('params', el); }}
+            className={clsx(styles.button, styles.topButton, {
+              [styles.active]: activeTab === 'params',
+            })}
+            onClick={() => handleTopTabClick('params')}
+          >
+            <Settings size={22} />
+            <span className={styles.topButtonLabel}>Paramètres</span>
+          </button>
+        </CustomTooltip>
       </div>
 
-      {/* Bottom Toolbar (Action, Manipulation 3D) */}
+      {/* Bottom Toolbar (Action, Manipulation 3D) — UN SEUL conteneur physique pour les 3
+          modes (slicer / prévisualisation / modélisation) : il ne se démonte jamais, il se
+          vide de ses icônes, se déplace et se déforme, puis affiche les icônes du mode
+          suivant. En mode modélisation les boutons CAD ne sont pas rendus ici : ils vivent
+          dans ModelingSidebar (toute la logique de features y reste), qui les injecte dans
+          `modelingSlotRef` via un portail — même noeud DOM, contenu apporté par le
+          propriétaire de sa logique. */}
+      <motion.div
+        // Enveloppe indépendante du morph de forme ci-dessous (fromGeometry/targetGeometry) :
+        // en Paramètres, le pilule d'outils du viewport n'a plus lieu d'être affichée — elle
+        // fondu-glisse en dehors plutôt que de se déformer vers un gabarit qui n'existe pas
+        // pour cet espace.
+        animate={{ opacity: isParams ? 0 : 1, y: isParams ? 24 : 0 }}
+        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+        style={{ pointerEvents: isParams ? 'none' : 'auto' }}
+      >
       <motion.div
         ref={bottomToolbarRef}
         className={clsx(styles.toolbar, styles.bottomToolbar)}
         initial={false}
-        animate={isModeling ? {
-          // Mode modélisation : la barre slicer se rétracte sur elle-même pour céder sa
-          // place à la barre d'opérations CAD, qui vient occuper le même emplacement.
-          // On ne peut pas compter sur un clip : `.bottomToolbar` force `overflow: visible`,
-          // donc c'est l'opacité qui escamote réellement les icônes.
-          x: 0,
-          opacity: 0,
-          width: 0,
-          height: 0,
-          paddingTop: 0,
-          paddingBottom: 0,
-          marginTop: -10, // absorbe le `gap: 10px` de la pile pour ne pas laisser de trou
-          borderRadius: 22
-        } : isPreviewActive && naturalWidth !== null ? {
-          x: [0, 0, 480],
-          width: [naturalWidth, naturalWidth, 56],
-          height: [44, 44, 340],
-          borderRadius: [22, 22, 20],
+        animate={fromGeometry ? {
+          // Toute transition (slicer ↔ prévisualisation, slicer ↔ modélisation) part
+          // TOUJOURS de la forme réellement mesurée juste avant (`fromGeometry`) pour
+          // rejoindre le gabarit du mode cible — un seul et même conteneur qui se vide de
+          // ses icônes (cf. iconVariants), se déplace et se déforme, jamais deux
+          // composants qui se croisent.
+          x: [fromGeometry.x, fromGeometry.x, targetGeometry.x],
+          y: [fromGeometry.y, fromGeometry.y, targetGeometry.y],
+          width: [fromGeometry.width, fromGeometry.width, targetGeometry.width],
+          height: [fromGeometry.height, fromGeometry.height, targetGeometry.height],
+          borderRadius: [fromGeometry.borderRadius, fromGeometry.borderRadius, targetGeometry.borderRadius],
           opacity: 1,
           marginTop: 0
         } : {
-          x: 0,
-          width: "auto",
-          height: 44,
-          borderRadius: 22,
+          // État initial (avant toute transition jouée) : forme de repos du mode courant,
+          // sans animation. "auto" tant que la largeur naturelle n'a pas encore été mesurée
+          // (premier rendu), un nombre dès qu'elle l'est — évite un saut visuel une fois
+          // `boxWidth` connu puisque `targetGeometry.width` vaudra alors la même valeur.
+          x: targetGeometry.x,
+          y: targetGeometry.y,
+          width: isModeling || boxWidth !== null ? targetGeometry.width : "auto",
+          height: targetGeometry.height,
+          borderRadius: targetGeometry.borderRadius,
           opacity: 1,
           marginTop: 0
         }}
-        transition={isModeling ? {
-          duration: 0.45,
-          ease: [0.4, 0, 0.2, 1]
-        } : {
-          duration: 1.1,
+        transition={{
+          duration: CONTAINER_RESHAPE_DURATION,
           times: [0, 0.45, 1],
           ease: [0.25, 1, 0.5, 1]
         }}
-        style={{ originX: 0.5, originY: 0.5, pointerEvents: isModeling ? 'none' : 'auto' }}
+        style={{ originX: 0.5, originY: 0.5, pointerEvents: 'auto' }}
       >
-        <motion.div custom={0} variants={iconVariants} animate={isPreviewActive ? "hidden" : "visible"} initial="visible" className="flex items-center">
+        <motion.div custom={0} variants={iconVariants} animate={isPreviewActive || isModeling ? "hidden" : "visible"} initial="visible" className="flex items-center">
           <CustomTooltip content="Outil de Sélection" description="Cliquez sur n'importe quel modèle 3D sur le plateau pour le sélectionner et afficher ses propriétés.">
             <button
               className={clsx(styles.button, styles.bottomButton, {
@@ -292,7 +538,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </CustomTooltip>
         </motion.div>
 
-        <motion.div custom={1} variants={iconVariants} animate={isPreviewActive ? "hidden" : "visible"} initial="visible" className="flex items-center">
+        <motion.div custom={1} variants={iconVariants} animate={isPreviewActive || isModeling ? "hidden" : "visible"} initial="visible" className="flex items-center">
           <CustomTooltip content="Outil de Déplacement (Move - M)" description="Affichez les gizmos directionnels pour repositionner précisément l'objet sur le plateau d'impression. (Raccourci : M)">
             <button
               className={clsx(styles.button, styles.bottomButton, {
@@ -305,7 +551,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </CustomTooltip>
         </motion.div>
 
-        <motion.div custom={2} variants={iconVariants} animate={isPreviewActive ? "hidden" : "visible"} initial="visible" className="flex items-center">
+        <motion.div custom={2} variants={iconVariants} animate={isPreviewActive || isModeling ? "hidden" : "visible"} initial="visible" className="flex items-center">
           <CustomTooltip content="Outil de Rotation (Rotate - R)" description="Faites pivoter le modèle selon les axes X, Y et Z pour optimiser son orientation de contact. (Raccourci : R)">
             <button
               className={clsx(styles.button, styles.bottomButton, {
@@ -318,7 +564,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </CustomTooltip>
         </motion.div>
 
-        <motion.div custom={3} variants={iconVariants} animate={isPreviewActive ? "hidden" : "visible"} initial="visible" className="flex items-center">
+        <motion.div custom={3} variants={iconVariants} animate={isPreviewActive || isModeling ? "hidden" : "visible"} initial="visible" className="flex items-center">
           <CustomTooltip content="Outil de Mise à l'échelle (Scale - S)" description="Modifiez la taille et les proportions du modèle 3D sur le plateau d'impression. (Raccourci : S)">
             <button
               className={clsx(styles.button, styles.bottomButton, {
@@ -331,7 +577,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </CustomTooltip>
         </motion.div>
 
-        <motion.div custom={4} variants={iconVariants} animate={isPreviewActive ? "hidden" : "visible"} initial="visible" className="flex items-center">
+        <motion.div custom={4} variants={iconVariants} animate={isPreviewActive || isModeling ? "hidden" : "visible"} initial="visible" className="flex items-center">
           <CustomTooltip content="Outil Texture & Matériau (Texture - T)" description="Sélectionnez et éditez les textures et propriétés de matériaux du modèle actif. (Raccourci : T)">
             <button
               className={clsx(styles.button, styles.bottomButton, {
@@ -344,11 +590,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </CustomTooltip>
         </motion.div>
 
-        <motion.div custom={5} variants={iconVariants} animate={isPreviewActive ? "hidden" : "visible"} initial="visible" className="flex items-center">
+        <motion.div custom={5} variants={iconVariants} animate={isPreviewActive || isModeling ? "hidden" : "visible"} initial="visible" className="flex items-center">
           <div className={styles.separator} />
         </motion.div>
 
-        <motion.div custom={6} variants={iconVariants} animate={isPreviewActive ? "hidden" : "visible"} initial="visible" className="flex items-center">
+        <motion.div custom={6} variants={iconVariants} animate={isPreviewActive || isModeling ? "hidden" : "visible"} initial="visible" className="flex items-center">
           <CustomTooltip content="Réinitialiser la Caméra" description="Remettez la caméra dans sa position isométrique par défaut face au plateau.">
             <button
               className={clsx(styles.button, styles.bottomButton)}
@@ -359,7 +605,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </CustomTooltip>
         </motion.div>
 
-        <motion.div custom={7} variants={iconVariants} animate={isPreviewActive ? "hidden" : "visible"} initial="visible" className="flex items-center">
+        <motion.div custom={7} variants={iconVariants} animate={isPreviewActive || isModeling ? "hidden" : "visible"} initial="visible" className="flex items-center">
           <CustomTooltip content="Ajuster à l'Écran (Fit)" description="Zoomez et recentrez la vue automatiquement sur le modèle sélectionné.">
             <button
               className={clsx(styles.button, styles.bottomButton)}
@@ -370,11 +616,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </CustomTooltip>
         </motion.div>
 
-        <motion.div custom={8} variants={iconVariants} animate={isPreviewActive ? "hidden" : "visible"} initial="visible" className="flex items-center">
+        <motion.div custom={8} variants={iconVariants} animate={isPreviewActive || isModeling ? "hidden" : "visible"} initial="visible" className="flex items-center">
           <div className={styles.separator} />
         </motion.div>
 
-        <motion.div custom={9} variants={iconVariants} animate={isPreviewActive ? "hidden" : "visible"} initial="visible" className="flex items-center">
+        <motion.div custom={9} variants={iconVariants} animate={isPreviewActive || isModeling ? "hidden" : "visible"} initial="visible" className="flex items-center">
           <CustomTooltip content="Importer un Modèle 3D (.stl, .glb, .gltf)" description="Ouvrez le sélecteur de fichiers pour charger un nouveau fichier 3D avec textures sur le plateau.">
             <button
               className={clsx(styles.button, styles.bottomButton, styles.uploadActionButton)}
@@ -384,6 +630,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           </CustomTooltip>
         </motion.div>
+
+        {/* Mode modélisation : mêmes noeud et animation de conteneur que le mode slicer —
+            seul le contenu diffère. Les boutons CAD eux-mêmes (logique de features) sont
+            possédés par ModelingSidebar, qui les injecte ici via un portail (voir
+            modelingSlotRef) plutôt que d'être dupliqués ou recréés dans ce composant. */}
+        <motion.div
+          custom={0}
+          variants={iconVariants}
+          animate={isModeling ? "visible" : "hidden"}
+          initial="hidden"
+          ref={modelingSlotRef}
+          id="apex-modeling-toolbar-slot"
+          className={styles.modelingSlot}
+        />
 
         <input
           type="file"
@@ -403,6 +663,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             e.target.value = '';
           }}
         />
+      </motion.div>
       </motion.div>
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { FileSidebar } from '@/components/FileSidebar';
 import { SliceSidebar } from '@/components/SliceSidebar';
@@ -16,7 +16,16 @@ import { SliceModal } from '@/components/SliceModal';
 import { SlicingProgressModal } from '@/components/SlicingProgressModal';
 import { ViewCube } from '@/components/ViewCube';
 import { Viewport3D } from '@/components/Viewport3D';
-import { AnimatePresence } from 'framer-motion';
+import { SpaceTransitionOverlay } from '@/components/SpaceTransitionOverlay';
+import { ParamsPanel } from '@/components/ParamsPanel';
+import { GCodePreview } from '@/components/GCodePreview';
+import { GCodePreviewBar } from '@/components/GCodePreviewBar';
+import { GCodeSpeedSelector } from '@/components/GCodeSpeedSelector';
+import { GCodeLineTypeLegend } from '@/components/GCodeLineTypeLegend';
+import { GCodeInfoPanel } from '@/components/GCodeInfoPanel';
+import { GCodeConversionCard } from '@/components/GCodeConversionCard';
+import { useGCodePreview } from '@/hooks/use-gcode-preview';
+import { useAnimate, motion, AnimatePresence } from 'framer-motion';
 import { Box } from 'lucide-react';
 import { showSuccess } from '@/utils/toast';
 
@@ -26,7 +35,7 @@ interface ModelStatus {
 }
 
 const Index = () => {
-  const [activeTab, setActiveTab] = useState<'3d-view' | 'settings' | 'developer'>('3d-view');
+  const [activeTab, setActiveTab] = useState<'3d-view' | 'settings' | 'developer' | 'params'>('3d-view');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [isPrinterConfigOpen, setIsPrinterConfigOpen] = useState(false);
   const [selectedPrinter, setSelectedPrinter] = useState('Prusa MK4');
@@ -34,9 +43,73 @@ const Index = () => {
   const [isSliceModalOpen, setIsSliceModalOpen] = useState(false);
   const [isSlicingProgressOpen, setIsSlicingProgressOpen] = useState(false);
   const [modelStatus, setModelStatus] = useState<ModelStatus | null>(null);
+  const [isPreviewActive, setIsPreviewActive] = useState(false);
+  const isPreviewActiveRef = useRef(isPreviewActive);
+  isPreviewActiveRef.current = isPreviewActive;
+  // Logique de l'espace Prévisualisation (chargement/lecture G-code) : appelée ici (et non dans
+  // GCodePreview) car sa barre de lecture (GCodePreviewBar) partage la rangée du bas avec la
+  // pastille de statut du plateau, ce qui demande que les deux soient des enfants directs du même
+  // conteneur flex plutôt que des composants positionnés indépendamment.
+  const gcodePreview = useGCodePreview(isPreviewActive);
+  // Le temps que ModelingSidebar déforme sa propre silhouette entre la forme de la pilule/des deux
+  // panneaux de Prévisualisation et sa forme normale — cf. le commentaire sur `onTabChange` plus
+  // bas et le prop `morph` de ModelingSidebar. `null` = pas de morph en cours ; sinon, `direction`
+  // indique le sens ('enter' : la pilule/Prévisualisation devient le panneau Modélisation, 'exit' :
+  // l'inverse) et `fromPreview` l'état de Prévisualisation à l'autre bout du morph (pilule ou
+  // panneaux Preview) — figé à l'instant du clic, lu depuis isPreviewActiveRef, PAS depuis
+  // isPreviewActive : Sidebar mute ce dernier dans le même geste, avant qu'on ait la chance de lire
+  // sa valeur de départ. Contrairement à l'ancienne approche (deux calques à synchroniser — un
+  // verre animé séparé, puis le vrai panneau), c'est ICI le même élément, déjà affiché avec son
+  // contenu réel, qui change de forme : plus de raccord entre deux éléments distincts, donc plus
+  // de risque de clignotement à la jonction.
+  const [modelingMorph, setModelingMorph] = useState<{ direction: 'enter' | 'exit'; fromPreview: boolean } | null>(null);
+  // Vrai dès le CLIC vers Modélisation (cf. l'écouteur d'apex-entering-modeling plus bas), jamais
+  // seulement à `onCovered` (~900ms plus tard, une fois le rideau refermé) : le fondu-glissement du
+  // panneau du bas de Prévisualisation doit être visible EN TRANSPARENCE À TRAVERS le rideau qui
+  // monte, pas caché derrière lui — contrairement au vrai changement d'onglet (`onTabChange`), qui
+  // lui reste cadencé par `onCovered`. Redevient faux une fois le morph 'enter' effectivement lancé
+  // (le panneau du bas a alors largement eu le temps de finir sa disparition, 260ms contre les
+  // ~900ms d'attente du rideau).
+  const [leavingToModeling, setLeavingToModeling] = useState(false);
+  const [statusBarRef, animateStatusBar] = useAnimate<HTMLDivElement>();
+  const prevPreviewActiveRef = useRef(isPreviewActive);
+
+  // Au changement d'espace, la barre d'aide (TopRightMenu) passe par le coin bas gauche, là où
+  // se trouve la barre de statut : celle-ci se rentre sous le bord de l'écran juste avant
+  // (0,2 → 0,45 s ; la barre d'aide démarre à 0,495 s) et ressort une fois la barre d'aide
+  // arrivée (1,1 s), pour ne pas se faire recouvrir.
+  useEffect(() => {
+    if (prevPreviewActiveRef.current === isPreviewActive) return;
+    prevPreviewActiveRef.current = isPreviewActive;
+    if (!statusBarRef.current) return;
+    animateStatusBar(
+      statusBarRef.current,
+      { y: [0, 0, 80, 80, 0] },
+      { duration: 1.4, times: [0, 0.2 / 1.4, 0.45 / 1.4, 1.1 / 1.4, 1], ease: [0.25, 1, 0.5, 1] },
+    );
+  }, [isPreviewActive, animateStatusBar, statusBarRef]);
 
   /** L'onglet « Modélisation » de la Sidebar porte la valeur 'settings'. */
   const isModeling = activeTab === 'settings';
+  // Espace Paramètres : le Viewport3D (et tout le reste du chrome sauf la barre d'onglets
+  // Sidebar et la barre fichier/son FileSidebar) est entièrement démonté, pas seulement masqué —
+  // aucune scène Babylon.js ne doit tourner en fond pendant que cet espace est affiché.
+  const isParams = activeTab === 'params';
+
+  // Une fois CategoriesSidebar (et son panneau du bas) effectivement démontée par le passage en
+  // Modélisation, `leavingToModeling` peut redescendre : il n'a plus d'effet visuel à cet instant
+  // (le fondu est terminé depuis longtemps), mais doit être prêt (`false`) pour un futur cycle.
+  useEffect(() => {
+    if (isModeling) setLeavingToModeling(false);
+  }, [isModeling]);
+
+  // Vrai du début d'un morph de sortie de Modélisation jusqu'au commit qui le termine, où
+  // CategoriesSidebar est remontée et le lit (une seule fois, à son montage). Remis à `false` juste
+  // après, une fois ce montage passé.
+  const [arrivingFromModeling, setArrivingFromModeling] = useState(false);
+  useEffect(() => {
+    if (!modelingMorph) setArrivingFromModeling(false);
+  }, [modelingMorph]);
 
   React.useEffect(() => {
     const handleModelSelected = (event: CustomEvent<{
@@ -60,12 +133,25 @@ const Index = () => {
       }
     };
 
+    const handlePreviewToggled = (event: CustomEvent<{ active: boolean }>) => {
+      setIsPreviewActive(!!event.detail?.active);
+    };
+
+    // Dispatché par Sidebar.tsx (handleTopTabClick) au tout début du clic vers Modélisation, avant
+    // même que le rideau plein écran ne commence à monter — cf. le commentaire sur
+    // `leavingToModeling` plus haut.
+    const handleEnteringModeling = () => setLeavingToModeling(true);
+
     window.addEventListener('apex-mesh-selected', handleModelSelected as EventListener);
     window.addEventListener('apex-import-model', handleModelImported as EventListener);
+    window.addEventListener('apex-preview-toggled', handlePreviewToggled as EventListener);
+    window.addEventListener('apex-entering-modeling', handleEnteringModeling);
 
     return () => {
       window.removeEventListener('apex-mesh-selected', handleModelSelected as EventListener);
       window.removeEventListener('apex-import-model', handleModelImported as EventListener);
+      window.removeEventListener('apex-preview-toggled', handlePreviewToggled as EventListener);
+      window.removeEventListener('apex-entering-modeling', handleEnteringModeling);
     };
   }, []);
 
@@ -94,9 +180,9 @@ const Index = () => {
   };
 
   return (
-    <div 
-      className="flex flex-col h-screen w-screen overflow-hidden select-none relative bg-cover bg-center"
-      style={{ backgroundImage: `url('/background.jpg')` }}
+    <div
+      className="flex flex-col h-screen w-screen overflow-hidden select-none relative"
+      style={{ backgroundColor: '#2a2d34' }}
     >
       <FileSidebar 
         onOpenModel={handleOpenModel}
@@ -110,88 +196,214 @@ const Index = () => {
         selectedFilament={selectedFilament}
       />
 
-      <ModelStatusBox />
-      <ModelHoverTooltip />
-      <TextureEditorModal />
-      <SliceModal
-        isOpen={isSliceModalOpen}
-        onClose={() => setIsSliceModalOpen(false)}
-        onConfirm={handleConfirmSlice}
-      />
-      <SlicingProgressModal
-        isOpen={isSlicingProgressOpen}
-        onClose={() => setIsSlicingProgressOpen(false)}
-        onFinished={handleSlicingFinished}
-      />
+      {!isParams && (
+        <>
+          <ModelStatusBox />
+          <ModelHoverTooltip />
+          <TextureEditorModal />
+          <SliceModal
+            isOpen={isSliceModalOpen}
+            onClose={() => setIsSliceModalOpen(false)}
+            onConfirm={handleConfirmSlice}
+          />
+          <SlicingProgressModal
+            isOpen={isSlicingProgressOpen}
+            onClose={() => setIsSlicingProgressOpen(false)}
+            onFinished={handleSlicingFinished}
+          />
+        </>
+      )}
 
-      <Sidebar 
-        activeTab={activeTab} 
-        onTabChange={(tab) => {
+      <Sidebar
+        activeTab={activeTab}
+        onTabChange={(tab, toPreview) => {
+          // Passage vers ou hors de Modélisation : le rideau plein écran (déjà déclenché par
+          // Sidebar avant cet appel, cf. playSpaceTransition) masque le changement de `main`,
+          // pendant lequel ModelingSidebar (montée en permanence tant que isModeling ||
+          // modelingMorph) joue le morph — cf. son prop `morph`.
+          if (tab === 'settings' && !isModeling) {
+            // L'état de départ (Préparation ou Prévisualisation) est lu MAINTENANT depuis
+            // isPreviewActiveRef, avant que Sidebar ne le fasse passer à jour dans ce même geste.
+            // Les éléments sans place en Modélisation ont déjà disparu depuis le clic
+            // (apex-entering-modeling, ~900ms plus tôt) : la déformation peut commencer tout de
+            // suite, dans le même commit que la bascule CategoriesSidebar → ModelingSidebar.
+            setModelingMorph({ direction: 'enter', fromPreview: isPreviewActiveRef.current });
+          } else if (tab !== 'settings' && isModeling) {
+            // Sortie de Modélisation : `tab === 'box'` que ce soit vers Préparation ou vers
+            // Prévisualisation (cf. handleLayerClick dans Sidebar.tsx, branche `entering`, qui
+            // passe `toPreview: true`) — la destination ne peut donc pas se lire depuis `tab` seul.
+            setModelingMorph({ direction: 'exit', fromPreview: !!toPreview });
+            setArrivingFromModeling(true);
+          }
           setActiveTab(tab === 'box' ? '3d-view' : tab);
           setIsPrinterConfigOpen(false);
+          if (tab === 'params') {
+            setIsSliceModalOpen(false);
+            setIsSlicingProgressOpen(false);
+          }
         }}
         onOpenModel={handleOpenModel}
       />
 
-      <TopRightMenu />
-      <AxisSidebar />
-      <ViewCube />
+      {/* Espace Paramètres : tout le chrome lié au plateau 3D (viewport compris) se
+          fondu-glisse en une fois plutôt que de disparaître d'un coup — seules la barre
+          d'onglets (Sidebar) et la barre fichier/son (FileSidebar) restent visibles. Rendu
+          conditionnel simple pour le Viewport3D (jamais monté en Paramètres, cf. CLAUDE.md sur
+          Viewport3D) ; AnimatePresence porte uniquement la sortie/entrée visuelle de ce bloc. */}
+      <AnimatePresence>
+        {!isParams && (
+          <motion.div
+            key="apex-3d-chrome"
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 24 }}
+            transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <TopRightMenu />
+            <AxisSidebar />
+            <ViewCube />
 
-      {/* Les panneaux slicer et le panneau modélisation s'excluent mutuellement : basculer
-          d'onglet échange les deux avec un fondu, plutôt que de les empiler. */}
-      <AnimatePresence mode="wait">
-        {isModeling ? (
-          <ModelingSidebar key="modeling" />
-        ) : (
-          <React.Fragment key="slicer">
-            <CategoriesSidebar
-              activeCategory={activeCategory}
-              onSelectCategory={(cat) => {
-                setActiveCategory(cat);
-                if (cat) setIsPrinterConfigOpen(false);
-              }}
-            />
+            {/* Les panneaux slicer et le panneau modélisation s'excluent mutuellement. La bascule se fait
+                TOUJOURS dans un seul commit, par un rendu conditionnel simple — jamais via
+                AnimatePresence, qui retarde le démontage de l'ancien côté (et en mode 'wait', le
+                montage du nouveau) d'au moins une tâche, donc d'au moins une frame peinte. Toute
+                l'animation visible est portée ailleurs : la déformation par ModelingSidebar (prop
+                `morph`), les fondus par `animate` dès le clic. */}
+            {isModeling || modelingMorph?.direction === 'exit' ? (
+              <ModelingSidebar
+                morph={
+                  modelingMorph
+                    ? { ...modelingMorph, onDone: () => setModelingMorph(null) }
+                    : undefined
+                }
+              />
+            ) : (
+                <>
+                  <CategoriesSidebar
+                    activeCategory={activeCategory}
+                    onSelectCategory={(cat) => {
+                      setActiveCategory(cat);
+                      if (cat) setIsPrinterConfigOpen(false);
+                    }}
+                    // Remonté à la fin d'un morph de sortie de Modélisation : ce composant doit apparaître
+                    // directement dans la forme que ModelingSidebar vient de prendre (pilule ou panneaux
+                    // de Prévisualisation), sans rejouer d'entrée ni de mitose. Ces deux props ne sont lues
+                    // qu'au montage (figées en interne).
+                    initialPreviewActive={isPreviewActive}
+                    arrivingFromModeling={arrivingFromModeling}
+                    leavingToModeling={leavingToModeling}
+                    previewUpperContent={
+                      <GCodeLineTypeLegend
+                        fileInfo={gcodePreview.fileInfo}
+                        visibility={gcodePreview.lineVisibility}
+                        onToggle={gcodePreview.setLineVisible}
+                        colorBy={gcodePreview.colorBy}
+                        setColorBy={gcodePreview.setColorBy}
+                        activeColorByScope={gcodePreview.activeColorByScope}
+                        setColorByScope={gcodePreview.setColorByScope}
+                        renderPrecisionBounds={gcodePreview.renderPrecisionBounds}
+                        activeRenderPrecisionMm={gcodePreview.activeRenderPrecisionMm}
+                        setRenderPrecision={gcodePreview.setRenderPrecision}
+                      />
+                    }
+                    previewLowerHeader={<GCodeInfoPanel fileInfo={gcodePreview.fileInfo} />}
+                    previewBelowContent={
+                      <GCodeConversionCard
+                        source={gcodePreview.conversionSource}
+                        conversion={gcodePreview.conversion}
+                        onConvert={gcodePreview.convert}
+                        onHighlightOffPlate={gcodePreview.setOffPlateHighlight}
+                        available={gcodePreview.conversionAvailable}
+                      />
+                    }
+                    previewLowerContent={
+                      <GCodeSpeedSelector
+                        speed={gcodePreview.speed}
+                        setSpeed={gcodePreview.setSpeed}
+                        showFullHead={gcodePreview.showFullHead}
+                        setShowFullHead={gcodePreview.setShowFullHead}
+                      />
+                    }
+                  />
 
-            <PrinterConfigSidebar
-              isOpen={isPrinterConfigOpen}
-              onClose={() => setIsPrinterConfigOpen(false)}
-              selectedPrinter={selectedPrinter}
-              onSelectPrinter={setSelectedPrinter}
-              selectedFilament={selectedFilament}
-              onSelectFilament={setSelectedFilament}
-            />
+                  <PrinterConfigSidebar
+                    isOpen={isPrinterConfigOpen}
+                    onClose={() => setIsPrinterConfigOpen(false)}
+                    selectedPrinter={selectedPrinter}
+                    onSelectPrinter={setSelectedPrinter}
+                    selectedFilament={selectedFilament}
+                    onSelectFilament={setSelectedFilament}
+                  />
 
-            <SliceSidebar onSlice={handleSlice} />
-          </React.Fragment>
+                  <SliceSidebar
+                    onSlice={handleSlice}
+                    previewExport={isPreviewActive ? {
+                      enabled: gcodePreview.canExport,
+                      onExport: gcodePreview.exportGCode,
+                      reason: !gcodePreview.fileInfo
+                        ? 'Chargez un G-code pour pouvoir l’exporter.'
+                        : gcodePreview.conversion.status === 'running'
+                          ? 'Conversion en cours…'
+                          : "Convertissez d'abord le G-code 3 axes en polaire (carte Conversion, sous les panneaux).",
+                    } : undefined}
+                  />
+                </>
+            )}
+
+            <main className="flex-1 flex flex-col relative overflow-hidden z-10 bg-transparent">
+              <div className="flex-1 w-full h-full">
+                <Viewport3D />
+              </div>
+
+              {/* Espace Prévisualisation : interface du prévisualisateur G-code polaire. Le tracé
+                  lui-même est rendu par Viewport3D, dans la même scène que la Préparation. Toujours
+                  monté pour conserver le fichier chargé d'un aller-retour à l'autre. */}
+              <GCodePreview active={isPreviewActive} />
+
+              {/* Bottom status / stats overlay — au-dessus du rideau de transition (z-index 30) pour
+                  ne pas être flouté, comme les panneaux fixes. Seule la pastille de statut (premier
+                  enfant, animé via statusBarRef) se rentre sous le bord de l'écran au changement
+                  d'espace : c'est elle qui se trouve dans le coin bas gauche où la barre d'aide vient se
+                  poser en Prévisualisation (cf. TopRightMenu). GCodePreviewBar, à droite, a sa PROPRE
+                  animation d'entrée/sortie (glissement depuis le bas) et ne doit donc PAS être montée à
+                  l'intérieur du conteneur animé par statusBarRef, sous peine d'hériter de son va-et-vient
+                  et de sembler apparaître puis disparaître avec la pastille dans une seule et même
+                  animation. */}
+              <div className="absolute bottom-4 left-4 right-24 z-40 flex items-center justify-start gap-3 pointer-events-none">
+                <div ref={statusBarRef} className="shrink-0">
+                  <div className="bg-[rgba(10,15,26,0.25)] backdrop-blur-[4px] -webkit-backdrop-blur-[4px] border-none rounded-lg px-3 py-2 text-xs text-zinc-300 flex items-center space-x-4 pointer-events-auto shadow-[0_8px_32px_0_rgba(0,0,0,0.4),0_2px_8px_0_rgba(0,0,0,0.3)]">
+                    {modelStatus ? (
+                      <>
+                        <span className="flex items-center"><Box className="w-3.5 h-3.5 mr-1.5 text-blue-400" /> {modelStatus.name}</span>
+                        {modelStatus.dimensions && (
+                          <>
+                            <span className="text-zinc-600">|</span>
+                            <span>Dimensions: {modelStatus.dimensions.x.toFixed(1)} x {modelStatus.dimensions.z.toFixed(1)} x {modelStatus.dimensions.y.toFixed(1)} mm</span>
+                          </>
+                        )}
+                        <span className="text-zinc-600">|</span>
+                        <span className="text-emerald-400 font-medium">Ready to slice</span>
+                      </>
+                    ) : (
+                      <span className="text-zinc-400">Aucun modèle sur le plateau</span>
+                    )}
+                  </div>
+                </div>
+
+                <GCodePreviewBar active={isPreviewActive} {...gcodePreview} />
+              </div>
+            </main>
+          </motion.div>
         )}
       </AnimatePresence>
 
-      <main className="flex-1 flex flex-col relative overflow-hidden z-10 bg-transparent">
-        <div className="flex-1 w-full h-full">
-          <Viewport3D />
-        </div>
+      {isParams && <ParamsPanel />}
 
-        {/* Bottom status / stats overlay */}
-        <div className="absolute bottom-4 left-4 right-24 z-20 flex items-center justify-start pointer-events-none">
-          <div className="bg-[rgba(10,15,26,0.25)] backdrop-blur-[4px] -webkit-backdrop-blur-[4px] border-none rounded-lg px-3 py-2 text-xs text-zinc-300 flex items-center space-x-4 pointer-events-auto shadow-[0_8px_32px_0_rgba(0,0,0,0.4),0_2px_8px_0_rgba(0,0,0,0.3)]">
-            {modelStatus ? (
-              <>
-                <span className="flex items-center"><Box className="w-3.5 h-3.5 mr-1.5 text-blue-400" /> {modelStatus.name}</span>
-                {modelStatus.dimensions && (
-                  <>
-                    <span className="text-zinc-600">|</span>
-                    <span>Dimensions: {modelStatus.dimensions.x.toFixed(1)} x {modelStatus.dimensions.z.toFixed(1)} x {modelStatus.dimensions.y.toFixed(1)} mm</span>
-                  </>
-                )}
-                <span className="text-zinc-600">|</span>
-                <span className="text-emerald-400 font-medium">Ready to slice</span>
-              </>
-            ) : (
-              <span className="text-zinc-400">Aucun modèle sur le plateau</span>
-            )}
-          </div>
-        </div>
-      </main>
+      {/* Rideau plein écran commun à tous les changements d'espace (Préparation, Prévisualisation,
+          Modélisation, Dev, Paramètres) : monté en permanence, pas seulement à l'intérieur du bloc
+          chrome ci-dessus, sinon il disparaîtrait avec lui pendant la transition qu'il est
+          justement censé masquer. */}
+      <SpaceTransitionOverlay />
     </div>
   );
 };

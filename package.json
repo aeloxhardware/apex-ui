@@ -11,8 +11,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "electron:dev": "concurrently -k -n VITE,ELECTRON -c blue,magenta \"vite\" \"wait-on http://localhost:8080 && cross-env ELECTRON_START_URL=http://localhost:8080 node scripts/run-electron.cjs\"",
-    "electron:build": "vite build && electron-builder",
-    "electron:build:dir": "vite build && electron-builder --dir"
+    "python:fetch": "node scripts/fetch-python-embed.cjs",
+    "electron:build": "vite build && node scripts/fetch-python-embed.cjs && electron-builder",
+    "electron:build:dir": "vite build && node scripts/fetch-python-embed.cjs && electron-builder --dir"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -105,6 +106,15 @@
     "directories": {
       "output": "release"
     },
+    "extraResources": [
+      {
+        "from": "python",
+        "to": "python-scripts",
+        "filter": [
+          "*.py"
+        ]
+      }
+    ],
     "mac": {
       "icon": "public/mini-logo.png",
       "target": "dmg",
@@ -112,7 +122,13 @@
     },
     "win": {
       "icon": "public/mini-logo.png",
-      "target": "nsis"
+      "target": "nsis",
+      "extraResources": [
+        {
+          "from": "build/python-embed",
+          "to": "python"
+        }
+      ]
     },
     "linux": {
       "icon": "public/mini-logo.png",
