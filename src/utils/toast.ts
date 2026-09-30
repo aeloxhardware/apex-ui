@@ -1,21 +1,21 @@
-import { toast } from "sonner";
+import { pushNotification, removeNotification } from "./notificationStore";
 
 export const showSuccess = (message: string) => {
-  toast.success(message);
+  pushNotification("success", message);
 };
 
 export const showError = (message: string) => {
-  toast.error(message);
+  pushNotification("error", message);
 };
 
 export const showWarning = (message: string) => {
-  toast.warning(message);
+  pushNotification("warning", message);
 };
 
 export const showLoading = (message: string) => {
-  return toast.loading(message);
+  return pushNotification("loading", message);
 };
 
 export const dismissToast = (toastId: string) => {
-  toast.dismiss(toastId);
+  removeNotification(toastId);
 };

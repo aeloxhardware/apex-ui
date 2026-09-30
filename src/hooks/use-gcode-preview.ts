@@ -16,7 +16,7 @@ import {
   type ContinuousColorByMode,
 } from '@/components/gcodeLayer';
 import { DEFAULT_LINE_VISIBILITY, type LineTypeId, type LineTypeVisibility } from '@/components/gcodeLineTypes';
-import { defaultColorByScope, type ColorByScope } from '@/components/gcodeColormap';
+import { defaultColorByScope, COLOR_BY_LABELS, type ColorByScope } from '@/components/gcodeColormap';
 import type { GCodeGenerator } from '@/components/gcodeGenerator';
 import { isConversionAvailable, runConversion } from '@/utils/gcodeConversion';
 
@@ -166,7 +166,11 @@ export function useGCodePreview(active: boolean) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [colorBy, colorByScopes, renderPrecisionMm, fileInfo]);
 
-  const setColorBy = useCallback((mode: ColorByMode) => setColorByState(mode), []);
+  const setColorBy = useCallback((mode: ColorByMode) => {
+    setColorByState(mode);
+    const label = mode === 'lineType' ? 'Type de ligne' : COLOR_BY_LABELS[mode];
+    showSuccess(`Coloration : ${label}.`);
+  }, []);
 
   /** Règle la portée (curseurs min/max) et/ou l'écrêtage hors-portée du mode continu `mode`,
    * mémorisée indépendamment des autres modes pour le reste de la session sur ce fichier. */

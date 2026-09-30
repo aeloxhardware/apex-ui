@@ -27,7 +27,7 @@ import { GCodeConversionCard } from '@/components/GCodeConversionCard';
 import { useGCodePreview } from '@/hooks/use-gcode-preview';
 import { useAnimate, motion, AnimatePresence } from 'framer-motion';
 import { Box } from 'lucide-react';
-import { showSuccess } from '@/utils/toast';
+import { showSuccess, showWarning, showError } from '@/utils/toast';
 
 interface ModelStatus {
   name: string;
@@ -164,6 +164,7 @@ const Index = () => {
     window.dispatchEvent(new CustomEvent('apex-slice-all-models'));
     setIsSliceModalOpen(false);
     setIsSlicingProgressOpen(true);
+    showSuccess('Découpage du plateau démarré...');
   };
 
   const handleSlicingFinished = () => {
@@ -359,45 +360,85 @@ const Index = () => {
                   lui-même est rendu par Viewport3D, dans la même scène que la Préparation. Toujours
                   monté pour conserver le fichier chargé d'un aller-retour à l'autre. */}
               <GCodePreview active={isPreviewActive} />
-
-              {/* Bottom status / stats overlay — au-dessus du rideau de transition (z-index 30) pour
-                  ne pas être flouté, comme les panneaux fixes. Seule la pastille de statut (premier
-                  enfant, animé via statusBarRef) se rentre sous le bord de l'écran au changement
-                  d'espace : c'est elle qui se trouve dans le coin bas gauche où la barre d'aide vient se
-                  poser en Prévisualisation (cf. TopRightMenu). GCodePreviewBar, à droite, a sa PROPRE
-                  animation d'entrée/sortie (glissement depuis le bas) et ne doit donc PAS être montée à
-                  l'intérieur du conteneur animé par statusBarRef, sous peine d'hériter de son va-et-vient
-                  et de sembler apparaître puis disparaître avec la pastille dans une seule et même
-                  animation. */}
-              <div className="absolute bottom-4 left-4 right-24 z-40 flex items-center justify-start gap-3 pointer-events-none">
-                <div ref={statusBarRef} className="shrink-0">
-                  <div className="bg-[rgba(10,15,26,0.25)] backdrop-blur-[4px] -webkit-backdrop-blur-[4px] border-none rounded-lg px-3 py-2 text-xs text-zinc-300 flex items-center space-x-4 pointer-events-auto shadow-[0_8px_32px_0_rgba(0,0,0,0.4),0_2px_8px_0_rgba(0,0,0,0.3)]">
-                    {modelStatus ? (
-                      <>
-                        <span className="flex items-center"><Box className="w-3.5 h-3.5 mr-1.5 text-blue-400" /> {modelStatus.name}</span>
-                        {modelStatus.dimensions && (
-                          <>
-                            <span className="text-zinc-600">|</span>
-                            <span>Dimensions: {modelStatus.dimensions.x.toFixed(1)} x {modelStatus.dimensions.z.toFixed(1)} x {modelStatus.dimensions.y.toFixed(1)} mm</span>
-                          </>
-                        )}
-                        <span className="text-zinc-600">|</span>
-                        <span className="text-emerald-400 font-medium">Ready to slice</span>
-                      </>
-                    ) : (
-                      <span className="text-zinc-400">Aucun modèle sur le plateau</span>
-                    )}
-                  </div>
-                </div>
-
-                <GCodePreviewBar active={isPreviewActive} {...gcodePreview} />
-              </div>
             </main>
           </motion.div>
         )}
       </AnimatePresence>
 
       {isParams && <ParamsPanel />}
+
+      {/* Bottom status / stats overlay — monté au niveau racine (comme ModelStatusBox), PAS à
+          l'intérieur du motion.div "apex-3d-chrome" : framer-motion pose transform/will-change sur
+          ses éléments animés, ce qui crée un contexte d'empilement qui piège tout descendant
+          `fixed`, même à `opacity: 1` une fois l'animation d'espace terminée — un z-index local,
+          aussi élevé soit-il, ne peut alors jamais dépasser le rideau de transition (z-index 30),
+          rendu en dehors de ce contexte. Même z-index que les autres panneaux fixes (≥1000, cf.
+          SpaceTransitionOverlay.module.scss) pour rester au-dessus du rideau et ne pas être flouté.
+          Seule la pastille de statut (premier enfant, animé via statusBarRef) se rentre sous le
+          bord de l'écran au changement d'espace : c'est elle qui se trouve dans le coin bas gauche
+          où la barre d'aide vient se poser en Prévisualisation (cf. TopRightMenu). GCodePreviewBar,
+          à droite, a sa PROPRE animation d'entrée/sortie (glissement depuis le bas) et ne doit donc
+          PAS être montée à l'intérieur du conteneur animé par statusBarRef, sous peine d'hériter de
+          son va-et-vient et de sembler apparaître puis disparaître avec la pastille dans une seule
+          et même animation. */}
+      {!isParams && (
+        <div className="fixed bottom-3 left-6 right-24 z-[1000] flex items-center justify-start gap-3 pointer-events-none">
+          <div ref={statusBarRef} className="shrink-0">
+            <div className="bg-[rgba(10,15,26,0.25)] backdrop-blur-[4px] -webkit-backdrop-blur-[4px] border-none rounded-lg px-3 py-2 text-xs text-zinc-300 flex items-center space-x-4 pointer-events-auto shadow-[0_8px_32px_0_rgba(0,0,0,0.4),0_2px_8px_0_rgba(0,0,0,0.3)]">
+              <AnimatePresence mode="wait">
+                {modelStatus ? (
+                  <motion.div
+                    key="model-status"
+                    initial={{ opacity: 0, x: -12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -12 }}
+                    transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                    className="flex items-center space-x-4"
+                  >
+                    <span className="flex items-center"><Box className="w-3.5 h-3.5 mr-1.5 text-blue-400" /> {modelStatus.name}</span>
+                    {modelStatus.dimensions && (
+                      <>
+                        <span className="text-zinc-600">|</span>
+                        <span>Dimensions: {modelStatus.dimensions.x.toFixed(1)} x {modelStatus.dimensions.z.toFixed(1)} x {modelStatus.dimensions.y.toFixed(1)} mm</span>
+                      </>
+                    )}
+                    <span className="text-zinc-600">|</span>
+                    <span className="text-emerald-400 font-medium">Ready to slice</span>
+                  </motion.div>
+                ) : (
+                  <motion.span
+                    key="no-model"
+                    initial={{ opacity: 0, x: -12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -12 }}
+                    transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                    className="text-zinc-400"
+                  >
+                    Aucun modèle sur le plateau
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+
+          <GCodePreviewBar active={isPreviewActive} {...gcodePreview} />
+        </div>
+      )}
+
+      {/* TEMPORAIRE : bouton de test pour vérifier la pile de notifications (empilement, molette,
+          croix de fermeture). À retirer une fois la vérification faite. */}
+      <button
+        type="button"
+        onClick={() => {
+          showSuccess('G-code converti en polaire à angle dynamique (écart max 0,010 mm, B de -22° à 45°, 8 mouvements hors plateau supprimés).');
+          showWarning('Dérive de l\'axe C détectée.');
+          showError('Échec de la conversion du G-code.');
+          showSuccess('Modèle importé : test.stl.');
+        }}
+        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[2000] px-4 py-2 rounded-lg bg-primary text-primary-foreground shadow-lg"
+      >
+        Test notifs (x4)
+      </button>
 
       {/* Rideau plein écran commun à tous les changements d'espace (Préparation, Prévisualisation,
           Modélisation, Dev, Paramètres) : monté en permanence, pas seulement à l'intérieur du bloc

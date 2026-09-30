@@ -459,6 +459,8 @@
   }
 }
 
+// Message « Aucun G-code chargé. » — partagé entre le mode dégradé (couleur continue) et le
+// tableau par type de ligne (mode par défaut), cf. GCodeLineTypeLegend.tsx.
 .gradientEmpty {
   margin: 0;
   text-align: center;

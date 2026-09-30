@@ -1,0 +1,94 @@
+// Pile de notifications permanentes (fermeture par croix uniquement) : même verre dépoli que les
+// autres panneaux flottants (GCodePreviewBar/.bar, SliceSidebar/.toolbar), ancrée au même point
+// que l'ancien Toaster sonner (right: 24px, au-dessus du bouton Export / bottom: 84px).
+.stack {
+  position: fixed;
+  right: 24px;
+  bottom: 84px;
+  width: 0;
+  height: 0;
+  z-index: 1000;
+  isolation: isolate;
+  pointer-events: none;
+}
+
+.card {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  min-width: 280px;
+  max-width: 360px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: none;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
+  background: rgba(10, 15, 26, 0.25);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  color: rgb(212, 212, 216);
+  box-sizing: border-box;
+  // Interactivité pilotée explicitement par `.front`/`.peek` (cf. NotificationStack.tsx), jamais
+  // par la position DOM (`:first-child` etc.) : le rendu suit l'ordre de poussée des notifs, pas
+  // l'ordre visuel de la pile (qui tourne à la molette) — un sélecteur structurel visait donc tour
+  // à tour une carte différente selon `frontIndex`, cassant le hit-test de la vraie carte de face.
+  pointer-events: none;
+
+  &.front {
+    pointer-events: auto;
+  }
+}
+
+// Cartes de pile (derrière la carte de face) : contenu réduit à .peekFill, un simple rectangle
+// vide sans texte/icône (cf. NotificationStack.tsx) — sans hauteur explicite, .card s'effondre à
+// 0px faute de contenu intrinsèque, et le peek resterait invisible malgré le décalage/l'opacité.
+// La carte de face, elle, garde sa hauteur naturelle (contenu variable selon la longueur du
+// message, jusqu'à plusieurs lignes).
+.peek {
+  height: 52px;
+}
+
+.peekFill {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.icon {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.message {
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.close {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: rgba(212, 212, 216, 0.7);
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgb(212, 212, 216);
+  }
+}
+
+.card[data-variant='success'] .icon { color: #4ade80; }
+.card[data-variant='error'] .icon { color: #f87171; }
+.card[data-variant='warning'] .icon { color: #fbbf24; }
+.card[data-variant='loading'] .icon { color: #a1a1aa; }

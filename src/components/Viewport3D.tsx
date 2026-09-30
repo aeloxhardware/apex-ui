@@ -5,7 +5,7 @@ import * as BABYLON from 'babylonjs';
 import 'babylonjs-loaders';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Upload, BoxSelect, LayoutGrid, Trash2 } from 'lucide-react';
-import { showSuccess, showWarning } from '@/utils/toast';
+import { showSuccess, showWarning, showError } from '@/utils/toast';
 import styles from './Viewport3D.module.scss';
 import { createGCodeLayer, GCODE_MESH_PREFIX, type ParsedGCode, type ColorByMode } from './gcodeLayer';
 import type { ColorByScope } from './gcodeColormap';
@@ -2413,6 +2413,7 @@ export const Viewport3D = () => {
         confirmed = window.confirm(`Voulez-vous vraiment supprimer les ${selection.size} modèles sélectionnés ?`);
       }
       if (!confirmed) return;
+      const deletedCount = selection.size;
       selection.forEach(mesh => {
         if (mesh && !mesh.isDisposed()) {
           const meshName = mesh.name;
@@ -2421,6 +2422,7 @@ export const Viewport3D = () => {
           window.dispatchEvent(new CustomEvent('apex-mesh-deleted', { detail: { name: meshName } }));
         }
       });
+      showSuccess(deletedCount > 1 ? `${deletedCount} modèles supprimés.` : 'Modèle supprimé.');
       selection.clear();
       setSelectedMeshName(null);
       updateHighlight();
@@ -3332,13 +3334,14 @@ export const Viewport3D = () => {
           });
 
           window.dispatchEvent(
-            new CustomEvent('apex-mesh-selected', { 
-              detail: { 
+            new CustomEvent('apex-mesh-selected', {
+              detail: {
                 name: r.name || "Modèle 3D",
                 subMeshes: subMeshesList
               }
             })
           );
+          showSuccess(`Modèle importé : ${uniqueName}.`);
 
           if (currentToolRef.current === 'move') {
             gizmoManager.rotationGizmoEnabled = false;
@@ -3362,6 +3365,7 @@ export const Viewport3D = () => {
         }
       } catch (err) {
         console.error("Failed to import 3D model:", err);
+        showError(`Échec de l'import du modèle : ${file.name}.`);
       }
     };
 
@@ -3411,6 +3415,7 @@ export const Viewport3D = () => {
           window.dispatchEvent(new CustomEvent('apex-mesh-deleted', { detail: { name: meshName } }));
         }
       });
+      showSuccess(`${all.length} modèle(s) supprimé(s) du plateau.`);
       selectedMeshesRef.current.clear();
       setSelectedMeshName(null);
       updateHighlight();

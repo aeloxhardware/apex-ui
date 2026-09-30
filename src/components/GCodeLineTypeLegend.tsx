@@ -257,6 +257,7 @@ const GCodeGradientScale: React.FC<GCodeGradientScaleProps> = ({
             onPointerDown={startDrag('max')}
             onPointerMove={(e) => dragging === 'max' && setFromClientY(e.clientY, 'max')}
             onPointerUp={() => setDragging(null)}
+            onDoubleClick={() => setScope(mode, { ...scope, max: fileRange.max })}
             role="slider"
             aria-label={`${COLOR_BY_LABELS[mode]} — borne maximale`}
             aria-valuemin={fileRange.min}
@@ -269,6 +270,7 @@ const GCodeGradientScale: React.FC<GCodeGradientScaleProps> = ({
             onPointerDown={startDrag('min')}
             onPointerMove={(e) => dragging === 'min' && setFromClientY(e.clientY, 'min')}
             onPointerUp={() => setDragging(null)}
+            onDoubleClick={() => setScope(mode, { ...scope, min: fileRange.min })}
             role="slider"
             aria-label={`${COLOR_BY_LABELS[mode]} — borne minimale`}
             aria-valuemin={fileRange.min}
@@ -384,6 +386,7 @@ const GCodeRenderPrecisionSlider: React.FC<{
         }}
         onPointerMove={(e) => { if (e.buttons === 1) setFromClientX(e.clientX, e.currentTarget); }}
         onPointerUp={() => commit(localMm)}
+        onDoubleClick={() => { setLocalMm(bounds.max); setPrecision(mode, null); }}
         role="slider"
         aria-label="Précision du rendu"
         aria-valuemin={bounds.min}
@@ -424,49 +427,55 @@ export const GCodeLineTypeLegend = React.memo<GCodeLineTypeLegendProps>(({
             <span />
           </motion.div>
 
-          <div className={styles.rows}>
-            {LINE_TYPES.map((type) => {
-              const stat = fileInfo?.lineStats[type.id];
-              const hasTime = !!stat && stat.time > 0;
-              const hasFilament = type.kind === 'extrusion' && !!stat && stat.filamentMm > 0;
-              const visible = visibility[type.id];
-              return (
-                <motion.label
-                  key={type.id}
-                  className={clsx(styles.grid, styles.row, { [styles.off]: !visible })}
-                  variants={itemVariants}
-                  onMouseEnter={() => window.dispatchEvent(new CustomEvent('apex-set-tooltip', {
-                    detail: { title: type.label, desc: type.description },
-                  }))}
-                  onMouseLeave={() => window.dispatchEvent(new CustomEvent('apex-reset-tooltip'))}
-                >
-                  <span className={styles.name}>
-                    <span className={styles.swatch} style={{ backgroundColor: type.color }} />
-                    <span className={styles.label}>{type.label}</span>
-                  </span>
-                  <span className={clsx(styles.numeric, { [styles.dash]: !hasTime })}>
-                    {hasTime ? formatDuration(stat.time) : DASH}
-                  </span>
-                  <span className={clsx(styles.numeric, { [styles.dash]: !hasTime })}>
-                    {hasTime && totalTime > 0 ? `${formatNumber((stat.time / totalTime) * 100, 1)}%` : DASH}
-                  </span>
-                  <span className={clsx(styles.numeric, { [styles.dash]: !hasFilament })}>
-                    {hasFilament ? `${formatNumber(stat.filamentMm / 1000, 2)} m` : DASH}
-                  </span>
-                  <span className={clsx(styles.numeric, { [styles.dash]: !hasFilament })}>
-                    {hasFilament ? `${formatNumber(stat.massG, 2)} g` : DASH}
-                  </span>
-                  <input
-                    type="checkbox"
-                    className={styles.checkbox}
-                    checked={visible}
-                    onChange={(e) => onToggle(type.id, e.target.checked)}
-                    aria-label={`Afficher : ${type.label}`}
-                  />
-                </motion.label>
-              );
-            })}
-          </div>
+          {fileInfo ? (
+            <div className={styles.rows}>
+              {LINE_TYPES.map((type) => {
+                const stat = fileInfo.lineStats[type.id];
+                const hasTime = !!stat && stat.time > 0;
+                const hasFilament = type.kind === 'extrusion' && !!stat && stat.filamentMm > 0;
+                const visible = visibility[type.id];
+                return (
+                  <motion.label
+                    key={type.id}
+                    className={clsx(styles.grid, styles.row, { [styles.off]: !visible })}
+                    variants={itemVariants}
+                    onMouseEnter={() => window.dispatchEvent(new CustomEvent('apex-set-tooltip', {
+                      detail: { title: type.label, desc: type.description },
+                    }))}
+                    onMouseLeave={() => window.dispatchEvent(new CustomEvent('apex-reset-tooltip'))}
+                  >
+                    <span className={styles.name}>
+                      <span className={styles.swatch} style={{ backgroundColor: type.color }} />
+                      <span className={styles.label}>{type.label}</span>
+                    </span>
+                    <span className={clsx(styles.numeric, { [styles.dash]: !hasTime })}>
+                      {hasTime ? formatDuration(stat.time) : DASH}
+                    </span>
+                    <span className={clsx(styles.numeric, { [styles.dash]: !hasTime })}>
+                      {hasTime && totalTime > 0 ? `${formatNumber((stat.time / totalTime) * 100, 1)}%` : DASH}
+                    </span>
+                    <span className={clsx(styles.numeric, { [styles.dash]: !hasFilament })}>
+                      {hasFilament ? `${formatNumber(stat.filamentMm / 1000, 2)} m` : DASH}
+                    </span>
+                    <span className={clsx(styles.numeric, { [styles.dash]: !hasFilament })}>
+                      {hasFilament ? `${formatNumber(stat.massG, 2)} g` : DASH}
+                    </span>
+                    <input
+                      type="checkbox"
+                      className={styles.checkbox}
+                      checked={visible}
+                      onChange={(e) => onToggle(type.id, e.target.checked)}
+                      aria-label={`Afficher : ${type.label}`}
+                    />
+                  </motion.label>
+                );
+              })}
+            </div>
+          ) : (
+            <motion.p className={styles.gradientEmpty} variants={itemVariants}>
+              Aucun G-code chargé.
+            </motion.p>
+          )}
         </>
       ) : (
         <motion.div className={styles.gradientPanel} variants={itemVariants}>

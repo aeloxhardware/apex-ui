@@ -20,6 +20,7 @@ import styles from './Sidebar.module.scss';
 import { CustomTooltip } from './CustomTooltip';
 import { playUiSound, type UiSoundName } from '@/utils/uiSound';
 import { GCODE_FILE_EXT } from '@/hooks/use-gcode-preview';
+import { showSuccess } from '@/utils/toast';
 
 // Doit correspondre à ViewCube.module.scss (`.container`) : la colonne d'outils du mode
 // Prévisualisation vient se coller au même bord droit, juste sous le gizmo.
@@ -154,7 +155,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
         borderRadius: computedRadius,
       });
     }
-    window.dispatchEvent(new CustomEvent('apex-space-transition', { detail: { label, onCovered } }));
+    window.dispatchEvent(new CustomEvent('apex-space-transition', {
+      detail: {
+        label,
+        onCovered: () => {
+          onCovered();
+          showSuccess(`Espace ${label} activé.`);
+        },
+      },
+    }));
   };
 
   const handleTopTabClick = (tabName: 'box' | 'settings' | 'developer' | 'params') => {
@@ -181,10 +190,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
     });
   };
 
+  const TOOL_LABELS: Record<'select' | 'move' | 'rotate' | 'scale' | 'texture' | 'layers', string> = {
+    select: 'Sélection',
+    move: 'Déplacement',
+    rotate: 'Rotation',
+    scale: 'Échelle',
+    texture: 'Texture',
+    layers: 'Prévisualisation',
+  };
+  const announceTool = (tool: keyof typeof TOOL_LABELS) => {
+    showSuccess(`Outil ${TOOL_LABELS[tool]} activé.`);
+  };
+
   const handleToolClick = (tool: 'select' | 'move' | 'rotate' | 'scale' | 'texture') => {
     const newTool = activeTool === tool ? 'select' : tool;
     setActiveTool(newTool);
     window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: newTool } }));
+    announceTool(newTool);
   };
 
   /**
@@ -281,19 +303,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
         const newTool = activeTool === 'move' ? 'select' : 'move';
         setActiveTool(newTool);
         window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: newTool } }));
+        announceTool(newTool);
       } else if (key === 'r') {
         const newTool = activeTool === 'rotate' ? 'select' : 'rotate';
         setActiveTool(newTool);
         window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: newTool } }));
+        announceTool(newTool);
       } else if (key === 's') {
         const newTool = activeTool === 'scale' ? 'select' : 'scale';
         setActiveTool(newTool);
         window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: newTool } }));
+        announceTool(newTool);
       } else if (key === 't') {
         const newTool = activeTool === 'texture' ? 'select' : 'texture';
         setActiveTool(newTool);
         window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: newTool } }));
+        announceTool(newTool);
       } else if (key === 'escape') {
+        if (activeTool !== 'select') announceTool('select');
         setActiveTool('select');
         window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'select' } }));
       }

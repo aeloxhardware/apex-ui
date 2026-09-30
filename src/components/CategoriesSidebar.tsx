@@ -359,9 +359,22 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
   const startYRef = useRef(0);
   const startScrollTopRef = useRef(0);
 
+  // Vrai dès le CLIC vers Prévisualisation (apex-entering-preview, cf. Sidebar.tsx), ~900ms avant
+  // que la pilule ne commence à s'étirer à `onCovered` : ses icônes disparaissent en cascade
+  // pendant ce temps, comme vers Modélisation (leavingToModeling). Repasse à faux au début de la
+  // fusion inverse, où `previewMorphPhase` prend le relais jusqu'à ce que la pilule soit reformée.
+  const [enteringPreview, setEnteringPreview] = useState(false);
+
+  useEffect(() => {
+    const handleEnteringPreview = () => setEnteringPreview(true);
+    window.addEventListener('apex-entering-preview', handleEnteringPreview);
+    return () => window.removeEventListener('apex-entering-preview', handleEnteringPreview);
+  }, []);
+
   useEffect(() => {
     const handlePreviewToggled = (e: CustomEvent<{ active: boolean }>) => {
       const active = !!e.detail?.active;
+      if (!active) setEnteringPreview(false);
       if (active && !previewActiveRef.current) {
         // La pilule devient le panneau du haut : un menu de catégorie encore ouvert se ferme
         // sans animation plutôt que de se superposer à la mitose.
@@ -608,14 +621,16 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
               }}
             >
               {/* Seules les icônes suivent l'espace : cascade de disparition dès le clic vers
-                  Modélisation (leavingToModeling), ~900ms avant que la pilule ne soit reprise par
-                  ModelingSidebar sous le rideau ; cascade d'apparition au retour d'un morph de
-                  sortie (wasArrivingFromModeling), une fois la déformation terminée. Hors de ces
-                  cas, `animate="visible"` sans délai, comme un menu statique normal. */}
+                  Modélisation (leavingToModeling) ou vers Prévisualisation (enteringPreview),
+                  ~900ms avant que la pilule ne soit reprise par ModelingSidebar ou ne commence à
+                  s'étirer en panneaux (tous deux sous le rideau, à `onCovered`) ; cascade
+                  d'apparition au retour d'un morph de sortie (wasArrivingFromModeling), une fois la
+                  déformation terminée. Hors de ces cas, `animate="visible"` sans délai, comme un
+                  menu statique normal. */}
               <motion.div
                 variants={pillIconsContainerVariants}
                 initial={wasArrivingFromModeling ? 'hidden' : false}
-                animate={leavingToModeling ? 'hidden' : 'visible'}
+                animate={leavingToModeling || enteringPreview ? 'hidden' : 'visible'}
                 style={{ display: 'contents' }}
               >
                 {CATEGORIES.map((cat) => {

@@ -3,7 +3,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Index from './pages/Index';
-import { Toaster } from '@/components/ui/sonner';
+import { NotificationStack } from '@/components/NotificationStack';
 import { useUiSounds } from '@/hooks/use-ui-sounds';
 
 function App() {
@@ -17,9 +17,11 @@ function App() {
         <Route path="/" element={<Index />} />
       </Routes>
       {/* Point de rendu de tous les messages de src/utils/toast.ts (showSuccess, showWarning…) :
-          sans lui, ces appels ne s'affichaient nulle part. Thème forcé : l'interface est sombre
-          et aucun ThemeProvider (next-themes) n'est monté. */}
-      <Toaster theme="dark" position="bottom-center" />
+          sans lui, ces appels ne s'affichaient nulle part. Pile de notifications permanentes
+          (aucune ne disparaît seule, fermeture par croix uniquement), empilées avec un effet de
+          dépassement (peek) et cycle à la molette — cf. NotificationStack.tsx/.module.scss pour
+          le détail du style verre dépoli et de l'animation. */}
+      <NotificationStack />
     </Router>
   );
 }
