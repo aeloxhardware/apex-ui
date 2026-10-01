@@ -1,0 +1,36 @@
+// Nœud d'édition : positionné par sa projection écran (transform), centré sur son ancre.
+.node {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  cursor: pointer;
+  user-select: none;
+}
+
+// Cœur : point coloré. Couleurs et états à fixer avec l'utilisateur pendant la conception.
+.core {
+  position: absolute;
+  left: -6px;
+  top: -6px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #00f0ff;
+  box-shadow: 0 0 0 2px rgba(10, 15, 26, 0.9), 0 0 10px rgba(0, 240, 255, 0.55);
+  transition: transform 120ms ease, background 120ms ease;
+}
+
+.node:hover .core {
+  transform: scale(1.25);
+}
+
+.active .core {
+  background: #ffffff;
+}
+
+// Repère provisoire du rognage actif, en attendant le dessin du nœud complet.
+.trimming .core {
+  box-shadow: 0 0 0 2px rgba(10, 15, 26, 0.9), 0 0 0 4px #ff9f1c;
+}
