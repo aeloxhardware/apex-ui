@@ -42,6 +42,14 @@ export function removeNotification(id: string): void {
   emit();
 }
 
+/** Bouton « tout fermer » de la pile. */
+export function clearNotifications(): void {
+  if (items.length === 0) return;
+  items = [];
+  frontId = null;
+  emit();
+}
+
 /** Appelé par le gestionnaire de molette de NotificationStack. */
 export function setFrontNotification(id: string): void {
   if (!items.some((n) => n.id === id)) return;

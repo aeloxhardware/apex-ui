@@ -17,6 +17,8 @@ import styles from './SpaceTransitionOverlay.module.scss';
  *                balayage diagonal) mais en disparition ; le flou se dissipe en même temps,
  *                révélant le nouvel espace.
  *
+ * Aussi utilisé comme rideau d'attente d'un chargement lourd (`apex-gcode-loading`) : voir plus bas.
+ *
  * Piloté par l'événement `apex-space-transition` (voir Sidebar.tsx, seul émetteur) plutôt qu'un
  * state React partagé, pour rester cohérent avec le bus d'événements global du reste de l'app
  * (cf. CLAUDE.md).
@@ -101,21 +103,42 @@ export const SpaceTransitionOverlay: React.FC = () => {
     // null — il faut remesurer une fois le nœud monté.
   }, [label, painted]);
 
+  // Chargement lourd (G-code) : `apex-gcode-loading { active }` affiche le rideau s'il n'est pas déjà
+  // là et le MAINTIENT, texte affiché et barre blanche qui tourne en boucle, jusqu'à `active: false`.
+  // Le rideau n'est qu'un overlay d'attente : le chargement se fait hors du thread de l'interface
+  // (cf. gcodeParseAsync.ts), l'application ne gèle jamais derrière.
+  const loadingRef = useRef(false);
+  // Le texte est affiché, la fin de la phase "text" est atteinte mais le chargement n'est pas fini.
+  const waitingRef = useRef(false);
+  // Le rideau est à l'écran ou en train de s'y installer (de `blur` jusqu'à la fin de `fadeout`).
+  const runningRef = useRef(false);
+  const fadingRef = useRef(false);
+  const [holding, setHolding] = useState(false);
+
   useEffect(() => {
     const clearTimeouts = () => {
       timeoutsRef.current.forEach((id) => window.clearTimeout(id));
       timeoutsRef.current = [];
     };
 
-    const handleTransition = (e: Event) => {
-      const detail = (e as CustomEvent<SpaceTransitionDetail>).detail;
-      if (!detail?.label) return;
+    const beginFadeout = () => {
+      fadingRef.current = true;
+      setPhase('fadeout');
+      timeoutsRef.current.push(window.setTimeout(() => {
+        runningRef.current = false;
+        fadingRef.current = false;
+        setLabel(null);
+      }, FADEOUT_MS));
+    };
 
-      const textMs = getTextMs(detail.label);
-      const totalMs = BLUR_MS + PAINT_MS + textMs + FADEOUT_MS;
+    const run = (labelText: string, onCovered?: () => void) => {
+      const textMs = getTextMs(labelText);
 
       clearTimeouts();
-      setLabel(detail.label);
+      waitingRef.current = false;
+      fadingRef.current = false;
+      runningRef.current = true;
+      setLabel(labelText);
       setPhase('blur');
       setRunId((id) => id + 1);
 
@@ -123,17 +146,47 @@ export const SpaceTransitionOverlay: React.FC = () => {
         window.setTimeout(() => setPhase('paint'), BLUR_MS),
         window.setTimeout(() => {
           // Le contenu change une fois toutes les tuiles posées, jamais visible.
-          detail.onCovered?.();
+          onCovered?.();
           setPhase('text');
         }, BLUR_MS + PAINT_MS),
-        window.setTimeout(() => setPhase('fadeout'), BLUR_MS + PAINT_MS + textMs),
-        window.setTimeout(() => setLabel(null), totalMs),
+        window.setTimeout(() => {
+          // Chargement encore en cours : le rideau reste en place jusqu'à sa fin.
+          if (loadingRef.current) { waitingRef.current = true; return; }
+          beginFadeout();
+        }, BLUR_MS + PAINT_MS + textMs),
       );
     };
 
+    const handleTransition = (e: Event) => {
+      const detail = (e as CustomEvent<SpaceTransitionDetail>).detail;
+      if (!detail?.label) return;
+      run(detail.label, detail.onCovered);
+    };
+
+    const handleLoading = (e: Event) => {
+      const detail = (e as CustomEvent<{ active: boolean; label?: string }>).detail;
+      if (!detail) return;
+      if (detail.active) {
+        loadingRef.current = true;
+        setHolding(true);
+        // Rideau absent, ou déjà en train de se retirer : on en (re)lance un. Sinon (déjà là, ou en
+        // train de s'installer) il est simplement maintenu — pas de second rideau par-dessus.
+        if (!runningRef.current || fadingRef.current) run(detail.label ?? 'Chargement');
+      } else {
+        loadingRef.current = false;
+        setHolding(false);
+        if (waitingRef.current) {
+          waitingRef.current = false;
+          beginFadeout();
+        }
+      }
+    };
+
     window.addEventListener('apex-space-transition', handleTransition);
+    window.addEventListener('apex-gcode-loading', handleLoading);
     return () => {
       window.removeEventListener('apex-space-transition', handleTransition);
+      window.removeEventListener('apex-gcode-loading', handleLoading);
       clearTimeouts();
     };
   }, []);
@@ -191,13 +244,14 @@ export const SpaceTransitionOverlay: React.FC = () => {
                 </span>
                 {!fadingOut && (
                   <motion.span
+                    key={holding ? 'loading' : 'once'}
                     className={styles.scanline}
                     initial={{ scaleX: 0, opacity: 0.9 }}
                     animate={{ scaleX: 1, opacity: 0 }}
                     transition={{
                       duration: 0.5,
                       ease: 'easeOut',
-                      repeat: getScanlineRepeat(label) - 1,
+                      repeat: holding ? Infinity : getScanlineRepeat(label) - 1,
                       repeatDelay: (SCANLINE_CYCLE_MS - 500) / 1000,
                     }}
                   />

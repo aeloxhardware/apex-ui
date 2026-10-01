@@ -29,13 +29,26 @@ export const PREVIEW_LOWER_H = 250;
 export const PREVIEW_BOTTOM_MARGIN = 236;
 export const PREVIEW_UPPER_MIN_H = 120;
 
-export const previewGeometry = (viewportH: number) => {
-  const upperH = Math.max(
+// Le plus petit des deux panneaux est agrandi de ce facteur (l'autre garde sa hauteur de base).
+export const PREVIEW_SMALLER_SCALE = 1.3 * 0.85;
+
+export const previewPanelHeights = (viewportH: number) => {
+  const baseUpper = Math.max(
     PREVIEW_UPPER_MIN_H,
     viewportH - PREVIEW_BOTTOM_MARGIN - PREVIEW_LOWER_H - PREVIEW_GAP - PILL_TOP,
   );
-  const upper: GlassRect = { x: 0, y: 0, w: PREVIEW_W, h: upperH, r: PREVIEW_R };
-  const lower: GlassRect = { x: 0, y: upperH + PREVIEW_GAP, w: PREVIEW_W, h: PREVIEW_LOWER_H, r: PREVIEW_R };
+  const upperIsSmaller = baseUpper <= PREVIEW_LOWER_H;
+  const upperH = upperIsSmaller ? baseUpper * PREVIEW_SMALLER_SCALE : baseUpper;
+  const lowerH = upperIsSmaller ? PREVIEW_LOWER_H : PREVIEW_LOWER_H * PREVIEW_SMALLER_SCALE;
+  // Les panneaux sont remontés de ce que le facteur ajoute : leur bas reste où il était.
+  const lift = upperH + lowerH - baseUpper - PREVIEW_LOWER_H;
+  return { upperH, lowerH, lift };
+};
+
+export const previewGeometry = (viewportH: number) => {
+  const { upperH, lowerH, lift } = previewPanelHeights(viewportH);
+  const upper: GlassRect = { x: 0, y: -lift, w: PREVIEW_W, h: upperH, r: PREVIEW_R };
+  const lower: GlassRect = { x: 0, y: upper.y + upperH + PREVIEW_GAP, w: PREVIEW_W, h: lowerH, r: PREVIEW_R };
   // + marge pour le col qui s'étire avant la rupture.
   return { upper, lower, stageH: lower.y + lower.h + 40 };
 };
@@ -101,7 +114,7 @@ export const modelingPathAt = (
 export const modelingMorphStage = (viewportH: number) => {
   const target = modelingGeometry(viewportH);
   const previewGeo = previewGeometry(viewportH);
-  const top0 = Math.min(0, target.y) - 20;
+  const top0 = Math.min(0, target.y, previewGeo.upper.y) - 20;
   const bottom0 = Math.max(previewGeo.stageH, target.y + target.h) + 20;
   return {
     left: PANEL_LEFT,

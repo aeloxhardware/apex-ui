@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { showError, showSuccess, showWarning } from '@/utils/toast';
 import {
-  parseGCode,
   stateAt,
   timeAtIndex,
   indexAtTime,
@@ -19,6 +18,7 @@ import { DEFAULT_LINE_VISIBILITY, type LineTypeId, type LineTypeVisibility } fro
 import { defaultColorByScope, COLOR_BY_LABELS, type ColorByScope } from '@/components/gcodeColormap';
 import type { GCodeGenerator } from '@/components/gcodeGenerator';
 import { isConversionAvailable, runConversion } from '@/utils/gcodeConversion';
+import { parseGCodeAsync } from '@/utils/gcodeParseAsync';
 
 /**
  * Logique de l'espace Prévisualisation, sans interface : chargement de fichier G-code (dépôt sur
@@ -48,6 +48,8 @@ export interface GCodeFileInfo {
   printer: string | null;
   /** 3 axes à Z variable dans les couches : l'angle dynamique est recommandé pour la conversion. */
   nonPlanar: boolean;
+  /** 3 axes dont le fichier pilote l'orientation de l'outil (B/C) : la tête s'incline à la lecture. */
+  toolOriented: boolean;
   /** Fichier issu de la conversion polaire d'Apex (mode), sinon null. */
   conversion: ConversionMode | null;
   moves: number;
@@ -77,6 +79,15 @@ const IDLE_CONVERSION: ConversionState = { status: 'idle', progress: 0, mode: nu
  * visible sans jamais s'éteindre (cf. `convert`, plus bas). */
 const setOffPlateHighlight = (show: boolean, blinking = false) =>
   window.dispatchEvent(new CustomEvent('apex-gcode-highlight-offplate', { detail: { show, blinking } }));
+
+/** Au-delà (caractères du texte), le chargement affiche le rideau le temps de l'analyse (worker) et
+ * de la construction du maillage (par tranches) — l'interface, elle, ne gèle jamais. */
+const HEAVY_GCODE_CHARS = 8_000_000;
+
+/** Rideau de chargement (SpaceTransitionOverlay) : l'afficher s'il n'est pas déjà là, le garder
+ * jusqu'à `active: false`. */
+const setLoadingCurtain = (active: boolean) =>
+  window.dispatchEvent(new CustomEvent('apex-gcode-loading', { detail: { active, label: 'Chargement' } }));
 
 const dispatchTime = (t: number) =>
   window.dispatchEvent(new CustomEvent('apex-gcode-time', { detail: { t } }));
@@ -222,20 +233,34 @@ export function useGCodePreview(active: boolean) {
     return () => cancelAnimationFrame(raf);
   }, [isPlaying, speed]);
 
-  /** Parse et affiche un G-code ; renvoie le résultat, ou null (erreur déjà signalée). */
-  const loadText = (text: string, name: string): ParsedGCode | null => {
-    let parsed: ParsedGCode;
-    try {
-      parsed = parseGCode(text);
-    } catch {
-      showError('Impossible de lire ce fichier G-code.');
-      return null;
-    }
-    if (parsed.moves.length < 2) {
-      showError('Aucune trajectoire exploitable dans ce fichier.');
-      return null;
-    }
+  const loadSeqRef = useRef(0);
 
+  /** Parse (worker) et affiche un G-code ; renvoie le résultat, ou null (erreur déjà signalée, ou
+   * chargement supplanté par un plus récent). */
+  const loadText = async (text: string, name: string): Promise<ParsedGCode | null> => {
+    const seq = ++loadSeqRef.current;
+    const heavy = text.length > HEAVY_GCODE_CHARS;
+    if (heavy) setLoadingCurtain(true);
+    try {
+      let parsed: ParsedGCode;
+      try {
+        parsed = await parseGCodeAsync(text);
+      } catch {
+        showError('Impossible de lire ce fichier G-code.');
+        return null;
+      }
+      if (seq !== loadSeqRef.current) return null;
+      if (parsed.moves.length < 2) {
+        showError('Aucune trajectoire exploitable dans ce fichier.');
+        return null;
+      }
+      return await applyParsed(parsed, text, name, seq);
+    } finally {
+      if (heavy && seq === loadSeqRef.current) setLoadingCurtain(false);
+    }
+  };
+
+  const applyParsed = async (parsed: ParsedGCode, text: string, name: string, seq: number): Promise<ParsedGCode | null> => {
     parsedRef.current = parsed;
     currentRef.current = { text, name };
     const last = parsed.moves.length - 1;
@@ -245,7 +270,14 @@ export function useGCodePreview(active: boolean) {
     setColorByState('lineType');
     setColorByScopes({});
     setRenderPrecisionMmState({});
-    window.dispatchEvent(new CustomEvent('apex-gcode-loaded', { detail: { parsed } }));
+    // Le viewport construit le maillage par tranches et résout `onBuilt` à la fin ; sans viewport à
+    // l'écoute (`handled` resté faux), rien à attendre.
+    await new Promise<void>((resolve) => {
+      const detail = { parsed, handled: false, onBuilt: resolve };
+      window.dispatchEvent(new CustomEvent('apex-gcode-loaded', { detail }));
+      if (!detail.handled) resolve();
+    });
+    if (seq !== loadSeqRef.current) return null;
 
     setFileInfo({
       name,
@@ -255,6 +287,7 @@ export function useGCodePreview(active: boolean) {
       generator: parsed.generator,
       printer: parsed.printer,
       nonPlanar: parsed.nonPlanar,
+      toolOriented: parsed.toolOriented,
       conversion: parsed.conversion,
       moves: parsed.moves.length,
       extruding: parsed.extrudingCount,
@@ -274,7 +307,7 @@ export function useGCodePreview(active: boolean) {
     }
     setIsLoading(true);
     const text = await file.text().catch(() => null);
-    const parsed = text === null ? null : loadText(text, file.name);
+    const parsed = text === null ? null : await loadText(text, file.name);
     setIsLoading(false);
     if (!parsed) return;
 
@@ -323,7 +356,7 @@ export function useGCodePreview(active: boolean) {
       // fichier source n'existent plus dans ce nouveau tracé — le surlignage s'éteint de lui-même
       // (setFileInfo d'un nouveau fichier ne réaffiche rien), mais on l'éteint explicitement pour
       // ne pas laisser le clignotement tourner indéfiniment si jamais rien ne le fait.
-      if (!loadText(text, name)) throw new Error('Le G-code converti est illisible.');
+      if (!(await loadText(text, name))) throw new Error('Le G-code converti est illisible.');
       setOffPlateHighlight(false);
       setConversion({ status: 'done', progress: 100, mode, error: null });
       const detail = summary
@@ -451,6 +484,35 @@ export function useGCodePreview(active: boolean) {
     });
   };
 
+  // Sélection d'un point de trajectoire sur le modèle (cf. Viewport3D `apex-gcode-pick-mode`) : un
+  // clic sur un point saute la lecture à l'avancement où la tête le dépose, puis le mode s'éteint
+  // (un seul point par activation) ; Échap l'annule. Éteint aussi en quittant l'espace ou sans fichier.
+  const [isPickingPoint, setIsPickingPoint] = useState(false);
+  const seekRef = useRef(seek);
+  seekRef.current = seek;
+  const pickAllowed = active && !!fileInfo;
+  useEffect(() => {
+    if (!pickAllowed) setIsPickingPoint(false);
+  }, [pickAllowed]);
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('apex-gcode-pick-mode', { detail: { active: isPickingPoint } }));
+    if (!isPickingPoint) return;
+    const onPicked = (e: Event) => {
+      const t = (e as CustomEvent<{ t: number }>).detail?.t;
+      if (typeof t !== 'number') return;
+      seekRef.current(t);
+      setIsPickingPoint(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setIsPickingPoint(false); };
+    window.addEventListener('apex-gcode-point-picked', onPicked);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('apex-gcode-point-picked', onPicked);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [isPickingPoint]);
+  const togglePickPoint = useCallback(() => setIsPickingPoint((v) => !v), []);
+
   /** Lecture/pause ; repart du début si la lecture est au bout. */
   const togglePlay = () => {
     const parsed = parsedRef.current;
@@ -492,6 +554,8 @@ export function useGCodePreview(active: boolean) {
     renderPrecisionBounds,
     activeRenderPrecisionMm,
     setRenderPrecision,
+    isPickingPoint,
+    togglePickPoint,
     isDragging,
     isLoading,
     loadFile,

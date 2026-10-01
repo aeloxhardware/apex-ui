@@ -23,11 +23,13 @@ import { GCodePreviewBar } from '@/components/GCodePreviewBar';
 import { GCodeSpeedSelector } from '@/components/GCodeSpeedSelector';
 import { GCodeLineTypeLegend } from '@/components/GCodeLineTypeLegend';
 import { GCodeInfoPanel } from '@/components/GCodeInfoPanel';
+import { PreviewUpperTabs } from '@/components/PreviewUpperTabs';
 import { GCodeConversionCard } from '@/components/GCodeConversionCard';
+import { UnlayeredDetectedDialog } from '@/components/UnlayeredDetectedDialog';
 import { useGCodePreview } from '@/hooks/use-gcode-preview';
 import { useAnimate, motion, AnimatePresence } from 'framer-motion';
 import { Box } from 'lucide-react';
-import { showSuccess, showWarning, showError } from '@/utils/toast';
+import { showSuccess } from '@/utils/toast';
 
 interface ModelStatus {
   name: string;
@@ -294,6 +296,7 @@ const Index = () => {
                     arrivingFromModeling={arrivingFromModeling}
                     leavingToModeling={leavingToModeling}
                     previewUpperContent={
+                      <PreviewUpperTabs coloration={
                       <GCodeLineTypeLegend
                         fileInfo={gcodePreview.fileInfo}
                         visibility={gcodePreview.lineVisibility}
@@ -305,7 +308,10 @@ const Index = () => {
                         renderPrecisionBounds={gcodePreview.renderPrecisionBounds}
                         activeRenderPrecisionMm={gcodePreview.activeRenderPrecisionMm}
                         setRenderPrecision={gcodePreview.setRenderPrecision}
+                        pickingPoint={gcodePreview.isPickingPoint}
+                        onTogglePickPoint={gcodePreview.togglePickPoint}
                       />
+                      } />
                     }
                     previewLowerHeader={<GCodeInfoPanel fileInfo={gcodePreview.fileInfo} />}
                     previewBelowContent={
@@ -425,26 +431,12 @@ const Index = () => {
         </div>
       )}
 
-      {/* TEMPORAIRE : bouton de test pour vérifier la pile de notifications (empilement, molette,
-          croix de fermeture). À retirer une fois la vérification faite. */}
-      <button
-        type="button"
-        onClick={() => {
-          showSuccess('G-code converti en polaire à angle dynamique (écart max 0,010 mm, B de -22° à 45°, 8 mouvements hors plateau supprimés).');
-          showWarning('Dérive de l\'axe C détectée.');
-          showError('Échec de la conversion du G-code.');
-          showSuccess('Modèle importé : test.stl.');
-        }}
-        className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[2000] px-4 py-2 rounded-lg bg-primary text-primary-foreground shadow-lg"
-      >
-        Test notifs (x4)
-      </button>
-
       {/* Rideau plein écran commun à tous les changements d'espace (Préparation, Prévisualisation,
           Modélisation, Dev, Paramètres) : monté en permanence, pas seulement à l'intérieur du bloc
           chrome ci-dessus, sinon il disparaîtrait avec lui pendant la transition qu'il est
           justement censé masquer. */}
       <SpaceTransitionOverlay />
+      <UnlayeredDetectedDialog fileInfo={gcodePreview.fileInfo} loading={gcodePreview.isLoading} active={isPreviewActive} />
     </div>
   );
 };

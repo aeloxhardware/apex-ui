@@ -24,6 +24,9 @@ interface GCodeLineTypeLegendProps {
   renderPrecisionBounds: { min: number; max: number } | null;
   activeRenderPrecisionMm: number | null;
   setRenderPrecision: (mode: ContinuousColorByMode, mm: number | null) => void;
+  /** Mode « sélectionner un point de trajectoire » actif, et sa bascule. */
+  pickingPoint: boolean;
+  onTogglePickPoint: () => void;
 }
 
 const DASH = '—';
@@ -408,7 +411,7 @@ const GCodeRenderPrecisionSlider: React.FC<{
  */
 export const GCodeLineTypeLegend = React.memo<GCodeLineTypeLegendProps>(({
   fileInfo, visibility, onToggle, colorBy, setColorBy, activeColorByScope, setColorByScope,
-  renderPrecisionBounds, activeRenderPrecisionMm, setRenderPrecision,
+  renderPrecisionBounds, activeRenderPrecisionMm, setRenderPrecision, pickingPoint, onTogglePickPoint,
 }) => {
   const totalTime = fileInfo?.totalTime ?? 0;
   const continuousMode = colorBy !== 'lineType' ? colorBy : null;
@@ -497,6 +500,24 @@ export const GCodeLineTypeLegend = React.memo<GCodeLineTypeLegendProps>(({
           )}
         </motion.div>
       )}
+
+      <motion.button
+        type="button"
+        className={clsx(styles.pickButton, { [styles.pickButtonActive]: pickingPoint })}
+        variants={itemVariants}
+        disabled={!fileInfo}
+        aria-pressed={pickingPoint}
+        onClick={onTogglePickPoint}
+        onMouseEnter={() => window.dispatchEvent(new CustomEvent('apex-set-tooltip', {
+          detail: {
+            title: 'Sélectionner un point de trajectoire à visualiser',
+            desc: "Cliquez sur un point de la trajectoire, sur le modèle : la lecture saute à l'instant où la tête l'imprime. Échap pour annuler.",
+          },
+        }))}
+        onMouseLeave={() => window.dispatchEvent(new CustomEvent('apex-reset-tooltip'))}
+      >
+        {pickingPoint ? 'Cliquez un point sur le modèle…' : 'Sélectionner un point de trajectoire à visualiser'}
+      </motion.button>
     </motion.div>
   );
 });

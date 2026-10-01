@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import clsx from 'clsx';
-import { CircleCheck, CircleX, TriangleAlert, Loader2, X } from 'lucide-react';
+import { CircleCheck, CircleX, TriangleAlert, Loader2, X, Layers } from 'lucide-react';
 import {
+  clearNotifications,
   removeNotification,
   setFrontNotification,
   subscribeToNotifications,
@@ -27,15 +28,58 @@ const OPACITY_STEP = 0.1;
 const EXIT_PUSH_X = 60;
 const EXIT_PUSH_Y = 40;
 
+// Carte qui change de place entre la face et le fond (celle qui « voyage ») : trajet en trois points
+// (départ → au-delà du coin d'ancrage → arrivée), joué à l'identique dans les deux sens — au
+// défilement avant, la carte de face part vers le fond ; en sens inverse, c'est la même trajectoire
+// parcourue à l'envers, la carte du fond remontant vers la face. L'ordre d'empilement bascule à
+// mi-course (TRAVEL_Z_FLIP_S) pour que la carte passe derrière/devant au bon moment.
+// Court et vif : le retour derrière la pile ne doit laisser aucune latence perceptible. L'ordre
+// d'empilement bascule pile au passage du point extrême (40 % de la durée).
+const TRAVEL_S = 0.32;
+const TRAVEL = { duration: TRAVEL_S, ease: [0.3, 0.7, 0.4, 1] as [number, number, number, number], times: [0, 0.4, 1] };
+const TRAVEL_Z_FLIP_S = TRAVEL_S * 0.4;
+// Niveau d'empilement de la carte qui revient derrière la pile : STRICTEMENT sous toutes les autres
+// (les cartes au-delà de MAX_PEEK partagent le même cran 100 - MAX_PEEK, d'où le −1).
+const Z_BEHIND_ALL = 100 - MAX_PEEK - 1;
+
+// Ressort de la pile attrapée : compression rapide à la prise, puis relâchement très rebondissant.
+const GRAB_SPRING = { type: 'spring', stiffness: 700, damping: 26, mass: 0.6 } as const;
+const RELEASE_SPRING = { type: 'spring', stiffness: 520, damping: 9, mass: 0.7 } as const;
+
 const SPRING = { type: 'spring', stiffness: 420, damping: 38, mass: 0.7 } as const;
 
-// Inertie du cycle à la molette : un flick ample/rapide doit continuer à faire défiler plusieurs
-// crans après le relâchement, en décélérant, plutôt que de se limiter à 1 cran par tick physique.
-const WHEEL_TO_VELOCITY = 0.02; // crans de vélocité gagnés par unité de deltaY
-const MAX_VELOCITY = 14; // crans/s plafond, même pour un flick très violent
-const FRICTION_PER_SEC = 6; // ~ combien de crans/s de vélocité sont retirés chaque seconde
-const STEP_THRESHOLD = 1; // vélocité accumulée nécessaire pour avancer d'un cran
+// Deux modes selon le type de geste détecté :
+// - cran de souris (deltaY franc et entier, évènement isolé) : exactement une carte par cran ;
+// - défilement continu (pavé tactile, molette lisse : petits deltaY, flux rapproché) : inertie —
+//   la vélocité s'accumule et se consomme en plusieurs pas, en décélérant.
+const NOTCH_MIN_DELTA = 40; // en dessous, le deltaY est considéré comme un scroll continu
+const SMOOTH_STREAM_GAP_MS = 120; // un évènement proche du précédent prolonge le mode continu
+// L'élan dépend de la VITESSE du geste (px/s, deltaY / temps entre deux évènements), pas de la
+// seule amplitude : un flick vif lance la pile bien plus loin qu'un défilement lent.
+const SPEED_TO_VELOCITY = 0.009; // crans/s de vélocité par px/s de vitesse de scroll
+const FIRST_EVENT_TO_VELOCITY = 0.03; // 1er évènement d'un geste (pas encore de vitesse mesurable)
+const GESTURE_GAP_MS = 120; // au-delà, l'évènement ouvre un nouveau geste
+const MAX_VELOCITY = 34; // crans/s plafond
+// Freinage : exponentiel (une pile lancée vite glisse longtemps, en ralentissant progressivement)
+// plus un terme linéaire qui l'arrête franchement au lieu de la laisser traîner.
+const FRICTION_EXP_PER_SEC = 1.7;
+const FRICTION_LINEAR_PER_SEC = 0.9;
+const STEP_THRESHOLD = 1; // accumulation nécessaire pour avancer d'un cran
 const MIN_VELOCITY = 0.05; // en dessous, on arrête la boucle d'inertie
+
+// Boutons d'en-tête (survol de la pile) : même fondu-montée que les panneaux de Prévisualisation
+// (fondu + glissement de 6 px, easing « standard » Material).
+const TOOLBAR_VARIANTS = {
+  hidden: { opacity: 0, y: 6, transition: { duration: 0.16, ease: [0.4, 0, 0.2, 1] as const } },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.22, ease: [0.4, 0, 0.2, 1] as const } },
+};
+// Délai avant de masquer les boutons quand le pointeur quitte la pile : évite le clignotement quand il
+// traverse l'interstice entre deux cartes ou entre la carte et les boutons.
+const TOOLBAR_HIDE_DELAY_MS = 180;
+
+const setTooltip = (title: string, desc: string) =>
+  window.dispatchEvent(new CustomEvent('apex-set-tooltip', { detail: { title, desc } }));
+const resetTooltip = () => window.dispatchEvent(new CustomEvent('apex-reset-tooltip'));
 
 const VARIANT_ICONS: Record<NotificationVariant, React.ReactNode> = {
   success: <CircleCheck size={18} />,
@@ -55,6 +99,44 @@ function stackTarget(slot: number) {
   };
 }
 
+/**
+ * Message de la carte de face : une seule ligne avec points de suspension s'il ne tient pas ; dans
+ * ce cas il est cliquable et se déplie sur toutes ses lignes (re-clic pour replier). La troncature
+ * est mesurée (scrollWidth > clientWidth) à chaque changement de texte ou de largeur de carte.
+ */
+const FrontMessage: React.FC<{ message: string }> = ({ message }) => {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [truncated, setTruncated] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    // Mesure en mode une ligne uniquement : déplié, le texte tient par construction.
+    if (!expanded) setTruncated(el.scrollWidth > el.clientWidth + 1);
+    const ro = new ResizeObserver(() => {
+      if (!expanded) setTruncated(el.scrollWidth > el.clientWidth + 1);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [message, expanded]);
+
+  const interactive = truncated || expanded;
+  return (
+    <span
+      ref={ref}
+      className={clsx(styles.message, expanded ? styles.messageExpanded : styles.messageClamped, { [styles.messageClickable]: interactive })}
+      title={interactive && !expanded ? 'Cliquer pour afficher le message en entier' : undefined}
+      role={interactive ? 'button' : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      onClick={interactive ? () => setExpanded((v) => !v) : undefined}
+      onKeyDown={interactive ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded((v) => !v); } } : undefined}
+    >
+      {message}
+    </span>
+  );
+};
+
 export const NotificationStack: React.FC = () => {
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [frontId, setFrontIdState] = useState<string | null>(null);
@@ -66,17 +148,43 @@ export const NotificationStack: React.FC = () => {
   // peut regagner la main entre deux détachements du nôtre).
   const idsRef = useRef<string[]>([]);
   const frontIndexRef = useRef(0);
-  // Vélocité courante de l'inertie, en crans/s (signée : positif = avance, négatif = recule) — un
-  // flick ample accumule une vélocité que la boucle d'inertie consomme ensuite en plusieurs pas,
-  // en la faisant décroître par friction, plutôt qu'un unique cran par tick physique de molette.
+  // Inertie du mode continu : vélocité signée en crans/s, consommée frame par frame.
   const velocityRef = useRef(0);
+  const stepAccumulatorRef = useRef(0);
   const rafRef = useRef<number | null>(null);
   const lastFrameTimeRef = useRef(0);
-  // Vélocité accumulée mais pas encore "dépensée" en cran entier (cf. STEP_THRESHOLD) : conserve le
-  // reliquat d'une frame à l'autre pour que l'avance reste fluide plutôt que par à-coups arrondis.
-  const stepAccumulatorRef = useRef(0);
+  const lastWheelTimeRef = useRef(0);
+  const smoothModeRef = useRef(false);
+  // Pile « attrapée » (clic maintenu) : l'inertie est stoppée net, la pile se comprime puis
+  // rebondit en ressort au relâchement.
+  const [grabbed, setGrabbed] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Hauteur de la carte de face (variable : message sur plusieurs lignes une fois déplié) : la
+  // colonne de boutons est centrée verticalement sur elle. Callback ref stable : la carte change
+  // d'identité quand on fait défiler la pile, l'ancien observateur est alors remplacé.
+  const [frontHeight, setFrontHeight] = useState<number | null>(null);
+  const frontObserverRef = useRef<ResizeObserver | null>(null);
+  const frontCardRef = useCallback((el: HTMLDivElement | null) => {
+    frontObserverRef.current?.disconnect();
+    frontObserverRef.current = null;
+    if (!el) return;
+    setFrontHeight(el.offsetHeight);
+    const ro = new ResizeObserver(() => setFrontHeight(el.offsetHeight));
+    ro.observe(el);
+    frontObserverRef.current = ro;
+  }, []);
+
+  // Carte qui voyage entre face et fond au dernier cran (cf. TRAVEL) ; remise à zéro quand la liste
+  // change (ajout/fermeture), pour ne pas rejouer un trajet périmé.
+  const travelIdRef = useRef<string | null>(null);
+  const travelForwardRef = useRef(true);
+  const lastCountRef = useRef(0);
 
   useEffect(() => subscribeToNotifications((its, front) => {
+    if (its.length !== lastCountRef.current) travelIdRef.current = null;
+    lastCountRef.current = its.length;
     setItems(its);
     setFrontIdState(front);
   }), []);
@@ -97,31 +205,25 @@ export const NotificationStack: React.FC = () => {
   idsRef.current = ids;
   frontIndexRef.current = frontIndex;
 
-  // Écouteur natif non passif (au lieu d'un `onWheel` React) : React attache ses gestionnaires
-  // `wheel` synthétiques en mode PASSIF sur le document depuis React 17+, ce qui rend
-  // `e.preventDefault()` sans effet (avertissement silencieux en console) — le geste continue de
-  // remonter jusqu'au canvas Babylon (qui, lui, écoute le sien en `{ passive: false }`, cf.
-  // Viewport3D.tsx `onCanvasWheel`) et zoome la caméra 3D en plus de faire défiler la pile. Un vrai
-  // `addEventListener('wheel', ..., { passive: false })` ici permet un `preventDefault` qui
-  // fonctionne réellement, et `stopPropagation` empêche toute fuite vers le canvas en dessous.
-  //
-  // Boucle d'inertie : consomme `velocityRef` frame par frame, avance d'un cran chaque fois que
-  // l'accumulateur franchit STEP_THRESHOLD, et freine la vélocité par friction jusqu'à l'arrêt.
-  // Démarrée par le premier événement wheel, s'auto-arrête (et libère `rafRef`) une fois la
-  // vélocité retombée sous MIN_VELOCITY — jamais de boucle qui tourne pour rien en continu.
-  //
-  // `useCallback` avec deps vides (jamais recréée) est ESSENTIEL ici, pas juste une optimisation :
-  // chaque pas d'inertie appelle `setFrontNotification`, qui déclenche un re-render — si
-  // `stepInertia` (ou `stackRefCallback` plus bas) était redéfinie à chaque render, React verrait
-  // une IDENTITÉ DE FONCTION différente à chaque passage et redéclencherait le cleanup + la
-  // ré-invocation de la ref callback, ce qui annulait la frame de rAF déjà planifiée
-  // (`cancelAnimationFrame` dans l'ancien cleanup) — la boucle s'arrêtait donc net après un seul
-  // pas, pile le symptôme observé ("un seul cran puis plus rien"). Toutes les valeurs dont elle a
-  // besoin viennent de refs (toujours à jour), donc aucune dépendance n'est nécessaire.
-  const stepInertia = useCallback((time: number) => {
+  const advance = useCallback((steps: number) => {
     const currentIds = idsRef.current;
-    if (currentIds.length < 2 || Math.abs(velocityRef.current) < MIN_VELOCITY) {
+    const n = currentIds.length;
+    if (n < 2 || steps === 0) return;
+    const nextIndex = (((frontIndexRef.current + steps) % n) + n) % n;
+    // Avant : la carte de face part vers le fond. Arrière : la carte qui devient face en vient.
+    travelForwardRef.current = steps > 0;
+    travelIdRef.current = steps > 0 ? currentIds[frontIndexRef.current] : currentIds[nextIndex];
+    frontIndexRef.current = nextIndex; // lu avant que le re-render React n'ait eu lieu
+    setFrontNotification(currentIds[nextIndex]);
+  }, []);
+
+  // Boucle d'inertie (mode continu uniquement). `useCallback([])` est ESSENTIEL : une identité
+  // changeante re-déclencherait la ref callback ci-dessous et annulerait le rAF planifié. Elle
+  // s'auto-arrête sous MIN_VELOCITY.
+  const stepInertia = useCallback((time: number) => {
+    if (idsRef.current.length < 2 || Math.abs(velocityRef.current) < MIN_VELOCITY) {
       velocityRef.current = 0;
+      stepAccumulatorRef.current = 0;
       rafRef.current = null;
       return;
     }
@@ -135,44 +237,55 @@ export const NotificationStack: React.FC = () => {
       steps += dir;
       stepAccumulatorRef.current -= dir * STEP_THRESHOLD;
     }
-    if (steps !== 0) {
-      const nextIndex = ((frontIndexRef.current + steps) % currentIds.length + currentIds.length) % currentIds.length;
-      frontIndexRef.current = nextIndex; // lu par la frame suivante avant que le re-render React n'ait eu lieu
-      setFrontNotification(currentIds[nextIndex]);
-    }
+    advance(steps);
 
-    // Friction : réduit la vélocité vers 0 à taux constant (pas exponentiel) pour une décélération
-    // qui se sent progressive puis s'arrête franchement, plutôt que de traîner indéfiniment.
-    const friction = FRICTION_PER_SEC * dt;
-    velocityRef.current = velocityRef.current > 0
-      ? Math.max(0, velocityRef.current - friction)
-      : Math.min(0, velocityRef.current + friction);
+    const v = velocityRef.current;
+    const decayed = Math.abs(v) * Math.exp(-FRICTION_EXP_PER_SEC * dt) - FRICTION_LINEAR_PER_SEC * dt;
+    velocityRef.current = Math.sign(v) * Math.max(0, decayed);
 
     rafRef.current = requestAnimationFrame(stepInertia);
-  }, []);
+  }, [advance]);
 
-  // REF CALLBACK (stable, `useCallback([])`) plutôt que `useRef` + `useEffect(..., [])` : le
-  // composant retourne `null` tant qu'il n'y a aucune notif (`ids.length === 0` ci-dessous), donc
-  // le tout premier montage réel du conteneur n'a lieu qu'à la PREMIÈRE notif poussée, jamais au
-  // montage initial de NotificationStack lui-même. Un `useEffect(..., [])` capture `stackRef.current`
-  // (encore `null`) à ce tout premier rendu et ne se réexécute plus jamais ensuite — le listener ne
-  // s'attachait donc jamais. Une ref callback s'exécute à chaque fois que l'élément
-  // apparaît/disparaît réellement dans le DOM ; stabilisée par `useCallback` pour ne s'exécuter que
-  // sur un VRAI changement d'élément (montage/démontage), jamais à cause d'un re-render (cf. le
-  // commentaire sur `stepInertia` ci-dessus pour les conséquences si ce n'était pas le cas).
+  // Écouteur natif non passif (le `onWheel` React est passif : `preventDefault` sans effet, et le
+  // geste zoomerait aussi le canvas Babylon). REF CALLBACK stable : le conteneur n'est monté qu'à
+  // la première notif, un `useEffect(..., [])` ne le verrait jamais.
   const stackRefCallback = useCallback((el: HTMLDivElement | null) => {
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
       if (idsRef.current.length < 2) return;
       e.preventDefault();
       e.stopPropagation();
+
+      const now = performance.now();
+      const prevWheelTime = lastWheelTimeRef.current;
+      const inStream = now - prevWheelTime < SMOOTH_STREAM_GAP_MS;
+      lastWheelTimeRef.current = now;
+
+      // Mode continu : deltaY faible/non entier, ou flux déjà engagé en continu (un flick de pavé
+      // tactile peut produire de gros deltaY, mais toujours à la suite de petits).
+      const isDiscrete = e.deltaMode !== 0 || (Number.isInteger(e.deltaY) && Math.abs(e.deltaY) >= NOTCH_MIN_DELTA);
+      smoothModeRef.current = !isDiscrete || (smoothModeRef.current && inStream && Math.abs(e.deltaY) < NOTCH_MIN_DELTA * 3);
+
+      if (!smoothModeRef.current) {
+        // Cran de souris : une carte, et on coupe toute inertie résiduelle.
+        velocityRef.current = 0;
+        stepAccumulatorRef.current = 0;
+        advance(e.deltaY > 0 ? 1 : -1);
+        return;
+      }
+
       const dir = e.deltaY > 0 ? 1 : -1;
-      const kick = Math.min(MAX_VELOCITY, Math.abs(e.deltaY) * WHEEL_TO_VELOCITY) * dir;
-      // Un flick dans le même sens s'ADDITIONNE à la vélocité en cours (accélère l'inertie déjà en
-      // route) ; un flick en sens opposé écrase la vélocité au lieu de s'y soustraire, pour changer
-      // de direction immédiatement plutôt que devoir d'abord "annuler" l'élan précédent.
-      velocityRef.current = Math.sign(velocityRef.current) === Math.sign(kick) || velocityRef.current === 0
-        ? Math.sign(kick) * Math.min(MAX_VELOCITY, Math.abs(velocityRef.current) + Math.abs(kick))
+      // Vitesse instantanée du geste (px/s) ; le 1er évènement d'un geste n'a pas d'évènement
+      // précédent proche, on se rabat sur son amplitude.
+      const dtMs = now - prevWheelTime;
+      const kick = dir * Math.min(MAX_VELOCITY, dtMs < GESTURE_GAP_MS
+        ? (Math.abs(e.deltaY) / Math.max(dtMs, 6)) * 1000 * SPEED_TO_VELOCITY
+        : Math.abs(e.deltaY) * FIRST_EVENT_TO_VELOCITY);
+      const v = velocityRef.current;
+      // Même sens : la vélocité suit la vitesse du geste (lissée, et jamais réduite par un
+      // évènement plus lent tant que l'élan acquis est plus grand) ; sens opposé : écrase.
+      velocityRef.current = v === 0 || Math.sign(v) === dir
+        ? dir * Math.min(MAX_VELOCITY, Math.max(Math.abs(v) * 0.85, Math.abs(v) * 0.5 + Math.abs(kick) * 0.5, Math.abs(kick) * 0.7))
         : kick;
       if (rafRef.current === null) {
         lastFrameTimeRef.current = 0;
@@ -182,14 +295,52 @@ export const NotificationStack: React.FC = () => {
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => {
       el.removeEventListener('wheel', onWheel);
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
     };
-  }, [stepInertia]);
+  }, [advance, stepInertia]);
+
+  const handleGrab = useCallback(() => {
+    velocityRef.current = 0;
+    stepAccumulatorRef.current = 0;
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    setGrabbed(true);
+    const release = () => {
+      setGrabbed(false);
+      window.removeEventListener('pointerup', release);
+      window.removeEventListener('pointercancel', release);
+    };
+    window.addEventListener('pointerup', release);
+    window.addEventListener('pointercancel', release);
+  }, []);
+
+  const showToolbar = useCallback(() => {
+    if (hideTimerRef.current) { clearTimeout(hideTimerRef.current); hideTimerRef.current = null; }
+    setHovered(true);
+  }, []);
+  const hideToolbar = useCallback(() => {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    hideTimerRef.current = setTimeout(() => setHovered(false), TOOLBAR_HIDE_DELAY_MS);
+  }, []);
+  useEffect(() => () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current); }, []);
 
   if (ids.length === 0) return null;
 
   return (
-    <div className={styles.stack} ref={stackRefCallback}>
+    <motion.div
+      className={styles.stack}
+      ref={stackRefCallback}
+      onPointerDown={handleGrab}
+      onMouseEnter={showToolbar}
+      onMouseLeave={hideToolbar}
+      animate={{ scale: grabbed ? 0.94 : 1 }}
+      transition={grabbed ? GRAB_SPRING : RELEASE_SPRING}
+    >
       <AnimatePresence initial={false}>
         {items.map((item, idx) => {
           // Cran relatif de cette carte par rapport au premier plan, dans le cycle stable (0 =
@@ -204,22 +355,30 @@ export const NotificationStack: React.FC = () => {
           const slot = Math.min(rawSlot, MAX_PEEK);
 
           const isFront = slot === 0;
+          const target = stackTarget(slot);
+          const travels = travelIdRef.current === item.id;
+          // Carte qui retourne au fond : tout derrière, y compris les cartes déjà au dernier cran.
+          const z = travels && travelForwardRef.current ? Z_BEHIND_ALL : 100 - slot;
 
           return (
             <motion.div
               key={item.id}
+              ref={isFront ? frontCardRef : undefined}
               className={clsx(styles.card, isFront ? styles.front : styles.peek)}
               data-variant={item.variant}
-              style={{ zIndex: 100 - slot }}
               initial={false}
-              animate={stackTarget(slot)}
+              animate={travels
+                ? { ...target, x: [null, EXIT_PUSH_X, target.x], y: [null, EXIT_PUSH_Y, target.y], zIndex: z }
+                : { ...target, zIndex: z }}
               exit={{ opacity: 0, x: EXIT_PUSH_X, y: EXIT_PUSH_Y, scale: 0.85 }}
-              transition={SPRING}
+              transition={travels
+                ? { ...TRAVEL, zIndex: { duration: 0, delay: TRAVEL_Z_FLIP_S } }
+                : { ...SPRING, zIndex: { duration: 0 } }}
             >
               {isFront && (
                 <>
                   <span className={styles.icon}>{VARIANT_ICONS[item.variant]}</span>
-                  <span className={styles.message}>{item.message}</span>
+                  <FrontMessage key={item.id} message={item.message} />
                   <button
                     type="button"
                     className={styles.close}
@@ -235,6 +394,43 @@ export const NotificationStack: React.FC = () => {
           );
         })}
       </AnimatePresence>
-    </div>
+
+      <AnimatePresence>
+        {hovered && (
+          <motion.div
+            key="toolbar"
+            className={styles.toolbar}
+            style={frontHeight ? { height: frontHeight } : undefined}
+            variants={TOOLBAR_VARIANTS}
+            initial="hidden"
+            animate="visible"
+            exit="hidden"
+            // Cliquer un bouton ne doit pas « attraper » (comprimer) la pile.
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className={clsx(styles.toolbarButton, styles.toolbarButtonSoon)}
+              aria-label="Calques de notifications (arrive bientôt)"
+              aria-disabled="true"
+              onMouseEnter={() => setTooltip('Calques', 'Arrive bientôt')}
+              onMouseLeave={resetTooltip}
+            >
+              <Layers size={14} />
+            </button>
+            <button
+              type="button"
+              className={styles.toolbarButton}
+              aria-label="Fermer toutes les notifications"
+              onMouseEnter={() => setTooltip('Tout fermer', 'Ferme toutes les notifications.')}
+              onMouseLeave={resetTooltip}
+              onClick={() => { resetTooltip(); setHovered(false); clearNotifications(); }}
+            >
+              <X size={14} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 };

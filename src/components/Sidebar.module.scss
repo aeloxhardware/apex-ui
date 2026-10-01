@@ -53,6 +53,18 @@
   padding: 6px;
 }
 
+// Slot du mode Prévisualisation : colonne verticale d'icônes (Coloration / Édition / Fonction).
+.previewSlot {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  padding: 12px 6px;
+}
+
 .button {
   display: flex;
   align-items: center;

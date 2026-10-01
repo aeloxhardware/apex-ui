@@ -1587,8 +1587,12 @@ export const Viewport3D = () => {
       modelsRef.current.forEach((m) => { if (!m.isDisposed()) m.setEnabled(!active); });
     };
     const onGCodeLoaded = (e: Event) => {
-      const parsed = (e as CustomEvent<{ parsed: ParsedGCode }>).detail?.parsed;
-      if (parsed) gcodeLayer.load(parsed);
+      const detail = (e as CustomEvent<{ parsed: ParsedGCode; handled?: boolean; onBuilt?: () => void }>).detail;
+      if (!detail?.parsed) return;
+      // Maillage construit par tranches (UI non gelée) : on prévient l'émetteur à la fin pour que
+      // le rideau de chargement reste affiché jusque-là.
+      detail.handled = true;
+      void gcodeLayer.load(detail.parsed).finally(() => detail.onBuilt?.());
     };
     const onGCodeTime = (e: Event) => {
       const t = (e as CustomEvent<{ t: number }>).detail?.t;
@@ -1614,6 +1618,41 @@ export const Viewport3D = () => {
       const mm = (e as CustomEvent<{ mm: number | null }>).detail?.mm;
       gcodeLayer.setRenderPrecision(mm ?? null);
     };
+    // Sélection d'un point de trajectoire (`apex-gcode-pick-mode { active }`, cf. use-gcode-preview.ts) :
+    // survol = point surligné sous le curseur ; clic (sans glisser, pour ne pas voler l'orbite de la
+    // caméra) = `apex-gcode-point-picked { t }`, l'index de mouvement où la tête dépose ce point.
+    let gcodePickMode = false;
+    let gcodePickDown: { x: number; y: number } | null = null;
+    const pickGCodePoint = () => {
+      const ray = scene.createPickingRay(scene.pointerX, scene.pointerY, BABYLON.Matrix.Identity(), camera);
+      const pxPerUnit = (2 * Math.tan(camera.fov / 2)) / Math.max(1, engine.getRenderHeight());
+      return gcodeLayer.pickAt(ray, pxPerUnit);
+    };
+    const setGCodePickMode = (active: boolean) => {
+      gcodePickMode = active;
+      gcodePickDown = null;
+      gcodeLayer.setPickingEnabled(active);
+      if (!active) gcodeLayer.setPickHighlight(null);
+      canvas.style.cursor = active ? 'crosshair' : '';
+    };
+    const onGCodePickMode = (e: Event) => setGCodePickMode(!!(e as CustomEvent<{ active: boolean }>).detail?.active);
+    const gcodePickObserver = scene.onPointerObservable.add((pointerInfo) => {
+      if (!gcodePickMode || !gcodePreviewActive) return;
+      const evt = pointerInfo.event as PointerEvent;
+      if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERMOVE) {
+        if (evt.buttons !== 0) { gcodeLayer.setPickHighlight(null); return; }
+        gcodeLayer.setPickHighlight(pickGCodePoint()?.local ?? null);
+      } else if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERDOWN && evt.button === 0) {
+        gcodePickDown = { x: evt.clientX, y: evt.clientY };
+      } else if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERUP && evt.button === 0) {
+        const down = gcodePickDown;
+        gcodePickDown = null;
+        if (!down || Math.hypot(evt.clientX - down.x, evt.clientY - down.y) > 5) return;
+        const hit = pickGCodePoint();
+        if (hit) window.dispatchEvent(new CustomEvent('apex-gcode-point-picked', { detail: { t: hit.t } }));
+      }
+    });
+    window.addEventListener('apex-gcode-pick-mode', onGCodePickMode);
     window.addEventListener('apex-preview-toggled', onGCodePreviewToggled);
     window.addEventListener('apex-gcode-loaded', onGCodeLoaded);
     window.addEventListener('apex-gcode-time', onGCodeTime);
@@ -1690,6 +1729,9 @@ export const Viewport3D = () => {
       scene.onPointerObservable.remove(plateActionPointerObserver);
       window.removeEventListener('apex-preview-toggled', onGCodePreviewToggled);
       window.removeEventListener('apex-gcode-loaded', onGCodeLoaded);
+      window.removeEventListener('apex-gcode-pick-mode', onGCodePickMode);
+      scene.onPointerObservable.remove(gcodePickObserver);
+      canvas.style.cursor = '';
       window.removeEventListener('apex-gcode-time', onGCodeTime);
       window.removeEventListener('apex-gcode-line-visibility', onGCodeLineVisibility);
       window.removeEventListener('apex-gcode-highlight-offplate', onGCodeHighlightOffPlate);
