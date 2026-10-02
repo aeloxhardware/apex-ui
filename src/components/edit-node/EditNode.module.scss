@@ -1,36 +1,53 @@
-// Nœud d'édition : positionné par sa projection écran (transform), centré sur son ancre.
-.node {
+// Ancre de taille nulle, placée sur la projection écran du point de trajectoire : le corps du
+// nœud y est centré quelle que soit sa taille (centrage flex d'un enfant qui déborde).
+.anchor {
   position: absolute;
   left: 0;
   top: 0;
   width: 0;
   height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+// Définition du filtre Liquid Glass : présente dans le document, jamais affichée.
+.defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+// Corps du nœud : taille et couleur animées par EditNode.tsx (point -> lentille de verre).
+.body {
+  position: relative;
+  flex: none;
+  border-radius: 50%;
   cursor: pointer;
   user-select: none;
 }
 
-// Cœur : point coloré. Couleurs et états à fixer avec l'utilisateur pendant la conception.
-.core {
+// Reflets du verre : liseré lumineux (plus vif en haut à gauche, côté de la lumière), éclat
+// spéculaire, et assombrissement léger du bord opposé pour l'épaisseur.
+.shine {
   position: absolute;
-  left: -6px;
-  top: -6px;
-  width: 12px;
-  height: 12px;
+  inset: 0;
   border-radius: 50%;
-  background: #00f0ff;
-  box-shadow: 0 0 0 2px rgba(10, 15, 26, 0.9), 0 0 10px rgba(0, 240, 255, 0.55);
-  transition: transform 120ms ease, background 120ms ease;
-}
-
-.node:hover .core {
-  transform: scale(1.25);
-}
-
-.active .core {
-  background: #ffffff;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 38% 26% at 34% 24%, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0) 70%),
+    radial-gradient(circle at 70% 82%, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 38%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.22),
+    inset 1.5px 1.5px 1px rgba(255, 255, 255, 0.55),
+    inset -1.5px -2px 2px rgba(255, 255, 255, 0.12),
+    inset 0 -6px 12px rgba(0, 0, 0, 0.18);
 }
 
 // Repère provisoire du rognage actif, en attendant le dessin du nœud complet.
-.trimming .core {
-  box-shadow: 0 0 0 2px rgba(10, 15, 26, 0.9), 0 0 0 4px #ff9f1c;
+.trimming {
+  outline: 2px solid #ff9f1c;
+  outline-offset: 3px;
 }
