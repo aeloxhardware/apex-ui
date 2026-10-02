@@ -5,29 +5,23 @@
   height: 100%;
 }
 
-// Fond volontairement IRRÉGULIER pour juger la réfraction du verre : une grille dont les lignes
-// ont des espacements, des épaisseurs et des couleurs variés (trames de périodes premières entre
-// elles superposées, plus quelques lignes vives isolées près du nœud). Base : fond de l'application.
+// Fond de l'application ; la grille irrégulière est dessinée dans le canevas du verre
+// (NodeLab.tsx), qui la réfracte.
 .lab {
   position: relative;
   height: 100%;
   overflow: hidden;
   background-color: #0a0f1a;
-  background-image:
-    // lignes vives isolées, près du centre
-    linear-gradient(90deg, transparent calc(50% - 22px), rgba(255, 110, 60, 0.95) calc(50% - 22px) calc(50% - 18px), transparent calc(50% - 18px)),
-    linear-gradient(90deg, transparent calc(50% + 13px), rgba(255, 210, 63, 0.9) calc(50% + 13px) calc(50% + 15px), transparent calc(50% + 15px)),
-    linear-gradient(transparent calc(50% - 9px), rgba(0, 170, 255, 0.95) calc(50% - 9px) calc(50% - 4px), transparent calc(50% - 4px)),
-    linear-gradient(transparent calc(50% + 24px), rgba(170, 90, 255, 0.9) calc(50% + 24px) calc(50% + 27px), transparent calc(50% + 27px)),
-    // trames superposées de périodes différentes : espacement irrégulier
-    repeating-linear-gradient(90deg, rgba(0, 240, 255, 0.35) 0 2px, transparent 2px 23px),
-    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.2) 0 1px, transparent 1px 37px),
-    repeating-linear-gradient(90deg, rgba(60, 220, 140, 0.35) 0 3px, transparent 3px 59px),
-    repeating-linear-gradient(0deg, rgba(0, 240, 255, 0.3) 0 2px, transparent 2px 19px),
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.2) 0 1px, transparent 1px 31px),
-    repeating-linear-gradient(0deg, rgba(255, 110, 60, 0.3) 0 3px, transparent 3px 53px);
   font: 600 11px system-ui, sans-serif;
   color: rgba(255, 255, 255, 0.6);
+}
+
+.glass {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 // Origine des nœuds au centre de la page.

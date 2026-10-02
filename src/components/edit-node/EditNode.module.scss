@@ -11,16 +11,8 @@
   justify-content: center;
 }
 
-// Définition du filtre Liquid Glass : présente dans le document, jamais affichée.
-.defs {
-  position: absolute;
-  width: 0;
-  height: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-// Corps du nœud : taille et couleur animées par EditNode.tsx (point -> lentille de verre).
+// Corps du nœud : taille et couleur animées par EditNode.tsx (point -> lentille de verre ; le
+// verre lui-même est dessiné en WebGL derrière, cf. liquidGlass.ts).
 .body {
   position: relative;
   flex: none;
@@ -29,25 +21,98 @@
   user-select: none;
 }
 
-// Reflets du verre : liseré lumineux (plus vif en haut à gauche, côté de la lumière), éclat
-// spéculaire, et assombrissement léger du bord opposé pour l'épaisseur.
-.shine {
+// Icône (trois trajectoires empilées), centrée, au-dessus du verre WebGL dessiné derrière.
+.iconWrap {
   position: absolute;
   inset: 0;
-  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   pointer-events: none;
-  background:
-    radial-gradient(ellipse 38% 26% at 34% 24%, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0) 70%),
-    radial-gradient(circle at 70% 82%, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 38%);
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.22),
-    inset 1.5px 1.5px 1px rgba(255, 255, 255, 0.55),
-    inset -1.5px -2px 2px rgba(255, 255, 255, 0.12),
-    inset 0 -6px 12px rgba(0, 0, 0, 0.18);
 }
 
-// Repère provisoire du rognage actif, en attendant le dessin du nœud complet.
-.trimming {
-  outline: 2px solid #ff9f1c;
-  outline-offset: 3px;
+// Repère des poignées : boîte centrée sur le nœud, origine du viewBox au centre.
+.handles {
+  position: absolute;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+}
+
+.handleArm {
+  stroke: rgba(255, 255, 255, 0.8);
+  stroke-width: 1.25;
+  stroke-linecap: round;
+}
+
+.handleKnob {
+  fill: rgba(10, 15, 26, 0.95);
+  stroke: rgba(0, 240, 255, 1);
+  stroke-width: 1.5;
+  cursor: grab;
+  touch-action: none;
+  pointer-events: none;
+
+  // Saisissable seulement nœud ouvert (classe : un style inline n'était pas mis à jour par motion).
+  &.live {
+    pointer-events: auto;
+  }
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+// Poignée dans la zone de suppression (centre du nœud) : rouge, supprimée si relâchée.
+.handleArm.doomed {
+  stroke: rgba(255, 70, 70, 0.9);
+}
+
+.handleKnob.doomed {
+  fill: rgba(255, 70, 70, 1);
+  stroke: rgba(255, 210, 210, 1);
+}
+
+// Bouton « + » : seconde lentille de verre, centrée sur le nœud puis décalée vers le bas.
+.addAnchor {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.add {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  pointer-events: none;
+
+  &.live {
+    pointer-events: auto;
+  }
+
+  svg {
+    width: 70%;
+    height: 70%;
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.95);
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5));
+  }
+}
+
+.icon {
+  width: 60%;
+  height: 60%;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
 }
