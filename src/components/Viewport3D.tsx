@@ -8,6 +8,8 @@ import { Upload, BoxSelect, LayoutGrid, Trash2 } from 'lucide-react';
 import { showSuccess, showWarning, showError } from '@/utils/toast';
 import styles from './Viewport3D.module.scss';
 import { createGCodeLayer, GCODE_MESH_PREFIX, type ParsedGCode, type ColorByMode } from './gcodeLayer';
+import { createGCodeEditController, type GCodeEditController } from './edit-node/gcodeEditController';
+import GCodeEditOverlay from './edit-node/GCodeEditOverlay';
 import type { ColorByScope } from './gcodeColormap';
 import type { LineTypeVisibility } from './gcodeLineTypes';
 
@@ -31,6 +33,7 @@ export const Viewport3D = () => {
   // drag, comme dans la plupart des logiciels de CAO : vers la droite = « window » (ne retient
   // que les objets entièrement englobés, contour plein) ; vers la gauche = « crossing » (retient
   // tout objet touché, contour pointillé animé + surlignage blanc).
+  const [editController, setEditController] = useState<GCodeEditController | null>(null);
   const [selectionBox, setSelectionBox] = useState<{ x: number; y: number; width: number; height: number; mode: 'window' | 'crossing' } | null>(null);
   const plateImportInputRef = useRef<HTMLInputElement>(null);
   // Échelle dynamique du mode modélisation : largeur du repère en px + distance réelle qu'il
@@ -1579,12 +1582,19 @@ export const Viewport3D = () => {
     const gcodeLayer = createGCodeLayer(scene, gcodeAnchor, (rotationY) => {
       if (gcodePreviewActive) originAxesRoot.rotation.y = rotationY;
     });
+    // Onglet Édition : nœud d'édition du G-code (cf. edit-node/gcodeEditController.ts).
+    const editController = createGCodeEditController({
+      scene, engine, camera, canvas, layer: gcodeLayer, isPreviewActive: () => gcodePreviewActive,
+    });
+    setEditController(editController);
+    if (import.meta.env.DEV) (window as unknown as { __apexEdit?: GCodeEditController }).__apexEdit = editController;
     const onGCodePreviewToggled = (e: Event) => {
       const active = !!(e as CustomEvent<{ active: boolean }>).detail?.active;
       gcodePreviewActive = active;
       originAxesRoot.rotation.y = active ? gcodeLayer.getPlateRotation() : 0;
       gcodeLayer.setEnabled(active);
       modelsRef.current.forEach((m) => { if (!m.isDisposed()) m.setEnabled(!active); });
+      editController.refresh();
     };
     const onGCodeLoaded = (e: Event) => {
       const detail = (e as CustomEvent<{ parsed: ParsedGCode; handled?: boolean; onBuilt?: () => void }>).detail;
@@ -1592,7 +1602,10 @@ export const Viewport3D = () => {
       // Maillage construit par tranches (UI non gelée) : on prévient l'émetteur à la fin pour que
       // le rideau de chargement reste affiché jusque-là.
       detail.handled = true;
-      void gcodeLayer.load(detail.parsed).finally(() => detail.onBuilt?.());
+      void gcodeLayer.load(detail.parsed).finally(() => {
+        detail.onBuilt?.();
+        editController.refresh();
+      });
     };
     const onGCodeTime = (e: Event) => {
       const t = (e as CustomEvent<{ t: number }>).detail?.t;
@@ -1738,6 +1751,8 @@ export const Viewport3D = () => {
       window.removeEventListener('apex-gcode-show-full-head', onGCodeShowFullHead);
       window.removeEventListener('apex-gcode-color-by', onGCodeColorBy);
       window.removeEventListener('apex-gcode-render-precision', onGCodeRenderPrecision);
+      editController.dispose();
+      setEditController(null);
       gcodeLayer.dispose();
     };
 
@@ -3644,6 +3659,9 @@ export const Viewport3D = () => {
         // du navigateur.
         onContextMenu={(e) => e.preventDefault()}
       />
+      {editController && canvasRef.current && (
+        <GCodeEditOverlay controller={editController} sceneCanvas={canvasRef.current} />
+      )}
 
       {/* Rectangle de la fenêtre de sélection (clic gauche + drag) : purement visuel, la
           logique de hit-test vit dans le pointer observer Babylon ci-dessus. « window » (drag

@@ -1,0 +1,189 @@
+// Panneau Édition : même vocabulaire que la légende Coloration (libellés 11px blancs translucides,
+// cyan pour l'état actif), dans le verre du panneau du haut de Prévisualisation.
+.root {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 12px 10px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.button,
+.icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+}
+
+.icon {
+  width: 26px;
+  padding: 0;
+  justify-content: center;
+}
+
+.on {
+  border-color: rgba(0, 240, 255, 0.7);
+  color: #00f0ff;
+  background: rgba(0, 240, 255, 0.1);
+}
+
+.status {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.delta {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.field {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  white-space: nowrap;
+}
+
+.fieldName {
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.fieldValue {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.unit {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sectionTitle {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.count {
+  font-variant-numeric: tabular-nums;
+}
+
+.metric {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 24px;
+}
+
+.check {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+
+  input {
+    margin: 0;
+    accent-color: #00f0ff;
+  }
+}
+
+.number,
+.select {
+  height: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  background: rgba(10, 15, 26, 0.6);
+  color: inherit;
+  font: inherit;
+  font-size: 10.5px;
+
+  &:disabled {
+    opacity: 0.4;
+  }
+}
+
+.number {
+  width: 48px;
+  padding: 0 4px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.select {
+  padding: 0 2px;
+}
+
+// Légende obligatoire de la teinte d'influence (cf. CLAUDE.md « Visualisation ») : un seul violet,
+// d'autant plus marqué que le poids est fort, posé sur la couleur d'origine du cordon.
+.legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.ramp {
+  flex: 0 0 72px;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, rgba(158, 82, 255, 0), rgba(158, 82, 255, 0.65)),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.25) 0 3px, rgba(255, 255, 255, 0.08) 3px 6px);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15);
+}
+
+.help {
+  font-size: 10px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.45);
+}

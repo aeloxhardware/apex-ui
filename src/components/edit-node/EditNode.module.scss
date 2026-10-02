@@ -19,6 +19,13 @@
   border-radius: 50%;
   cursor: pointer;
   user-select: none;
+  touch-action: none;
+  // Saisissable même posé dans un calque qui laisse passer les clics (vue 3D).
+  pointer-events: auto;
+
+  &:active {
+    cursor: grabbing;
+  }
 }
 
 // Icône (trois trajectoires empilées), centrée, au-dessus du verre WebGL dessiné derrière.
@@ -60,6 +67,11 @@
   &:active {
     cursor: grabbing;
   }
+}
+
+// Poignée verrouillée à son point d'attache (ne suit pas le nœud).
+.handleKnob.locked {
+  stroke: rgba(255, 159, 28, 1);
 }
 
 // Poignée dans la zone de suppression (centre du nœud) : rouge, supprimée si relâchée.

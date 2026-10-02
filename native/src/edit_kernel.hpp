@@ -51,6 +51,20 @@ struct AdjacencyMetric {
   Falloff falloff = Falloff::Linear;
 };
 
+// Portee preferentielle de la metrique 3D dans une direction (poignee du noeud d'edition, comme
+// la tangente d'un editeur de Bezier : sa longueur fixe la portee, son orientation le sens).
+struct DirectionalReach {
+  Vec3 direction;          // unitaire (normalisee en interne), repere plateau du noyau
+  double reach_mm = 0.0;
+};
+
+// Point d'ancrage (poignee verrouillee) : la matiere y reste fixe, le poids s'annule en
+// s'approchant du point (lissage sur radius_mm).
+struct Anchor {
+  Vec3 point;
+  double radius_mm = 1.0;
+};
+
 // Chaque metrique activee donne un facteur dans [0, 1]. Produit : les metriques se RESTREIGNENT
 // (intersection) ; maximum : elles s'ETENDENT (union). Aucune metrique : seule la poignee bouge.
 struct InfluenceParams {
@@ -58,7 +72,17 @@ struct InfluenceParams {
   DistanceMetric along{false, 10.0, Falloff::Cubic};   // abscisse curviligne le long des cordons
   AdjacencyMetric adjacency{};                         // nombre de trajectoires adjacentes franchies
   Combine combine = Combine::Product;
+  // Metrique 3D anisotrope : portee dans la direction u = max(spatial.radius_mm,
+  // max_i reach_i * max(0, u . dir_i)^direction_sharpness). Vide : sphere de rayon spatial.radius_mm.
+  std::vector<DirectionalReach> directions;
+  double direction_sharpness = 2.0;
+  std::vector<Anchor> anchors;
 };
+
+// Portee de la metrique 3D dans la direction de `offset` (offset = point - poignee).
+double spatial_reach(const InfluenceParams& p, const Vec3& offset);
+// Facteur d'ancrage dans [0, 1] : 0 sur un ancrage, 1 au-dela de son rayon.
+double anchor_factor(const InfluenceParams& p, const Vec3& point);
 
 struct KernelParams {
   double pivot_mm = 46.0;                // DOIT etre celui du rendu (NOZZLE_PIVOT_MM)

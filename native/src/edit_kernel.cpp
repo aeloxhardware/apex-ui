@@ -58,6 +58,32 @@ inline double distance_factor(const DistanceMetric& metric, double distance) {
 
 }  // namespace
 
+double spatial_reach(const InfluenceParams& p, const Vec3& offset) {
+  const double base = std::max(p.spatial.radius_mm, 0.0);
+  const double d = norm(offset);
+  if (p.directions.empty() || d <= 0.0) return base;
+  const Vec3 u = scale(1.0 / d, offset);
+  double reach = base;
+  for (const DirectionalReach& r : p.directions) {
+    const double len = norm(r.direction);
+    if (!(len > 0.0) || !(r.reach_mm > reach)) continue;
+    const double c = dot(u, r.direction) / len;
+    if (c <= 0.0) continue;
+    reach = std::max(reach, r.reach_mm * std::pow(c, p.direction_sharpness));
+  }
+  return reach;
+}
+
+double anchor_factor(const InfluenceParams& p, const Vec3& point) {
+  double f = 1.0;
+  for (const Anchor& a : p.anchors) {
+    if (!(a.radius_mm > 0.0)) continue;
+    const double x = std::min(norm(sub(point, a.point)) / a.radius_mm, 1.0);
+    f = std::min(f, x * x * (3.0 - 2.0 * x));
+  }
+  return f;
+}
+
 double falloff(Falloff kind, double x) {
   if (std::isnan(x) || x >= 1.0) return 0.0;
   if (x <= 0.0) return 1.0;
@@ -371,7 +397,13 @@ bool EditKernel::set_handle(uint32_t index, const InfluenceParams& p) {
   const bool product = p.combine == Combine::Product;
   // En mode produit, la sphere RESTREINT les parcours ; en mode maximum, elle s'y AJOUTE.
   const bool restrict_to_sphere = product && p.spatial.enabled;
-  auto in_sphere = [&](uint32_t q) { return norm(sub(tip_[q], center)) <= p.spatial.radius_mm; };
+  // « Sphere » au sens large : la portee depend de la direction quand des poignees l'orientent.
+  auto in_sphere = [&](uint32_t q) {
+    const Vec3 offset = sub(tip_[q], center);
+    return norm(offset) <= spatial_reach(p, offset);
+  };
+  double max_reach = std::max(p.spatial.radius_mm, 0.0);
+  for (const DirectionalReach& r : p.directions) max_reach = std::max(max_reach, r.reach_mm);
   auto allowed = [&](uint32_t q) { return !restrict_to_sphere || in_sphere(q); };
 
   // Voisins le long du cordon (meme passe), raccord des boucles fermees compris.
@@ -455,7 +487,7 @@ bool EditKernel::set_handle(uint32_t index, const InfluenceParams& p) {
 
   // Sphere : seule source de candidats en produit sans autre metrique, une source de plus en maximum.
   if (p.spatial.enabled && (!product || (!p.along.enabled && !p.adjacency.enabled))) {
-    const double rr = std::max(p.spatial.radius_mm, 0.0);
+    const double rr = max_reach;
     for_each_in_box(sub(center, {rr, rr, rr}), add(center, {rr, rr, rr}), [&](uint32_t q) {
       if (in_sphere(q)) sphere.push_back(q);
     });
@@ -512,10 +544,15 @@ bool EditKernel::set_handle(uint32_t index, const InfluenceParams& p) {
       prod *= f;
       best = std::max(best, f);
     };
-    if (p.spatial.enabled) use(distance_factor(p.spatial, norm(sub(tip_[q], center))));
+    if (p.spatial.enabled) {
+      const Vec3 offset = sub(tip_[q], center);
+      const double reach = spatial_reach(p, offset);
+      use(reach > 0.0 ? falloff(p.spatial.falloff, norm(offset) / reach) : (norm(offset) <= 0.0 ? 1.0 : 0.0));
+    }
     if (p.along.enabled) use(along_[q] == kInf ? 0.0 : distance_factor(p.along, along_[q]));
     if (p.adjacency.enabled) use(hop_factor(q));
     double w = any ? (product ? prod : best) : 0.0;
+    if (!p.anchors.empty()) w *= anchor_factor(p, tip_[q]);
     if (q == h) w = 1.0;
     else if (locked_[q]) w = 0.0;
     if (w > kMinWeight) chosen.push_back({q, static_cast<float>(w)});

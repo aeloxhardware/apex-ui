@@ -31,6 +31,23 @@
   top: 50%;
 }
 
+.controls {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+
+  input {
+    margin: 0;
+    accent-color: #00f0ff;
+    cursor: pointer;
+  }
+}
+
 .status {
   position: absolute;
   left: 12px;

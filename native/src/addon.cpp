@@ -141,6 +141,28 @@ InfluenceParams parse_influence(napi_env env, napi_value value) {
     p.adjacency.falloff = parse_falloff(get_string(env, adj, "falloff"), p.adjacency.falloff);
   }
   p.combine = get_string(env, value, "combine") == "max" ? Combine::Max : Combine::Product;
+
+  // Poignees du noeud : Float64Array de 4 valeurs par entree (repere du noyau).
+  //   directions : dx, dy, dz, portee (mm) ; anchors : x, y, z, rayon (mm).
+  auto quads = [&](const char* name) {
+    napi_value v;
+    const double* data = nullptr;
+    size_t length = 0;
+    std::vector<double> out;
+    if (get_property(env, value, name, &v) && get_typed(env, v, napi_float64_array, &data, &length)) {
+      out.assign(data, data + (length / 4) * 4);
+    }
+    return out;
+  };
+  const std::vector<double> dirs = quads("directions");
+  for (size_t i = 0; i < dirs.size(); i += 4) {
+    p.directions.push_back({{dirs[i], dirs[i + 1], dirs[i + 2]}, dirs[i + 3]});
+  }
+  const std::vector<double> anchors = quads("anchors");
+  for (size_t i = 0; i < anchors.size(); i += 4) {
+    p.anchors.push_back({{anchors[i], anchors[i + 1], anchors[i + 2]}, anchors[i + 3]});
+  }
+  p.direction_sharpness = get_number(env, value, "directionSharpness", p.direction_sharpness);
   return p;
 }
 

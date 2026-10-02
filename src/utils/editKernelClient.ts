@@ -35,6 +35,12 @@ export interface EditInfluence {
   along: EditDistanceMetric;
   adjacency: EditAdjacencyMetric;
   combine: 'product' | 'max';
+  /** Poignées du nœud (repère du noyau), 4 valeurs par poignée : dx, dy, dz, portée (mm). La
+   * portée 3D dans la direction u vaut max(spatial.radiusMm, max portée·max(0, u·dir)^netteté). */
+  directions?: Float64Array;
+  directionSharpness?: number;
+  /** Poignées verrouillées (ancrages, repère du noyau), 4 valeurs : x, y, z, rayon (mm). */
+  anchors?: Float64Array;
 }
 
 export interface EditKernelParams {

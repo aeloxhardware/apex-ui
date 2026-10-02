@@ -314,6 +314,67 @@ void test_spatial_bruteforce() {
   CHECK(expected.size() > 30);
 }
 
+// Portee orientee (poignees du noeud) : memes poids qu'une recherche brute avec une formule
+// recalculee ici, et l'anisotropie est bien la : loin dans le sens de la poignee, rien a l'oppose.
+void test_directional_bruteforce() {
+  const Stack st = make_stack(6, 4, 30);
+  EditKernel k;
+  load(k, st.path, default_params());
+  const uint32_t h = st.idx[3][1][15];
+  InfluenceParams p = none();
+  p.spatial = {true, 0.6, Falloff::Linear};
+  const Vec3 dir{1.0, 0.0, 0.0};
+  p.directions.push_back({dir, 3.0});
+  p.direction_sharpness = 2.0;
+  CHECK(k.set_handle(h, p));
+  std::set<uint32_t> expected;
+  size_t ahead = 0, behind = 0;
+  for (uint32_t q = 0; q < k.size(); ++q) {
+    if (k.pass_of(q) < 0) continue;
+    const Vec3 o{k.tip(q).x - k.tip(h).x, k.tip(q).y - k.tip(h).y, k.tip(q).z - k.tip(h).z};
+    const double d = std::sqrt(o.x * o.x + o.y * o.y + o.z * o.z);
+    const double c = d > 0.0 ? o.x / d : 0.0;
+    const double reach = std::max(0.6, c > 0.0 ? 3.0 * c * c : 0.0);
+    const double w = q == h ? 1.0 : 1.0 - d / reach;
+    if (w > 1e-6) {
+      expected.insert(q);
+      CHECK_NEAR(weight_of(k, q), w, 1e-6);
+      if (o.x > 1.0) ++ahead;
+      if (o.x < -1.0) ++behind;
+    }
+  }
+  CHECK(affected_pass_points(k) == expected);
+  CHECK(ahead > 0);
+  CHECK(behind == 0);
+}
+
+// Ancrage (poignee verrouillee) : poids nul sur l'ancrage, attenue autour, intact au-dela.
+void test_anchor() {
+  const Stack st = make_stack(6, 4, 30);
+  EditKernel k;
+  load(k, st.path, default_params());
+  const uint32_t h = st.idx[3][1][15];
+  const uint32_t a = st.idx[3][1][20];
+  InfluenceParams p = none();
+  p.spatial = {true, 4.0, Falloff::Linear};
+  CHECK(k.set_handle(h, p));
+  const double free_far = weight_of(k, st.idx[3][1][10]);
+  CHECK(weight_of(k, a) > 0.0);  // garde : sans ancrage, le point bouge
+  p.anchors.push_back({k.tip(a), 0.8});
+  CHECK(k.set_handle(h, p));
+  CHECK(weight_of(k, a) == 0.0);
+  CHECK(weight_of(k, h) == 1.0);
+  CHECK_NEAR(weight_of(k, st.idx[3][1][10]), free_far, 1e-6);  // loin de l'ancrage : inchange
+  for (uint32_t q = 0; q < k.size(); ++q) {
+    if (k.pass_of(q) < 0 || q == h) continue;
+    const double d = dist(k.tip(q), k.tip(a));
+    if (d >= 0.8) continue;
+    const double x = d / 0.8;
+    const double raw = std::max(0.0, 1.0 - dist(k.tip(q), k.tip(h)) / 4.0);
+    CHECK_NEAR(weight_of(k, q), raw * x * x * (3.0 - 2.0 * x), 1e-6);
+  }
+}
+
 // Trajectoires adjacentes seules : la rangee de la poignee (0 contact), puis celles empilees
 // au-dessus et au-dessous, a raison d'un contact par cordon. Les rangees voisines dans la meme
 // couche ne sont pas des supports (cone de 60 deg) : elles ne bougent pas.
@@ -596,6 +657,8 @@ int main() {
       {"rotation : B et residu", test_rotation_b_and_residual},
       {"contacts = recherche brute", test_supports_bruteforce},
       {"sphere = recherche brute", test_spatial_bruteforce},
+      {"portee orientee = recherche brute", test_directional_bruteforce},
+      {"ancrage", test_anchor},
       {"trajectoires adjacentes", test_adjacency_hops},
       {"le long des cordons", test_along_columns},
       {"produit / maximum", test_combine_modes},

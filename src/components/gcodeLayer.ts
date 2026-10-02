@@ -11,6 +11,7 @@ import {
 import { detectGeneratorSignature, guessGeneratorFromFeature, type GCodeGenerator } from './gcodeGenerator';
 import { colorForMode, defaultColorByScope, type ColorByScope } from './gcodeColormap';
 import { isColorByDeferred } from '@/utils/gcodeColorByPrefs';
+import { attachEditDeform, editDeformState, EDIT_WEIGHT_KIND } from './gcodeEditDeform';
 
 import {
   type GCodeKind, type GCodeMove, type LineTypeStat, type MarkerTypeId, type ContinuousColorByMode,
@@ -132,6 +133,20 @@ interface PathMesh {
    * l'échantillon dont il est issu (TUBE_SIDES sommets par échantillon pour un cordon, 1 par
    * échantillon pour un LinesMesh). Vide (mesh === null ou mode jamais recoloré) sinon. */
   vertexOwner: Uint32Array;
+  /** Cordons : par ÉCHANTILLON (TUBE_SIDES sommets chacun), mouvement propriétaire, fraction le
+   * long de ce mouvement, et début de tube — pour l'édition (poids par sommet interpolés entre les
+   * deux points du mouvement, et recalcul local de la géométrie après validation). */
+  sampleOwner?: Uint32Array;
+  sampleFrac?: Float32Array;
+  stripStart?: Uint8Array;
+  /** Trajets (LinesMesh) : premier sommet de chaque mouvement retenu (inutilisé sinon). */
+  lineStart?: Uint32Array;
+  /** Copies CPU des sommets (mêmes tableaux que ceux passés à Babylon) : une mise à jour partielle
+   * du tampon GPU fait oublier à Babylon sa propre copie, l'édition garde donc la sienne. */
+  positions?: Float32Array;
+  normals?: Float32Array;
+  /** Poids d'édition par sommet (cordons), alloué au premier usage. */
+  editWeights?: Float32Array;
 }
 
 /** Section du cordon déposé (mm) : largeur de part et d'autre de la trajectoire, et épaisseur le
@@ -243,6 +258,7 @@ function* buildBeadMesh(
   const centers = new Float32Array(capacity * 3);
   const axes = new Float32Array(capacity * 3);
   const owner = new Uint32Array(capacity);
+  const frac = new Float32Array(capacity);
   const stripStart = new Uint8Array(capacity);
   const tip = new BABYLON.Vector3();
   const ax = new BABYLON.Vector3();
@@ -267,6 +283,7 @@ function* buildBeadMesh(
       axes[count * 3 + 1] = ax.y;
       axes[count * 3 + 2] = ax.z;
       owner[count] = k;
+      frac[count] = f;
       stripStart[count] = s === 0 ? 1 : 0;
       count++;
     }
@@ -277,28 +294,14 @@ function* buildBeadMesh(
   const positions = new Float32Array(count * TUBE_SIDES * 3);
   const normals = new Float32Array(count * TUBE_SIDES * 3);
   const indices = new Uint32Array(count * indicesPerStep);
-  // Dernière tangente valide : reprise pour les échantillons confondus, dont la tangente locale
-  // est nulle.
-  let tx = 1, ty = 0, tz = 0;
+  const tangent = { x: 1, y: 0, z: 0 };
   let idx = 0;
 
   for (let j = 0; j < count; j++) {
     if ((j & SLICE_MASK) === 0) yield;
-    const p = j * 3;
-    const hasPrev = !stripStart[j];
-    const hasNext = j + 1 < count && !stripStart[j + 1];
-    const from = hasPrev ? p - 3 : p;
-    const to = hasNext ? p + 3 : p;
-    const dx = centers[to] - centers[from];
-    const dy = centers[to + 1] - centers[from + 1];
-    const dz = centers[to + 2] - centers[from + 2];
-    const len = Math.hypot(dx, dy, dz);
-    if (len > 1e-6) {
-      tx = dx / len; ty = dy / len; tz = dz / len;
-    }
-    writeRing(positions, normals, j, centers[p], centers[p + 1], centers[p + 2], tx, ty, tz, axes[p], axes[p + 1], axes[p + 2]);
+    writeSampleRing(positions, normals, centers, axes, stripStart, count, j, tangent);
 
-    if (hasPrev) {
+    if (!stripStart[j]) {
       const a0 = (j - 1) * TUBE_SIDES;
       const b0 = j * TUBE_SIDES;
       for (let i = 0; i < TUBE_SIDES; i++) {
@@ -333,10 +336,46 @@ function* buildBeadMesh(
   data.positions = positions;
   data.normals = normals;
   data.indices = indices.subarray(0, idx);
-  data.applyToMesh(mesh);
+  // Modifiable : l'édition réécrit en place les sommets des mouvements validés.
+  data.applyToMesh(mesh, true);
   mesh.material = material;
   finalizePathMesh(mesh);
-  return { mesh, cumIndices, indicesPerStep, vertexOwner };
+  return {
+    mesh, cumIndices, indicesPerStep, vertexOwner,
+    sampleOwner: owner.subarray(0, count), sampleFrac: frac.subarray(0, count), stripStart: stripStart.subarray(0, count),
+    positions, normals,
+  };
+}
+
+/**
+ * Anneau de l'échantillon j d'un cordon : tangente par différence centrée entre ses voisins du
+ * même tube (`stripStart` marque les débuts de tube), reprise de la dernière tangente valide quand
+ * les voisins sont confondus. `tangent` porte cette dernière tangente d'un appel à l'autre.
+ */
+function writeSampleRing(
+  positions: Float32Array,
+  normals: Float32Array,
+  centers: Float32Array,
+  axes: Float32Array,
+  stripStart: Uint8Array,
+  count: number,
+  j: number,
+  tangent: { x: number; y: number; z: number },
+) {
+  const p = j * 3;
+  const hasPrev = !stripStart[j];
+  const hasNext = j + 1 < count && !stripStart[j + 1];
+  const from = hasPrev ? p - 3 : p;
+  const to = hasNext ? p + 3 : p;
+  const dx = centers[to] - centers[from];
+  const dy = centers[to + 1] - centers[from + 1];
+  const dz = centers[to + 2] - centers[from + 2];
+  const len = Math.hypot(dx, dy, dz);
+  if (len > 1e-6) {
+    tangent.x = dx / len; tangent.y = dy / len; tangent.z = dz / len;
+  }
+  writeRing(positions, normals, j, centers[p], centers[p + 1], centers[p + 2],
+    tangent.x, tangent.y, tangent.z, axes[p], axes[p + 1], axes[p + 2]);
 }
 
 /** Construit un LinesMesh (repère plateau) des mouvements retenus par `include`, dans l'ordre du
@@ -363,6 +402,7 @@ function* buildPathMesh(
 
   const positions = new Float32Array(vertexTotal * 3);
   const indices = new Uint32Array((vertexTotal - 1) * 2);
+  const lineStart = new Uint32Array(moves.length);
   const tip = new BABYLON.Vector3();
   let v = 0;
   let idx = 0;
@@ -370,6 +410,7 @@ function* buildPathMesh(
   for (let k = 1; k < moves.length; k++) {
     if ((k & SLICE_MASK) === 0) yield;
     if (include(k)) {
+      lineStart[k] = v;
       const n = segments[k];
       for (let s = 0; s <= n; s++) {
         sampler.tip(k, s / n, tip);
@@ -390,11 +431,11 @@ function* buildPathMesh(
   const data = new BABYLON.VertexData();
   data.positions = positions;
   data.indices = indices.subarray(0, idx);
-  data.applyToMesh(mesh);
+  data.applyToMesh(mesh, true);
   mesh.color = color;
   mesh.alpha = 0.85;
   finalizePathMesh(mesh);
-  return { mesh, cumIndices, indicesPerStep: 2, vertexOwner: new Uint32Array(0) };
+  return { mesh, cumIndices, indicesPerStep: 2, vertexOwner: new Uint32Array(0), lineStart, positions };
 }
 
 /** Sphères (instances légères) aux positions de fin des mouvements `at`. */
@@ -476,6 +517,21 @@ export interface GCodeLayer {
   setEnabled(enabled: boolean): void;
   /** Rotation courante du plateau autour de Y (radians, repère Babylon), 0 sans G-code. */
   getPlateRotation(): number;
+  /** G-code affiché (null tant qu'aucun n'est construit). Ses mouvements sont ceux que l'édition
+   * modifie en place (`applyMoveEdits`). */
+  getParsed(): ParsedGCode | null;
+  /** Repère du plateau (monde ← plateau), pour convertir les positions éditées. */
+  getPlateWorldMatrix(): BABYLON.Matrix;
+  /** Pointe de buse à la fin du mouvement k, repère du plateau. */
+  getMoveTip(k: number, out: BABYLON.Vector3): BABYLON.Vector3;
+  /** Édition : poids d'influence par mouvement (indices croissants), appliqués par le vertex shader
+   * des cordons ; null les efface. Recalcul une fois par pose / réglage, jamais par image. */
+  setEditWeights(indices: Uint32Array | null, weights?: Float32Array): void;
+  /** Édition : translation en direct (repère du plateau) des points pondérés. */
+  setEditTranslation(translation: BABYLON.Vector3): void;
+  /** Édition : nouvelles valeurs firmware validées (4 par indice : R, C, Z, B) — met à jour les
+   * mouvements et réécrit en place la géométrie des seuls segments touchés. */
+  applyMoveEdits(indices: Uint32Array, values: Float64Array): void;
   dispose(): void;
 }
 
@@ -664,6 +720,7 @@ export function createGCodeLayer(
     mat.specularColor = new BABYLON.Color3(0.25, 0.25, 0.25);
     mat.specularPower = 48;
     mat.backFaceCulling = false;
+    attachEditDeform(mat);
     beadMaterials.set(t.id, mat);
   }
   // Matériau partagé des cordons en mode « colorer par » continu (cf. setColorBy) : couleur par
@@ -673,6 +730,7 @@ export function createGCodeLayer(
   vertexColorBeadMat.disableLighting = true;
   vertexColorBeadMat.emissiveColor = BABYLON.Color3.White();
   vertexColorBeadMat.backFaceCulling = false;
+  attachEditDeform(vertexColorBeadMat);
   // Tronçon vivant en mode continu (cf. updateLive) : couleur plate recalculée chaque image, trop
   // petit pour justifier une mise à jour de couleurs par sommet à chaque frame (cf. plan §3).
   const liveColorByMat = new BABYLON.StandardMaterial(`${GCODE_MESH_PREFIX}LiveBeadMatColorBy`, scene);
@@ -1249,6 +1307,152 @@ export function createGCodeLayer(
     return best ? { t: best.t, local: new BABYLON.Vector3(best.x, best.y, best.z) } : null;
   };
 
+  // ---------------------------------------------------------------------------------------------
+  // Édition du G-code (onglet Édition) : poids d'influence par sommet pour la déformation en
+  // direct par le vertex shader (gcodeEditDeform.ts), puis réécriture locale de la géométrie des
+  // mouvements validés par le noyau C++.
+  // ---------------------------------------------------------------------------------------------
+
+  const setEditWeights = (indices: Uint32Array | null, weights?: Float32Array) => {
+    if (!parsed) return;
+    let dense: Float32Array | null = null;
+    if (indices && weights && indices.length) {
+      dense = new Float32Array(parsed.moves.length);
+      for (let i = 0; i < indices.length; i++) dense[indices[i]] = weights[i];
+    }
+    for (const entry of paths) {
+      const { mesh, sampleOwner: owner, sampleFrac: frac } = entry;
+      if (!entry.isExtrusion || !mesh || !owner || !frac) continue;
+      const had = !!entry.editWeights;
+      if (!dense && !had) continue;
+      const data = entry.editWeights ?? new Float32Array(owner.length * TUBE_SIDES);
+      let any = false;
+      if (dense) {
+        for (let j = 0; j < owner.length; j++) {
+          const k = owner[j];
+          const f = frac[j];
+          const w = (k > 0 ? dense[k - 1] * (1 - f) : 0) + dense[k] * f;
+          if (w > 0) any = true;
+          data.fill(w, j * TUBE_SIDES, (j + 1) * TUBE_SIDES);
+        }
+      } else {
+        data.fill(0);
+      }
+      if (!had && !any) continue;
+      if (!had) {
+        entry.editWeights = data;
+        mesh.setVerticesData(EDIT_WEIGHT_KIND, data, true, 1);
+      } else {
+        mesh.updateVerticesData(EDIT_WEIGHT_KIND, data);
+      }
+    }
+  };
+
+  /** Premier échantillon de `owner` (croissant) dont le propriétaire est ≥ k. */
+  const lowerBound = (owner: Uint32Array, k: number) => {
+    let lo = 0, hi = owner.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (owner[mid] < k) lo = mid + 1; else hi = mid;
+    }
+    return lo;
+  };
+
+  /** Réécrit les anneaux des échantillons [a, b] d'un cordon depuis les mouvements courants. */
+  const rewriteBeadSamples = (entry: PathEntry, a: number, b: number) => {
+    const { mesh, sampleOwner: owner, sampleFrac: frac, stripStart, positions, normals } = entry;
+    if (!mesh || !owner || !frac || !stripStart || !positions || !normals || !sampler) return;
+    const count = owner.length;
+    // Centres recalculés un échantillon au-delà de chaque bord : la tangente des anneaux réécrits
+    // en dépend.
+    const c0 = Math.max(0, a - 1);
+    const c1 = Math.min(count - 1, b + 1);
+    const n = c1 - c0 + 1;
+    const centers = new Float32Array(n * 3);
+    const axes = new Float32Array(n * 3);
+    const tip = new BABYLON.Vector3();
+    const ax = new BABYLON.Vector3();
+    const halfH = BEAD_HEIGHT_MM / 2;
+    for (let j = c0; j <= c1; j++) {
+      sampler.tip(owner[j], frac[j], tip);
+      sampler.axis(owner[j], frac[j], ax);
+      const p = (j - c0) * 3;
+      centers[p] = tip.x - ax.x * halfH;
+      centers[p + 1] = tip.y - ax.y * halfH;
+      centers[p + 2] = tip.z - ax.z * halfH;
+      axes[p] = ax.x; axes[p + 1] = ax.y; axes[p + 2] = ax.z;
+    }
+    const localStrip = stripStart.subarray(c0, c1 + 1);
+    const localPos = new Float32Array(n * TUBE_SIDES * 3);
+    const localNrm = new Float32Array(n * TUBE_SIDES * 3);
+    const tangent = { x: 1, y: 0, z: 0 };
+    for (let j = a; j <= b; j++) writeSampleRing(localPos, localNrm, centers, axes, localStrip, n, j - c0, tangent);
+    const from = (a - c0) * TUBE_SIDES * 3;
+    const to = (b - c0 + 1) * TUBE_SIDES * 3;
+    const offset = a * TUBE_SIDES * 3;
+    positions.set(localPos.subarray(from, to), offset);
+    normals.set(localNrm.subarray(from, to), offset);
+    mesh.getVertexBuffer(BABYLON.VertexBuffer.PositionKind)?.updateDirectly(positions.subarray(offset, offset + to - from), offset);
+    mesh.getVertexBuffer(BABYLON.VertexBuffer.NormalKind)?.updateDirectly(normals.subarray(offset, offset + to - from), offset);
+  };
+
+  const applyMoveEdits = (indices: Uint32Array, values: Float64Array) => {
+    if (!parsed || !sampler || !indices.length) return;
+    const { moves } = parsed;
+    const touched = new Set<number>();
+    for (let i = 0; i < indices.length; i++) {
+      const k = indices[i];
+      const m = moves[k];
+      m.x = values[4 * i];
+      m.y = values[4 * i + 1];
+      m.z = values[4 * i + 2];
+      m.b = values[4 * i + 3];
+      // Un point modifié change les deux segments qui le touchent : celui qui y arrive (k) et
+      // celui qui en part (k + 1).
+      touched.add(k);
+      if (k + 1 < moves.length) touched.add(k + 1);
+    }
+    const dirty = Float64Array.from(touched).sort();
+
+    for (const entry of paths) {
+      if (!entry.mesh) continue;
+      if (entry.sampleOwner) {
+        // Plages contiguës d'échantillons à réécrire, un échantillon de marge (tangentes voisines).
+        const owner = entry.sampleOwner;
+        let runA = -1, runB = -1;
+        const flush = () => { if (runA >= 0) rewriteBeadSamples(entry, runA, runB); };
+        for (const k of dirty) {
+          const lo = lowerBound(owner, k);
+          if (lo >= owner.length || owner[lo] !== k) continue;
+          const hi = lowerBound(owner, k + 1) - 1;
+          const a = Math.max(0, lo - 1), b = Math.min(owner.length - 1, hi + 1);
+          if (runA >= 0 && a <= runB + 1) runB = Math.max(runB, b);
+          else { flush(); runA = a; runB = b; }
+        }
+        flush();
+      } else if (entry.lineStart && entry.positions) {
+        const { lineStart, positions } = entry;
+        const vb = entry.mesh.getVertexBuffer(BABYLON.VertexBuffer.PositionKind);
+        const tip = new BABYLON.Vector3();
+        for (const k of dirty) {
+          if (!entry.include(k)) continue;
+          const n = segments[k];
+          const v0 = lineStart[k];
+          for (let s = 0; s <= n; s++) {
+            sampler.tip(k, s / n, tip);
+            const p = (v0 + s) * 3;
+            positions[p] = tip.x; positions[p + 1] = tip.y; positions[p + 2] = tip.z;
+          }
+          vb?.updateDirectly(positions.subarray(v0 * 3, (v0 + n + 1) * 3), v0 * 3);
+        }
+      }
+    }
+    // L'index de sélection décrit l'ancienne géométrie.
+    if (pickWanted) void buildPickIndex();
+    else { pickBuildSeq++; pickGrid = null; }
+    apply();
+  };
+
   return {
     async load(next) {
       await buildAll(next);
@@ -1342,6 +1546,21 @@ export function createGCodeLayer(
     getPlateRotation() {
       return plateNode.rotation.y;
     },
+    getParsed() {
+      return parsed;
+    },
+    getPlateWorldMatrix() {
+      return plateNode.computeWorldMatrix(true);
+    },
+    getMoveTip(k, out) {
+      if (sampler) sampler.tip(k, 1, out);
+      return out;
+    },
+    setEditWeights,
+    setEditTranslation(translation) {
+      editDeformState.translation.copyFrom(translation);
+    },
+    applyMoveEdits,
     dispose() {
       disposed = true;
       if (deferredColorByRaf) cancelAnimationFrame(deferredColorByRaf);

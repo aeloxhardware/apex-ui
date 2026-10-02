@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   animate,
   motion,
@@ -33,6 +33,25 @@ export interface EditNodeProps {
   /** Clic simple sur le nœud développé : réduction. */
   onDeactivate?: () => void;
   onToggleTrimming?: () => void;
+  /** Glissement du nœud : nouvelle position voulue (même repère que `x`/`y`). */
+  onMove?: (x: number, y: number) => void;
+  /** Chargement en cours : les reflets du verre tournent autour du nœud développé. */
+  loading?: boolean;
+  /** Fin d'un glissement du nœud (relâchement). */
+  onMoveEnd?: () => void;
+  /** Poignées changées par l'utilisateur (glissement, ajout, suppression, verrouillage, remise
+   * en place) : position relative au nœud en px, et verrouillage. */
+  onHandlesChange?: (handles: EditNodeHandle[]) => void;
+  /** Positions imposées des poignées (px relatifs au nœud), par identifiant — l'application les
+   * tient en 3D et les reprojette quand la caméra ou le nœud bougent. */
+  handleOffsets?: Readonly<Record<number, { dx: number; dy: number }>>;
+}
+
+export interface EditNodeHandle {
+  id: number;
+  dx: number;
+  dy: number;
+  locked: boolean;
 }
 
 const CORE_PX = 12;
@@ -67,7 +86,9 @@ const TINT_FADE_S = 0.2;
 const solidity = (o: number) => clamp01(1 - Math.max(0, o) * 2.5);
 const tintRgb = (t: number) => CYAN.map((c, i) => Math.round(c + (ORANGE[i] - c) * t)).join(", ");
 
-const lensSizes = `${CORE_PX},${BUBBLE_PX}`;
+// Chargement : durée d'un tour des reflets, et freinage jusqu'au repos.
+const SPIN_TURN_S = 1.1;
+const SPIN_STOP_SPRING = { type: "spring", stiffness: 40, damping: 12 } as const;
 
 // Trois courbes empilées (trajectoires adjacentes) : repère visuel du nœud au repos.
 const StackedCurvesIcon: React.FC = () => (
@@ -80,13 +101,13 @@ const StackedCurvesIcon: React.FC = () => (
     />
     <path
       d="M3 13 Q8 8, 13 13 T21 13"
-      stroke="rgba(255,255,255,0.9)"
+      stroke="rgba(255,159,28,0.95)"
       strokeWidth="1.6"
       strokeLinecap="round"
     />
     <path
       d="M3 18 Q8 13, 13 18 T21 18"
-      stroke="rgba(255,255,255,0.9)"
+      stroke="rgba(255,159,28,0.95)"
       strokeWidth="1.6"
       strokeLinecap="round"
     />
@@ -133,8 +154,14 @@ const HANDLE_MAX_PX = BUBBLE_R + 120;
 const DELETE_RADIUS_PX = BUBBLE_R - 3;
 // Angles initiaux (repère mathématique) : diagonale bas-gauche -> haut-droite.
 const INITIAL_ANGLES = [Math.PI / 4, (5 * Math.PI) / 4];
-// Une traction du noyau est réservée à la mitose du « + ».
-const MAX_HANDLES = MAX_PULLS - 1;
+// Tractions du noyau réservées : mitose du « + », inertie du glissement (arrière et avant).
+const MAX_HANDLES = MAX_PULLS - 3;
+
+// Glissement du nœud : seuil avant qu'un appui devienne un déplacement, et inertie du verre.
+const DRAG_THRESHOLD_PX = 3;
+const MOVE_STRETCH_PER_PXS = 0.00035;
+const MOVE_STRETCH_MAX = 0.3;
+const MOVE_LEAD_FLATTEN = 0.35;
 
 // Bouton « + » : gouttelette de verre qui sort sous le nœud.
 const ADD_SIZE_PX = 18;
@@ -185,7 +212,10 @@ const RESET_SPRING = { type: "spring", stiffness: 260, damping: 20 } as const;
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 
-type HandleRegistry = Map<number, { hx: MotionValue<number>; hy: MotionValue<number> }>;
+type HandleRegistry = Map<
+  number,
+  { hx: MotionValue<number>; hy: MotionValue<number>; locked: () => boolean }
+>;
 
 interface HandleProps {
   id: number;
@@ -198,11 +228,18 @@ interface HandleProps {
   /** Gonflement de la bulle (bord du verre, d'où part le bras). */
   open: MotionValue<number>;
   active: boolean;
+  /** Position du nœud : une poignée verrouillée garde sa position absolue quand il bouge. */
+  nodeX: number;
+  nodeY: number;
   anchorRef: React.RefObject<HTMLDivElement>;
   registry: React.MutableRefObject<HandleRegistry>;
   /** La poignée entre / sort de la zone de suppression (centre du nœud). */
   onDoomedChange: (id: number, doomed: boolean) => void;
   onRemove: (id: number) => void;
+  /** Position imposée par l'application (px, relative au nœud), hors glissement en cours. */
+  offset?: { dx: number; dy: number };
+  /** Position, longueur ou verrouillage changés par l'utilisateur. */
+  onChanged: () => void;
 }
 
 const Handle: React.FC<HandleProps> = ({
@@ -213,12 +250,18 @@ const Handle: React.FC<HandleProps> = ({
   count,
   open,
   active,
+  nodeX,
+  nodeY,
   anchorRef,
   registry,
   onDoomedChange,
   onRemove,
+  offset,
+  onChanged,
 }) => {
   const startLength = spawn ? HANDLE_MIN_PX : HANDLE_REST_PX;
+  const lockedRef = useRef(false);
+  const animating = useRef(false);
 
   // Sortie du noyau : chaque poignée part du centre, après le gonflement, l'une après l'autre ;
   // à la fermeture, elles rentrent avant que la bulle ne dégonfle.
@@ -241,7 +284,7 @@ const Handle: React.FC<HandleProps> = ({
 
   useEffect(() => {
     const reg = registry.current;
-    reg.set(id, { hx, hy });
+    reg.set(id, { hx, hy, locked: () => lockedRef.current });
     return () => {
       reg.delete(id);
     };
@@ -257,16 +300,33 @@ const Handle: React.FC<HandleProps> = ({
   // Naissance : la poignée sort du bord en tirant brièvement le verre avec elle.
   useEffect(() => {
     if (!spawn) return;
+    animating.current = true;
     const a = animate(hx, Math.cos(angle) * HANDLE_REST_PX, RESET_SPRING);
     const b = animate(hy, -Math.sin(angle) * HANDLE_REST_PX, RESET_SPRING);
+    let live = true;
+    void Promise.all([a, b]).then(() => {
+      animating.current = false;
+      if (live) onChanged();
+    });
     target.set(GRAB_PULSE);
     const t = window.setTimeout(() => target.set(0), GRAB_PULSE_MS * 2);
     return () => {
+      live = false;
       a.stop();
       b.stop();
       window.clearTimeout(t);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spawn, angle, hx, hy, target]);
+
+  // Position imposée par l'application (la poignée vit en 3D : la caméra ou le nœud qui bouge la
+  // font glisser à l'écran), sauf pendant que l'utilisateur la tient ou qu'elle s'anime.
+  useLayoutEffect(() => {
+    if (!offset || drag.current || animating.current) return;
+    hx.set(offset.dx);
+    hy.set(offset.dy);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [offset?.dx, offset?.dy]);
 
   const setDoomedState = (value: boolean) => {
     if (doomedRef.current === value) return;
@@ -314,6 +374,7 @@ const Handle: React.FC<HandleProps> = ({
     const k = Math.min(HANDLE_MAX_PX, Math.max(HANDLE_MIN_PX, length)) / length;
     hx.set(x * k);
     hy.set(y * k);
+    relockAt(x * k, y * k);
 
     const now = performance.now();
     const prev = drag.current;
@@ -332,6 +393,7 @@ const Handle: React.FC<HandleProps> = ({
       return;
     }
     target.set(stretchFor(length * k) + GRAB_TENSION + kick);
+    onChanged();
     // Poignée tenue immobile : plus de pointermove, la secousse doit retomber quand même.
     idleTimer.current = window.setTimeout(
       () => target.set(stretchFor(length * k) + GRAB_TENSION),
@@ -340,6 +402,37 @@ const Handle: React.FC<HandleProps> = ({
   };
 
   const currentStretch = () => stretchFor(Math.hypot(hx.get(), hy.get()));
+
+  // Verrouillage (clic simple, orange) : la poignée garde sa position absolue ; quand le nœud
+  // bouge, son bras s'allonge ou se raccourcit, et le verre suit la nouvelle tension.
+  const [locked, setLocked] = useState(false);
+  const lockPoint = useRef<{ x: number; y: number } | null>(null);
+  const nodePos = useRef({ x: nodeX, y: nodeY });
+  nodePos.current = { x: nodeX, y: nodeY };
+  const relockAt = (rx: number, ry: number) => {
+    if (lockPoint.current) lockPoint.current = { x: nodePos.current.x + rx, y: nodePos.current.y + ry };
+  };
+  useLayoutEffect(() => {
+    const p = lockPoint.current;
+    // Dans l'application, l'ancrage est tenu en 3D par l'appelant (`offset`).
+    if (!p || offset) return;
+    hx.set(p.x - nodeX);
+    hy.set(p.y - nodeY);
+    if (!drag.current) target.set(currentStretch());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodeX, nodeY]);
+  const toggleLock = () => {
+    lockPoint.current = lockPoint.current
+      ? null
+      : { x: nodePos.current.x + hx.get(), y: nodePos.current.y + hy.get() };
+    lockedRef.current = lockPoint.current !== null;
+    setLocked(lockedRef.current);
+    onChanged();
+  };
+  const clickTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(clickTimer.current), []);
+  const pressStart = useRef({ x: 0, y: 0 });
+  const suppressClick = useRef(false);
 
   return (
     <g>
@@ -357,18 +450,35 @@ const Handle: React.FC<HandleProps> = ({
         cx={x2}
         cy={y2}
         style={{ opacity }}
-        className={`${styles.handleKnob} ${active ? styles.live : ""} ${doomed ? styles.doomed : ""}`}
-        onClick={(e) => e.stopPropagation()}
+        className={`${styles.handleKnob} ${active ? styles.live : ""} ${locked ? styles.locked : ""} ${doomed ? styles.doomed : ""}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          // Fin d'un glissement, ou second clic d'un double-clic : pas de bascule.
+          if (suppressClick.current) {
+            suppressClick.current = false;
+            return;
+          }
+          if (e.detail > 1) return;
+          window.clearTimeout(clickTimer.current);
+          clickTimer.current = window.setTimeout(toggleLock, DOUBLE_CLICK_MS);
+        }}
         onDoubleClick={(e) => {
           e.stopPropagation();
+          window.clearTimeout(clickTimer.current);
           window.clearTimeout(idleTimer.current);
-          animate(hx, Math.cos(angle) * HANDLE_REST_PX, RESET_SPRING);
-          animate(hy, -Math.sin(angle) * HANDLE_REST_PX, RESET_SPRING);
+          const rx = Math.cos(angle) * HANDLE_REST_PX, ry = -Math.sin(angle) * HANDLE_REST_PX;
+          animating.current = true;
+          void Promise.all([animate(hx, rx, RESET_SPRING), animate(hy, ry, RESET_SPRING)]).then(() => {
+            animating.current = false;
+            onChanged();
+          });
+          relockAt(rx, ry);
           target.set(stretchFor(HANDLE_REST_PX));
         }}
         onPointerDown={(e) => {
           e.stopPropagation();
           e.currentTarget.setPointerCapture(e.pointerId);
+          pressStart.current = { x: e.clientX, y: e.clientY };
           drag.current = { x: e.clientX, y: e.clientY, t: performance.now() };
           target.set(currentStretch() + GRAB_PULSE);
           window.clearTimeout(idleTimer.current);
@@ -383,6 +493,9 @@ const Handle: React.FC<HandleProps> = ({
         onPointerUp={(e) => {
           e.currentTarget.releasePointerCapture(e.pointerId);
           drag.current = null;
+          suppressClick.current =
+            Math.hypot(e.clientX - pressStart.current.x, e.clientY - pressStart.current.y) >=
+            DRAG_THRESHOLD_PX;
           window.clearTimeout(idleTimer.current);
           if (doomedRef.current) {
             setDoomedState(false);
@@ -398,7 +511,8 @@ const Handle: React.FC<HandleProps> = ({
 };
 
 // Boîte réelle (pas 0 × 0 + overflow visible : Chromium ne peignait alors rien sous le filtre).
-const HANDLES_HALF_PX = HANDLE_MAX_PX + 8;
+// Large : une poignée verrouillée peut finir loin du nœud quand celui-ci est déplacé.
+const HANDLES_HALF_PX = 900;
 
 // Un double-clic commence par un clic : la réduction attend ce délai pour ne pas se déclencher
 // quand l'utilisateur voulait basculer le rognage.
@@ -412,7 +526,42 @@ const EditNode: React.FC<EditNodeProps> = ({
   onActivate,
   onDeactivate,
   onToggleTrimming,
+  onMove,
+  loading = false,
+  onMoveEnd,
+  onHandlesChange,
+  handleOffsets,
 }) => {
+  // Chargement : rotation continue des reflets ; à l'arrêt, ils ralentissent jusqu'à leur position
+  // de repos (les reflets sont symétriques : période π).
+  const spin = useMotionValue(0);
+  const spinning = loading && active;
+  useEffect(() => {
+    if (spinning) {
+      const controls = animate(spin, spin.get() + TAU, {
+        duration: SPIN_TURN_S,
+        ease: "linear",
+        repeat: Infinity,
+      });
+      return () => controls.stop();
+    }
+    const current = spin.get();
+    const velocity = spin.getVelocity();
+    let rest = Math.ceil(current / Math.PI - 1e-6) * Math.PI;
+    if (Math.abs(rest - current) < 1e-3 && Math.abs(velocity) < 1e-3) return;
+    // Lancé : garder au moins un quart de tour pour freiner sans à-coup.
+    if (velocity > 0 && rest - current < Math.PI / 4) rest += Math.PI;
+    const controls = animate(spin, rest, { ...SPIN_STOP_SPRING, velocity });
+    return () => controls.stop();
+  }, [spinning, spin]);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const write = () =>
+      bodyRef.current?.setAttribute(GLASS_LENS_ATTR, `${CORE_PX},${BUBBLE_PX},0,${spin.get()}`);
+    write();
+    return spin.on("change", write);
+  }, [spin]);
+
   const collapseTimer = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(collapseTimer.current), []);
 
@@ -461,6 +610,19 @@ const EditNode: React.FC<EditNodeProps> = ({
   const onRemove = useCallback((id: number) => {
     setHandles((list) => list.filter((h) => h.id !== id));
   }, []);
+  const onHandlesChangeRef = useRef(onHandlesChange);
+  onHandlesChangeRef.current = onHandlesChange;
+  const reportHandles = useCallback(() => {
+    const report = onHandlesChangeRef.current;
+    if (!report) return;
+    report(
+      [...registry.current.entries()].map(([id, h]) => ({
+        id, dx: h.hx.get(), dy: h.hy.get(), locked: h.locked(),
+      })),
+    );
+  }, []);
+  // Ajout / suppression (les poignées viennent de s'inscrire ou de se retirer du registre).
+  useEffect(() => reportHandles(), [handles, reportHandles]);
   const addHandle = () => {
     if (handles.length >= MAX_HANDLES) return;
     const taken = [...registry.current.values()].map(({ hx, hy }) => Math.atan2(-hy.get(), hx.get()));
@@ -491,6 +653,35 @@ const EditNode: React.FC<EditNodeProps> = ({
     return divide.on("change", write);
   }, [divide]);
 
+  // Glissement du nœud : le verre traîne derrière le mouvement (étiré à l'arrière, aplati à
+  // l'avant), proportionnellement à la vitesse, et oscille en se remettant à l'arrêt.
+  const moveTargetX = useMotionValue(0);
+  const moveTargetY = useMotionValue(0);
+  const inertiaX = useSpring(moveTargetX, JELLY_SPRING);
+  const inertiaY = useSpring(moveTargetY, JELLY_SPRING);
+  const trailPullRef = useRef<HTMLSpanElement>(null);
+  const leadPullRef = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    const write = () => {
+      const ix = inertiaX.get(), iy = inertiaY.get();
+      const m = Math.hypot(ix, iy);
+      const ux = m > 1e-4 ? ix / m : 0, uy = m > 1e-4 ? iy / m : 0;
+      trailPullRef.current?.setAttribute(GLASS_PULL_ATTR, `${-ux},${-uy},${m}`);
+      leadPullRef.current?.setAttribute(GLASS_PULL_ATTR, `${ux},${uy},${-m * MOVE_LEAD_FLATTEN}`);
+    };
+    write();
+    const offs = [inertiaX, inertiaY].map((mv) => mv.on("change", write));
+    return () => offs.forEach((off) => off());
+  }, [inertiaX, inertiaY]);
+
+  const nodeDrag = useRef<{
+    startX: number; startY: number; nodeX: number; nodeY: number;
+    lastX: number; lastY: number; lastT: number; moved: boolean;
+  } | null>(null);
+  const suppressClick = useRef(false);
+  const moveIdle = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(moveIdle.current), []);
+
   return (
     <div
       ref={anchorRef}
@@ -498,12 +689,61 @@ const EditNode: React.FC<EditNodeProps> = ({
       style={{ transform: `translate(${x}px, ${y}px)` }}
     >
       <motion.div
+        ref={bodyRef}
         className={styles.body}
-        {...{ [GLASS_LENS_ATTR]: lensSizes }}
         style={{ width: size, height: size, backgroundColor, boxShadow }}
         whileHover={active ? undefined : { scale: 1.25 }}
+        onPointerDown={(e) => {
+          if (!onMove || e.button !== 0) return;
+          e.currentTarget.setPointerCapture(e.pointerId);
+          nodeDrag.current = {
+            startX: e.clientX, startY: e.clientY, nodeX: x, nodeY: y,
+            lastX: e.clientX, lastY: e.clientY, lastT: performance.now(), moved: false,
+          };
+        }}
+        onPointerMove={(e) => {
+          const d = nodeDrag.current;
+          if (!d) return;
+          const dx = e.clientX - d.startX, dy = e.clientY - d.startY;
+          if (!d.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
+          d.moved = true;
+          onMove?.(d.nodeX + dx, d.nodeY + dy);
+
+          const now = performance.now();
+          const dt = (now - d.lastT) / 1000;
+          if (dt > 0) {
+            const vx = (e.clientX - d.lastX) / dt, vy = (e.clientY - d.lastY) / dt;
+            const speed = Math.hypot(vx, vy);
+            const k = speed > 0 ? Math.min(MOVE_STRETCH_MAX, speed * MOVE_STRETCH_PER_PXS) / speed : 0;
+            moveTargetX.set(vx * k);
+            moveTargetY.set(vy * k);
+          }
+          d.lastX = e.clientX; d.lastY = e.clientY; d.lastT = now;
+          // Immobile sous le doigt : plus de pointermove, l'inertie doit retomber quand même.
+          window.clearTimeout(moveIdle.current);
+          moveIdle.current = window.setTimeout(() => {
+            moveTargetX.set(0);
+            moveTargetY.set(0);
+          }, 60);
+        }}
+        onPointerUp={(e) => {
+          const d = nodeDrag.current;
+          if (!d) return;
+          e.currentTarget.releasePointerCapture(e.pointerId);
+          nodeDrag.current = null;
+          suppressClick.current = d.moved;
+          if (d.moved) onMoveEnd?.();
+          window.clearTimeout(moveIdle.current);
+          moveTargetX.set(0);
+          moveTargetY.set(0);
+        }}
         onClick={(e) => {
           e.stopPropagation();
+          // Fin d'un glissement : ce n'est pas un clic (ni sélection, ni réduction).
+          if (suppressClick.current) {
+            suppressClick.current = false;
+            return;
+          }
           if (e.detail > 1) return;
           if (!active) {
             onActivate?.();
@@ -530,8 +770,10 @@ const EditNode: React.FC<EditNodeProps> = ({
           </motion.div>
         </motion.div>
       </motion.div>
-      {/* Traction du noyau vers le « + » pendant la mitose (lue par le verre du noyau). */}
+      {/* Tractions du noyau (lues par son verre) : mitose du « + », inertie du glissement. */}
       <span ref={mitosisPullRef} hidden />
+      <span ref={trailPullRef} hidden />
+      <span ref={leadPullRef} hidden />
       <div className={styles.addAnchor}>
         <motion.button
           ref={addRef}
@@ -567,12 +809,16 @@ const EditNode: React.FC<EditNodeProps> = ({
             spawn={h.spawn}
             index={index}
             count={handles.length}
+            nodeX={x}
+            nodeY={y}
             open={open}
             active={active}
             anchorRef={anchorRef}
             registry={registry}
             onDoomedChange={onDoomedChange}
             onRemove={onRemove}
+            offset={handleOffsets?.[h.id]}
+            onChanged={reportHandles}
           />
         ))}
       </svg>

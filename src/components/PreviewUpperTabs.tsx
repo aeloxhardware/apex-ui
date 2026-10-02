@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Palette, Pencil, Sparkles } from 'lucide-react';
 import styles from './PreviewUpperTabs.module.scss';
+import { EditionPanel } from './edit-node/EditionPanel';
 
 export type PreviewTabId = 'coloration' | 'edition' | 'fonction';
 
@@ -39,6 +40,7 @@ const ComingSoon: React.FC = () => <div className={styles.comingSoon}>Coming soo
  */
 export const PreviewUpperTabs: React.FC<{ coloration: React.ReactNode }> = ({ coloration }) => {
   const tab = usePreviewTab();
-  if (tab === 'edition' || tab === 'fonction') return <ComingSoon />;
+  if (tab === 'edition') return <EditionPanel />;
+  if (tab === 'fonction') return <ComingSoon />;
   return <>{coloration}</>;
 };

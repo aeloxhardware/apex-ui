@@ -52,6 +52,8 @@ export interface GlassLens {
   pulls?: GlassPull[];
   /** Portée de fusion avec les lentilles voisines, px CSS (absent : réglage global). */
   mergePx?: number;
+  /** Rotation des reflets, en radians, sens horaire (animation de chargement). */
+  glareTurn?: number;
 }
 
 /** Réglages du verre, mêmes noms et unités que Liquid Glass Studio sauf mention contraire. */
@@ -105,7 +107,7 @@ export const DEFAULT_GLASS: GlassParams = {
 };
 
 export const MAX_LENSES = 8;
-export const MAX_PULLS = 8;
+export const MAX_PULLS = 10;
 const MAX_BLUR_TAPS = 32;
 
 const VERTEX = `#version 300 es
@@ -165,6 +167,7 @@ uniform float u_shadowOffset; // px physiques
 uniform float u_shadowBlur;   // px physiques
 uniform float u_merge;        // px physiques
 uniform float u_lensMerge[MAX_LENSES]; // portée de fusion propre à une lentille (0 : u_merge)
+uniform float u_lensGlare[MAX_LENSES]; // rotation des reflets propre à une lentille (rad, horaire)
 uniform float u_thickness;
 uniform float u_refFactor;
 uniform float u_distance;
@@ -178,7 +181,16 @@ uniform float u_glareFactor;
 uniform float u_glareConvergence;
 uniform float u_glareOppositeFactor;
 uniform float u_glareAngle;
+// Calque posé sur une autre vue (la scène 3D) : transparent hors du verre et de son ombre.
+uniform bool u_overlay;
 out vec4 fragColor;
+
+// Résultat final : en calque, l'ombre est un noir translucide et le fond n'est pas redessiné.
+vec4 composite(vec4 bg, float shadow, vec4 glass, float glassAlpha) {
+  if (!u_overlay) return mix(vec4(bg.rgb * (1.0 - shadow), 1.0), glass, glassAlpha);
+  float a = glassAlpha + shadow * (1.0 - glassAlpha);
+  return a > 0.0 ? vec4(glass.rgb * glassAlpha / a, a) : vec4(0.0);
+}
 
 float safeAsin(float x) { return asin(clamp(x, -1.0, 1.0)); }
 
@@ -259,7 +271,7 @@ void main() {
     float d = lensSd(p, i);
     if (d < nearest) { nearest = d; best = i; }
   }
-  if (best < 0) { fragColor = bg; return; }
+  if (best < 0) { fragColor = composite(bg, 0.0, bg, 0.0); return; }
   vec4 lens = u_lenses[best];
   float sd = sceneSd(p);
 
@@ -267,8 +279,7 @@ void main() {
   float a1 = u_shadowOpacity * shadowAt(p, u_shadowOffset, u_shadowBlur);
   float a2 = u_shadowOpacity * 0.7 * shadowAt(p, u_shadowOffset * 0.3, u_shadowBlur * 0.3);
   float shadow = (1.0 - (1.0 - a1) * (1.0 - a2)) * lens.w;
-  vec4 base = vec4(bg.rgb * (1.0 - shadow), 1.0);
-  if (lens.w <= 0.0 || sd > 1.0) { fragColor = base; return; }
+  if (lens.w <= 0.0 || sd > 1.0) { fragColor = composite(bg, shadow, bg, 0.0); return; }
 
   // Normale de la forme déformée (gradient par différences centrées).
   vec2 g = vec2(sceneSd(p + vec2(1.0, 0.0)) - sceneSd(p - vec2(1.0, 0.0)),
@@ -296,7 +307,7 @@ void main() {
   float glareGeo = clamp(pow(1.0 + dCss / 1500.0 * pow(500.0 / u_glareRange, 2.0) + u_glareHardness, 5.0), 0.0, 1.0);
   float a = atan(normal.y, normal.x);
   if (a < 0.0) a += 2.0 * PI;
-  float glareAngle = (a - PI / 4.0 + u_glareAngle) * 2.0;
+  float glareAngle = (a - PI / 4.0 + u_glareAngle + u_lensGlare[best]) * 2.0;
   bool farSide = (glareAngle > PI * 1.5 && glareAngle < PI * 3.5) || glareAngle < -PI * 0.5;
   float glareF = (0.5 + sin(glareAngle) * 0.5) * (farSide ? 1.2 * u_glareOppositeFactor : 1.2) * u_glareFactor;
   glareF = clamp(pow(glareF, 0.1 + u_glareConvergence * 2.0), 0.0, 1.0);
@@ -307,7 +318,7 @@ void main() {
 
   // Bord anticrénelé sur ~1 px physique, et fondu pendant le gonflement.
   float coverage = 1.0 - smoothstep(-0.75, 0.75, sd);
-  fragColor = mix(base, glass, coverage * lens.w);
+  fragColor = composite(bg, shadow, glass, coverage * lens.w);
 }`;
 
 function gaussianWeights(sigmaPx: number): { taps: number; weights: Float32Array } {
@@ -343,9 +354,14 @@ export class LiquidGlassRenderer {
   private readonly lensData = new Float32Array(MAX_LENSES * 4);
   private readonly pullData = new Float32Array(MAX_LENSES * MAX_PULLS * 4);
   private readonly mergeData = new Float32Array(MAX_LENSES);
+  private readonly glareData = new Float32Array(MAX_LENSES);
 
-  constructor(private readonly canvas: HTMLCanvasElement) {
-    const gl = canvas.getContext('webgl2', { premultipliedAlpha: false, antialias: false });
+  /**
+   * @param overlay Calque posé sur la vue réfractée (scène 3D) : seuls le verre et son ombre sont
+   *   dessinés, le reste est transparent — la vue reste visible en direct en dessous.
+   */
+  constructor(private readonly canvas: HTMLCanvasElement, private readonly overlay = false) {
+    const gl = canvas.getContext('webgl2', { premultipliedAlpha: false, antialias: false, alpha: true });
     if (!gl) throw new Error('WebGL2 indisponible.');
     this.gl = gl;
     this.copy = this.program(COPY);
@@ -420,10 +436,22 @@ export class LiquidGlassRenderer {
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
   }
 
+  /** Efface le calque (mode `overlay`). */
+  clear() {
+    const gl = this.gl;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+  }
+
   render(lenses: GlassLens[], dpr: number, params: GlassParams = DEFAULT_GLASS) {
     const gl = this.gl;
     if (!this.targets || this.width === 0) return;
     const [a, b] = this.targets;
+    if (this.overlay && !lenses.some((l) => l.strength > 0 && l.radius > 0)) {
+      this.clear();
+      return;
+    }
     gl.viewport(0, 0, this.width, this.height);
 
     // Flou du fond : vertical vers a, horizontal vers b.
@@ -471,6 +499,7 @@ export class LiquidGlassRenderer {
       this.lensData[4 * i + 2] = l.radius * dpr;
       this.lensData[4 * i + 3] = l.strength;
       this.mergeData[i] = (l.mergePx ?? 0) * dpr;
+      this.glareData[i] = l.glareTurn ?? 0;
       for (let j = 0; j < MAX_PULLS; j++) {
         const pull = l.pulls?.[j];
         const o = 4 * (i * MAX_PULLS + j);
@@ -483,11 +512,13 @@ export class LiquidGlassRenderer {
     gl.uniform4fv(u('u_lenses'), this.lensData);
     gl.uniform4fv(u('u_pulls'), this.pullData);
     gl.uniform1fv(u('u_lensMerge'), this.mergeData);
+    gl.uniform1fv(u('u_lensGlare'), this.glareData);
     gl.uniform1f(u('u_shadowOpacity'), params.shadowOpacity);
     gl.uniform1f(u('u_shadowOffset'), params.shadowOffsetPx * dpr);
     gl.uniform1f(u('u_shadowBlur'), params.shadowBlurPx * dpr);
     gl.uniform1f(u('u_merge'), Math.max(params.mergePx * dpr, 1e-3));
     gl.uniform1i(u('u_lensCount'), count);
+    gl.uniform1i(u('u_overlay'), this.overlay ? 1 : 0);
     gl.uniform2f(u('u_resolution'), this.width, this.height);
     gl.uniform1f(u('u_dpr'), dpr);
     gl.uniform1f(u('u_thickness'), params.thickness);
@@ -520,7 +551,9 @@ export function collectLenses(root: Element, origin: DOMRect): GlassLens[] {
   const lenses: GlassLens[] = [];
   root.querySelectorAll<HTMLElement>(`[${GLASS_LENS_ATTR}]`).forEach((el) => {
     const r = el.getBoundingClientRect();
-    const [core, full, merge] = (el.getAttribute(GLASS_LENS_ATTR) ?? '0,1').split(',').map(Number);
+    const [core, full, merge, glareTurn] = (el.getAttribute(GLASS_LENS_ATTR) ?? '0,1')
+      .split(',')
+      .map(Number);
     const t = Math.min(1, Math.max(0, (r.width - core) / Math.max(full - core, 1e-6)));
     const pulls: GlassPull[] = [];
     el.parentElement?.querySelectorAll(`[${GLASS_PULL_ATTR}]`).forEach((h) => {
@@ -529,7 +562,8 @@ export function collectLenses(root: Element, origin: DOMRect): GlassLens[] {
     });
     lenses.push({
       pulls,
-      mergePx: Number.isFinite(merge) ? merge : undefined,
+      mergePx: Number.isFinite(merge) && merge > 0 ? merge : undefined,
+      glareTurn: Number.isFinite(glareTurn) ? glareTurn : undefined,
       x: r.left - origin.left + r.width / 2,
       y: r.top - origin.top + r.height / 2,
       radius: r.width / 2,

@@ -9,30 +9,26 @@ doute, `CLAUDE.md` fait foi, ce fichier raconte le chemin.
 ## >>> REPRENDRE ICI <<<
 
 **Branche courante : `agent/edit-node`** (créée depuis `wip-2026-09-30`, poussée sur
-`origin` = `github.com/aeloxhardware/apex-ui`). `main` n'a pas bougé.
+`origin` = `github.com/aeloxhardware/apex-ui`). `main` n'a pas bougé. Tout est commité et poussé.
 
-**Non commité sur `agent/edit-node`** (à commiter en premier si l'utilisateur valide le rendu) :
-- `src/components/edit-node/liquidGlass.ts` (nouveau) — rendu WebGL2 du verre ;
-- `src/components/edit-node/EditNode.tsx`, `EditNode.module.scss` — le nœud ne dessine plus le
-  verre lui-même ;
-- `src/lab/edit-node/NodeLab.tsx`, `NodeLab.module.scss` — fond dessiné en canevas, boucle de rendu.
+**Où on en est (fin de session 2026-10-02)** : le nœud est **intégré dans l'application** (onglet
+Édition) et **déforme réellement le G-code** via le noyau C++ — jalon J3 terminé, testé de bout en
+bout dans Electron (voir § 9). L'utilisateur n'a pas encore essayé lui-même.
 
-**Dernier état visible** : le nœud du banc (http://localhost:8090) est un point cyan de 12 px ; au
-clic il gonfle (ressort) en lentille Liquid Glass de 46 px rendue en WebGL, sans pixellisation
-(vérifié par capture agrandie, comparaison avant/après). L'utilisateur n'a pas encore réagi à ce
-dernier rendu.
+**Prochaine étape décidée par l'utilisateur** : écriture du fichier G-code (modification en place,
+EXPORT COPY pour un G-code importé) + journal chiffré en commentaires (pas une protection). Puis J4
+(latence intégrée), J5 (empaquetage de l'addon). Restes de J3 listés dans `CLAUDE.md`
+(« Not yet ») : rotation du nœud, saisie numérique des Δ, rognage, validation, trajets pendant le
+glissement, fichiers cartésiens.
 
-**Questions en attente de l'utilisateur** :
-1. Valide-t-il le rendu WebGL du verre ?
-2. Faut-il créer une liste des personnes / projets à mentionner (crédits) ? Aucune n'existe dans le
-   projet. Candidat : Liquid Glass Studio (Charles Yin, MIT) dont les shaders sont repris. (Il avait
-   demandé de créditer `PallavAg/liquid-glass-web-react`, puis s'est rétracté : ce dépôt n'est pas
-   utilisé, ne pas le créditer sans nouvelle demande.)
-3. Prochaine étape de conception du nœud : à lui de la décrire (il avance pas à pas, l'élément est
-   difficile à formuler pour lui ; ne pas anticiper).
+**Questions encore ouvertes** :
+1. Liste de crédits (Liquid Glass Studio, Charles Yin, MIT — shaders repris) : jamais tranchée.
+   Ne pas créditer `PallavAg/liquid-glass-web-react` (demande retirée).
+2. Conception du nœud : l'utilisateur la mène pas à pas, ne pas anticiper.
 
-**Serveur du banc** : `pnpm dev:lab-node` (ou `npx vite --config vite.lab.config.ts`), port **8090**.
-Il tournait en tâche de fond pendant la session ; le relancer si besoin.
+**Essayer** : `pnpm electron:dev`, déposer un G-code polaire (ex. `slicer_engine/out/elbow_tube_x1.gcode`),
+onglet Édition, « Placer un nœud », clic sur la trajectoire, glisser le nœud. Banc isolé du nœud :
+`pnpm dev:lab-node`, port **8090**. Addon : `node native/build.cjs` (`--test` pour les tests).
 
 ---
 
@@ -187,3 +183,42 @@ branche de travail du nœud.
 
 - le moteur `slicer_engine` (lecture seule : fichiers G-code de recherche utilisés pour les mesures) ;
 - `src/components/ui/*` (shadcn).
+
+## 9. Session du 2026-10-02 (suite) : conception du nœud puis intégration
+
+### Conception du nœud (banc 8090), demandes dans l'ordre
+1. Ombre portée sous le verre (désormais dessinée par le shader, elle suit la forme étirée).
+2. Icône au centre : trois courbes empilées (les deux du bas en orange).
+3. Double-clic = rognage : icône « une courbe posée sur des couches plates orange » (redessinée
+   d'après les croquis de l'utilisateur, puis lissée) ; plus de contour orange ; point réduit
+   orange si le rognage est actif.
+4. Clic sur le nœud développé = réduction (attend le délai du double-clic).
+5. Deux poignées diagonales type Bézier ; déplaçables ; le verre s'étire vers une poignée tendue,
+   réagit à la prise et au glissement (ressort « gelée ») ; double-clic poignée = remise en place.
+6. Bouton « + » (gouttelette de verre) : ajoute une poignée ; poignée glissée dans le nœud = rouge,
+   icône croix, supprimée au relâchement.
+7. Ouverture séquencée : gonflement, poignées qui sortent du noyau une à une, « + » qui se divise
+   par mitose (col de verre, fusion lisse entre lentilles) ; fermeture exactement inverse.
+8. Nœud déplaçable, le verre traîne derrière le mouvement.
+9. Case « État de chargement » (banc) : les deux reflets tournent autour du verre (utilisé dans
+   l'application pendant les opérations longues du noyau).
+10. Clic simple sur une poignée = verrouillage (bouton orange seul, le lien reste blanc) : elle
+    garde sa position absolue quand le nœud bouge.
+Commit `d207557` (poussé) pour les points 1–7 ; le reste est dans le commit d'intégration.
+
+### Intégration (J3), décisions de l'utilisateur
+- Poignées : **longueur = portée, orientation = sens préféré** de l'influence (« comme un éditeur
+  de courbe de Bézier »). Orange = **ancrage fixe**. Écriture du fichier : étape suivante.
+- Noyau C++ étendu (directions + ancrages, 2 tests de plus, vérifiés par mutation, 4 341
+  vérifications OK). Détails techniques et pièges : `CLAUDE.md`, puce « J3 — done ».
+- Essai de bout en bout (script Electron hors écran) : pose → 1 759 points ; poignée allongée →
+  4 388 ; glissement → ΔR −13,3 mm, ΔZ +13,4 mm ; validation → historique 1 ; annulation → retour
+  exact. Captures conformes (teinte violette, déformation en direct, pas de saut à la validation).
+
+### Pièges rencontrés cette fois
+- Une fenêtre Electron hors écran est « masquée » : sans désactiver le bridage d'arrière-plan,
+  `requestAnimationFrame` s'arrête et la construction par tranches du G-code ne finit jamais.
+- `capturePage` sur une grande zone échoue (UnknownVizError) par intermittence : réessayer.
+- Dans un script d'essai, `document.querySelector('circle')` attrape les icônes lucide : viser
+  `circle[data-glass-pull]`.
+- Une sortie de script tronquée par `head` casse le tube (EPIPE, boîte d'erreur Electron).

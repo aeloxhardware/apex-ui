@@ -56,6 +56,8 @@ function drawBackground(ctx: CanvasRenderingContext2D, w: number, h: number) {
 const NodeLab: React.FC = () => {
   const [active, setActive] = useState(false);
   const [trimming, setTrimming] = useState(false);
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const [loading, setLoading] = useState(false);
   const labRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [glassError, setGlassError] = useState<string | null>(null);
@@ -104,8 +106,10 @@ const NodeLab: React.FC = () => {
       <canvas ref={canvasRef} className={styles.glass} />
       <div className={styles.stage}>
         <EditNode
-          x={0}
-          y={0}
+          x={pos.x}
+          y={pos.y}
+          onMove={(x, y) => setPos({ x, y })}
+          loading={loading}
           active={active}
           trimming={trimming}
           onActivate={() => setActive(true)}
@@ -118,6 +122,14 @@ const NodeLab: React.FC = () => {
         <span>rognage {trimming ? 'activé' : 'désactivé'}</span>
         {glassError && <span>verre indisponible : {glassError}</span>}
       </div>
+      <label className={styles.controls} onClick={(e) => e.stopPropagation()}>
+        <input
+          type="checkbox"
+          checked={loading}
+          onChange={(e) => setLoading(e.target.checked)}
+        />
+        État de chargement
+      </label>
     </div>
   );
 };
