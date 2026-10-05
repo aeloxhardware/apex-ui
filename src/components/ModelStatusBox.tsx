@@ -25,11 +25,30 @@ export const ModelStatusBox: React.FC = () => {
   // Le mode modélisation a sa propre arborescence (les corps) : celle des modèles importés
   // ferait doublon, on l'escamote comme en mode Prévisualisation.
   const [modelingActive, setModelingActive] = useState(false);
+  // Vrai dès le clic vers Prévisualisation : sortie rapide (ELEMENTS_FADE_MS) plutôt que 0,9 s.
+  const [enteringPreview, setEnteringPreview] = useState(false);
   const toolbarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let fallbackTimer: number | undefined;
     const handlePreviewToggled = (e: CustomEvent<{ active: boolean }>) => {
-      setPreviewActive(!!e.detail?.active);
+      window.clearTimeout(fallbackTimer);
+      if (e.detail?.active) {
+        setPreviewActive(true);
+        return;
+      }
+      // Sortie de Prévisualisation : la boîte ne revient qu'APRÈS la déformation inverse de la
+      // pilule (apex-preview-morph-done). Repli temporisé si CategoriesSidebar n'est pas monté
+      // (sortie directe vers Modélisation) et n'émet donc jamais l'événement.
+      fallbackTimer = window.setTimeout(() => {
+        setEnteringPreview(false);
+        setPreviewActive(false);
+      }, 1700);
+    };
+    const handlePreviewMorphDone = () => {
+      window.clearTimeout(fallbackTimer);
+      setEnteringPreview(false);
+      setPreviewActive(false);
     };
     const handleModeChanged = (e: CustomEvent<{ mode: 'slicer' | 'modeling' }>) => {
       setModelingActive(e.detail?.mode === 'modeling');
@@ -40,13 +59,24 @@ export const ModelStatusBox: React.FC = () => {
     // ModelingSidebar à son montage, lui-même retardé jusqu'à ce que le rideau ait fini de couvrir
     // l'écran — bien trop tard pour ce fondu).
     const handleEnteringModeling = () => setModelingActive(true);
+    // Idem vers Prévisualisation (dispatché par Sidebar.tsx dès le clic) : la boîte doit avoir
+    // totalement disparu avant que la pilule ne commence à se déformer.
+    const handleEnteringPreview = () => {
+      setEnteringPreview(true);
+      setPreviewActive(true);
+    };
     window.addEventListener('apex-preview-toggled', handlePreviewToggled as EventListener);
     window.addEventListener('apex-mode-changed', handleModeChanged as EventListener);
     window.addEventListener('apex-entering-modeling', handleEnteringModeling);
+    window.addEventListener('apex-entering-preview', handleEnteringPreview);
+    window.addEventListener('apex-preview-morph-done', handlePreviewMorphDone);
     return () => {
+      window.clearTimeout(fallbackTimer);
+      window.removeEventListener('apex-preview-morph-done', handlePreviewMorphDone);
       window.removeEventListener('apex-preview-toggled', handlePreviewToggled as EventListener);
       window.removeEventListener('apex-mode-changed', handleModeChanged as EventListener);
       window.removeEventListener('apex-entering-modeling', handleEnteringModeling);
+      window.removeEventListener('apex-entering-preview', handleEnteringPreview);
     };
   }, []);
 
@@ -145,26 +175,30 @@ export const ModelStatusBox: React.FC = () => {
 
   return (
     <div className={styles.container} data-apex-chrome-panel>
-      <AnimatePresence>
+      <AnimatePresence custom={modelingActive || enteringPreview}>
         {!previewActive && !modelingActive && (
           <motion.div
             ref={toolbarRef}
             className={styles.toolbar}
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
-            // Vers Modélisation : ce panneau doit avoir fini de disparaître AVANT que le morph du
-            // panneau catégories/pilule ne commence à se déformer (cf. ELEMENTS_FADE_MS, le temps
-            // mort au tout début de modelingPathAt) — sa propre durée de sortie doit donc
-            // correspondre exactement à ce délai, plus court que la transition générique (0.9s)
-            // utilisée pour les autres sorties (ex. vers Dev).
-            exit={{
-              opacity: 0,
-              x: -20,
-              transition: {
-                duration: modelingActive ? ELEMENTS_FADE_MS / 1000 : 0.9,
-                ease: modelingActive ? 'easeInOut' : 'linear',
-              },
+            // Vers Modélisation / Prévisualisation : ce panneau doit avoir fini de disparaître AVANT
+            // que le morph ne commence à se déformer (cf. ELEMENTS_FADE_MS) — sa durée de sortie
+            // doit donc correspondre à ce délai, plus court que la transition générique (0.9s)
+            // utilisée pour les autres sorties (ex. vers Dev). `custom` (et non une prop figée au
+            // dernier rendu) pour que la valeur soit celle du moment du démontage.
+            custom={modelingActive || enteringPreview}
+            variants={{
+              exit: (fast: boolean) => ({
+                opacity: 0,
+                x: -20,
+                transition: {
+                  duration: fast ? ELEMENTS_FADE_MS / 1000 : 0.9,
+                  ease: fast ? 'easeInOut' : 'linear',
+                },
+              }),
             }}
+            exit="exit"
             transition={{
               opacity: { duration: 0.9, ease: 'linear' },
               x: { duration: 0.9, ease: 'easeInOut' },

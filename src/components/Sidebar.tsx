@@ -18,8 +18,10 @@ import {
 } from 'lucide-react';
 import styles from './Sidebar.module.scss';
 import { CustomTooltip } from './CustomTooltip';
+import { PREVIEW_TABS, setPreviewTab, usePreviewTab } from './PreviewUpperTabs';
 import { playUiSound, type UiSoundName } from '@/utils/uiSound';
 import { GCODE_FILE_EXT } from '@/hooks/use-gcode-preview';
+import { showSuccess } from '@/utils/toast';
 
 // Doit correspondre à ViewCube.module.scss (`.container`) : la colonne d'outils du mode
 // Prévisualisation vient se coller au même bord droit, juste sous le gizmo.
@@ -59,6 +61,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const [activeTool, setActiveTool] = useState<'select' | 'move' | 'rotate' | 'scale' | 'texture' | 'layers'>('select');
   const [isPreviewActive, setIsPreviewActive] = useState(false);
+  const previewTab = usePreviewTab();
   // Géométrie du conteneur juste avant de lancer la transition en cours : mesurée à la volée
   // (voir `playSpaceTransition`) quel que soit le mode de départ (slicer, prévisualisation
   // ou modélisation), pour que l'animation de conteneur parte toujours de sa forme réelle et
@@ -154,7 +157,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
         borderRadius: computedRadius,
       });
     }
-    window.dispatchEvent(new CustomEvent('apex-space-transition', { detail: { label, onCovered } }));
+    window.dispatchEvent(new CustomEvent('apex-space-transition', {
+      detail: {
+        label,
+        onCovered: () => {
+          onCovered();
+          showSuccess(`Espace ${label} activé.`);
+        },
+      },
+    }));
   };
 
   const handleTopTabClick = (tabName: 'box' | 'settings' | 'developer' | 'params') => {
@@ -181,10 +192,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
     });
   };
 
+  const TOOL_LABELS: Record<'select' | 'move' | 'rotate' | 'scale' | 'texture' | 'layers', string> = {
+    select: 'Sélection',
+    move: 'Déplacement',
+    rotate: 'Rotation',
+    scale: 'Échelle',
+    texture: 'Texture',
+    layers: 'Prévisualisation',
+  };
+  const announceTool = (tool: keyof typeof TOOL_LABELS) => {
+    showSuccess(`Outil ${TOOL_LABELS[tool]} activé.`);
+  };
+
   const handleToolClick = (tool: 'select' | 'move' | 'rotate' | 'scale' | 'texture') => {
     const newTool = activeTool === tool ? 'select' : tool;
     setActiveTool(newTool);
     window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: newTool } }));
+    announceTool(newTool);
   };
 
   /**
@@ -200,6 +224,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const enterPreview = (pendingFile?: File) => {
     // Depuis Modélisation : même signal au clic que handleTopTabClick (cf. apex-leaving-modeling).
     if (isModeling) window.dispatchEvent(new CustomEvent('apex-leaving-modeling'));
+    // Depuis Préparation : la boîte des modèles et les icônes de la pilule disparaissent dès le
+    // clic, avant que la pilule ne commence à se déformer (sous le rideau, à `onCovered`).
+    else window.dispatchEvent(new CustomEvent('apex-entering-preview'));
     // L'ancien fondu séquencé des panneaux (avant le rideau plein écran) n'a plus de raison
     // d'être : le rideau masque déjà tout pendant que ce switch se produit, donc tout bascule
     // d'un coup sous le voile plutôt qu'en deux temps visibles.
@@ -281,19 +308,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
         const newTool = activeTool === 'move' ? 'select' : 'move';
         setActiveTool(newTool);
         window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: newTool } }));
+        announceTool(newTool);
       } else if (key === 'r') {
         const newTool = activeTool === 'rotate' ? 'select' : 'rotate';
         setActiveTool(newTool);
         window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: newTool } }));
+        announceTool(newTool);
       } else if (key === 's') {
         const newTool = activeTool === 'scale' ? 'select' : 'scale';
         setActiveTool(newTool);
         window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: newTool } }));
+        announceTool(newTool);
       } else if (key === 't') {
         const newTool = activeTool === 'texture' ? 'select' : 'texture';
         setActiveTool(newTool);
         window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: newTool } }));
+        announceTool(newTool);
       } else if (key === 'escape') {
+        if (activeTool !== 'select') announceTool('select');
         setActiveTool('select');
         window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'select' } }));
       }
@@ -630,6 +662,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           </CustomTooltip>
         </motion.div>
+
+        {/* Mode Prévisualisation : icônes qui basculent le contenu du panneau du haut
+            (cf. PreviewUpperTabs). */}
+        <div
+          className={styles.previewSlot}
+          style={{ pointerEvents: isPreviewActive && !isModeling ? 'auto' : 'none' }}
+        >
+          {PREVIEW_TABS.map((t, i) => (
+            <motion.div
+              key={t.id}
+              custom={i}
+              variants={iconVariants}
+              animate={isPreviewActive && !isModeling ? "visible" : "hidden"}
+              initial="hidden"
+              className="flex items-center"
+            >
+              <CustomTooltip content={t.label} description={t.description}>
+                <button
+                  className={clsx(styles.button, styles.bottomButton, { [styles.active]: previewTab === t.id })}
+                  aria-label={t.label}
+                  aria-pressed={previewTab === t.id}
+                  onClick={() => setPreviewTab(t.id)}
+                >
+                  {t.icon}
+                </button>
+              </CustomTooltip>
+            </motion.div>
+          ))}
+        </div>
 
         {/* Mode modélisation : mêmes noeud et animation de conteneur que le mode slicer —
             seul le contenu diffère. Les boutons CAD eux-mêmes (logique de features) sont

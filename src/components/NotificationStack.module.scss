@@ -1,0 +1,172 @@
+// Pile de notifications permanentes (fermeture par croix uniquement) : même verre dépoli que les
+// autres panneaux flottants (GCodePreviewBar/.bar, SliceSidebar/.toolbar), ancrée au même point
+// que l'ancien Toaster sonner (right: 24px, au-dessus du bouton Export / bottom: 104px).
+.stack {
+  position: fixed;
+  right: 24px;
+  bottom: 104px;
+  width: 0;
+  height: 0;
+  z-index: 1000;
+  isolation: isolate;
+  pointer-events: none;
+}
+
+.card {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  // Largeur FIXE, identique pour toutes les notifications (et les cartes du fond) : uniformité,
+  // quel que soit le message. Plafonnée à l'écran pour les très petites fenêtres.
+  width: 340px;
+  max-width: calc(100vw - 48px);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: none;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
+  background: rgba(10, 15, 26, 0.25);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  color: rgb(212, 212, 216);
+  box-sizing: border-box;
+  // Toutes les cartes captent la souris (face ET cartes en retrait) : sinon la molette au-dessus
+  // d'une carte du fond traversait jusqu'au canvas Babylon et zoomait la scène 3D au lieu de faire
+  // défiler la pile. Seule la carte de face affiche contenu et bouton de fermeture (cf. .tsx).
+  pointer-events: auto;
+}
+
+// Cartes de pile (derrière la carte de face) : contenu réduit à .peekFill, un simple rectangle
+// vide sans texte/icône (cf. NotificationStack.tsx) — sans hauteur explicite, .card s'effondre à
+// 0px faute de contenu intrinsèque, et le peek resterait invisible malgré le décalage/l'opacité.
+// La carte de face, elle, garde sa hauteur naturelle (contenu variable selon la longueur du
+// message, jusqu'à plusieurs lignes).
+.peek {
+  height: 52px;
+}
+
+.peekFill {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.icon {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.message {
+  flex: 1;
+  min-width: 0; // sans ça, un flex item ne rétrécit pas sous la largeur de son texte : pas d'ellipse
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+// Une ligne + points de suspension quand le message ne tient pas.
+.messageClamped {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// Déplié (clic) : toutes les lignes, coupées aux mots (et aux mots trop longs).
+.messageExpanded {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.messageClickable {
+  cursor: pointer;
+
+  &:hover {
+    color: #fff;
+  }
+
+  &:focus-visible {
+    outline: 1px solid rgba(0, 240, 255, 0.6);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+.close {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: rgba(212, 212, 216, 0.7);
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #f87171;
+  }
+}
+
+// Boutons d'en-tête affichés au survol de la pile : colonne verticale à gauche de la carte de face,
+// alignée sur son bord bas (même largeur que .card). Le padding droit sert de pont, pour que le
+// pointeur ne quitte pas la pile en allant vers les boutons.
+.toolbar {
+  position: absolute;
+  bottom: 0;
+  right: min(340px, calc(100vw - 48px));
+  padding-right: 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center; // centrée sur la carte de face (hauteur posée par le .tsx)
+  gap: 6px;
+  pointer-events: auto;
+}
+
+.toolbarButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: none;
+  // Fond (verre + ombre) uniquement au survol.
+  background: transparent;
+  box-shadow: none;
+  color: rgba(212, 212, 216, 0.8);
+  cursor: pointer;
+  transition: background 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    background: rgba(10, 15, 26, 0.25);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.35);
+    color: #f87171;
+  }
+}
+
+// « Arrive bientôt » : le bouton ne fait rien, il reste estompé.
+.toolbarButtonSoon {
+  opacity: 0.5;
+  cursor: default;
+
+  &:hover {
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
+    color: rgba(212, 212, 216, 0.8);
+  }
+}
+
+.card[data-variant='success'] .icon { color: #4ade80; }
+.card[data-variant='error'] .icon { color: #f87171; }
+.card[data-variant='warning'] .icon { color: #fbbf24; }
+.card[data-variant='loading'] .icon { color: #a1a1aa; }

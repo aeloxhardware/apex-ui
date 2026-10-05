@@ -11,10 +11,10 @@
 }
 
 // Espace Prévisualisation : coin bas gauche, juste au-dessus de la barre de statut d'Index.tsx
-// (bottom 16px, ~32px de haut), alignée sur son bord gauche.
+// (bottom 12px, ~32px de haut), alignée sur son bord gauche.
 .containerPreview {
   left: 16px;
-  bottom: 72px;
+  bottom: 64px;
   transform: none;
   align-items: flex-start;
 }

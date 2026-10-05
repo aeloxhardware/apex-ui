@@ -1,0 +1,252 @@
+src\components\CustomTooltip.tsx:32:      new CustomEvent('apex-set-tooltip', {
+src\components\CustomTooltip.tsx:44:    window.dispatchEvent(new CustomEvent('apex-reset-tooltip'));
+src\components\CustomTooltip.tsx:56:    window.dispatchEvent(new CustomEvent('apex-reset-tooltip'));
+src\components\FileSidebar.tsx:28:    <div className={styles.container} data-apex-chrome-panel>
+src\components\GCodeConversionCard.tsx:49:  window.dispatchEvent(new CustomEvent('apex-set-tooltip', { detail: { title, desc } }));
+src\components\GCodeConversionCard.tsx:50:const resetTooltip = () => window.dispatchEvent(new CustomEvent('apex-reset-tooltip'));
+src\components\GCodeConversionCard.tsx:142:      data-apex-chrome-panel
+src\components\CategoriesSidebar.tsx:271:   * Vrai dès le CLIC vers Modélisation (cf. apex-entering-modeling dans Index.tsx), ~900ms avant
+src\components\CategoriesSidebar.tsx:354:  // de sa hauteur de base, plutôt que de la laisser recouverte (cf. apex-model-tree-resized).
+src\components\CategoriesSidebar.tsx:362:  // Vrai dès le CLIC vers Prévisualisation (apex-entering-preview, cf. Sidebar.tsx), ~900ms avant
+src\components\CategoriesSidebar.tsx:370:    window.addEventListener('apex-entering-preview', handleEnteringPreview);
+src\components\CategoriesSidebar.tsx:371:    return () => window.removeEventListener('apex-entering-preview', handleEnteringPreview);
+src\components\CategoriesSidebar.tsx:396:    window.addEventListener('apex-preview-toggled', handlePreviewToggled as EventListener);
+src\components\CategoriesSidebar.tsx:398:      window.removeEventListener('apex-preview-toggled', handlePreviewToggled as EventListener);
+src\components\CategoriesSidebar.tsx:406:    window.addEventListener('apex-model-tree-resized', handleModelTreeResized as EventListener);
+src\components\CategoriesSidebar.tsx:408:      window.removeEventListener('apex-model-tree-resized', handleModelTreeResized as EventListener);
+src\components\CategoriesSidebar.tsx:596:        data-apex-chrome-panel
+src\components\AxisSidebar.tsx:21:    window.dispatchEvent(new CustomEvent('apex-axis-changed', { detail: { mode } }));
+src\components\AxisSidebar.tsx:26:    window.dispatchEvent(new CustomEvent('apex-axis-changed', { detail: { mode: '5-axes' } }));
+src\components\AxisSidebar.tsx:39:      window.dispatchEvent(new CustomEvent('apex-axis-changed', { detail: { mode } }));
+src\components\AxisSidebar.tsx:41:    window.addEventListener('apex-gcode-loaded', onGCodeLoaded);
+src\components\AxisSidebar.tsx:42:    return () => window.removeEventListener('apex-gcode-loaded', onGCodeLoaded);
+src\components\AxisSidebar.tsx:64:    <div className={styles.container} data-apex-chrome-panel>
+src\components\gcodeLayer.ts:1322:  /** Types de ligne affichés (cf. `apex-gcode-line-visibility`). */
+src\components\gcodeLayer.ts:1324:  /** Surligne en rouge les traits hors plateau (cf. `apex-gcode-highlight-offplate`). */
+src\components\gcodeLayer.ts:1327:   * cours, cf. `apex-gcode-highlight-offplate` { blinking }) — sans effet si le surlignage est
+src\components\gcodeLayer.ts:1331:   * « NOZZLE » (cf. `apex-gcode-show-full-head`). */
+src\components\gcodeLayer.ts:1334:   * `apex-gcode-color-by`) : `lineType` (défaut) ou un mode continu recadré sur `scope` — les
+src\components\GCodeLineTypeLegend.tsx:109:        onMouseEnter={() => window.dispatchEvent(new CustomEvent('apex-reset-tooltip'))}
+src\components\GCodeLineTypeLegend.tsx:305:        onMouseEnter={() => window.dispatchEvent(new CustomEvent('apex-set-tooltip', {
+src\components\GCodeLineTypeLegend.tsx:311:        onMouseLeave={() => window.dispatchEvent(new CustomEvent('apex-reset-tooltip'))}
+src\components\GCodeLineTypeLegend.tsx:369:      onMouseEnter={() => window.dispatchEvent(new CustomEvent('apex-set-tooltip', {
+src\components\GCodeLineTypeLegend.tsx:375:      onMouseLeave={() => window.dispatchEvent(new CustomEvent('apex-reset-tooltip'))}
+src\components\GCodeLineTypeLegend.tsx:442:                    onMouseEnter={() => window.dispatchEvent(new CustomEvent('apex-set-tooltip', {
+src\components\GCodeLineTypeLegend.tsx:445:                    onMouseLeave={() => window.dispatchEvent(new CustomEvent('apex-reset-tooltip'))}
+src\components\GCodePreviewBar.tsx:127:          data-apex-chrome-panel
+src\components\GCodeSpeedSelector.tsx:11:  /** Tête d'outil complète (glTF entier) ou tronquée à la buse (cf. apex-gcode-show-full-head). */
+src\components\GCodeSpeedSelector.tsx:131:        onMouseEnter={() => window.dispatchEvent(new CustomEvent('apex-set-tooltip', { detail: HEAD_TOOLTIP }))}
+src\components\GCodeSpeedSelector.tsx:132:        onMouseLeave={() => window.dispatchEvent(new CustomEvent('apex-reset-tooltip'))}
+src\components\GCodeSpeedSelector.tsx:146:          onMouseEnter={() => window.dispatchEvent(new CustomEvent('apex-set-tooltip', { detail: TOOLTIP }))}
+src\components\GCodeSpeedSelector.tsx:147:          onMouseLeave={() => window.dispatchEvent(new CustomEvent('apex-reset-tooltip'))}
+src\components\ModelHoverTooltip.tsx:41:    window.addEventListener('apex-model-hover', handlePointerMove as EventListener);
+src\components\ModelHoverTooltip.tsx:43:      window.removeEventListener('apex-model-hover', handlePointerMove as EventListener);
+src\components\ModelingSidebar.tsx:46:/** Sous-maillage d'un modèle importé, tel que le diffuse `apex-mesh-selected`. */
+src\components\ModelingSidebar.tsx:177:  // Vrai dès le CLIC qui quitte Modélisation (cf. apex-leaving-modeling, dispatché par Sidebar.tsx
+src\components\ModelingSidebar.tsx:185:    window.addEventListener('apex-leaving-modeling', handleLeaving);
+src\components\ModelingSidebar.tsx:186:    return () => window.removeEventListener('apex-leaving-modeling', handleLeaving);
+src\components\ModelingSidebar.tsx:251:    window.dispatchEvent(new CustomEvent('apex-mode-changed', { detail: { mode: 'modeling' } }));
+src\components\ModelingSidebar.tsx:252:    window.dispatchEvent(new CustomEvent('apex-selection-mode-changed', { detail: { mode: 'body' } }));
+src\components\ModelingSidebar.tsx:256:      window.dispatchEvent(new CustomEvent('apex-mode-changed', { detail: { mode: 'slicer' } }));
+src\components\ModelingSidebar.tsx:257:      window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'select' } }));
+src\components\ModelingSidebar.tsx:293:    window.addEventListener('apex-mesh-selected', handleMeshSelected as EventListener);
+src\components\ModelingSidebar.tsx:294:    window.addEventListener('apex-mesh-deleted', handleMeshDeleted as EventListener);
+src\components\ModelingSidebar.tsx:295:    window.addEventListener('apex-delete-all-models', handleMeshDeleted as EventListener);
+src\components\ModelingSidebar.tsx:298:      window.removeEventListener('apex-mesh-selected', handleMeshSelected as EventListener);
+src\components\ModelingSidebar.tsx:299:      window.removeEventListener('apex-mesh-deleted', handleMeshDeleted as EventListener);
+src\components\ModelingSidebar.tsx:300:      window.removeEventListener('apex-delete-all-models', handleMeshDeleted as EventListener);
+src\components\ModelingSidebar.tsx:323:    window.dispatchEvent(new CustomEvent('apex-feature-tree-updated', { detail: { models } }));
+src\components\ModelingSidebar.tsx:328:    window.dispatchEvent(new CustomEvent('apex-selection-mode-changed', { detail: { mode } }));
+src\components\ModelingSidebar.tsx:334:  // clique une plaque de plan ou une face) : au moment où `apex-sketch-plane-selected`
+src\components\ModelingSidebar.tsx:352:          new CustomEvent('apex-sketch-tool', { detail: { entity: sketchEntityRef.current, sketchId: null, planeRef } }),
+src\components\ModelingSidebar.tsx:367:        new CustomEvent('apex-sketch-tool', { detail: { entity: sketchEntityRef.current, sketchId: id, planeRef } }),
+src\components\ModelingSidebar.tsx:371:    window.addEventListener('apex-sketch-plane-selected', handlePlaneSelected as EventListener);
+src\components\ModelingSidebar.tsx:372:    return () => window.removeEventListener('apex-sketch-plane-selected', handlePlaneSelected as EventListener);
+src\components\ModelingSidebar.tsx:379:      window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'select' } }));
+src\components\ModelingSidebar.tsx:380:      if (kind === 'sketch') window.dispatchEvent(new CustomEvent('apex-sketch-plane-pick-cancel'));
+src\components\ModelingSidebar.tsx:396:    window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: kind } }));
+src\components\ModelingSidebar.tsx:400:      // n'est créée qu'à la réception de `apex-sketch-plane-selected` (effet dédié plus haut).
+src\components\ModelingSidebar.tsx:401:      window.dispatchEvent(new CustomEvent('apex-sketch-plane-pick-start'));
+src\components\ModelingSidebar.tsx:442:    window.dispatchEvent(new CustomEvent('apex-sketch-tool', { detail: { entity: kind, sketchId } }));
+src\components\ModelingSidebar.tsx:474:    window.dispatchEvent(new CustomEvent('apex-select-model', { detail: { name } }));
+src\components\ModelingSidebar.tsx:490:    setToolbarSlot(document.getElementById('apex-modeling-toolbar-slot'));
+src\components\ModelingSidebar.tsx:516:        data-apex-chrome-panel
+src\components\ModelingSidebar.tsx:847:            data-apex-chrome-panel
+src\components\ModelStatusBox.tsx:39:    // monte (cf. ELEMENTS_FADE_MS), pas seulement une fois `apex-mode-changed` reçu (dispatché par
+src\components\ModelStatusBox.tsx:43:    window.addEventListener('apex-preview-toggled', handlePreviewToggled as EventListener);
+src\components\ModelStatusBox.tsx:44:    window.addEventListener('apex-mode-changed', handleModeChanged as EventListener);
+src\components\ModelStatusBox.tsx:45:    window.addEventListener('apex-entering-modeling', handleEnteringModeling);
+src\components\ModelStatusBox.tsx:47:      window.removeEventListener('apex-preview-toggled', handlePreviewToggled as EventListener);
+src\components\ModelStatusBox.tsx:48:      window.removeEventListener('apex-mode-changed', handleModeChanged as EventListener);
+src\components\ModelStatusBox.tsx:49:      window.removeEventListener('apex-entering-modeling', handleEnteringModeling);
+src\components\ModelStatusBox.tsx:102:    window.addEventListener('apex-mesh-selected', handleMeshSelected as EventListener);
+src\components\ModelStatusBox.tsx:103:    window.addEventListener('apex-import-model', handleImportModel as EventListener);
+src\components\ModelStatusBox.tsx:104:    window.addEventListener('apex-mesh-deleted', handleMeshDeleted as EventListener);
+src\components\ModelStatusBox.tsx:107:      window.removeEventListener('apex-mesh-selected', handleMeshSelected as EventListener);
+src\components\ModelStatusBox.tsx:108:      window.removeEventListener('apex-import-model', handleImportModel as EventListener);
+src\components\ModelStatusBox.tsx:109:      window.removeEventListener('apex-mesh-deleted', handleMeshDeleted as EventListener);
+src\components\ModelStatusBox.tsx:129:      window.dispatchEvent(new CustomEvent('apex-model-tree-resized', { detail: { overflow: 0 } }));
+src\components\ModelStatusBox.tsx:135:      window.dispatchEvent(new CustomEvent('apex-model-tree-resized', { detail: { overflow } }));
+src\components\ModelStatusBox.tsx:142:      window.dispatchEvent(new CustomEvent('apex-model-tree-resized', { detail: { overflow: 0 } }));
+src\components\ModelStatusBox.tsx:147:    <div className={styles.container} data-apex-chrome-panel>
+src\components\ModelStatusBox.tsx:202:                          window.dispatchEvent(new CustomEvent('apex-select-model', {
+src\components\PrinterConfigSidebar.tsx:780:            data-apex-chrome-panel
+src\components\ParamsPanel.tsx:42:            onMouseEnter={() => window.dispatchEvent(new CustomEvent('apex-set-tooltip', { detail: COLOR_BY_DEFER_TOOLTIP }))}
+src\components\ParamsPanel.tsx:43:            onMouseLeave={() => window.dispatchEvent(new CustomEvent('apex-reset-tooltip'))}
+src\components\SliceModal.tsx:37:    window.addEventListener('apex-slice-models', handleSliceModels as EventListener);
+src\components\SliceModal.tsx:38:    window.addEventListener('apex-axis-changed', handleAxisChanged as EventListener);
+src\components\SliceModal.tsx:39:    window.addEventListener('apex-mesh-selected', handleMeshSelected as EventListener);
+src\components\SliceModal.tsx:42:      window.removeEventListener('apex-slice-models', handleSliceModels as EventListener);
+src\components\SliceModal.tsx:43:      window.removeEventListener('apex-axis-changed', handleAxisChanged as EventListener);
+src\components\SliceModal.tsx:44:      window.removeEventListener('apex-mesh-selected', handleMeshSelected as EventListener);
+src\components\Sidebar.tsx:157:    window.dispatchEvent(new CustomEvent('apex-space-transition', { detail: { label, onCovered } }));
+src\components\Sidebar.tsx:170:      window.dispatchEvent(new CustomEvent('apex-entering-modeling'));
+src\components\Sidebar.tsx:174:      window.dispatchEvent(new CustomEvent('apex-leaving-modeling'));
+src\components\Sidebar.tsx:180:      window.dispatchEvent(new CustomEvent('apex-preview-toggled', { detail: { active: false } }));
+src\components\Sidebar.tsx:187:    window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: newTool } }));
+src\components\Sidebar.tsx:194:   * simplement déclenché autrement. `pendingFile`, s'il est fourni, est réémis (`apex-gcode-loaded`
+src\components\Sidebar.tsx:195:   * en pointillé via `apex-entering-preview-with-file`) une fois l'écran couvert, PAS avant : au
+src\components\Sidebar.tsx:201:    // Depuis Modélisation : même signal au clic que handleTopTabClick (cf. apex-leaving-modeling).
+src\components\Sidebar.tsx:202:    if (isModeling) window.dispatchEvent(new CustomEvent('apex-leaving-modeling'));
+src\components\Sidebar.tsx:216:      window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'layers' } }));
+src\components\Sidebar.tsx:217:      window.dispatchEvent(new CustomEvent('apex-preview-toggled', { detail: { active: true } }));
+src\components\Sidebar.tsx:218:      // Dispatché en DERNIER, une fois `apex-preview-toggled` déjà parti : useGCodePreview
+src\components\Sidebar.tsx:223:        window.dispatchEvent(new CustomEvent('apex-entering-preview-with-file', { detail: { file: pendingFile } }));
+src\components\Sidebar.tsx:237:        window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'select' } }));
+src\components\Sidebar.tsx:238:        window.dispatchEvent(new CustomEvent('apex-preview-toggled', { detail: { active: false } }));
+src\components\Sidebar.tsx:283:        window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: newTool } }));
+src\components\Sidebar.tsx:287:        window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: newTool } }));
+src\components\Sidebar.tsx:291:        window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: newTool } }));
+src\components\Sidebar.tsx:295:        window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: newTool } }));
+src\components\Sidebar.tsx:298:        window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'select' } }));
+src\components\Sidebar.tsx:393:    <div className={styles.container} data-apex-chrome-panel>
+src\components\Sidebar.tsx:601:              onClick={() => window.dispatchEvent(new CustomEvent('apex-reset-camera'))}
+src\components\Sidebar.tsx:612:              onClick={() => window.dispatchEvent(new CustomEvent('apex-fit-screen'))}
+src\components\Sidebar.tsx:644:          id="apex-modeling-toolbar-slot"
+src\components\Sidebar.tsx:656:                new CustomEvent('apex-import-model', {
+src\components\SliceSidebar.tsx:41:    window.addEventListener('apex-mesh-selected', handleMeshSelected as EventListener);
+src\components\SliceSidebar.tsx:42:    window.addEventListener('apex-mesh-deleted', handleMeshDeleted as EventListener);
+src\components\SliceSidebar.tsx:43:    window.addEventListener('apex-import-model', handleImportModel as EventListener);
+src\components\SliceSidebar.tsx:46:      window.removeEventListener('apex-mesh-selected', handleMeshSelected as EventListener);
+src\components\SliceSidebar.tsx:47:      window.removeEventListener('apex-mesh-deleted', handleMeshDeleted as EventListener);
+src\components\SliceSidebar.tsx:48:      window.removeEventListener('apex-import-model', handleImportModel as EventListener);
+src\components\SliceSidebar.tsx:55:      <div className={styles.container} data-apex-chrome-panel>
+src\components\SliceSidebar.tsx:76:    <div className={styles.container} data-apex-chrome-panel>
+src\components\SpaceTransitionOverlay.tsx:20: * Piloté par l'événement `apex-space-transition` (voir Sidebar.tsx, seul émetteur) plutôt qu'un
+src\components\SpaceTransitionOverlay.tsx:134:    window.addEventListener('apex-space-transition', handleTransition);
+src\components\SpaceTransitionOverlay.tsx:136:      window.removeEventListener('apex-space-transition', handleTransition);
+src\components\TextureEditorModal.tsx:120:        window.dispatchEvent(new CustomEvent('apex-request-textures'));
+src\components\TextureEditorModal.tsx:138:        window.dispatchEvent(new CustomEvent('apex-request-textures'));
+src\components\TextureEditorModal.tsx:145:    window.addEventListener('apex-tool-changed', handleToolChanged as EventListener);
+src\components\TextureEditorModal.tsx:146:    window.addEventListener('apex-textures-loaded', handleTexturesLoaded as EventListener);
+src\components\TextureEditorModal.tsx:147:    window.addEventListener('apex-mesh-selected', handleMeshSelected as EventListener);
+src\components\TextureEditorModal.tsx:150:      window.removeEventListener('apex-tool-changed', handleToolChanged as EventListener);
+src\components\TextureEditorModal.tsx:151:      window.removeEventListener('apex-textures-loaded', handleTexturesLoaded as EventListener);
+src\components\TextureEditorModal.tsx:152:      window.removeEventListener('apex-mesh-selected', handleMeshSelected as EventListener);
+src\components\TextureEditorModal.tsx:187:                  window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'select' } }));
+src\components\TopRightMenu.tsx:59:    window.addEventListener('apex-set-tooltip', handleGlobalTooltip as EventListener);
+src\components\TopRightMenu.tsx:60:    window.addEventListener('apex-reset-tooltip', handleResetTooltip);
+src\components\TopRightMenu.tsx:61:    window.addEventListener('apex-preview-toggled', handlePreviewToggled as EventListener);
+src\components\TopRightMenu.tsx:64:      window.removeEventListener('apex-set-tooltip', handleGlobalTooltip as EventListener);
+src\components\TopRightMenu.tsx:65:      window.removeEventListener('apex-reset-tooltip', handleResetTooltip);
+src\components\TopRightMenu.tsx:66:      window.removeEventListener('apex-preview-toggled', handlePreviewToggled as EventListener);
+src\components\TopRightMenu.tsx:127:      data-apex-chrome-panel
+src\components\Viewport3D.tsx:304:          new CustomEvent('apex-camera-updated', {
+src\components\Viewport3D.tsx:372:    window.addEventListener('apex-set-camera-view', handleSetView);
+src\components\Viewport3D.tsx:373:    window.addEventListener('apex-set-camera-custom', handleCustomView);
+src\components\Viewport3D.tsx:460:            new CustomEvent('apex-model-positioned', {
+src\components\Viewport3D.tsx:488:            new CustomEvent('apex-model-rotated', {
+src\components\Viewport3D.tsx:599:    window.addEventListener('apex-tool-changed', onToolChanged);
+src\components\Viewport3D.tsx:650:        new CustomEvent('apex-textures-loaded', { detail: { textures } })
+src\components\Viewport3D.tsx:654:    window.addEventListener('apex-request-textures', onRequestTextures);
+src\components\Viewport3D.tsx:709:    window.addEventListener('apex-set-blur-level', onSetBlurLevel);
+src\components\Viewport3D.tsx:1389:    window.addEventListener('apex-mode-changed', onModeChanged);
+src\components\Viewport3D.tsx:1568:    window.addEventListener('apex-mode-changed', onPlateActionModeChanged);
+src\components\Viewport3D.tsx:1569:    window.addEventListener('apex-preview-toggled', onPlateActionPreviewToggled);
+src\components\Viewport3D.tsx:1617:    window.addEventListener('apex-preview-toggled', onGCodePreviewToggled);
+src\components\Viewport3D.tsx:1618:    window.addEventListener('apex-gcode-loaded', onGCodeLoaded);
+src\components\Viewport3D.tsx:1619:    window.addEventListener('apex-gcode-time', onGCodeTime);
+src\components\Viewport3D.tsx:1620:    window.addEventListener('apex-gcode-line-visibility', onGCodeLineVisibility);
+src\components\Viewport3D.tsx:1621:    window.addEventListener('apex-gcode-highlight-offplate', onGCodeHighlightOffPlate);
+src\components\Viewport3D.tsx:1622:    window.addEventListener('apex-gcode-show-full-head', onGCodeShowFullHead);
+src\components\Viewport3D.tsx:1623:    window.addEventListener('apex-gcode-color-by', onGCodeColorBy);
+src\components\Viewport3D.tsx:1624:    window.addEventListener('apex-gcode-render-precision', onGCodeRenderPrecision);
+src\components\Viewport3D.tsx:1642:          window.dispatchEvent(new CustomEvent('apex-set-tooltip', { detail: { title: action.title, desc: action.description } }));
+src\components\Viewport3D.tsx:1644:          window.dispatchEvent(new CustomEvent('apex-reset-tooltip'));
+src\components\Viewport3D.tsx:1665:        case 1: window.dispatchEvent(new CustomEvent('apex-select-all-models')); break;
+src\components\Viewport3D.tsx:1666:        case 2: window.dispatchEvent(new CustomEvent('apex-arrange-models')); break;
+src\components\Viewport3D.tsx:1667:        case 3: window.dispatchEvent(new CustomEvent('apex-delete-all-models')); break;
+src\components\Viewport3D.tsx:1688:      window.removeEventListener('apex-mode-changed', onPlateActionModeChanged);
+src\components\Viewport3D.tsx:1689:      window.removeEventListener('apex-preview-toggled', onPlateActionPreviewToggled);
+src\components\Viewport3D.tsx:1691:      window.removeEventListener('apex-preview-toggled', onGCodePreviewToggled);
+src\components\Viewport3D.tsx:1692:      window.removeEventListener('apex-gcode-loaded', onGCodeLoaded);
+src\components\Viewport3D.tsx:1693:      window.removeEventListener('apex-gcode-time', onGCodeTime);
+src\components\Viewport3D.tsx:1694:      window.removeEventListener('apex-gcode-line-visibility', onGCodeLineVisibility);
+src\components\Viewport3D.tsx:1695:      window.removeEventListener('apex-gcode-highlight-offplate', onGCodeHighlightOffPlate);
+src\components\Viewport3D.tsx:1696:      window.removeEventListener('apex-gcode-show-full-head', onGCodeShowFullHead);
+src\components\Viewport3D.tsx:1697:      window.removeEventListener('apex-gcode-color-by', onGCodeColorBy);
+src\components\Viewport3D.tsx:1698:      window.removeEventListener('apex-gcode-render-precision', onGCodeRenderPrecision);
+src\components\Viewport3D.tsx:1936:          window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'select' } }));
+src\components\Viewport3D.tsx:1949:    window.addEventListener('apex-primitive-box-start', onBoxDrawStart);
+src\components\Viewport3D.tsx:2238:          window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'select' } }));
+src\components\Viewport3D.tsx:2251:    window.addEventListener('apex-primitive-pyramid-start', onPyramidDrawStart);
+src\components\Viewport3D.tsx:2373:        new CustomEvent('apex-mesh-selected', {
+src\components\Viewport3D.tsx:2421:          window.dispatchEvent(new CustomEvent('apex-mesh-deleted', { detail: { name: meshName } }));
+src\components\Viewport3D.tsx:2431:      window.dispatchEvent(new CustomEvent('apex-mesh-selected', { detail: { name: null, names: [], subMeshes: [] } }));
+src\components\Viewport3D.tsx:2473:        window.dispatchEvent(new CustomEvent('apex-select-all-models'));
+src\components\Viewport3D.tsx:2501:        window.dispatchEvent(new CustomEvent('apex-mesh-selected', { detail: { name: null, names: [], subMeshes: [] } }));
+src\components\Viewport3D.tsx:2538:        new CustomEvent('apex-mesh-selected', {
+src\components\Viewport3D.tsx:2781:    window.addEventListener('apex-sketch-plane-pick-start', onSketchPlanePickStart);
+src\components\Viewport3D.tsx:2784:    window.addEventListener('apex-sketch-plane-pick-cancel', onSketchPlanePickCancel);
+src\components\Viewport3D.tsx:2839:        window.dispatchEvent(new CustomEvent('apex-sketch-plane-selected', { detail: { kind: 'axis', plane: axis } }));
+src\components\Viewport3D.tsx:2860:      window.dispatchEvent(new CustomEvent('apex-sketch-plane-selected', {
+src\components\Viewport3D.tsx:2897:        window.dispatchEvent(new CustomEvent('apex-reset-tooltip'));
+src\components\Viewport3D.tsx:2961:                new CustomEvent('apex-set-tooltip', { detail: SELECTION_BOX_TOOLTIPS[dragMode] }),
+src\components\Viewport3D.tsx:2979:            new CustomEvent('apex-model-hover', {
+src\components\Viewport3D.tsx:2991:            new CustomEvent('apex-model-hover', {
+src\components\Viewport3D.tsx:3075:              window.dispatchEvent(new CustomEvent('apex-mesh-selected', {
+src\components\Viewport3D.tsx:3110:              window.dispatchEvent(new CustomEvent('apex-mesh-selected', { detail: { name: null, names: [], subMeshes: [] } }));
+src\components\Viewport3D.tsx:3163:    window.addEventListener('apex-select-model', onSelectModel);
+src\components\Viewport3D.tsx:3335:            new CustomEvent('apex-mesh-selected', { 
+src\components\Viewport3D.tsx:3368:    window.addEventListener('apex-import-model', onImportModel);
+src\components\Viewport3D.tsx:3377:      window.dispatchEvent(new CustomEvent('apex-mesh-selected', {
+src\components\Viewport3D.tsx:3381:    window.addEventListener('apex-select-all-models', onSelectAll);
+src\components\Viewport3D.tsx:3385:      window.dispatchEvent(new CustomEvent('apex-slice-models', { detail: { names } }));
+src\components\Viewport3D.tsx:3394:      window.dispatchEvent(new CustomEvent('apex-slicing-started', {
+src\components\Viewport3D.tsx:3399:    window.addEventListener('apex-request-slice-models', onRequestSliceModels);
+src\components\Viewport3D.tsx:3400:    window.addEventListener('apex-slice-all-models', onSliceAllModels);
+src\components\Viewport3D.tsx:3411:          window.dispatchEvent(new CustomEvent('apex-mesh-deleted', { detail: { name: meshName } }));
+src\components\Viewport3D.tsx:3421:      window.dispatchEvent(new CustomEvent('apex-mesh-selected', { detail: { name: null, names: [], subMeshes: [] } }));
+src\components\Viewport3D.tsx:3423:    window.addEventListener('apex-delete-all-models', onDeleteAll);
+src\components\Viewport3D.tsx:3447:    window.addEventListener('apex-arrange-models', onArrangeModels);
+src\components\Viewport3D.tsx:3462:      window.removeEventListener('apex-import-model', onImportModel);
+src\components\Viewport3D.tsx:3463:      window.removeEventListener('apex-select-all-models', onSelectAll);
+src\components\Viewport3D.tsx:3464:      window.removeEventListener('apex-request-slice-models', onRequestSliceModels);
+src\components\Viewport3D.tsx:3465:      window.removeEventListener('apex-slice-all-models', onSliceAllModels);
+src\components\Viewport3D.tsx:3466:      window.removeEventListener('apex-delete-all-models', onDeleteAll);
+src\components\Viewport3D.tsx:3467:      window.removeEventListener('apex-set-blur-level', onSetBlurLevel);
+src\components\Viewport3D.tsx:3468:      window.removeEventListener('apex-select-model', onSelectModel);
+src\components\Viewport3D.tsx:3469:      window.removeEventListener('apex-tool-changed', onToolChanged);
+src\components\Viewport3D.tsx:3470:      window.removeEventListener('apex-mode-changed', onModeChanged);
+src\components\Viewport3D.tsx:3471:      window.removeEventListener('apex-primitive-box-start', onBoxDrawStart);
+src\components\Viewport3D.tsx:3473:      window.removeEventListener('apex-primitive-pyramid-start', onPyramidDrawStart);
+src\components\Viewport3D.tsx:3475:      window.removeEventListener('apex-sketch-plane-pick-start', onSketchPlanePickStart);
+src\components\Viewport3D.tsx:3476:      window.removeEventListener('apex-sketch-plane-pick-cancel', onSketchPlanePickCancel);
+src\components\Viewport3D.tsx:3481:      window.removeEventListener('apex-request-textures', onRequestTextures);
+src\components\Viewport3D.tsx:3482:      window.removeEventListener('apex-set-camera-view', handleSetView);
+src\components\Viewport3D.tsx:3483:      window.removeEventListener('apex-set-camera-custom', handleCustomView);
+src\components\Viewport3D.tsx:3491:      window.removeEventListener('apex-arrange-models', onArrangeModels);
+src\components\Viewport3D.tsx:3560:    const chromeRects = Array.from(document.querySelectorAll('[data-apex-chrome-panel]')).map((el) =>
+src\components\Viewport3D.tsx:3659:            window.dispatchEvent(new CustomEvent('apex-import-model', { detail: e.target.files[0] }));
+src\components\Viewport3D.tsx:3732:            <div style={menuItemStyle} onClick={() => runAction(() => window.dispatchEvent(new CustomEvent('apex-select-all-models')))}>Tout sélectionner</div>
+src\components\Viewport3D.tsx:3733:            <div style={menuItemStyle} onClick={() => runAction(() => window.dispatchEvent(new CustomEvent('apex-delete-all-models')))}>Tout Supprimer</div>
+src\components\Viewport3D.tsx:3766:                      onClick={() => runAction(() => window.dispatchEvent(new CustomEvent('apex-primitive-box-start')))}
+src\components\Viewport3D.tsx:3772:                      onClick={() => runAction(() => window.dispatchEvent(new CustomEvent('apex-primitive-pyramid-start')))}
+src\components\Viewport3D.tsx:3790:                    window.dispatchEvent(new CustomEvent('apex-set-blur-level', { detail: { level: DEFAULT_BLUR_LEVEL } }));
+src\components\Viewport3D.tsx:3805:                  window.dispatchEvent(new CustomEvent('apex-set-blur-level', { detail: { level } }));
+src\components\ViewCube.tsx:50:      // `apex-camera-updated` ne dit pas d'où vient le mouvement. Un clic sur le gizmo lance une
+src\components\ViewCube.tsx:63:    window.addEventListener('apex-camera-updated', handleCameraUpdated as EventListener);
+src\components\ViewCube.tsx:65:      window.removeEventListener('apex-camera-updated', handleCameraUpdated as EventListener);
+src\components\ViewCube.tsx:72:    window.dispatchEvent(new CustomEvent('apex-set-camera-custom', { detail: { alpha, beta } }));
+
+[Showing results with pagination = limit: 250]

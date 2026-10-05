@@ -1,0 +1,130 @@
+// Ancre de taille nulle, placée sur la projection écran du point de trajectoire : le corps du
+// nœud y est centré quelle que soit sa taille (centrage flex d'un enfant qui déborde).
+.anchor {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+// Corps du nœud : taille et couleur animées par EditNode.tsx (point -> lentille de verre ; le
+// verre lui-même est dessiné en WebGL derrière, cf. liquidGlass.ts).
+.body {
+  position: relative;
+  flex: none;
+  border-radius: 50%;
+  cursor: pointer;
+  user-select: none;
+  touch-action: none;
+  // Saisissable même posé dans un calque qui laisse passer les clics (vue 3D).
+  pointer-events: auto;
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+// Icône (trois trajectoires empilées), centrée, au-dessus du verre WebGL dessiné derrière.
+.iconWrap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+// Repère des poignées : boîte centrée sur le nœud, origine du viewBox au centre.
+.handles {
+  position: absolute;
+  pointer-events: none;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+}
+
+.handleArm {
+  stroke: rgba(255, 255, 255, 0.8);
+  stroke-width: 1.25;
+  stroke-linecap: round;
+}
+
+.handleKnob {
+  fill: rgba(10, 15, 26, 0.95);
+  stroke: rgba(0, 240, 255, 1);
+  stroke-width: 1.5;
+  cursor: grab;
+  touch-action: none;
+  pointer-events: none;
+
+  // Saisissable seulement nœud ouvert (classe : un style inline n'était pas mis à jour par motion).
+  &.live {
+    pointer-events: auto;
+  }
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+// Poignée verrouillée à son point d'attache (ne suit pas le nœud).
+.handleKnob.locked {
+  stroke: rgba(255, 159, 28, 1);
+}
+
+// Poignée dans la zone de suppression (centre du nœud) : rouge, supprimée si relâchée.
+.handleArm.doomed {
+  stroke: rgba(255, 70, 70, 0.9);
+}
+
+.handleKnob.doomed {
+  fill: rgba(255, 70, 70, 1);
+  stroke: rgba(255, 210, 210, 1);
+}
+
+// Bouton « + » : seconde lentille de verre, centrée sur le nœud puis décalée vers le bas.
+.addAnchor {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.add {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  pointer-events: none;
+
+  &.live {
+    pointer-events: auto;
+  }
+
+  svg {
+    width: 70%;
+    height: 70%;
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.95);
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5));
+  }
+}
+
+.icon {
+  width: 60%;
+  height: 60%;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}

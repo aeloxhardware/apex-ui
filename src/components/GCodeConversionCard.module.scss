@@ -6,7 +6,7 @@
 .card {
   position: fixed;
   left: 24px;
-  top: calc(212px + max(120px, 100vh - 714px) + 16px + 250px + 16px);
+  top: calc(212px - var(--preview-lift, 0px) + var(--preview-upper-h, max(120px, 100vh - 714px)) + 16px + var(--preview-lower-h, 250px) + 16px);
   z-index: 1000;
   box-sizing: border-box;
   border-radius: 16px;

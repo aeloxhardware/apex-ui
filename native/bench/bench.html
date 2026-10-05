@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="fr">
+<head><meta charset="utf-8"><title>Banc edition</title></head>
+<body>
+<script>
+  // Mesure, depuis l'interface, les allers-retours avec le noyau a travers le vrai processus
+  // utilitaire. Meme protocole que src/utils/editKernelClient.ts : { id, op, args }.
+  const FRAMES = 60;
+  const influence = (r3, along, hops) => ({
+    spatial: { enabled: r3 > 0, radiusMm: r3, falloff: 'cubic' },
+    along: { enabled: along > 0, radiusMm: along, falloff: 'cubic' },
+    adjacency: { enabled: hops > 0, before: true, after: true, hopsBefore: hops, hopsAfter: hops, falloff: 'linear' },
+    combine: 'product',
+  });
+  const CONFIGS = [
+    ['sphere 2 mm', influence(2, 0, 0)],
+    ['sphere 5 mm', influence(5, 0, 0)],
+    ['sphere 10 mm', influence(10, 0, 0)],
+    ['sphere 5 x cordon 5 x 3/3', influence(5, 5, 3)],
+  ];
+
+  let port = null, moves = null, nextId = 1;
+  const pending = new Map();
+  const call = (op, ...args) => new Promise((resolve, reject) => {
+    const id = nextId++;
+    pending.set(id, { resolve, reject });
+    port.postMessage({ id, op, args });
+  });
+  const pct = (sorted, p) => sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))];
+  const f = (v) => v.toFixed(2);
+  const transform = (i) => ({
+    translation: Float64Array.of(0.6 * Math.sin(i * 0.2), 0.6 * Math.cos(i * 0.2), 0.3 * Math.sin(i * 0.1)),
+    axis: Float64Array.of(0.2, 1, 0.1),
+    angleRad: 0.08 * Math.sin(i * 0.15),
+  });
+
+  async function timed(n, fn) {
+    const t = [];
+    for (let i = 0; i < n; i++) {
+      const t0 = performance.now();
+      await fn(i);
+      t.push(performance.now() - t0);
+    }
+    t.sort((a, b) => a - b);
+    return t;
+  }
+
+  async function run() {
+    let t0 = performance.now();
+    const stats = await call('load', { ...moves, params: { pivotMm: 46, supportRadiusMm: 0.5 } });
+    console.log(`[banc] load : aller-retour ${f(performance.now() - t0)} ms (noyau ${f(stats.totalMs)} ms), ${stats.points} points`);
+    const index = Math.floor(moves.r.length * 0.5);
+    for (const [name, params] of CONFIGS) {
+      t0 = performance.now();
+      const h = await call('setHandle', index, params);
+      const setMs = performance.now() - t0;
+      const light = await timed(FRAMES, (i) => call('drag', transform(i), {}));
+      const heights = await timed(FRAMES, (i) => call('drag', transform(i), { heights: true }));
+      const full = await timed(10, (i) => call('drag', transform(i), { heights: true, deformed: true }));
+      console.log(`[banc] ${name.padEnd(26)} ${String(h.affected.length).padStart(7)} pts | pose ${f(setMs)} ms`
+        + ` | image (champs) p50 ${f(pct(light, 0.5))} p95 ${f(pct(light, 0.95))}`
+        + ` | + hauteurs p50 ${f(pct(heights, 0.5))} p95 ${f(pct(heights, 0.95))}`
+        + ` | + tout (rejete) p50 ${f(pct(full, 0.5))} ms`);
+    }
+    await call('setHandle', index, CONFIGS[1][1]);
+    await call('drag', transform(3), {});
+    t0 = performance.now();
+    const change = await call('commit');
+    const commitMs = performance.now() - t0;
+    t0 = performance.now();
+    await call('undo');
+    console.log(`[banc] validation ${change.indices.length} pts : ${f(commitMs)} ms, annulation ${f(performance.now() - t0)} ms (allers-retours)`);
+    console.log('[banc] FIN');
+  }
+
+  window.addEventListener('message', (event) => {
+    if (event.data?.type === 'bench-data') moves = event.data.moves;
+    if (event.data?.type === 'apex-edit-port') {
+      port = event.ports[0];
+      port.onmessage = (e) => {
+        const entry = pending.get(e.data.id);
+        pending.delete(e.data.id);
+        if (e.data.error) {
+          console.log(`[banc] ERREUR ${e.data.error}`);
+          console.log('[banc] FIN');
+        } else entry.resolve(e.data.result);
+      };
+      port.start();
+      run();
+    }
+  });
+</script>
+</body>
+</html>

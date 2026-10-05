@@ -11,929 +11,17 @@ import {
 import { detectGeneratorSignature, guessGeneratorFromFeature, type GCodeGenerator } from './gcodeGenerator';
 import { colorForMode, defaultColorByScope, type ColorByScope } from './gcodeColormap';
 import { isColorByDeferred } from '@/utils/gcodeColorByPrefs';
+import { attachEditDeform, editDeformState, EDIT_WEIGHT_KIND } from './gcodeEditDeform';
 
-/**
- * Parseur G-code + calque Babylon de prévisualisation. Deux familles de fichiers :
- *
- * 1. G-code polaire 4 axes de l'Apex (reconnu à la présence d'un mot B dans les déplacements) :
- *    `G00 Y<C> X<R> Z<Z> B<B> [E<e>] F<f>`.
- *    - X = R : rayon depuis le centre du plateau (mm, ≥ 0).
- *    - Y = C : angle du plateau (degrés, absolu, JAMAIS replié modulo 360 — le générateur garde
- *      la continuité angulaire, un C > 360 ou négatif est normal).
- *    - Z : hauteur (mm). B : inclinaison de la tête vers +R (à l'opposé de l'axe de rotation), en
- *      degrés.
- *    - R/Z sont les positions machine du PIVOT de l'axe B, pas de la buse : la pointe de buse est
- *      à NOZZLE_PIVOT_MM sous le pivot, le long de l'axe de la tête (cf. `nozzleTip`).
- *    - La matière est stockée en repère plateau sous un noeud dont la rotation suit le C courant :
- *      plateau et matière tournent ensemble, la tête reste dans le demi-plan machine (R, 0, Z).
- *    - Tout est interpolé dans l'espace (R, C, Z, B) du firmware, jamais en cartésien : les
- *      segments sont subdivisés en angle pour suivre l'arc réellement parcouru.
- *
- * 2. G-code cartésien de slicer (Orca, Bambu, Anycubic Slicer Next, Creality Print, PrusaSlicer,
- *    Cura, Simplify3D…) : G0/G1, arcs G2/G3 (I/J ou R), G90/G91, M82/M83, G92, G10/G11, G20/G21,
- *    G28. La pièce est recentrée sur le centre du plateau d'origine (`printable_area`/`bed_shape`
- *    de l'en-tête, sinon centre de la pièce) ; plateau fixe, la tête se déplace en X/Y/Z.
- *
- * Dans les deux cas, les types de ligne (`;TYPE:`, `; FEATURE:`…), essuyages (`;WIPE_START`),
- * rétractions et coutures sont reconnus pour la légende et la coloration (cf. gcodeLineTypes.ts).
- */
+import {
+  type GCodeKind, type GCodeMove, type LineTypeStat, type MarkerTypeId, type ContinuousColorByMode,
+  type ColorByMode, type ColorByRange, type ColorByRanges, type ParsedGCode, type ConversionMode,
+  PLATE_RADIUS_MM, SUSPICIOUS_C_RANGE_DEG, NOZZLE_PIVOT_MM, MAX_SUBSEGMENT_DEG, DEG2RAD, nozzleTip, moveLength, parseGCode, timeAtIndex, indexAtTime, stateAt, toolAxisAt,
+} from './gcodeParse';
 
-export type GCodeKind = 'polar' | 'cartesian';
-
-export interface GCodeMove {
-  /** Mot X : rayon R (polaire) ou X recentré sur le plateau (cartésien), en mm. */
-  x: number;
-  /** Mot Y : angle C du plateau en degrés (polaire) ou Y recentré sur le plateau en mm (cartésien). */
-  y: number;
-  z: number;
-  /** Inclinaison de la tête (degrés) ; toujours 0 en cartésien. */
-  b: number;
-  extruding: boolean;
-  type: LineTypeId;
-}
-
-export interface LineTypeStat {
-  /** Temps machine (s). */
-  time: number;
-  /** Filament déposé (mm de filament, hors réinjection après rétraction). */
-  filamentMm: number;
-  massG: number;
-}
-
-export type MarkerTypeId = Extract<LineTypeId, 'retraction' | 'unretraction' | 'seam'>;
-
-/**
- * Critères de coloration continus du calque (cf. gcodeColormap.ts) — tous dérivés de données par
- * mouvement, normalisés sur le min/max du fichier (`ParsedGCode.ranges`). Le type de ligne reste
- * hors de cette liste : coloration catégorielle, jamais un dégradé.
- */
-export type ContinuousColorByMode =
-  | 'speed' | 'accel' | 'headAngle' | 'segmentLength' | 'elapsedTime'
-  | 'extrusionRatio' | 'volumetricFlow' | 'layerSpeedRatio' | 'lineWidth'
-  | 'layerHeight' | 'temperature' | 'fanSpeed';
-
-export type ColorByMode = 'lineType' | ContinuousColorByMode;
-
-export interface ColorByRange {
-  min: number;
-  max: number;
-  avg: number;
-}
-
-export type ColorByRanges = Record<ContinuousColorByMode, ColorByRange>;
-
-export interface ParsedGCode {
-  kind: GCodeKind;
-  moves: GCodeMove[];
-  /** Temps machine cumulé (s) à l'arrivée de chaque mouvement (`times[0] = 0`), déduit de la
-   * distance parcourue par la buse et de l'avance F — cf. `timeAtIndex`/`indexAtTime`. */
-  times: Float64Array;
-  minZ: number;
-  maxZ: number;
-  maxR: number;
-  minC: number;
-  maxC: number;
-  extrudingCount: number;
-  lineStats: Record<LineTypeId, LineTypeStat>;
-  /** Marqueurs ponctuels, par index croissant du mouvement à la FIN duquel ils se trouvent. */
-  markers: Record<MarkerTypeId, Uint32Array>;
-  /** Logiciel qui a le plus probablement produit le fichier, null si rien ne permet de le dire. */
-  generator: GCodeGenerator | null;
-  /** Imprimante cible déclarée dans l'en-tête, si présente. */
-  printer: string | null;
-  /** Cartésien : dépôts à Z variable au sein d'une couche (tranchage courbe, vase…) — l'angle
-   * dynamique de la conversion polaire y est utile. */
-  nonPlanar: boolean;
-  /** Cartésien : centre du plateau d'origine (coordonnées du fichier), soustrait des X/Y. */
-  bedCenter: { x: number; y: number };
-  /** Fichier issu de la conversion polaire d'Apex (`; apex_conversion_mode = …`), sinon null. */
-  conversion: ConversionMode | null;
-  /** Cartésien : dépôts qui finissent hors du plateau de l'Apex (PLATE_RADIUS_MM autour du centre)
-   * — indices croissants — et nombre de traits (suites continues) qu'ils forment. */
-  offPlate: { moves: Uint32Array; traits: number };
-
-  // --- Données par mouvement pour la coloration « colorer par » (cf. gcodeColormap.ts) ---
-  // Tableaux parallèles à `moves`/`times` (index 0 inutilisé, comme `times[0] = 0`), remplis une
-  // fois par appel à `push()` — donc automatiquement corrects après subdivision d'arc (G2/G3).
-  /** Vitesse réellement atteinte (mm/s) : vitesse de croisière après limitation par accélération et
-   * jerk en cartésien, distance/dt en polaire (pas de planificateur trapézoïdal séparé). */
-  speedMmS: Float32Array;
-  /** Accélération modale au mouvement (mm/s²) — celle appliquée par le firmware à ce moment. */
-  accelMmS2: Float32Array;
-  nozzleTempC: Float32Array;
-  bedTempC: Float32Array;
-  fanPct: Float32Array;
-  /** Épaisseur locale de couche (mm), NaN si indéterminable (premier passage à cet endroit). */
-  layerHeightMm: Float32Array;
-  /** Largeur de cordon (mm) : commentaire `;WIDTH:` du générateur si présent, sinon estimée depuis
-   * le débit et `layerHeightMm`. NaN si ni l'un ni l'autre n'est disponible. */
-  widthMm: Float32Array;
-  /** Longueur du segment (mm) : corde cartésienne ou longueur d'arc de la pointe de buse en polaire. */
-  segLengthMm: Float32Array;
-  /** Filament déposé (mm), hors réinjection après rétraction — même valeur que `lineStats[...].filamentMm`
-   * accumule, mais par mouvement : sert au débit volumétrique et à la pression d'extrusion relative
-   * (cf. gcodeColormap.ts), qui la convertissent en volume via `filamentDiameterMm`. */
-  depositMm: Float32Array;
-  /** Diamètre de filament utilisé pour convertir `depositMm` en volume (mm, cf. en-tête du fichier
-   * ou valeur par défaut) — évite de dupliquer cette constante dans gcodeColormap.ts. */
-  filamentDiameterMm: number;
-  /** Index de couche (cartésien uniquement, détection par palier Z) ; 0 partout en polaire. */
-  layerIndex: Uint32Array;
-  /** Vitesse max de la couche courante (mm/s), un par mouvement (valeur répétée dans la couche) —
-   * pour `layerSpeedRatio` = speedMmS / layerMaxSpeedMmS. */
-  layerMaxSpeedMmS: Float32Array;
-  /** Min/max/moyenne par fichier de chaque critère continu, pour normaliser le dégradé (§ légende). */
-  ranges: ColorByRanges;
-}
-
-/** Rayon du plateau de l'Apex (mm), cf. RADIUS dans Viewport3D.tsx. */
-export const PLATE_RADIUS_MM = 125;
-
-export type ConversionMode = 'polar' | 'dynamic';
-
-const DEG2RAD = Math.PI / 180;
-// Pas angulaire max d'un sous-segment : au-delà, la corde cartésienne s'écarte visiblement de
-// l'arc réellement décrit par le firmware (qui interpole en C, pas en x/y).
-const MAX_SUBSEGMENT_DEG = 0.5;
-/** Au-delà de cette amplitude totale de C, le fichier vient très probablement de la version
- * boguée du générateur (C qui dérive de tour en tour au lieu d'osciller dans une plage étroite). */
-export const SUSPICIOUS_C_RANGE_DEG = 720;
-
-/** Distance entre la pointe de buse et le pivot de l'axe B (mm), le long de l'axe de la tête. */
-export const NOZZLE_PIVOT_MM = 46;
-
-/**
- * Pointe de buse (rayon, hauteur) dans le demi-plan machine, depuis la position du pivot (R, Z)
- * et l'inclinaison B (radians). La tête penche vers +R (cf. `headDir` dans `apply`), donc la
- * buse, SOUS le pivot, part vers −R. Z est calé pour que tête droite (B = 0) la buse soit
- * exactement à Z : seul l'écart dû à l'inclinaison, L·(1 − cos B), s'ajoute en hauteur.
- */
-function nozzleTip(r: number, z: number, bRad: number, out: { r: number; z: number }) {
-  out.r = r - NOZZLE_PIVOT_MM * Math.sin(bRad);
-  out.z = z + NOZZLE_PIVOT_MM * (1 - Math.cos(bRad));
-  return out;
-}
-
-// Points réutilisés par `moveLength` pour éviter une allocation par mouvement (appelé O(n)).
-const moveLengthTipA = { r: 0, z: 0 };
-const moveLengthTipB = { r: 0, z: 0 };
-
-/** Longueur (mm) parcourue par la pointe de buse entre les mouvements `a` et `b` : corde cartésienne
- * directe, ou longueur de l'arc réellement décrit en (R, C, Z) pour le polaire (même formule que la
- * durée polaire ci-dessous — une seule implémentation pour les deux usages). */
-function moveLength(a: GCodeMove, b: GCodeMove, kind: GCodeKind): number {
-  if (kind === 'cartesian') {
-    return Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
-  }
-  nozzleTip(a.x, a.z, a.b * DEG2RAD, moveLengthTipA);
-  nozzleTip(b.x, b.z, b.b * DEG2RAD, moveLengthTipB);
-  const dr = moveLengthTipB.r - moveLengthTipA.r;
-  const dz = moveLengthTipB.z - moveLengthTipA.z;
-  const arc = ((Math.abs(moveLengthTipA.r) + Math.abs(moveLengthTipB.r)) / 2) * (b.y - a.y) * DEG2RAD;
-  return Math.sqrt(dr * dr + dz * dz + arc * arc);
-}
-
-/** Avance (mm/min) supposée tant que le fichier n'a pas encore donné de F. */
-const DEFAULT_FEED_MM_MIN = 1500;
-/** Durée plancher d'un mouvement (s) : un mouvement quasi immobile pour la buse (rotation autour
- * du centre, consigne répétée) prend tout de même un instant. */
-const MIN_MOVE_S = 1e-3;
-/** Filament par défaut quand l'en-tête ne le précise pas : PLA 1,75 mm. */
-const DEFAULT_FILAMENT_DIAMETER_MM = 1.75;
-const DEFAULT_FILAMENT_DENSITY_G_CM3 = 1.24;
-/** Longueur supposée d'une rétraction firmware (G10) quand l'en-tête ne donne pas `retraction_length`. */
-const DEFAULT_FIRMWARE_RETRACT_MM = 1;
-/** Découpage des arcs G2/G3 en segments droits : corde et angle maximaux. */
-const ARC_MAX_CHORD_MM = 0.5;
-const ARC_MAX_STEP_RAD = 10 * DEG2RAD;
-const ARC_MAX_SEGMENTS = 720;
-/** Variation de E (mm) en dessous de laquelle on la considère nulle (arrondis des fichiers). */
-const E_EPS = 1e-6;
-/** Cinématique supposée (cartésien) tant que le fichier ne la fixe pas (M204, M205,
- * SET_VELOCITY_LIMIT) : accélération en mm/s², jerk / vitesse de coin en mm/s. */
-const DEFAULT_ACCEL = 1000;
-const DEFAULT_JERK = 8;
-/** Tolérance angulaire (degrés) pour retrouver, en polaire, le dernier dépôt au même angle C
- * (modulo 360°) et en déduire l'épaisseur de couche locale — cf. `layerHeightMm`. */
-const POLAR_LAYER_ANGLE_TOLERANCE_DEG = 2;
-/** Nombre de secteurs de l'historique angulaire polaire (360° / ce pas). */
-const POLAR_LAYER_BUCKETS = Math.round(360 / POLAR_LAYER_ANGLE_TOLERANCE_DEG);
-/** Écart de Z (mm) en dessous duquel deux dépôts cartésiens successifs sont dans la même couche. */
-const LAYER_Z_EPS = 1e-4;
-
-const COMMAND_RE = /^([GM])(\d+)(?:\.\d+)?/;
-const WORD_RE = /([A-Z])\s*([-+]?(?:\d+\.?\d*|\.\d+))/g;
-const FEATURE_RE = /^\s*(?:TYPE|FEATURE)\s*[:\s]\s*(.+?)\s*$/i;
-/** Largeur de cordon explicite (Orca/Bambu/PrusaSlicer) : `;WIDTH:0.42` ou `; WIDTH = 0.42`. */
-const WIDTH_RE = /^\s*WIDTH\s*[:=]\s*([\d.]+)/i;
-const WIPE_START_RE = /^\s*WIPE_START/i;
-const WIPE_END_RE = /^\s*WIPE_END/i;
-const ICESL_LAYER_RE = /^\s*<\/?layer>\s*$/i;
-// Réglage d'en-tête `; clé = valeur` (Orca, Prusa), `; clé: valeur` (en-tête Orca), `; clé : valeur`
-// (IceSL) ou `;CLÉ:valeur` (Cura).
-const HEADER_RE = /^\s*([a-z][a-z0-9_.]*)\s*[:=]\s*(.*?)\s*$/i;
-/** Signatures de slicer cherchées dans les commentaires précédant ce nombre de mouvements. */
-const GENERATOR_SCAN_MOVES = 200;
-// Klipper : SET_VELOCITY_LIMIT [VELOCITY=] [ACCEL=] [SQUARE_CORNER_VELOCITY=].
-const VELOCITY_LIMIT_RE = /^SET_VELOCITY_LIMIT\b/i;
-const VELOCITY_PARAM_RE = /\b(VELOCITY|ACCEL|ACCEL_TO_DECEL|SQUARE_CORNER_VELOCITY)\s*=\s*([\d.]+)/gi;
-
-const emptyStats = () =>
-  Object.fromEntries(LINE_TYPES.map((t) => [t.id, { time: 0, filamentMm: 0, massG: 0 }])) as Record<LineTypeId, LineTypeStat>;
-
-/** Centre du rectangle englobant d'une liste de points « AxB,CxD,… » (printable_area, bed_shape). */
-function shapeCenter(value: string) {
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  for (const pt of value.split(',')) {
-    const [a, b] = pt.split('x').map(parseFloat);
-    if (Number.isNaN(a) || Number.isNaN(b)) continue;
-    minX = Math.min(minX, a); maxX = Math.max(maxX, a);
-    minY = Math.min(minY, b); maxY = Math.max(maxY, b);
-  }
-  return minX <= maxX ? { x: (minX + maxX) / 2, y: (minY + maxY) / 2 } : null;
-}
-
-/** Mots d'une ligne de commande (lettre → valeur), NaN si absent. */
-interface Words {
-  X: number; Y: number; Z: number; B: number; E: number; F: number;
-  I: number; J: number; R: number; L: number; P: number; S: number; T: number;
-}
-const WORD_KEYS = ['X', 'Y', 'Z', 'B', 'E', 'F', 'I', 'J', 'R', 'L', 'P', 'S', 'T'] as const;
-
-/**
- * Temps machine cumulé d'une trajectoire cartésienne, comme le planificateur du firmware :
- * profil trapézoïdal par mouvement (accélération du moment), vitesses de jonction limitées par le
- * jerk (écart de vitesse par axe) puis propagées en arrière et en avant pour que chaque mouvement
- * puisse freiner à temps. Les mouvements d'extrudeur seul se font à l'arrêt, à l'avance F.
- */
-function planCartesianTimes(
-  moves: GCodeMove[],
-  feeds: number[],
-  eDeltas: number[],
-  accels: number[],
-  accelsToDecel: number[],
-  jerks: number[],
-  maxSpeed: number,
-) {
-  const n = moves.length;
-  const times = new Float64Array(n);
-  // Vitesse réellement atteinte par mouvement (mm/s), remplie plus bas avec `vp` — exposée pour la
-  // coloration « Vitesse » (cf. ParsedGCode.speedMmS), qui reflète ainsi les ralentissements dans
-  // les détails/coins plutôt que la seule avance F commandée.
-  const speeds = new Float64Array(n);
-  const len = new Float64Array(n);
-  const dirs = new Float64Array(n * 3);
-  for (let k = 1; k < n; k++) {
-    const a = moves[k - 1], m = moves[k];
-    const d = moveLength(a, m, 'cartesian');
-    len[k] = d;
-    if (d > 1e-9) {
-      dirs[k * 3] = (m.x - a.x) / d;
-      dirs[k * 3 + 1] = (m.y - a.y) / d;
-      dirs[k * 3 + 2] = (m.z - a.z) / d;
-    }
-  }
-  const moving = (k: number) => k >= 1 && k < n && len[k] > 1e-9;
-  const vmax = (k: number) => Math.min(feeds[k] / 60, maxSpeed);
-
-  // v[k] : vitesse au début du mouvement k (= fin du mouvement k − 1) ; v[n] : arrêt final.
-  const v = new Float64Array(n + 1);
-  for (let k = 1; k < n; k++) {
-    if (!moving(k)) continue;
-    let maxDiff = 0;
-    let limit = vmax(k);
-    for (let i = 0; i < 3; i++) {
-      const prev = moving(k - 1) ? dirs[(k - 1) * 3 + i] : 0;
-      maxDiff = Math.max(maxDiff, Math.abs(dirs[k * 3 + i] - prev));
-    }
-    if (moving(k - 1)) limit = Math.min(limit, vmax(k - 1));
-    if (maxDiff > 1e-9) limit = Math.min(limit, jerks[k] / maxDiff);
-    v[k] = limit;
-  }
-  for (let k = n - 1; k >= 1; k--) {
-    if (moving(k)) v[k] = Math.min(v[k], Math.sqrt(v[k + 1] ** 2 + 2 * accels[k] * len[k]));
-  }
-  for (let k = 1; k < n; k++) {
-    if (moving(k) && moving(k + 1)) v[k + 1] = Math.min(v[k + 1], Math.sqrt(v[k] ** 2 + 2 * accels[k] * len[k]));
-  }
-
-  for (let k = 1; k < n; k++) {
-    let dt: number;
-    if (!moving(k)) {
-      const rate = feeds[k] / 60;
-      dt = Math.abs(eDeltas[k]) / rate;
-      speeds[k] = rate;
-    } else {
-      const a = accels[k], d = len[k];
-      const v0 = v[k];
-      const v1 = moving(k + 1) ? v[k + 1] : 0;
-      const vm = vmax(k);
-      // Klipper (ACCEL_TO_DECEL) : la vitesse de croisière atteignable est plafonnée par une
-      // accélération « lissée » plus faible, sans changer les rampes elles-mêmes.
-      const reach = Math.min(a, accelsToDecel[k]) * d + (v0 * v0 + v1 * v1) / 2;
-      const vp = Math.sqrt(Math.max(Math.min(vm * vm, reach), v0 * v0, v1 * v1));
-      const cruise = Math.max(0, d - (vp * vp - v0 * v0) / (2 * a) - (vp * vp - v1 * v1) / (2 * a));
-      dt = (vp - v0) / a + (vp - v1) / a + cruise / vp;
-      speeds[k] = vp;
-    }
-    times[k] = times[k - 1] + Math.max(MIN_MOVE_S, dt);
-  }
-  return { times, speeds };
-}
-
-export function parseGCode(text: string): ParsedGCode {
-  const moves: GCodeMove[] = [];
-  const feeds: number[] = [];
-  const eDeltas: number[] = [];
-  const deposits: number[] = [];
-  const retractionAt: number[] = [];
-  const unretractionAt: number[] = [];
-  const seamAt: number[] = [];
-
-  let x = 0, y = 0, z = 0, b = 0;
-  let feed = DEFAULT_FEED_MM_MIN; // modal, comme le firmware
-  let unit = 1;
-  let relativeXYZ = false;
-  let relativeE = false;
-  // Position E absolue connue (mode M82) ; inconnue avant la première valeur E, comme avant.
-  let eAbs: number | null = null;
-  let feature: LineTypeId = 'custom';
-  let inWipe = false;
-  // Filament actuellement rétracté (mm) : la part d'une extrusion qui ne fait que le réinjecter
-  // n'est pas du dépôt.
-  let retracted = 0;
-  let prevRetracting = false;
-  let prevRestoring = false;
-  let polar = false;
-  let extrudingCount = 0;
-  let filamentDiameter = DEFAULT_FILAMENT_DIAMETER_MM;
-  let filamentDensity = DEFAULT_FILAMENT_DENSITY_G_CM3;
-  let firmwareRetract = DEFAULT_FIRMWARE_RETRACT_MM;
-  let bedCenter: { x: number; y: number } | null = null;
-  // Cinématique courante (cartésien), par mouvement : accélération d'impression/de déplacement
-  // (M204 P/T, ou S pour les deux) et jerk / vitesse de coin (M205 X, SQUARE_CORNER_VELOCITY).
-  const accels: number[] = [];
-  const jerks: number[] = [];
-  const accelsToDecel: number[] = [];
-  let accelToDecel = Infinity;
-  let accelPrint = DEFAULT_ACCEL;
-  let accelTravel = DEFAULT_ACCEL;
-  let jerk = DEFAULT_JERK;
-  let maxSpeed = Infinity;
-  let headerMaxSpeed = Infinity;
-  // Plateau décrit par dimensions (IceSL : bed_size_x_mm/bed_size_y_mm, origine au centre si rond).
-  let bedSizeX = 0;
-  let bedSizeY = 0;
-  let bedCircular = false;
-  let printer: string | null = null;
-  let signature: string | null = null;
-  let featureStyleGuess: string | null = null;
-  let iceSLLayers = false;
-  let conversion: ConversionMode | null = null;
-  // États modaux pour la coloration « colorer par » (cf. ParsedGCode) : consigne commandée, pas
-  // l'état « atteint » (M109/M190 attendent la stabilisation, mais pour une prévisualisation
-  // statique seule la consigne importe).
-  let nozzleTemp = 0;
-  let bedTemp = 0;
-  let fanPct = 0;
-  /** Largeur de cordon explicite (`;WIDTH:`), modale — NaN si le générateur ne l'écrit pas. */
-  let explicitWidth = NaN;
-  const temps: number[] = [];
-  const bedTemps: number[] = [];
-  const fans: number[] = [];
-  const widths: number[] = [];
-  // Détection de couche cartésienne (palier Z) et polaire (dernier dépôt au même angle C).
-  let prevLayerExtrudingZ: number | null = null;
-  let layerIdx = 0;
-  const polarLayerZByBucket = new Float32Array(POLAR_LAYER_BUCKETS).fill(NaN);
-  const layerHeights: number[] = [];
-  const layerIndices: number[] = [];
-
-  const handleComment = (comment: string) => {
-    if (WIPE_START_RE.test(comment)) { inWipe = true; return; }
-    if (WIPE_END_RE.test(comment)) { inWipe = false; return; }
-    if (!signature && moves.length < GENERATOR_SCAN_MOVES) signature = detectGeneratorSignature(comment);
-    const feat = FEATURE_RE.exec(comment);
-    if (feat && !comment.includes('=')) {
-      feature = resolveLineType(feat[1]);
-      featureStyleGuess ??= guessGeneratorFromFeature(feat[1], !/^\s*(?:TYPE|FEATURE)\s*:/i.test(comment));
-      return;
-    }
-    if (ICESL_LAYER_RE.test(comment)) { iceSLLayers = true; return; }
-    const width = WIDTH_RE.exec(comment);
-    if (width) { explicitWidth = parseFloat(width[1]); return; }
-    const header = HEADER_RE.exec(comment);
-    if (!header) return;
-    const key = header[1].toLowerCase();
-    const raw = header[2];
-    const value = parseFloat(raw);
-    switch (key) {
-      case 'printable_area':
-      case 'bed_shape':
-        bedCenter = shapeCenter(raw) ?? bedCenter;
-        break;
-      case 'bed_size_x_mm': if (value > 0) bedSizeX = value; break;
-      case 'bed_size_y_mm': if (value > 0) bedSizeY = value; break;
-      case 'bed_circular': bedCircular = /^true/i.test(raw); break;
-      case 'filament_diameter':
-      case 'filament_diameter_mm_0':
-        if (value > 0) filamentDiameter = value;
-        break;
-      case 'filament_density': if (value > 0) filamentDensity = value; break;
-      case 'machine_max_speed_x': if (value > 0) headerMaxSpeed = value; break;
-      case 'retraction_length': if (value > 0) firmwareRetract = value; break;
-      case 'printer_model':
-      case 'printer':
-      case 'target_machine.name':
-        if (!printer && raw) printer = raw;
-        break;
-      case 'apex_conversion_mode':
-        if (raw === 'polar' || raw === 'dynamic') conversion = raw;
-        break;
-    }
-  };
-
-  const push = (nx: number, ny: number, nz: number, nb: number, de: number) => {
-    const moved = nx !== x || ny !== y || nz !== z || nb !== b;
-    let restore = 0;
-    let deposit = 0;
-    if (de > E_EPS) {
-      restore = Math.min(de, retracted);
-      retracted -= restore;
-      deposit = de - restore;
-    } else if (de < -E_EPS) {
-      retracted -= de;
-    }
-
-    let type: LineTypeId;
-    let extruding = false;
-    if (inWipe && moved) type = 'wipe';
-    else if (moved && deposit > E_EPS) { type = feature; extruding = true; }
-    else if (moved) type = 'travel';
-    else if (de < -E_EPS) type = 'retraction';
-    else if (de > E_EPS) type = 'unretraction';
-    else type = 'travel';
-
-    const k = moves.length;
-    const retracting = de < -E_EPS;
-    const restoring = restore > E_EPS;
-    if (retracting && !prevRetracting) retractionAt.push(k);
-    if (restoring && !prevRestoring) unretractionAt.push(k);
-    prevRetracting = retracting;
-    prevRestoring = restoring;
-    // Couture : début d'une boucle de paroi extérieure, à la position d'où part ce mouvement.
-    if (type === 'outerWall' && k > 0 && moves[k - 1].type !== 'outerWall') seamAt.push(k - 1);
-
-    if (extruding) extrudingCount++;
-    moves.push({ x: nx, y: ny, z: nz, b: nb, extruding, type });
-    feeds.push(feed);
-    eDeltas.push(de);
-    deposits.push(extruding ? deposit : 0);
-    accels.push(extruding ? accelPrint : accelTravel);
-    jerks.push(jerk);
-    accelsToDecel.push(accelToDecel);
-    temps.push(nozzleTemp);
-    bedTemps.push(bedTemp);
-    fans.push(fanPct);
-    widths.push(explicitWidth);
-
-    // Épaisseur locale de couche (mm), seulement sur les dépôts : cartésien, palier Z classique
-    // (delta avec le dernier Z extrudant vu) ; polaire, delta Z avec le dernier dépôt au même angle
-    // C (modulo 360°, à POLAR_LAYER_ANGLE_TOLERANCE_DEG près) — reflète l'épaisseur réellement
-    // posée à cet endroit, cohérent avec la nature hélicoïdale de l'impression polaire (pas de
-    // palier Z global net). NaN tant qu'aucun repère n'existe encore (premier passage).
-    let layerHeight = NaN;
-    if (extruding) {
-      if (!polar) {
-        if (prevLayerExtrudingZ !== null && Math.abs(nz - prevLayerExtrudingZ) > LAYER_Z_EPS) layerIdx++;
-        if (prevLayerExtrudingZ !== null) layerHeight = nz - prevLayerExtrudingZ;
-        prevLayerExtrudingZ = nz;
-      } else {
-        const bucket = ((Math.round(ny / POLAR_LAYER_ANGLE_TOLERANCE_DEG) % POLAR_LAYER_BUCKETS) + POLAR_LAYER_BUCKETS) % POLAR_LAYER_BUCKETS;
-        const prevZ = polarLayerZByBucket[bucket];
-        if (!Number.isNaN(prevZ)) layerHeight = nz - prevZ;
-        polarLayerZByBucket[bucket] = nz;
-      }
-    }
-    layerHeights.push(layerHeight);
-    layerIndices.push(polar ? 0 : layerIdx);
-
-    x = nx; y = ny; z = nz; b = nb;
-  };
-
-  const w = {} as Words;
-  const readWords = (args: string) => {
-    for (const key of WORD_KEYS) w[key] = NaN;
-    WORD_RE.lastIndex = 0;
-    let m: RegExpExecArray | null;
-    while ((m = WORD_RE.exec(args)) !== null) {
-      if (m[1] in w) w[m[1] as keyof Words] = parseFloat(m[2]);
-    }
-  };
-  const has = (v: number) => !Number.isNaN(v);
-  const axis = (current: number, word: number, scale: number) =>
-    has(word) ? (relativeXYZ ? current + word * scale : word * scale) : current;
-  const extrusionDelta = () => {
-    if (!has(w.E)) return 0;
-    const e = w.E * unit;
-    if (relativeXYZ || relativeE) return e;
-    const de = eAbs === null ? 0 : e - eAbs;
-    eAbs = e;
-    return de;
-  };
-
-  for (const rawLine of text.split('\n')) {
-    const semi = rawLine.indexOf(';');
-    if (semi >= 0) handleComment(rawLine.slice(semi + 1));
-    let code = semi >= 0 ? rawLine.slice(0, semi) : rawLine;
-    if (code.includes('(')) {
-      code = code.replace(/\(([^)]*)\)/g, (_, comment: string) => { handleComment(comment); return ' '; });
-    }
-    code = code.trim().toUpperCase();
-    if (!code) continue;
-    if (VELOCITY_LIMIT_RE.test(code)) {
-      VELOCITY_PARAM_RE.lastIndex = 0;
-      let p: RegExpExecArray | null;
-      while ((p = VELOCITY_PARAM_RE.exec(code)) !== null) {
-        const value = parseFloat(p[2]);
-        if (!(value > 0)) continue;
-        if (p[1] === 'ACCEL') accelPrint = accelTravel = value;
-        else if (p[1] === 'ACCEL_TO_DECEL') accelToDecel = value;
-        else if (p[1] === 'VELOCITY') maxSpeed = value;
-        else jerk = value;
-      }
-      continue;
-    }
-    const cmd = COMMAND_RE.exec(code);
-    if (!cmd) continue;
-    const num = parseInt(cmd[2], 10);
-    readWords(code.slice(cmd[0].length));
-
-    if (cmd[1] === 'M') {
-      if (num === 82) relativeE = false;
-      else if (num === 83) relativeE = true;
-      else if (num === 203 && w.X > 0) maxSpeed = w.X;
-      else if (num === 204) {
-        if (w.S > 0) accelPrint = accelTravel = w.S;
-        if (w.P > 0) accelPrint = w.P;
-        if (w.T > 0) accelTravel = w.T;
-      } else if (num === 205 && w.X > 0) jerk = w.X;
-      // Consigne commandée uniquement (M109/M190 attendent la stabilisation avant de continuer,
-      // mais pour une prévisualisation statique seule la valeur cible importe).
-      else if ((num === 104 || num === 109) && w.S >= 0) nozzleTemp = w.S;
-      else if ((num === 140 || num === 190) && w.S >= 0) bedTemp = w.S;
-      else if (num === 106 && w.S >= 0) fanPct = Math.round((w.S / 255) * 100);
-      else if (num === 107) fanPct = 0;
-      continue;
-    }
-
-    switch (num) {
-      case 0:
-      case 1: {
-        if (has(w.B)) polar = true;
-        if (has(w.F) && w.F > 0) feed = w.F * unit;
-        if (!has(w.X) && !has(w.Y) && !has(w.Z) && !has(w.B) && !has(w.E)) break;
-        const nx = axis(x, w.X, unit);
-        const ny = axis(y, w.Y, unit);
-        const nz = axis(z, w.Z, unit);
-        const nb = axis(b, w.B, 1);
-        push(nx, ny, nz, nb, extrusionDelta());
-        break;
-      }
-      case 2:
-      case 3: {
-        if (has(w.F) && w.F > 0) feed = w.F * unit;
-        const ex = axis(x, w.X, unit);
-        const ey = axis(y, w.Y, unit);
-        const ez = axis(z, w.Z, unit);
-        const de = extrusionDelta();
-        const ccw = num === 3;
-        let cx: number, cy: number;
-        if (has(w.I) || has(w.J)) {
-          cx = x + (has(w.I) ? w.I * unit : 0);
-          cy = y + (has(w.J) ? w.J * unit : 0);
-        } else if (has(w.R)) {
-          const r = w.R * unit;
-          const dx = ex - x, dy = ey - y;
-          const d = Math.hypot(dx, dy);
-          if (d < 1e-9 || Math.abs(r) < d / 2) { push(ex, ey, ez, b, de); break; }
-          const h = Math.sqrt(r * r - (d * d) / 4) * (ccw ? 1 : -1) * (r > 0 ? 1 : -1);
-          cx = (x + ex) / 2 - (dy / d) * h;
-          cy = (y + ey) / 2 + (dx / d) * h;
-        } else {
-          push(ex, ey, ez, b, de);
-          break;
-        }
-        const radius = Math.hypot(x - cx, y - cy);
-        const a0 = Math.atan2(y - cy, x - cx);
-        let sweep = Math.atan2(ey - cy, ex - cx) - a0;
-        if (ccw) { while (sweep <= 1e-9) sweep += 2 * Math.PI; }
-        else { while (sweep >= -1e-9) sweep -= 2 * Math.PI; }
-        const n = Math.min(ARC_MAX_SEGMENTS, Math.max(
-          1,
-          Math.ceil((Math.abs(sweep) * radius) / ARC_MAX_CHORD_MM),
-          Math.ceil(Math.abs(sweep) / ARC_MAX_STEP_RAD),
-        ));
-        const z0 = z;
-        for (let i = 1; i <= n; i++) {
-          if (i === n) { push(ex, ey, ez, b, de / n); break; }
-          const a = a0 + (sweep * i) / n;
-          push(cx + radius * Math.cos(a), cy + radius * Math.sin(a), z0 + ((ez - z0) * i) / n, b, de / n);
-        }
-        break;
-      }
-      case 10:
-        // G10 sans L/P : rétraction firmware (avec L/P : réglage d'origine CNC, ignoré).
-        if (!has(w.L) && !has(w.P)) push(x, y, z, b, -firmwareRetract);
-        break;
-      case 11:
-        push(x, y, z, b, firmwareRetract);
-        break;
-      case 20: unit = 25.4; break;
-      case 21: unit = 1; break;
-      case 28: {
-        const all = !has(w.X) && !has(w.Y) && !has(w.Z);
-        if (all || has(w.X)) x = 0;
-        if (all || has(w.Y)) y = 0;
-        if (all || has(w.Z)) z = 0;
-        break;
-      }
-      case 90: relativeXYZ = false; break;
-      case 91: relativeXYZ = true; break;
-      case 92:
-        if (has(w.X)) x = w.X * unit;
-        if (has(w.Y)) y = w.Y * unit;
-        if (has(w.Z)) z = w.Z * unit;
-        if (has(w.B)) b = w.B;
-        if (has(w.E)) eAbs = w.E * unit;
-        break;
-    }
-  }
-
-  const kind: GCodeKind = polar ? 'polar' : 'cartesian';
-
-  let usedCenter = { x: 0, y: 0 };
-  let nonPlanar = false;
-  const offPlateMoves: number[] = [];
-  let offPlateTraits = 0;
-  if (kind === 'cartesian' && moves.length) {
-    // Non plan : plus de 5 % des dépôts changent de Z en cours de trajet.
-    let zVarying = 0;
-    for (let k = 1; k < moves.length; k++) {
-      if (moves[k].extruding && Math.abs(moves[k].z - moves[k - 1].z) > 1e-4) zVarying++;
-    }
-    nonPlanar = extrudingCount > 0 && zVarying / extrudingCount > 0.05;
-
-    let center: { x: number; y: number } | null = bedCenter;
-    if (!center && bedCircular) center = { x: 0, y: 0 };
-    if (!center && bedSizeX > 0 && bedSizeY > 0) center = { x: bedSizeX / 2, y: bedSizeY / 2 };
-    if (!center) {
-      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-      const anyExtruding = extrudingCount > 0;
-      for (const mv of moves) {
-        if (anyExtruding && !mv.extruding) continue;
-        minX = Math.min(minX, mv.x); maxX = Math.max(maxX, mv.x);
-        minY = Math.min(minY, mv.y); maxY = Math.max(maxY, mv.y);
-      }
-      center = { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
-    }
-    usedCenter = center;
-    for (const mv of moves) {
-      mv.x -= center.x;
-      mv.y -= center.y;
-      mv.b = 0;
-    }
-    for (let k = 1; k < moves.length; k++) {
-      const mv = moves[k];
-      if (!mv.extruding || Math.hypot(mv.x, mv.y) <= PLATE_RADIUS_MM) continue;
-      if (offPlateMoves[offPlateMoves.length - 1] !== k - 1) offPlateTraits++;
-      offPlateMoves.push(k);
-    }
-  }
-
-  // Durée de chaque mouvement. Sans ça, la lecture avancerait d'un nombre fixe de mouvements par
-  // seconde : une longue ligne droite serait franchie aussi vite qu'un segment de 0,1 mm.
-  //  - Cartésien : planificateur de vitesses (accélérations, jerk), cf. `planCartesianTimes`.
-  //  - Polaire : distance parcourue par la pointe de buse relativement au plateau, à l'avance F.
-  // Mouvement d'extrudeur seul : longueur de filament poussée/tirée, à l'avance F.
-  let times: Float64Array;
-  const speedMmS = new Float32Array(moves.length);
-  const segLengthMm = new Float32Array(moves.length);
-  if (kind === 'cartesian') {
-    const cap = Math.min(maxSpeed, headerMaxSpeed);
-    const planned = planCartesianTimes(moves, feeds, eDeltas, accels, accelsToDecel, jerks, cap);
-    times = planned.times;
-    for (let k = 1; k < moves.length; k++) {
-      segLengthMm[k] = moveLength(moves[k - 1], moves[k], 'cartesian');
-      speedMmS[k] = planned.speeds[k];
-    }
-  } else {
-    times = new Float64Array(moves.length);
-    for (let k = 1; k < moves.length; k++) {
-      let dist = moveLength(moves[k - 1], moves[k], 'polar');
-      if (dist < 1e-9) dist = Math.abs(eDeltas[k]);
-      segLengthMm[k] = dist;
-      const rate = feeds[k] / 60;
-      times[k] = times[k - 1] + Math.max(MIN_MOVE_S, dist / rate);
-      speedMmS[k] = dist > 1e-9 ? dist / Math.max(MIN_MOVE_S, times[k] - times[k - 1]) : rate;
-    }
-  }
-
-  // Largeur de cordon (mm) : commentaire explicite du générateur (`;WIDTH:`) s'il en pousse un
-  // avant ce dépôt (widths[k] non-NaN, cf. push()) ; sinon estimée depuis le débit de matière —
-  // largeur = volume déposé / (longueur du segment × épaisseur de couche) — seulement calculable
-  // là où layerHeightMm est connu (pas au tout premier passage d'un endroit donné).
-  const widthMm = new Float32Array(moves.length);
-  for (let k = 1; k < moves.length; k++) {
-    if (!moves[k].extruding) { widthMm[k] = NaN; continue; }
-    if (!Number.isNaN(widths[k])) { widthMm[k] = widths[k]; continue; }
-    const h = layerHeights[k];
-    const len = segLengthMm[k];
-    if (Number.isNaN(h) || h <= 0 || len <= 1e-6) { widthMm[k] = NaN; continue; }
-    const volumeMm3 = deposits[k] * Math.PI * (filamentDiameter / 2) ** 2;
-    widthMm[k] = volumeMm3 / (len * h);
-  }
-
-  // Vitesse max de la couche courante (mm/s), pour `layerSpeedRatio` = speedMmS / layerMaxSpeedMmS.
-  // Cartésien seulement (layerIndex reste à 0 partout en polaire, pas de palier global net).
-  const layerMaxSpeedByIndex = new Map<number, number>();
-  if (kind === 'cartesian') {
-    for (let k = 1; k < moves.length; k++) {
-      if (!moves[k].extruding) continue;
-      const idx = layerIndices[k];
-      layerMaxSpeedByIndex.set(idx, Math.max(layerMaxSpeedByIndex.get(idx) ?? 0, speedMmS[k]));
-    }
-  }
-  const layerMaxSpeedMmS = new Float32Array(moves.length);
-  for (let k = 1; k < moves.length; k++) {
-    layerMaxSpeedMmS[k] = layerMaxSpeedByIndex.get(layerIndices[k]) ?? 0;
-  }
-
-  const lineStats = emptyStats();
-  for (let k = 1; k < moves.length; k++) {
-    const stat = lineStats[moves[k].type];
-    stat.time += times[k] - times[k - 1];
-    stat.filamentMm += deposits[k];
-  }
-  const gPerMm = Math.PI * (filamentDiameter / 2) ** 2 * filamentDensity / 1000;
-  for (const stat of Object.values(lineStats)) stat.massG = stat.filamentMm * gPerMm;
-
-  // Bornes en Z/R de la pointe de buse (ce qui est affiché), pas du pivot.
-  let minZ = Infinity, maxZ = -Infinity, maxR = 0, minC = Infinity, maxC = -Infinity;
-  const tip = { r: 0, z: 0 };
-  for (const mv of moves) {
-    if (kind === 'polar') {
-      nozzleTip(mv.x, mv.z, mv.b * DEG2RAD, tip);
-      if (Math.abs(tip.r) > maxR) maxR = Math.abs(tip.r);
-      if (mv.y < minC) minC = mv.y;
-      if (mv.y > maxC) maxC = mv.y;
-    } else {
-      tip.z = mv.z;
-      maxR = Math.max(maxR, Math.hypot(mv.x, mv.y));
-    }
-    if (tip.z < minZ) minZ = tip.z;
-    if (tip.z > maxZ) maxZ = tip.z;
-  }
-  if (!moves.length) { minZ = maxZ = 0; }
-  if (minC > maxC) { minC = maxC = 0; }
-
-  let generator: GCodeGenerator | null = null;
-  if (signature) generator = { name: signature, inferred: false };
-  else if (kind === 'polar') generator = { name: 'Générateur Apex 4 axes', inferred: true };
-  else if (featureStyleGuess) generator = { name: featureStyleGuess, inferred: true };
-  else if (iceSLLayers) generator = { name: 'IceSL', inferred: true };
-
-  const layerHeightMm = Float32Array.from(layerHeights);
-  const layerIndex = Uint32Array.from(layerIndices);
-  const accelMmS2 = Float32Array.from(accels);
-  const nozzleTempC = Float32Array.from(temps);
-  const bedTempC = Float32Array.from(bedTemps);
-  const fanPctArr = Float32Array.from(fans);
-
-  // Débit volumétrique (mm³/s) et pression d'extrusion relative (E/mm) : purs ratios dérivés,
-  // recalculés à la volée plutôt que stockés (cf. plan §1.4) — un seul passage supplémentaire,
-  // négligeable à côté des passes déjà faites ci-dessus, réutilisé pour l'agrégation min/max/moy.
-  const volumetricFlowAt = (k: number) => {
-    const dt = times[k] - times[k - 1];
-    if (!moves[k].extruding || dt <= 0) return NaN;
-    const volumeMm3 = deposits[k] * Math.PI * (filamentDiameter / 2) ** 2;
-    return volumeMm3 / dt;
-  };
-  const extrusionRatioAt = (k: number) => {
-    if (!moves[k].extruding || segLengthMm[k] <= 1e-6) return NaN;
-    return deposits[k] / segLengthMm[k];
-  };
-  const layerSpeedRatioAt = (k: number) => {
-    if (!moves[k].extruding || layerMaxSpeedMmS[k] <= 1e-6) return NaN;
-    return (speedMmS[k] / layerMaxSpeedMmS[k]) * 100;
-  };
-
-  const CONTINUOUS_MODES: ContinuousColorByMode[] = [
-    'speed', 'accel', 'headAngle', 'segmentLength', 'elapsedTime', 'extrusionRatio',
-    'volumetricFlow', 'layerSpeedRatio', 'lineWidth', 'layerHeight', 'temperature', 'fanSpeed',
-  ];
-  const valueAt: Record<ContinuousColorByMode, (k: number) => number> = {
-    speed: (k) => speedMmS[k],
-    accel: (k) => accelMmS2[k],
-    headAngle: (k) => Math.abs(moves[k].b),
-    segmentLength: (k) => segLengthMm[k],
-    elapsedTime: (k) => times[k],
-    extrusionRatio: extrusionRatioAt,
-    volumetricFlow: volumetricFlowAt,
-    layerSpeedRatio: layerSpeedRatioAt,
-    lineWidth: (k) => widthMm[k],
-    layerHeight: (k) => layerHeightMm[k],
-    temperature: (k) => nozzleTempC[k],
-    fanSpeed: (k) => fanPctArr[k],
-  };
-  const ranges = {} as ColorByRanges;
-  for (const mode of CONTINUOUS_MODES) {
-    const get = valueAt[mode];
-    let min = Infinity, max = -Infinity, sum = 0, n = 0;
-    for (let k = 1; k < moves.length; k++) {
-      const v = get(k);
-      if (Number.isNaN(v)) continue;
-      if (v < min) min = v;
-      if (v > max) max = v;
-      sum += v;
-      n++;
-    }
-    ranges[mode] = n > 0 ? { min, max, avg: sum / n } : { min: 0, max: 0, avg: 0 };
-  }
-
-  return {
-    kind,
-    moves,
-    times,
-    minZ,
-    maxZ,
-    maxR,
-    minC,
-    maxC,
-    extrudingCount,
-    lineStats,
-    generator,
-    printer,
-    nonPlanar,
-    bedCenter: usedCenter,
-    conversion,
-    offPlate: { moves: Uint32Array.from(offPlateMoves), traits: offPlateTraits },
-    markers: {
-      retraction: Uint32Array.from(retractionAt),
-      unretraction: Uint32Array.from(unretractionAt),
-      seam: Uint32Array.from(seamAt),
-    },
-    speedMmS,
-    accelMmS2,
-    nozzleTempC,
-    bedTempC,
-    fanPct: fanPctArr,
-    layerHeightMm,
-    widthMm,
-    segLengthMm,
-    depositMm: Float32Array.from(deposits),
-    filamentDiameterMm: filamentDiameter,
-    layerIndex,
-    layerMaxSpeedMmS,
-    ranges,
-  };
-}
-
-/** Temps machine (s) à l'index de mouvement fractionnaire `t`. */
-export function timeAtIndex(times: Float64Array, t: number) {
-  const last = times.length - 1;
-  const i = Math.max(0, Math.min(last, Math.floor(t)));
-  if (i >= last) return times[last];
-  return times[i] + (times[i + 1] - times[i]) * (t - i);
-}
-
-/** Index de mouvement fractionnaire atteint au temps machine `s` (inverse de `timeAtIndex`). */
-export function indexAtTime(times: Float64Array, s: number) {
-  const last = times.length - 1;
-  if (s <= 0) return 0;
-  if (s >= times[last]) return last;
-  let lo = 0, hi = last; // times[lo] <= s < times[hi]
-  while (hi - lo > 1) {
-    const mid = (lo + hi) >> 1;
-    if (times[mid] <= s) lo = mid; else hi = mid;
-  }
-  return lo + (s - times[lo]) / (times[hi] - times[lo]);
-}
-
-/** Position machine (x, y, z, b) interpolée linéairement — comme le firmware — au temps `t`
- * exprimé en index de mouvement fractionnaire. */
-export function stateAt(moves: GCodeMove[], t: number) {
-  const i = Math.max(0, Math.min(moves.length - 1, Math.floor(t)));
-  const a = moves[i];
-  const b = moves[Math.min(moves.length - 1, i + 1)];
-  const f = Math.max(0, Math.min(1, t - i));
-  return {
-    x: a.x + (b.x - a.x) * f,
-    y: a.y + (b.y - a.y) * f,
-    z: a.z + (b.z - a.z) * f,
-    b: a.b + (b.b - a.b) * f,
-  };
-}
+// Le parseur (sans Babylon) vit dans gcodeParse.ts pour pouvoir tourner dans un Web Worker ;
+// ré-exporté ici pour que les importeurs existants de gcodeLayer ne changent pas.
+export * from './gcodeParse';
 
 /**
  * Échantillonnage de la trajectoire en repère plateau (Babylon : y vers le haut) : position de la
@@ -956,7 +44,7 @@ interface PathSampler {
  *   du GPU produit alors l'effet de moiré observé sur de longs traits). Le polaire garde sa
  *   subdivision angulaire existante (MAX_SUBSEGMENT_DEG) dans tous les cas — déjà assez fine.
  */
-function createSampler(parsed: ParsedGCode, maxSegmentMm?: number | null): PathSampler {
+function* createSampler(parsed: ParsedGCode, maxSegmentMm?: number | null): Generator<void, PathSampler, void> {
   const { moves } = parsed;
   const segments = new Uint32Array(moves.length);
   const from = (k: number) => moves[k > 0 ? k - 1 : 0];
@@ -966,6 +54,7 @@ function createSampler(parsed: ParsedGCode, maxSegmentMm?: number | null): PathS
       for (let k = 1; k < moves.length; k++) {
         const len = moveLength(moves[k - 1], moves[k], 'cartesian');
         segments[k] = Math.max(1, Math.ceil(len / maxSegmentMm));
+        if ((k & SLICE_MASK) === 0) yield;
       }
     } else {
       segments.fill(1);
@@ -985,6 +74,7 @@ function createSampler(parsed: ParsedGCode, maxSegmentMm?: number | null): PathS
   for (let k = 1; k < moves.length; k++) {
     const dc = Math.abs(moves[k].y - moves[k - 1].y);
     segments[k] = Math.max(1, Math.ceil(dc / MAX_SUBSEGMENT_DEG));
+    if ((k & SLICE_MASK) === 0) yield;
   }
   const tipRZ = { r: 0, z: 0 };
   return {
@@ -1007,6 +97,30 @@ function createSampler(parsed: ParsedGCode, maxSegmentMm?: number | null): PathS
   };
 }
 
+/**
+ * Construction du maillage par TRANCHES : les générateurs ci-dessous `yield` toutes les
+ * SLICE_MASK+1 itérations, et `runSliced` ne rend la main au navigateur (image suivante) que quand
+ * la tranche en cours dépasse SLICE_BUDGET_MS — un fichier énorme se construit donc en plusieurs
+ * dizaines d'images au lieu de figer l'interface (et le rideau de chargement continue d'animer).
+ */
+const SLICE_MASK = 0x1fff;
+const SLICE_BUDGET_MS = 6;
+/** Tolérance de visée (pixels) en plus du rayon du cordon, pour sélectionner un point de trajectoire. */
+const PICK_TOLERANCE_PX = 6;
+
+async function runSliced<T>(gen: Generator<void, T, void>, isCancelled: () => boolean): Promise<T | null> {
+  let sliceStart = performance.now();
+  for (;;) {
+    const r = gen.next();
+    if (r.done) return r.value;
+    if (isCancelled()) { gen.return(undefined as never); return null; }
+    if (performance.now() - sliceStart > SLICE_BUDGET_MS) {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      sliceStart = performance.now();
+    }
+  }
+}
+
 interface PathMesh {
   mesh: BABYLON.Mesh | null;
   /** Nombre d'indices à dessiner une fois le mouvement k terminé. */
@@ -1019,6 +133,20 @@ interface PathMesh {
    * l'échantillon dont il est issu (TUBE_SIDES sommets par échantillon pour un cordon, 1 par
    * échantillon pour un LinesMesh). Vide (mesh === null ou mode jamais recoloré) sinon. */
   vertexOwner: Uint32Array;
+  /** Cordons : par ÉCHANTILLON (TUBE_SIDES sommets chacun), mouvement propriétaire, fraction le
+   * long de ce mouvement, et début de tube — pour l'édition (poids par sommet interpolés entre les
+   * deux points du mouvement, et recalcul local de la géométrie après validation). */
+  sampleOwner?: Uint32Array;
+  sampleFrac?: Float32Array;
+  stripStart?: Uint8Array;
+  /** Trajets (LinesMesh) : premier sommet de chaque mouvement retenu (inutilisé sinon). */
+  lineStart?: Uint32Array;
+  /** Copies CPU des sommets (mêmes tableaux que ceux passés à Babylon) : une mise à jour partielle
+   * du tampon GPU fait oublier à Babylon sa propre copie, l'édition garde donc la sienne. */
+  positions?: Float32Array;
+  normals?: Float32Array;
+  /** Poids d'édition par sommet (cordons), alloué au premier usage. */
+  editWeights?: Float32Array;
 }
 
 /** Section du cordon déposé (mm) : largeur de part et d'autre de la trajectoire, et épaisseur le
@@ -1105,14 +233,14 @@ function finalizePathMesh(mesh: BABYLON.Mesh) {
  * retenus consécutifs partagent leurs anneaux de jonction : un seul tube continu par suite
  * ininterrompue. N'importe quel préfixe s'affiche en changeant `indexCount`, sans reconstruire.
  */
-function buildBeadMesh(
+function* buildBeadMesh(
   name: string,
   parsed: ParsedGCode,
   sampler: PathSampler,
   include: (k: number) => boolean,
   material: BABYLON.Material,
   scene: BABYLON.Scene,
-): PathMesh {
+): Generator<void, PathMesh, void> {
   const { moves } = parsed;
   const { segments } = sampler;
   const indicesPerStep = TUBE_SIDES * 6;
@@ -1130,6 +258,7 @@ function buildBeadMesh(
   const centers = new Float32Array(capacity * 3);
   const axes = new Float32Array(capacity * 3);
   const owner = new Uint32Array(capacity);
+  const frac = new Float32Array(capacity);
   const stripStart = new Uint8Array(capacity);
   const tip = new BABYLON.Vector3();
   const ax = new BABYLON.Vector3();
@@ -1137,6 +266,7 @@ function buildBeadMesh(
   let count = 0;
 
   for (let k = 1; k < moves.length; k++) {
+    if ((k & SLICE_MASK) === 0) yield;
     if (!include(k)) continue;
     // Le mouvement précédent était déjà dans ce cordon : son dernier échantillon est notre point
     // de départ, on prolonge le même tube au lieu d'en ouvrir un nouveau.
@@ -1153,6 +283,7 @@ function buildBeadMesh(
       axes[count * 3 + 1] = ax.y;
       axes[count * 3 + 2] = ax.z;
       owner[count] = k;
+      frac[count] = f;
       stripStart[count] = s === 0 ? 1 : 0;
       count++;
     }
@@ -1163,27 +294,14 @@ function buildBeadMesh(
   const positions = new Float32Array(count * TUBE_SIDES * 3);
   const normals = new Float32Array(count * TUBE_SIDES * 3);
   const indices = new Uint32Array(count * indicesPerStep);
-  // Dernière tangente valide : reprise pour les échantillons confondus, dont la tangente locale
-  // est nulle.
-  let tx = 1, ty = 0, tz = 0;
+  const tangent = { x: 1, y: 0, z: 0 };
   let idx = 0;
 
   for (let j = 0; j < count; j++) {
-    const p = j * 3;
-    const hasPrev = !stripStart[j];
-    const hasNext = j + 1 < count && !stripStart[j + 1];
-    const from = hasPrev ? p - 3 : p;
-    const to = hasNext ? p + 3 : p;
-    const dx = centers[to] - centers[from];
-    const dy = centers[to + 1] - centers[from + 1];
-    const dz = centers[to + 2] - centers[from + 2];
-    const len = Math.hypot(dx, dy, dz);
-    if (len > 1e-6) {
-      tx = dx / len; ty = dy / len; tz = dz / len;
-    }
-    writeRing(positions, normals, j, centers[p], centers[p + 1], centers[p + 2], tx, ty, tz, axes[p], axes[p + 1], axes[p + 2]);
+    if ((j & SLICE_MASK) === 0) yield;
+    writeSampleRing(positions, normals, centers, axes, stripStart, count, j, tangent);
 
-    if (hasPrev) {
+    if (!stripStart[j]) {
       const a0 = (j - 1) * TUBE_SIDES;
       const b0 = j * TUBE_SIDES;
       for (let i = 0; i < TUBE_SIDES; i++) {
@@ -1201,35 +319,75 @@ function buildBeadMesh(
   // Mouvements hors de ce cordon : même compte que le précédent.
   for (let k = 1; k < moves.length; k++) {
     if (cumIndices[k] < cumIndices[k - 1]) cumIndices[k] = cumIndices[k - 1];
+    if ((k & SLICE_MASK) === 0) yield;
   }
 
   // Mouvement propriétaire de chaque SOMMET (TUBE_SIDES sommets par échantillon j, cf. writeRing) :
   // permet de recalculer les couleurs par sommet (mode « colorer par » continu) sans reconstruire
   // la géométrie, cf. PathMesh.vertexOwner.
   const vertexOwner = new Uint32Array(count * TUBE_SIDES);
-  for (let j = 0; j < count; j++) vertexOwner.fill(owner[j], j * TUBE_SIDES, (j + 1) * TUBE_SIDES);
+  for (let j = 0; j < count; j++) {
+    vertexOwner.fill(owner[j], j * TUBE_SIDES, (j + 1) * TUBE_SIDES);
+    if ((j & SLICE_MASK) === 0) yield;
+  }
 
   const mesh = new BABYLON.Mesh(name, scene);
   const data = new BABYLON.VertexData();
   data.positions = positions;
   data.normals = normals;
   data.indices = indices.subarray(0, idx);
-  data.applyToMesh(mesh);
+  // Modifiable : l'édition réécrit en place les sommets des mouvements validés.
+  data.applyToMesh(mesh, true);
   mesh.material = material;
   finalizePathMesh(mesh);
-  return { mesh, cumIndices, indicesPerStep, vertexOwner };
+  return {
+    mesh, cumIndices, indicesPerStep, vertexOwner,
+    sampleOwner: owner.subarray(0, count), sampleFrac: frac.subarray(0, count), stripStart: stripStart.subarray(0, count),
+    positions, normals,
+  };
+}
+
+/**
+ * Anneau de l'échantillon j d'un cordon : tangente par différence centrée entre ses voisins du
+ * même tube (`stripStart` marque les débuts de tube), reprise de la dernière tangente valide quand
+ * les voisins sont confondus. `tangent` porte cette dernière tangente d'un appel à l'autre.
+ */
+function writeSampleRing(
+  positions: Float32Array,
+  normals: Float32Array,
+  centers: Float32Array,
+  axes: Float32Array,
+  stripStart: Uint8Array,
+  count: number,
+  j: number,
+  tangent: { x: number; y: number; z: number },
+) {
+  const p = j * 3;
+  const hasPrev = !stripStart[j];
+  const hasNext = j + 1 < count && !stripStart[j + 1];
+  const from = hasPrev ? p - 3 : p;
+  const to = hasNext ? p + 3 : p;
+  const dx = centers[to] - centers[from];
+  const dy = centers[to + 1] - centers[from + 1];
+  const dz = centers[to + 2] - centers[from + 2];
+  const len = Math.hypot(dx, dy, dz);
+  if (len > 1e-6) {
+    tangent.x = dx / len; tangent.y = dy / len; tangent.z = dz / len;
+  }
+  writeRing(positions, normals, j, centers[p], centers[p + 1], centers[p + 2],
+    tangent.x, tangent.y, tangent.z, axes[p], axes[p + 1], axes[p + 2]);
 }
 
 /** Construit un LinesMesh (repère plateau) des mouvements retenus par `include`, dans l'ordre du
  * fichier. N'importe quel préfixe s'affiche ensuite en changeant `indexCount`. */
-function buildPathMesh(
+function* buildPathMesh(
   name: string,
   parsed: ParsedGCode,
   sampler: PathSampler,
   include: (k: number) => boolean,
   color: BABYLON.Color3,
   scene: BABYLON.Scene,
-): PathMesh {
+): Generator<void, PathMesh, void> {
   const { moves } = parsed;
   const { segments } = sampler;
   let vertexTotal = 0;
@@ -1244,12 +402,15 @@ function buildPathMesh(
 
   const positions = new Float32Array(vertexTotal * 3);
   const indices = new Uint32Array((vertexTotal - 1) * 2);
+  const lineStart = new Uint32Array(moves.length);
   const tip = new BABYLON.Vector3();
   let v = 0;
   let idx = 0;
 
   for (let k = 1; k < moves.length; k++) {
+    if ((k & SLICE_MASK) === 0) yield;
     if (include(k)) {
+      lineStart[k] = v;
       const n = segments[k];
       for (let s = 0; s <= n; s++) {
         sampler.tip(k, s / n, tip);
@@ -1270,21 +431,21 @@ function buildPathMesh(
   const data = new BABYLON.VertexData();
   data.positions = positions;
   data.indices = indices.subarray(0, idx);
-  data.applyToMesh(mesh);
+  data.applyToMesh(mesh, true);
   mesh.color = color;
   mesh.alpha = 0.85;
   finalizePathMesh(mesh);
-  return { mesh, cumIndices, indicesPerStep: 2, vertexOwner: new Uint32Array(0) };
+  return { mesh, cumIndices, indicesPerStep: 2, vertexOwner: new Uint32Array(0), lineStart, positions };
 }
 
 /** Sphères (instances légères) aux positions de fin des mouvements `at`. */
-function buildMarkerMesh(
+function* buildMarkerMesh(
   name: string,
   at: Uint32Array,
   sampler: PathSampler,
   color: BABYLON.Color3,
   scene: BABYLON.Scene,
-) {
+): Generator<void, BABYLON.Mesh | null, void> {
   if (!at.length) return null;
   const mesh = BABYLON.MeshBuilder.CreateSphere(name, { diameter: MARKER_DIAMETER_MM, segments: 6 }, scene);
   const material = new BABYLON.StandardMaterial(`${name}Mat`, scene);
@@ -1295,6 +456,7 @@ function buildMarkerMesh(
   const p = new BABYLON.Vector3();
   const m = new BABYLON.Matrix();
   for (let j = 0; j < at.length; j++) {
+    if ((j & SLICE_MASK) === 0) yield;
     sampler.tip(at[j], 1, p);
     BABYLON.Matrix.TranslationToRef(p.x, p.y, p.z, m);
     m.copyToArray(matrices, j * 16);
@@ -1316,7 +478,8 @@ function countUpTo(sorted: Uint32Array, t: number) {
 }
 
 export interface GCodeLayer {
-  load(parsed: ParsedGCode): void;
+  /** Construit le maillage par tranches (l'interface ne gèle pas) ; résolu une fois affiché. */
+  load(parsed: ParsedGCode): Promise<void>;
   /** Position de lecture, en index de mouvement fractionnaire. */
   setTime(t: number): void;
   /** Types de ligne affichés (cf. `apex-gcode-line-visibility`). */
@@ -1341,9 +504,34 @@ export interface GCodeLayer {
    * anneau par mouvement). Reconstruit la géométrie des maillages extrudés ; sans effet en mode
    * catégoriel tant que celui-ci n'est pas actif (appliqué au prochain passage en mode continu). */
   setRenderPrecision(mm: number | null): void;
+  /** Active la sélection d'un point de trajectoire : construit (par tranches) l'index spatial qui
+   * rend `pickAt` instantané même sur des millions de mouvements. */
+  setPickingEnabled(enabled: boolean): void;
+  /** Point de trajectoire visible (déposé, type affiché) le plus proche du rayon monde `ray`, ou
+   * null. `pxPerUnit` : taille monde d'un pixel à 1 unité de distance de la caméra (tolérance de
+   * visée de quelques pixels). `t` : index de mouvement fractionnaire où la tête dépose ce point
+   * (cf. `setTime`) ; `local` : sa position dans le repère du plateau. */
+  pickAt(ray: BABYLON.Ray, pxPerUnit: number): { t: number; local: BABYLON.Vector3 } | null;
+  /** Surligne un point (repère du plateau, cf. `pickAt`) ; null l'éteint. */
+  setPickHighlight(local: BABYLON.Vector3 | null): void;
   setEnabled(enabled: boolean): void;
   /** Rotation courante du plateau autour de Y (radians, repère Babylon), 0 sans G-code. */
   getPlateRotation(): number;
+  /** G-code affiché (null tant qu'aucun n'est construit). Ses mouvements sont ceux que l'édition
+   * modifie en place (`applyMoveEdits`). */
+  getParsed(): ParsedGCode | null;
+  /** Repère du plateau (monde ← plateau), pour convertir les positions éditées. */
+  getPlateWorldMatrix(): BABYLON.Matrix;
+  /** Pointe de buse à la fin du mouvement k, repère du plateau. */
+  getMoveTip(k: number, out: BABYLON.Vector3): BABYLON.Vector3;
+  /** Édition : poids d'influence par mouvement (indices croissants), appliqués par le vertex shader
+   * des cordons ; null les efface. Recalcul une fois par pose / réglage, jamais par image. */
+  setEditWeights(indices: Uint32Array | null, weights?: Float32Array): void;
+  /** Édition : translation en direct (repère du plateau) des points pondérés. */
+  setEditTranslation(translation: BABYLON.Vector3): void;
+  /** Édition : nouvelles valeurs firmware validées (4 par indice : R, C, Z, B) — met à jour les
+   * mouvements et réécrit en place la géométrie des seuls segments touchés. */
+  applyMoveEdits(indices: Uint32Array, values: Float64Array): void;
   dispose(): void;
 }
 
@@ -1532,6 +720,7 @@ export function createGCodeLayer(
     mat.specularColor = new BABYLON.Color3(0.25, 0.25, 0.25);
     mat.specularPower = 48;
     mat.backFaceCulling = false;
+    attachEditDeform(mat);
     beadMaterials.set(t.id, mat);
   }
   // Matériau partagé des cordons en mode « colorer par » continu (cf. setColorBy) : couleur par
@@ -1541,6 +730,7 @@ export function createGCodeLayer(
   vertexColorBeadMat.disableLighting = true;
   vertexColorBeadMat.emissiveColor = BABYLON.Color3.White();
   vertexColorBeadMat.backFaceCulling = false;
+  attachEditDeform(vertexColorBeadMat);
   // Tronçon vivant en mode continu (cf. updateLive) : couleur plate recalculée chaque image, trop
   // petit pour justifier une mise à jour de couleurs par sommet à chaque frame (cf. plan §3).
   const liveColorByMat = new BABYLON.StandardMaterial(`${GCODE_MESH_PREFIX}LiveBeadMatColorBy`, scene);
@@ -1672,6 +862,7 @@ export function createGCodeLayer(
   const up = BABYLON.Vector3.Up();
   const headDir = new BABYLON.Vector3();
   const headTip = { r: 0, z: 0 };
+  const toolAxis = { x: 0, y: 0, z: 1 };
 
   const apply = () => {
     if (!parsed || parsed.moves.length === 0) return;
@@ -1696,11 +887,18 @@ export function createGCodeLayer(
       headDir.set(Math.sin(bRad), Math.cos(bRad), 0);
       BABYLON.Quaternion.FromUnitVectorsToRef(up, headDir, headNode.rotationQuaternion!);
     } else {
-      // Cartésien : plateau fixe, tête droite qui suit la buse en X/Y/Z (Y du G-code → z Babylon).
+      // Cartésien : plateau fixe, tête qui suit la buse en X/Y/Z (Y du G-code → z Babylon), droite
+      // sauf si le fichier pilote l'orientation de l'outil (B/C) : la tête prend alors cet axe.
       plateNode.rotation.y = 0;
       onPlateRotation?.(0);
       headNode.position.set(state.x, state.z, state.y);
-      headNode.rotationQuaternion!.set(0, 0, 0, 1);
+      if (parsed.toolOriented) {
+        toolAxisAt(parsed.moves, t, toolAxis);
+        headDir.set(toolAxis.x, toolAxis.z, toolAxis.y);
+        BABYLON.Quaternion.FromUnitVectorsToRef(up, headDir, headNode.rotationQuaternion!);
+      } else {
+        headNode.rotationQuaternion!.set(0, 0, 0, 1);
+      }
     }
 
     // Préfixe affiché : mouvements terminés + fraction du mouvement en cours, au sous-segment
@@ -1844,66 +1042,429 @@ export function createGCodeLayer(
    * courante (`renderPrecisionMm`, ignorée en mode catégoriel — cf. createSampler). Utilisée par
    * `load()` (nouveau fichier) et `setRenderPrecision()` (même fichier, juste une géométrie plus
    * ou moins fine) — ne touche jamais `time`, laissé à l'appelant. */
-  const buildAll = (next: ParsedGCode) => {
+  // Numéro de la construction en cours : une plus récente (nouveau fichier, autre précision)
+  // annule la précédente à la prochaine tranche.
+  let buildSeq = 0;
+
+  const buildAll = async (next: ParsedGCode): Promise<void> => {
+    const seq = ++buildSeq;
+    const cancelled = () => seq !== buildSeq;
     disposeAll();
+    pickBuildSeq++; // l'index de sélection de l'ancienne géométrie n'est plus valable
+    pickGrid = null;
+    pickHighlight?.setEnabled(false);
     parsed = next;
     const { moves } = next;
     const precisionMm = colorBy !== 'lineType' ? renderPrecisionMm : null;
-    const pathSampler = createSampler(next, precisionMm);
+    const pathSampler = await runSliced(createSampler(next, precisionMm), cancelled);
+    if (!pathSampler) return;
     sampler = pathSampler;
     segments = pathSampler.segments;
+
+    // Entrées accumulées localement et publiées d'un bloc en fin de construction : un setter
+    // appelé entre deux tranches (visibilité, coloration) ne voit jamais un calque à moitié construit.
+    const newPaths: typeof paths = [];
+    const newMarkers: typeof markers = [];
+    const abort = () => {
+      for (const e of newPaths) e.mesh?.dispose(false, false);
+      for (const e of newMarkers) e.mesh.dispose(false, true);
+    };
 
     for (const t of LINE_TYPES) {
       if (t.kind !== 'extrusion') continue;
       const include = (k: number) => moves[k].type === t.id;
       const material = beadMaterials.get(t.id)!;
-      const built = buildBeadMesh(`${GCODE_MESH_PREFIX}Bead_${t.id}`, next, pathSampler, include, material, scene);
-      paths.push({ ...built, type: t.id, include, isExtrusion: true, categoryMaterial: material });
+      const built = await runSliced(buildBeadMesh(`${GCODE_MESH_PREFIX}Bead_${t.id}`, next, pathSampler, include, material, scene), cancelled);
+      if (!built) { abort(); return; }
+      newPaths.push({ ...built, type: t.id, include, isExtrusion: true, categoryMaterial: material });
     }
     // Trajets à vide : tout mouvement sans dépôt hors essuyage (rétractions sur place comprises,
     // de longueur nulle).
     const travelInclude = (k: number) => !moves[k].extruding && moves[k].type !== 'wipe';
     const wipeInclude = (k: number) => moves[k].type === 'wipe';
     for (const [type, include] of [['travel', travelInclude], ['wipe', wipeInclude]] as const) {
-      const built = buildPathMesh(`${GCODE_MESH_PREFIX}Path_${type}`, next, pathSampler, include, colors[type], scene);
-      paths.push({ ...built, type, include, isExtrusion: false });
+      const built = await runSliced(buildPathMesh(`${GCODE_MESH_PREFIX}Path_${type}`, next, pathSampler, include, colors[type], scene), cancelled);
+      if (!built) { abort(); return; }
+      newPaths.push({ ...built, type, include, isExtrusion: false });
     }
     for (const [type, at] of Object.entries(next.markers) as [LineTypeId, Uint32Array][]) {
-      const mesh = buildMarkerMesh(`${GCODE_MESH_PREFIX}Marker_${type}`, at, pathSampler, colors[type], scene);
-      if (mesh) markers.push({ type, mesh, at });
+      const mesh = await runSliced(buildMarkerMesh(`${GCODE_MESH_PREFIX}Marker_${type}`, at, pathSampler, colors[type], scene), cancelled);
+      if (cancelled()) { mesh?.dispose(false, true); abort(); return; }
+      if (mesh) newMarkers.push({ type, mesh, at });
     }
+    let newOffPlate: typeof offPlatePath = null;
     if (next.offPlate.moves.length) {
       const flags = new Uint8Array(moves.length);
       for (const k of next.offPlate.moves) flags[k] = 1;
       const include = (k: number) => flags[k] === 1;
-      const built = buildBeadMesh(`${GCODE_MESH_PREFIX}OffPlate`, next, pathSampler, include, offPlateMat, scene);
-      offPlatePath = { ...built, type: 'custom', include, isExtrusion: false };
-      if (offPlatePath.mesh) {
-        offPlatePath.mesh.parent = plateNode;
+      const built = await runSliced(buildBeadMesh(`${GCODE_MESH_PREFIX}OffPlate`, next, pathSampler, include, offPlateMat, scene), cancelled);
+      if (!built) { abort(); return; }
+      newOffPlate = { ...built, type: 'custom', include, isExtrusion: false };
+      if (newOffPlate.mesh) {
+        newOffPlate.mesh.parent = plateNode;
         // Un rechargement pendant un clignotement déjà en cours (rare) doit reconstruire avec le
         // bon matériau, pas retomber sur le rouge fixe de buildBeadMesh ci-dessus.
-        if (blinkingOffPlate) offPlatePath.mesh.material = offPlateHazardMat;
+        if (blinkingOffPlate) newOffPlate.mesh.material = offPlateHazardMat;
       }
     }
+    paths = newPaths;
+    markers = newMarkers;
+    offPlatePath = newOffPlate;
     for (const entry of [...paths, ...markers]) {
       if (entry.mesh) entry.mesh.parent = plateNode;
     }
     applyVisibility();
     applyColorBy();
     headNode.setEnabled(moves.length > 0);
+    if (pickWanted) void buildPickIndex();
+  };
+
+  // ---------------------------------------------------------------------------------------------
+  // Sélection d'un point de trajectoire. Un lancer de rayon Babylon parcourrait tous les triangles
+  // de chaque maillage (des millions) à chaque survol : on indexe donc les segments extrudés dans
+  // une grille 3D régulière (format CSR : `cellStart`/`items`), puis on ne parcourt que les
+  // cellules traversées par le rayon. Construite par tranches, invalidée à chaque reconstruction.
+  // ---------------------------------------------------------------------------------------------
+  interface PickGrid {
+    min: BABYLON.Vector3;
+    cell: number;
+    nx: number; ny: number; nz: number;
+    cellStart: Uint32Array;
+    items: Uint32Array;
+    /** Dernière requête ayant testé le mouvement k (évite de le tester une fois par cellule). */
+    seen: Uint32Array;
+  }
+  const PICK_CELL_MM = 3;
+  const PICK_MAX_CELLS = 4_000_000;
+  const PICK_PAD_MM = 0.6; // un segment est aussi inscrit dans les cellules voisines à moins de ça
+  let pickGrid: PickGrid | null = null;
+  let pickWanted = false;
+  let pickBuildSeq = 0;
+  let pickQuery = 0;
+  const pickA = new BABYLON.Vector3();
+  const pickB = new BABYLON.Vector3();
+
+  function* buildPickGrid(p: ParsedGCode, sam: PathSampler): Generator<void, PickGrid | null, void> {
+    const { moves } = p;
+    const a = new BABYLON.Vector3();
+    const min = new BABYLON.Vector3(Infinity, Infinity, Infinity);
+    const max = new BABYLON.Vector3(-Infinity, -Infinity, -Infinity);
+    for (let k = 1; k < moves.length; k++) {
+      if ((k & SLICE_MASK) === 0) yield;
+      if (!moves[k].extruding) continue;
+      const n = sam.segments[k];
+      for (let s = 0; s <= n; s++) {
+        sam.tip(k, s / n, a);
+        min.minimizeInPlace(a);
+        max.maximizeInPlace(a);
+      }
+    }
+    if (!Number.isFinite(min.x)) return null;
+    min.x -= PICK_PAD_MM; min.y -= PICK_PAD_MM; min.z -= PICK_PAD_MM;
+    max.x += PICK_PAD_MM; max.y += PICK_PAD_MM; max.z += PICK_PAD_MM;
+    let cell = PICK_CELL_MM;
+    let nx = 1, ny = 1, nz = 1;
+    for (;;) {
+      nx = Math.max(1, Math.ceil((max.x - min.x) / cell));
+      ny = Math.max(1, Math.ceil((max.y - min.y) / cell));
+      nz = Math.max(1, Math.ceil((max.z - min.z) / cell));
+      if (nx * ny * nz <= PICK_MAX_CELLS) break;
+      cell *= 1.5;
+    }
+    const cells = nx * ny * nz;
+    const cellStart = new Uint32Array(cells + 1);
+    const stamp = new Uint32Array(cells);
+    const clampCell = (v: number, n: number) => Math.max(0, Math.min(n - 1, v));
+
+    // Deux passes identiques : la première compte les entrées de chaque cellule, la seconde les écrit.
+    let items = new Uint32Array(0);
+    let fill: Uint32Array | null = null;
+    for (let pass = 0; pass < 2; pass++) {
+      stamp.fill(0);
+      for (let k = 1; k < moves.length; k++) {
+        if ((k & SLICE_MASK) === 0) yield;
+        if (!moves[k].extruding) continue;
+        const n = sam.segments[k];
+        sam.tip(k, 0, a);
+        for (let s = 1; s <= n; s++) {
+          sam.tip(k, s / n, pickB);
+          const steps = Math.max(1, Math.ceil(BABYLON.Vector3.Distance(a, pickB) / (cell * 0.5)));
+          for (let j = 0; j <= steps; j++) {
+            const f = j / steps;
+            const x = a.x + (pickB.x - a.x) * f, y = a.y + (pickB.y - a.y) * f, z = a.z + (pickB.z - a.z) * f;
+            const x0 = clampCell(Math.floor((x - PICK_PAD_MM - min.x) / cell), nx);
+            const x1 = clampCell(Math.floor((x + PICK_PAD_MM - min.x) / cell), nx);
+            const y0 = clampCell(Math.floor((y - PICK_PAD_MM - min.y) / cell), ny);
+            const y1 = clampCell(Math.floor((y + PICK_PAD_MM - min.y) / cell), ny);
+            const z0 = clampCell(Math.floor((z - PICK_PAD_MM - min.z) / cell), nz);
+            const z1 = clampCell(Math.floor((z + PICK_PAD_MM - min.z) / cell), nz);
+            for (let cz = z0; cz <= z1; cz++) {
+              for (let cy = y0; cy <= y1; cy++) {
+                for (let cx = x0; cx <= x1; cx++) {
+                  const c = (cz * ny + cy) * nx + cx;
+                  if (stamp[c] === k) continue;
+                  stamp[c] = k;
+                  if (pass === 0) cellStart[c + 1]++;
+                  else items[fill![c]++] = k;
+                }
+              }
+            }
+          }
+          a.copyFrom(pickB);
+        }
+      }
+      if (pass === 0) {
+        for (let c = 0; c < cells; c++) cellStart[c + 1] += cellStart[c];
+        items = new Uint32Array(cellStart[cells]);
+        fill = cellStart.slice(0, cells);
+      }
+    }
+    return { min, cell, nx, ny, nz, cellStart, items, seen: new Uint32Array(moves.length) };
+  }
+
+  const buildPickIndex = async () => {
+    const seq = ++pickBuildSeq;
+    pickGrid = null;
+    if (!parsed || !sampler) return;
+    const grid = await runSliced(buildPickGrid(parsed, sampler), () => seq !== pickBuildSeq || disposed);
+    if (seq === pickBuildSeq && !disposed) pickGrid = grid;
+  };
+
+  let pickHighlight: BABYLON.Mesh | null = null;
+
+  const pickAt = (ray: BABYLON.Ray, pxPerUnit: number) => {
+    const grid = pickGrid;
+    if (!grid || !parsed || !sampler) return null;
+    const { moves } = parsed;
+    const inv = plateNode.getWorldMatrix().clone().invert();
+    const o = BABYLON.Vector3.TransformCoordinates(ray.origin, inv);
+    const d = BABYLON.Vector3.TransformNormal(ray.direction, inv).normalize();
+
+    // Entrée/sortie du rayon dans la boîte de la grille (méthode des dalles).
+    let tEnter = 0, tExit = Infinity;
+    const lo = [grid.min.x, grid.min.y, grid.min.z];
+    const hi = [lo[0] + grid.nx * grid.cell, lo[1] + grid.ny * grid.cell, lo[2] + grid.nz * grid.cell];
+    const oo = [o.x, o.y, o.z], dd = [d.x, d.y, d.z];
+    for (let i = 0; i < 3; i++) {
+      if (Math.abs(dd[i]) < 1e-9) {
+        if (oo[i] < lo[i] || oo[i] > hi[i]) return null;
+      } else {
+        const t1 = (lo[i] - oo[i]) / dd[i], t2 = (hi[i] - oo[i]) / dd[i];
+        tEnter = Math.max(tEnter, Math.min(t1, t2));
+        tExit = Math.min(tExit, Math.max(t1, t2));
+      }
+    }
+    if (tEnter > tExit) return null;
+
+    const queryId = ++pickQuery;
+    const tLimit = time;
+    let best: { t: number; u: number; x: number; y: number; z: number } | null = null;
+    let lastCell = -1;
+    const step = grid.cell * 0.5;
+    const radius = BEAD_WIDTH_MM / 2;
+    for (let u = tEnter; u <= tExit + step; u += step) {
+      const x = Math.floor((o.x + d.x * u - grid.min.x) / grid.cell);
+      const y = Math.floor((o.y + d.y * u - grid.min.y) / grid.cell);
+      const z = Math.floor((o.z + d.z * u - grid.min.z) / grid.cell);
+      if (x < 0 || y < 0 || z < 0 || x >= grid.nx || y >= grid.ny || z >= grid.nz) continue;
+      const c = (z * grid.ny + y) * grid.nx + x;
+      if (c === lastCell) continue;
+      lastCell = c;
+      for (let i = grid.cellStart[c]; i < grid.cellStart[c + 1]; i++) {
+        const k = grid.items[i];
+        if (grid.seen[k] === queryId) continue;
+        grid.seen[k] = queryId;
+        if (k - 1 > tLimit || !visibility[moves[k].type]) continue;
+        const n = sampler.segments[k];
+        sampler.tip(k, 0, pickA);
+        for (let s = 1; s <= n; s++) {
+          sampler.tip(k, s / n, pickB);
+          // Plus proche approche rayon (o + u·d, u ≥ 0) / segment [A, B] (A + v·(B − A), v ∈ [0, 1]).
+          const ex = pickB.x - pickA.x, ey = pickB.y - pickA.y, ez = pickB.z - pickA.z;
+          const wx = o.x - pickA.x, wy = o.y - pickA.y, wz = o.z - pickA.z;
+          const e2 = ex * ex + ey * ey + ez * ez;
+          const de = d.x * ex + d.y * ey + d.z * ez;
+          const dw = d.x * wx + d.y * wy + d.z * wz;
+          const ew = ex * wx + ey * wy + ez * wz;
+          const denom = e2 - de * de; // d est unitaire
+          let v = denom > 1e-12 ? (ew - de * dw) / denom : 0;
+          v = Math.max(0, Math.min(1, v));
+          let uu = de * v - dw;
+          if (uu < 0) { uu = 0; v = e2 > 1e-12 ? Math.max(0, Math.min(1, ew / e2)) : 0; }
+          const cx = pickA.x + ex * v, cy = pickA.y + ey * v, cz = pickA.z + ez * v;
+          const dx = o.x + d.x * uu - cx, dy = o.y + d.y * uu - cy, dz = o.z + d.z * uu - cz;
+          const dist = Math.hypot(dx, dy, dz);
+          const tol = radius + PICK_TOLERANCE_PX * pxPerUnit * uu;
+          const tAt = k - 1 + (s - 1 + v) / n;
+          if (dist <= tol && tAt <= tLimit && (!best || uu < best.u)) {
+            best = { t: tAt, u: uu, x: cx, y: cy, z: cz };
+          }
+          pickA.copyFrom(pickB);
+        }
+      }
+      if (best) break; // parcours de l'avant vers l'arrière : la première cellule touchée suffit
+    }
+    return best ? { t: best.t, local: new BABYLON.Vector3(best.x, best.y, best.z) } : null;
+  };
+
+  // ---------------------------------------------------------------------------------------------
+  // Édition du G-code (onglet Édition) : poids d'influence par sommet pour la déformation en
+  // direct par le vertex shader (gcodeEditDeform.ts), puis réécriture locale de la géométrie des
+  // mouvements validés par le noyau C++.
+  // ---------------------------------------------------------------------------------------------
+
+  const setEditWeights = (indices: Uint32Array | null, weights?: Float32Array) => {
+    if (!parsed) return;
+    let dense: Float32Array | null = null;
+    if (indices && weights && indices.length) {
+      dense = new Float32Array(parsed.moves.length);
+      for (let i = 0; i < indices.length; i++) dense[indices[i]] = weights[i];
+    }
+    for (const entry of paths) {
+      const { mesh, sampleOwner: owner, sampleFrac: frac } = entry;
+      if (!entry.isExtrusion || !mesh || !owner || !frac) continue;
+      const had = !!entry.editWeights;
+      if (!dense && !had) continue;
+      const data = entry.editWeights ?? new Float32Array(owner.length * TUBE_SIDES);
+      let any = false;
+      if (dense) {
+        for (let j = 0; j < owner.length; j++) {
+          const k = owner[j];
+          const f = frac[j];
+          const w = (k > 0 ? dense[k - 1] * (1 - f) : 0) + dense[k] * f;
+          if (w > 0) any = true;
+          data.fill(w, j * TUBE_SIDES, (j + 1) * TUBE_SIDES);
+        }
+      } else {
+        data.fill(0);
+      }
+      if (!had && !any) continue;
+      if (!had) {
+        entry.editWeights = data;
+        mesh.setVerticesData(EDIT_WEIGHT_KIND, data, true, 1);
+      } else {
+        mesh.updateVerticesData(EDIT_WEIGHT_KIND, data);
+      }
+    }
+  };
+
+  /** Premier échantillon de `owner` (croissant) dont le propriétaire est ≥ k. */
+  const lowerBound = (owner: Uint32Array, k: number) => {
+    let lo = 0, hi = owner.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (owner[mid] < k) lo = mid + 1; else hi = mid;
+    }
+    return lo;
+  };
+
+  /** Réécrit les anneaux des échantillons [a, b] d'un cordon depuis les mouvements courants. */
+  const rewriteBeadSamples = (entry: PathEntry, a: number, b: number) => {
+    const { mesh, sampleOwner: owner, sampleFrac: frac, stripStart, positions, normals } = entry;
+    if (!mesh || !owner || !frac || !stripStart || !positions || !normals || !sampler) return;
+    const count = owner.length;
+    // Centres recalculés un échantillon au-delà de chaque bord : la tangente des anneaux réécrits
+    // en dépend.
+    const c0 = Math.max(0, a - 1);
+    const c1 = Math.min(count - 1, b + 1);
+    const n = c1 - c0 + 1;
+    const centers = new Float32Array(n * 3);
+    const axes = new Float32Array(n * 3);
+    const tip = new BABYLON.Vector3();
+    const ax = new BABYLON.Vector3();
+    const halfH = BEAD_HEIGHT_MM / 2;
+    for (let j = c0; j <= c1; j++) {
+      sampler.tip(owner[j], frac[j], tip);
+      sampler.axis(owner[j], frac[j], ax);
+      const p = (j - c0) * 3;
+      centers[p] = tip.x - ax.x * halfH;
+      centers[p + 1] = tip.y - ax.y * halfH;
+      centers[p + 2] = tip.z - ax.z * halfH;
+      axes[p] = ax.x; axes[p + 1] = ax.y; axes[p + 2] = ax.z;
+    }
+    const localStrip = stripStart.subarray(c0, c1 + 1);
+    const localPos = new Float32Array(n * TUBE_SIDES * 3);
+    const localNrm = new Float32Array(n * TUBE_SIDES * 3);
+    const tangent = { x: 1, y: 0, z: 0 };
+    for (let j = a; j <= b; j++) writeSampleRing(localPos, localNrm, centers, axes, localStrip, n, j - c0, tangent);
+    const from = (a - c0) * TUBE_SIDES * 3;
+    const to = (b - c0 + 1) * TUBE_SIDES * 3;
+    const offset = a * TUBE_SIDES * 3;
+    positions.set(localPos.subarray(from, to), offset);
+    normals.set(localNrm.subarray(from, to), offset);
+    mesh.getVertexBuffer(BABYLON.VertexBuffer.PositionKind)?.updateDirectly(positions.subarray(offset, offset + to - from), offset);
+    mesh.getVertexBuffer(BABYLON.VertexBuffer.NormalKind)?.updateDirectly(normals.subarray(offset, offset + to - from), offset);
+  };
+
+  const applyMoveEdits = (indices: Uint32Array, values: Float64Array) => {
+    if (!parsed || !sampler || !indices.length) return;
+    const { moves } = parsed;
+    const touched = new Set<number>();
+    for (let i = 0; i < indices.length; i++) {
+      const k = indices[i];
+      const m = moves[k];
+      m.x = values[4 * i];
+      m.y = values[4 * i + 1];
+      m.z = values[4 * i + 2];
+      m.b = values[4 * i + 3];
+      // Un point modifié change les deux segments qui le touchent : celui qui y arrive (k) et
+      // celui qui en part (k + 1).
+      touched.add(k);
+      if (k + 1 < moves.length) touched.add(k + 1);
+    }
+    const dirty = Float64Array.from(touched).sort();
+
+    for (const entry of paths) {
+      if (!entry.mesh) continue;
+      if (entry.sampleOwner) {
+        // Plages contiguës d'échantillons à réécrire, un échantillon de marge (tangentes voisines).
+        const owner = entry.sampleOwner;
+        let runA = -1, runB = -1;
+        const flush = () => { if (runA >= 0) rewriteBeadSamples(entry, runA, runB); };
+        for (const k of dirty) {
+          const lo = lowerBound(owner, k);
+          if (lo >= owner.length || owner[lo] !== k) continue;
+          const hi = lowerBound(owner, k + 1) - 1;
+          const a = Math.max(0, lo - 1), b = Math.min(owner.length - 1, hi + 1);
+          if (runA >= 0 && a <= runB + 1) runB = Math.max(runB, b);
+          else { flush(); runA = a; runB = b; }
+        }
+        flush();
+      } else if (entry.lineStart && entry.positions) {
+        const { lineStart, positions } = entry;
+        const vb = entry.mesh.getVertexBuffer(BABYLON.VertexBuffer.PositionKind);
+        const tip = new BABYLON.Vector3();
+        for (const k of dirty) {
+          if (!entry.include(k)) continue;
+          const n = segments[k];
+          const v0 = lineStart[k];
+          for (let s = 0; s <= n; s++) {
+            sampler.tip(k, s / n, tip);
+            const p = (v0 + s) * 3;
+            positions[p] = tip.x; positions[p + 1] = tip.y; positions[p + 2] = tip.z;
+          }
+          vb?.updateDirectly(positions.subarray(v0 * 3, (v0 + n + 1) * 3), v0 * 3);
+        }
+      }
+    }
+    // L'index de sélection décrit l'ancienne géométrie.
+    if (pickWanted) void buildPickIndex();
+    else { pickBuildSeq++; pickGrid = null; }
+    apply();
   };
 
   return {
-    load(next) {
-      buildAll(next);
+    async load(next) {
+      await buildAll(next);
+      if (parsed !== next) return; // supplanté par un chargement plus récent
       time = next.moves.length - 1;
       apply();
     },
     setRenderPrecision(mm) {
       renderPrecisionMm = mm;
       if (!parsed || colorBy === 'lineType') return;
-      buildAll(parsed);
-      apply();
+      const current = parsed;
+      void buildAll(current).then(() => { if (parsed === current) apply(); });
     },
     setTime(t) {
       time = t;
@@ -1924,8 +1485,8 @@ export function createGCodeLayer(
       if (scope) colorByScope = scope;
       else if (mode !== 'lineType' && parsed) colorByScope = defaultColorByScope(parsed.ranges[mode]);
       if (needsRebuild && parsed) {
-        buildAll(parsed);
-        apply();
+        const current = parsed;
+        void buildAll(current).then(() => { if (parsed === current) apply(); });
       } else {
         applyColorBy();
       }
@@ -1957,12 +1518,49 @@ export function createGCodeLayer(
       fullHead = show;
       applyHeadVisibility();
     },
+    setPickingEnabled(enabled) {
+      pickWanted = enabled;
+      if (enabled) { if (!pickGrid) void buildPickIndex(); } else { pickBuildSeq++; pickGrid = null; }
+    },
+    pickAt,
+    setPickHighlight(local) {
+      if (!local) { pickHighlight?.setEnabled(false); return; }
+      if (!pickHighlight) {
+        pickHighlight = BABYLON.MeshBuilder.CreateSphere(`${GCODE_MESH_PREFIX}PickHighlight`, { diameter: 1.8, segments: 12 }, scene);
+        const mat = new BABYLON.StandardMaterial(`${GCODE_MESH_PREFIX}PickHighlightMat`, scene);
+        mat.disableLighting = true;
+        mat.emissiveColor = new BABYLON.Color3(0.0, 0.94, 1.0);
+        mat.alpha = 0.9;
+        mat.disableDepthWrite = true;
+        pickHighlight.material = mat;
+        pickHighlight.parent = plateNode;
+        pickHighlight.isPickable = false;
+        pickHighlight.renderingGroupId = 1; // par-dessus le tracé, même caché derrière une paroi
+      }
+      pickHighlight.position.copyFrom(local);
+      pickHighlight.setEnabled(true);
+    },
     setEnabled(enabled) {
       root.setEnabled(enabled);
     },
     getPlateRotation() {
       return plateNode.rotation.y;
     },
+    getParsed() {
+      return parsed;
+    },
+    getPlateWorldMatrix() {
+      return plateNode.computeWorldMatrix(true);
+    },
+    getMoveTip(k, out) {
+      if (sampler) sampler.tip(k, 1, out);
+      return out;
+    },
+    setEditWeights,
+    setEditTranslation(translation) {
+      editDeformState.translation.copyFrom(translation);
+    },
+    applyMoveEdits,
     dispose() {
       disposed = true;
       if (deferredColorByRaf) cancelAnimationFrame(deferredColorByRaf);

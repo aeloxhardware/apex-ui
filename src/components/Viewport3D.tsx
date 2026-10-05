@@ -5,9 +5,11 @@ import * as BABYLON from 'babylonjs';
 import 'babylonjs-loaders';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Upload, BoxSelect, LayoutGrid, Trash2 } from 'lucide-react';
-import { showSuccess, showWarning } from '@/utils/toast';
+import { showSuccess, showWarning, showError } from '@/utils/toast';
 import styles from './Viewport3D.module.scss';
 import { createGCodeLayer, GCODE_MESH_PREFIX, type ParsedGCode, type ColorByMode } from './gcodeLayer';
+import { createGCodeEditController, type GCodeEditController } from './edit-node/gcodeEditController';
+import GCodeEditOverlay from './edit-node/GCodeEditOverlay';
 import type { ColorByScope } from './gcodeColormap';
 import type { LineTypeVisibility } from './gcodeLineTypes';
 
@@ -31,6 +33,7 @@ export const Viewport3D = () => {
   // drag, comme dans la plupart des logiciels de CAO : vers la droite = « window » (ne retient
   // que les objets entièrement englobés, contour plein) ; vers la gauche = « crossing » (retient
   // tout objet touché, contour pointillé animé + surlignage blanc).
+  const [editController, setEditController] = useState<GCodeEditController | null>(null);
   const [selectionBox, setSelectionBox] = useState<{ x: number; y: number; width: number; height: number; mode: 'window' | 'crossing' } | null>(null);
   const plateImportInputRef = useRef<HTMLInputElement>(null);
   // Échelle dynamique du mode modélisation : largeur du repère en px + distance réelle qu'il
@@ -1579,16 +1582,30 @@ export const Viewport3D = () => {
     const gcodeLayer = createGCodeLayer(scene, gcodeAnchor, (rotationY) => {
       if (gcodePreviewActive) originAxesRoot.rotation.y = rotationY;
     });
+    // Onglet Édition : nœud d'édition du G-code (cf. edit-node/gcodeEditController.ts).
+    const editController = createGCodeEditController({
+      scene, engine, camera, canvas, layer: gcodeLayer, isPreviewActive: () => gcodePreviewActive,
+    });
+    setEditController(editController);
+    if (import.meta.env.DEV) (window as unknown as { __apexEdit?: GCodeEditController }).__apexEdit = editController;
     const onGCodePreviewToggled = (e: Event) => {
       const active = !!(e as CustomEvent<{ active: boolean }>).detail?.active;
       gcodePreviewActive = active;
       originAxesRoot.rotation.y = active ? gcodeLayer.getPlateRotation() : 0;
       gcodeLayer.setEnabled(active);
       modelsRef.current.forEach((m) => { if (!m.isDisposed()) m.setEnabled(!active); });
+      editController.refresh();
     };
     const onGCodeLoaded = (e: Event) => {
-      const parsed = (e as CustomEvent<{ parsed: ParsedGCode }>).detail?.parsed;
-      if (parsed) gcodeLayer.load(parsed);
+      const detail = (e as CustomEvent<{ parsed: ParsedGCode; handled?: boolean; onBuilt?: () => void }>).detail;
+      if (!detail?.parsed) return;
+      // Maillage construit par tranches (UI non gelée) : on prévient l'émetteur à la fin pour que
+      // le rideau de chargement reste affiché jusque-là.
+      detail.handled = true;
+      void gcodeLayer.load(detail.parsed).finally(() => {
+        detail.onBuilt?.();
+        editController.refresh();
+      });
     };
     const onGCodeTime = (e: Event) => {
       const t = (e as CustomEvent<{ t: number }>).detail?.t;
@@ -1614,6 +1631,41 @@ export const Viewport3D = () => {
       const mm = (e as CustomEvent<{ mm: number | null }>).detail?.mm;
       gcodeLayer.setRenderPrecision(mm ?? null);
     };
+    // Sélection d'un point de trajectoire (`apex-gcode-pick-mode { active }`, cf. use-gcode-preview.ts) :
+    // survol = point surligné sous le curseur ; clic (sans glisser, pour ne pas voler l'orbite de la
+    // caméra) = `apex-gcode-point-picked { t }`, l'index de mouvement où la tête dépose ce point.
+    let gcodePickMode = false;
+    let gcodePickDown: { x: number; y: number } | null = null;
+    const pickGCodePoint = () => {
+      const ray = scene.createPickingRay(scene.pointerX, scene.pointerY, BABYLON.Matrix.Identity(), camera);
+      const pxPerUnit = (2 * Math.tan(camera.fov / 2)) / Math.max(1, engine.getRenderHeight());
+      return gcodeLayer.pickAt(ray, pxPerUnit);
+    };
+    const setGCodePickMode = (active: boolean) => {
+      gcodePickMode = active;
+      gcodePickDown = null;
+      gcodeLayer.setPickingEnabled(active);
+      if (!active) gcodeLayer.setPickHighlight(null);
+      canvas.style.cursor = active ? 'crosshair' : '';
+    };
+    const onGCodePickMode = (e: Event) => setGCodePickMode(!!(e as CustomEvent<{ active: boolean }>).detail?.active);
+    const gcodePickObserver = scene.onPointerObservable.add((pointerInfo) => {
+      if (!gcodePickMode || !gcodePreviewActive) return;
+      const evt = pointerInfo.event as PointerEvent;
+      if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERMOVE) {
+        if (evt.buttons !== 0) { gcodeLayer.setPickHighlight(null); return; }
+        gcodeLayer.setPickHighlight(pickGCodePoint()?.local ?? null);
+      } else if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERDOWN && evt.button === 0) {
+        gcodePickDown = { x: evt.clientX, y: evt.clientY };
+      } else if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERUP && evt.button === 0) {
+        const down = gcodePickDown;
+        gcodePickDown = null;
+        if (!down || Math.hypot(evt.clientX - down.x, evt.clientY - down.y) > 5) return;
+        const hit = pickGCodePoint();
+        if (hit) window.dispatchEvent(new CustomEvent('apex-gcode-point-picked', { detail: { t: hit.t } }));
+      }
+    });
+    window.addEventListener('apex-gcode-pick-mode', onGCodePickMode);
     window.addEventListener('apex-preview-toggled', onGCodePreviewToggled);
     window.addEventListener('apex-gcode-loaded', onGCodeLoaded);
     window.addEventListener('apex-gcode-time', onGCodeTime);
@@ -1690,12 +1742,17 @@ export const Viewport3D = () => {
       scene.onPointerObservable.remove(plateActionPointerObserver);
       window.removeEventListener('apex-preview-toggled', onGCodePreviewToggled);
       window.removeEventListener('apex-gcode-loaded', onGCodeLoaded);
+      window.removeEventListener('apex-gcode-pick-mode', onGCodePickMode);
+      scene.onPointerObservable.remove(gcodePickObserver);
+      canvas.style.cursor = '';
       window.removeEventListener('apex-gcode-time', onGCodeTime);
       window.removeEventListener('apex-gcode-line-visibility', onGCodeLineVisibility);
       window.removeEventListener('apex-gcode-highlight-offplate', onGCodeHighlightOffPlate);
       window.removeEventListener('apex-gcode-show-full-head', onGCodeShowFullHead);
       window.removeEventListener('apex-gcode-color-by', onGCodeColorBy);
       window.removeEventListener('apex-gcode-render-precision', onGCodeRenderPrecision);
+      editController.dispose();
+      setEditController(null);
       gcodeLayer.dispose();
     };
 
@@ -2413,6 +2470,7 @@ export const Viewport3D = () => {
         confirmed = window.confirm(`Voulez-vous vraiment supprimer les ${selection.size} modèles sélectionnés ?`);
       }
       if (!confirmed) return;
+      const deletedCount = selection.size;
       selection.forEach(mesh => {
         if (mesh && !mesh.isDisposed()) {
           const meshName = mesh.name;
@@ -2421,6 +2479,7 @@ export const Viewport3D = () => {
           window.dispatchEvent(new CustomEvent('apex-mesh-deleted', { detail: { name: meshName } }));
         }
       });
+      showSuccess(deletedCount > 1 ? `${deletedCount} modèles supprimés.` : 'Modèle supprimé.');
       selection.clear();
       setSelectedMeshName(null);
       updateHighlight();
@@ -3332,13 +3391,14 @@ export const Viewport3D = () => {
           });
 
           window.dispatchEvent(
-            new CustomEvent('apex-mesh-selected', { 
-              detail: { 
+            new CustomEvent('apex-mesh-selected', {
+              detail: {
                 name: r.name || "Modèle 3D",
                 subMeshes: subMeshesList
               }
             })
           );
+          showSuccess(`Modèle importé : ${uniqueName}.`);
 
           if (currentToolRef.current === 'move') {
             gizmoManager.rotationGizmoEnabled = false;
@@ -3362,6 +3422,7 @@ export const Viewport3D = () => {
         }
       } catch (err) {
         console.error("Failed to import 3D model:", err);
+        showError(`Échec de l'import du modèle : ${file.name}.`);
       }
     };
 
@@ -3411,6 +3472,7 @@ export const Viewport3D = () => {
           window.dispatchEvent(new CustomEvent('apex-mesh-deleted', { detail: { name: meshName } }));
         }
       });
+      showSuccess(`${all.length} modèle(s) supprimé(s) du plateau.`);
       selectedMeshesRef.current.clear();
       setSelectedMeshName(null);
       updateHighlight();
@@ -3597,6 +3659,9 @@ export const Viewport3D = () => {
         // du navigateur.
         onContextMenu={(e) => e.preventDefault()}
       />
+      {editController && canvasRef.current && (
+        <GCodeEditOverlay controller={editController} sceneCanvas={canvasRef.current} />
+      )}
 
       {/* Rectangle de la fenêtre de sélection (clic gauche + drag) : purement visuel, la
           logique de hit-test vit dans le pointer observer Babylon ci-dessus. « window » (drag

@@ -29,6 +29,9 @@ declare global {
     /** Abonnement à la progression (0–100) ; renvoie la fonction de désabonnement. */
     onConvertProgress(callback: (percent: number) => void): () => void;
     saveGCode(request: { name: string; text: string }): Promise<{ saved: boolean; path?: string }>;
+    /** Demande un canal vers le noyau C++ d'édition : le MessagePort arrive ensuite par
+     * window.postMessage({ type: 'apex-edit-port' }) — cf. src/utils/editKernelClient.ts. */
+    openEditChannel(): void;
   }
 
   interface Window {

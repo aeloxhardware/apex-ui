@@ -28,6 +28,9 @@ const HEAD_TOOLTIP = {
 // vitesses restent précises.
 const MIN_SPEED = GCODE_SPEED_OPTIONS[0];
 const MAX_SPEED = GCODE_SPEED_OPTIONS[GCODE_SPEED_OPTIONS.length - 1];
+// Double-clic sur le curseur : retour à la valeur par défaut (préréglage ×1), comme tout curseur
+// du slicer sauf ordre contraire.
+const DEFAULT_SPEED = GCODE_SPEED_OPTIONS[1];
 const LOG_RANGE = Math.log(MAX_SPEED / MIN_SPEED);
 const speedToRatio = (speed: number) => Math.log(speed / MIN_SPEED) / LOG_RANGE;
 const ratioToSpeed = (ratio: number) => MIN_SPEED * Math.exp(ratio * LOG_RANGE);
@@ -154,6 +157,7 @@ export const GCodeSpeedSelector: React.FC<GCodeSpeedSelectorProps> = ({
             onPointerMove={(e) => {
               if (e.buttons === 1) setFromClientX(e.clientX);
             }}
+            onDoubleClick={() => setSpeed(DEFAULT_SPEED)}
             onKeyDown={handleKeyDown}
             tabIndex={0}
             role="slider"

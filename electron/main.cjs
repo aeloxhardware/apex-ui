@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, utilityProcess, MessageChannelMain } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const { convertGCode } = require('./python-runner.cjs');
@@ -54,6 +54,31 @@ ipcMain.handle('apex:save-gcode', async (event, request) => {
   if (canceled || !filePath) return { saved: false };
   await fs.promises.writeFile(filePath, text, 'utf8');
   return { saved: true, path: filePath };
+});
+
+// Édition du G-code : le noyau C++ (addon N-API, native/) tourne dans un processus utilitaire,
+// jamais dans l'interface (preload sandboxé) ni ici (un calcul long figerait les fenêtres).
+// L'interface reçoit un MessagePort qui la relie directement à ce processus.
+let editProcess = null;
+
+function ensureEditProcess() {
+  if (editProcess) return editProcess;
+  const addonPath = app.isPackaged
+    ? path.join(process.resourcesPath, 'native', 'apex_edit.node')
+    : path.join(__dirname, '..', 'native', 'build', 'apex_edit.node');
+  editProcess = utilityProcess.fork(path.join(__dirname, 'edit-process.cjs'), [addonPath], {
+    serviceName: 'Apex - edition G-code',
+  });
+  editProcess.on('exit', () => {
+    editProcess = null;
+  });
+  return editProcess;
+}
+
+ipcMain.on('apex:edit-open', (event) => {
+  const { port1, port2 } = new MessageChannelMain();
+  ensureEditProcess().postMessage({ type: 'port' }, [port1]);
+  event.sender.postMessage('apex:edit-port', null, [port2]);
 });
 
 app.whenReady().then(() => {

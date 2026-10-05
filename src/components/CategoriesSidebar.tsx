@@ -16,6 +16,7 @@ import styles from './CategoriesSidebar.module.scss';
 import { showSuccess } from '@/utils/toast';
 import { mitosisPath, rectPath, stretchPath, type GlassRect } from '@/utils/liquidGlass';
 import { PANEL_LEFT, PILL_TOP, PILL, PREVIEW_W, previewGeometry, FROM_PREVIEW_FADE_MS } from '@/utils/spaceMorphGeometry';
+import { usePreviewPanelVars } from '@/hooks/use-preview-panel-vars';
 
 // Géométrie du menu de catégorie, en px, dans le repère de la pilule (fixed, left 24 / top 212).
 // Doit rester alignée sur CategoriesSidebar.module.scss (.leftSidebarContainer,
@@ -40,8 +41,8 @@ const PREVIEW_MORPH_MS = PREVIEW_STRETCH_MS + PREVIEW_HOLD_MS + PREVIEW_DIVIDE_M
 // à la cascade du contenu du panneau Modélisation (cf. CONTENT_STAGGER_MS dans ModelingSidebar.tsx).
 // Avec ~8 catégories et 30ms de décalage, la cascade dure ~370ms : largement terminée avant que la
 // déformation ne commence (`onCovered`, ~900ms après le clic).
-const PILL_ICON_STAGGER_MS = 0.03;
-const PILL_ICON_FADE_MS = 0.16;
+const PILL_ICON_STAGGER_MS = 0.07;
+const PILL_ICON_FADE_MS = 0.24;
 
 const pillIconsContainerVariants = {
   visible: { transition: { staggerChildren: PILL_ICON_STAGGER_MS } },
@@ -49,8 +50,8 @@ const pillIconsContainerVariants = {
 };
 
 const pillIconVariants = {
-  visible: { opacity: 1, y: 0, transition: { duration: PILL_ICON_FADE_MS, ease: [0.4, 0, 0.2, 1] } },
-  hidden: { opacity: 0, y: -6, transition: { duration: PILL_ICON_FADE_MS, ease: [0.4, 0, 0.2, 1] } },
+  visible: { opacity: 1, x: 0, y: 0, transition: { duration: PILL_ICON_FADE_MS, ease: [0.4, 0, 0.2, 1] } },
+  hidden: { opacity: 0, x: -14, y: -4, transition: { duration: PILL_ICON_FADE_MS, ease: [0.4, 0, 0.2, 1] } },
 };
 
 const SolidityIcon = () => <BicepsFlexed size={20} />;
@@ -303,6 +304,7 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
   previewLowerContent,
   previewBelowContent,
 }) => {
+  usePreviewPanelVars();
   const iconRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
   const categoriesToolbarRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -359,9 +361,22 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
   const startYRef = useRef(0);
   const startScrollTopRef = useRef(0);
 
+  // Vrai dès le CLIC vers Prévisualisation (apex-entering-preview, cf. Sidebar.tsx), ~900ms avant
+  // que la pilule ne commence à s'étirer à `onCovered` : ses icônes disparaissent en cascade
+  // pendant ce temps, comme vers Modélisation (leavingToModeling). Repasse à faux au début de la
+  // fusion inverse, où `previewMorphPhase` prend le relais jusqu'à ce que la pilule soit reformée.
+  const [enteringPreview, setEnteringPreview] = useState(false);
+
+  useEffect(() => {
+    const handleEnteringPreview = () => setEnteringPreview(true);
+    window.addEventListener('apex-entering-preview', handleEnteringPreview);
+    return () => window.removeEventListener('apex-entering-preview', handleEnteringPreview);
+  }, []);
+
   useEffect(() => {
     const handlePreviewToggled = (e: CustomEvent<{ active: boolean }>) => {
       const active = !!e.detail?.active;
+      if (!active) setEnteringPreview(false);
       if (active && !previewActiveRef.current) {
         // La pilule devient le panneau du haut : un menu de catégorie encore ouvert se ferme
         // sans animation plutôt que de se superposer à la mitose.
@@ -404,6 +419,7 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
 
   const previewPathAt = useCallback((t: number, dx: number, dy: number) => {
     const { upper, lower } = previewGeometry(window.innerHeight);
+    dy -= upper.y; // la scène du morph démarre à `upper.y` (panneaux remontés), pas à PILL_TOP
     const ms = t * PREVIEW_MORPH_MS;
     if (ms < PREVIEW_STRETCH_MS) return stretchPath(PILL, upper, ms / PREVIEW_STRETCH_MS, dx, dy);
     if (ms < PREVIEW_STRETCH_MS + PREVIEW_HOLD_MS) return rectPath(upper, dx, dy);
@@ -608,14 +624,18 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
               }}
             >
               {/* Seules les icônes suivent l'espace : cascade de disparition dès le clic vers
-                  Modélisation (leavingToModeling), ~900ms avant que la pilule ne soit reprise par
-                  ModelingSidebar sous le rideau ; cascade d'apparition au retour d'un morph de
-                  sortie (wasArrivingFromModeling), une fois la déformation terminée. Hors de ces
-                  cas, `animate="visible"` sans délai, comme un menu statique normal. */}
+                  Modélisation (leavingToModeling) ou vers Prévisualisation (enteringPreview),
+                  ~900ms avant que la pilule ne soit reprise par ModelingSidebar ou ne commence à
+                  s'étirer en panneaux (tous deux sous le rideau, à `onCovered`) ; cascade
+                  d'apparition au retour d'un morph de sortie (wasArrivingFromModeling), une fois la
+                  déformation terminée. Hors de ces cas, `animate="visible"` sans délai, comme un
+                  menu statique normal. */}
               <motion.div
                 variants={pillIconsContainerVariants}
-                initial={wasArrivingFromModeling ? 'hidden' : false}
-                animate={leavingToModeling ? 'hidden' : 'visible'}
+                // Pendant la déformation inverse (Prévisualisation → Préparation), les icônes
+                // restent masquées et n'apparaissent en cascade qu'une fois la pilule reformée.
+                initial={wasArrivingFromModeling || previewMorphPhase === 'reverse' ? 'hidden' : false}
+                animate={leavingToModeling || enteringPreview || previewMorphPhase === 'reverse' ? 'hidden' : 'visible'}
                 style={{ display: 'contents' }}
               >
                 {CATEGORIES.map((cat) => {
@@ -654,9 +674,9 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
         <LiquidGlassMorph
           key={previewMorphPhase}
           left={PANEL_LEFT}
-          top={PILL_TOP}
+          top={PILL_TOP + previewGeo.upper.y}
           width={PREVIEW_W}
-          height={previewGeo.stageH}
+          height={previewGeo.stageH - previewGeo.upper.y}
           duration={PREVIEW_MORPH_MS}
           pathAt={previewPathAt}
           reverse={previewMorphPhase === 'reverse'}
@@ -667,6 +687,8 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
               previewActiveRef.current = false;
               setPreviewActive(false);
               setPreviewPanelsBorn(false);
+              // La pilule a repris sa forme : les éléments voisins (ModelStatusBox) peuvent revenir.
+              window.dispatchEvent(new CustomEvent('apex-preview-morph-done'));
             } else {
               setPreviewPanelsBorn(true);
             }

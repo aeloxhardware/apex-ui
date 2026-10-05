@@ -1,0 +1,19 @@
+// Calque du verre : posé exactement sur le canevas 3D, transparent hors du nœud.
+.glass {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+// Repère des nœuds : coin haut-gauche du canevas 3D (positions en px CSS de ce canevas). Seuls
+// les éléments du nœud reçoivent les clics, le reste laisse passer vers la scène.
+.stage {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}

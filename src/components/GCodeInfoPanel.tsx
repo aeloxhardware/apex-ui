@@ -50,12 +50,13 @@ export const GCodeInfoPanel = React.memo<GCodeInfoPanelProps>(({ fileInfo }) => 
     ['Fichier', fileInfo.name],
     ['Généré le plus probablement par', generator],
     ['Format', fileInfo.kind === 'cartesian'
-      ? '3 axes (cartésien)'
+      ? fileInfo.toolOriented ? "3 axes + orientation d'outil (B/C)" : '3 axes (cartésien)'
       : fileInfo.conversion
         ? `4 axes (polaire Apex, converti${fileInfo.conversion === 'dynamic' ? ' — angle dynamique' : ''})`
         : '4 axes (polaire Apex)'],
     ...(fileInfo.printer ? [['Imprimante', fileInfo.printer] as [string, string]] : []),
     ['Durée estimée', formatDuration(fileInfo.totalTime)],
+    ['Mouvements', fileInfo.moves.toLocaleString('fr-FR')],
     ['Filament', `${formatNumber(filamentMm / 1000, 2)} m · ${formatNumber(massG, 2)} g`],
   ];
 

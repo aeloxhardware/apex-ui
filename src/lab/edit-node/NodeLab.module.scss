@@ -1,0 +1,57 @@
+:global(html),
+:global(body),
+:global(#root) {
+  margin: 0;
+  height: 100%;
+}
+
+// Fond de l'application ; la grille irrégulière est dessinée dans le canevas du verre
+// (NodeLab.tsx), qui la réfracte.
+.lab {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  background-color: #0a0f1a;
+  font: 600 11px system-ui, sans-serif;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.glass {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+// Origine des nœuds au centre de la page.
+.stage {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+}
+
+.controls {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+
+  input {
+    margin: 0;
+    accent-color: #00f0ff;
+    cursor: pointer;
+  }
+}
+
+.status {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  display: flex;
+  gap: 12px;
+}

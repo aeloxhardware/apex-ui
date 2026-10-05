@@ -1,0 +1,2 @@
+- [App livrée en EXE Electron](project_desktop_exe.md) — penser bureau (Python embarqué, IPC, dialogues natifs), pas navigateur
+- [Fluidité avant tout](feedback_fluidity.md) — Apex doit être fluide : aucun à-coup visible en prévisualisation/animations (pas ≤ 0,1 mm)
