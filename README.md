@@ -60,10 +60,8 @@ The future UI for Apex Slicer, including modern UX effects. Still in developemen
 Thanks to the following resources and inspirations:
 
 - Joshua Bird and his wonderful S4 Slicer algorithm
-- Apple Liquid Glass Design
-- Android Blur Effects
-- Orca Slicer
-- Cura
+- Orca Slicer & Bambu Studio
+- Ultimaker Cura
 - [Iyinchao's work](https://github.com/iyinchao/liquid-glass-studio)
 
 ## License
