@@ -1,0 +1,197 @@
+{
+    "auxiliary_fan": "0",
+    "before_layer_change_gcode": ";BEFORE_LAYER_CHANGE\n;[layer_z]\nG92 E0\n_BEFORE_LAYER_CHANGE",
+    "change_filament_gcode": "",
+    "default_filament_profile": [
+        "Generic PLA @Z-Bolt 0.4 nozzle"
+    ],
+    "default_print_profile": "0.20mm Standard @Z-Bolt S600",
+    "deretraction_speed": [
+        "30"
+    ],
+    "extruder_clearance_height_to_lid": "200",
+    "extruder_clearance_height_to_rod": "70",
+    "extruder_clearance_radius": "65",
+    "extruder_colour": [
+        "#018001"
+    ],
+    "extruder_offset": [
+        "0x0"
+    ],
+    "from": "system",
+    "gcode_flavor": "klipper",
+    "inherits": "",
+    "layer_change_gcode": "_AFTER_LAYER_CHANGE Z={layer_z}",
+    "machine_end_gcode": "END_PRINT T_BED=[bed_temperature] T_CHAMBER=[chamber_temperature] COOLDOWN_TIME=120",
+    "machine_max_acceleration_e": [
+        "1500",
+        "1500"
+    ],
+    "machine_max_acceleration_extruding": [
+        "2500",
+        "2500"
+    ],
+    "machine_max_acceleration_retracting": [
+        "1500",
+        "1500"
+    ],
+    "machine_max_acceleration_travel": [
+        "9000",
+        "9000"
+    ],
+    "machine_max_acceleration_x": [
+        "20000",
+        "20000"
+    ],
+    "machine_max_acceleration_y": [
+        "20000",
+        "20000"
+    ],
+    "machine_max_acceleration_z": [
+        "12",
+        "12"
+    ],
+    "machine_max_jerk_e": [
+        "2.5",
+        "2.5"
+    ],
+    "machine_max_jerk_x": [
+        "9",
+        "9"
+    ],
+    "machine_max_jerk_y": [
+        "9",
+        "9"
+    ],
+    "machine_max_jerk_z": [
+        "3",
+        "3"
+    ],
+    "machine_max_speed_e": [
+        "30",
+        "30"
+    ],
+    "machine_max_speed_x": [
+        "500",
+        "200"
+    ],
+    "machine_max_speed_y": [
+        "500",
+        "200"
+    ],
+    "machine_max_speed_z": [
+        "20",
+        "20"
+    ],
+    "machine_min_extruding_rate": [
+        "0",
+        "0"
+    ],
+    "machine_min_travel_rate": [
+        "0",
+        "0"
+    ],
+    "machine_pause_gcode": "PAUSE",
+    "machine_start_gcode": "START_PRINT T_BED=[bed_temperature_initial_layer] T_EXTRUDER=[nozzle_temperature_initial_layer] T_CHAMBER=[chamber_temperature]",
+    "manual_filament_change": "0",
+    "max_layer_height": [
+        "0.28"
+    ],
+    "min_layer_height": [
+        "0.08"
+    ],
+    "name": "Z-Bolt S600 0.4 nozzle",
+    "nozzle_diameter": [
+        "0.4"
+    ],
+    "nozzle_type": "hardened_steel",
+    "printable_area": [
+        "0x0",
+        "600x0",
+        "600x600",
+        "0x600"
+    ],
+    "printable_height": "900",
+    "printer_model": "Z-Bolt S600",
+    "printer_settings_id": "Z-Bolt",
+    "printer_structure": "corexy",
+    "printer_technology": "FFF",
+    "printer_variant": "0.4",
+    "retract_before_wipe": [
+        "0%"
+    ],
+    "retract_length_toolchange": [
+        "2"
+    ],
+    "retract_restart_extra": [
+        "0"
+    ],
+    "retract_restart_extra_toolchange": [
+        "0"
+    ],
+    "retract_when_changing_layer": [
+        "1"
+    ],
+    "retraction_length": [
+        "0.6"
+    ],
+    "retraction_minimum_travel": [
+        "1"
+    ],
+    "retraction_speed": [
+        "30"
+    ],
+    "silent_mode": "0",
+    "single_extruder_multi_material": "0",
+    "support_chamber_temp_control": "0",
+    "wipe": [
+        "1"
+    ],
+    "z_hop": [
+        "0.4"
+    ],
+    "z_hop_types": "Normal Lift",
+    "z_lift_type": "NormalLift",
+    "apex": {
+        "generated": true,
+        "manufacturer": "Z-Bolt",
+        "model": "S600",
+        "catalog_path": "Autres fabricants/Z-Bolt",
+        "orca_source": "Z-Bolt/machine/Z-Bolt S600 0.4 nozzle.json",
+        "axes_count": 3,
+        "kinematics": [
+            "X",
+            "Y",
+            "Z"
+        ],
+        "kinematics_preview": {
+            "type": "corexy",
+            "image": null
+        },
+        "motherboard": "Inconnu",
+        "motors": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "drivers": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "default_nozzle_profile": {
+            "diameter_mm": 0.4,
+            "profile_id": null
+        },
+        "auto_leveling": {
+            "tool": "Inconnu"
+        },
+        "nonplanar": {
+            "max_angle_deg": null,
+            "max_distance_mm": null
+        },
+        "hardware_sources": []
+    }
+}

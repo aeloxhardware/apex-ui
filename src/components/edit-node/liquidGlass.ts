@@ -54,6 +54,8 @@ export interface GlassLens {
   mergePx?: number;
   /** Rotation des reflets, en radians, sens horaire (animation de chargement). */
   glareTurn?: number;
+  /** Rectangle arrondi (demi-côtés et rayon de coin, px CSS) au lieu d'un cercle ; `radius` ne sert alors qu'à l'épaisseur du verre. */
+  box?: { halfW: number; halfH: number; corner: number };
 }
 
 /** Réglages du verre, mêmes noms et unités que Liquid Glass Studio sauf mention contraire. */
@@ -83,6 +85,10 @@ export interface GlassParams {
   shadowBlurPx: number;
   /** Portée de la fusion lisse entre lentilles voisines, en px CSS. */
   mergePx: number;
+  /** Relief du bord sans liseré blanc : ombre intérieure (bas) et léger éclaircissement (haut), 0 = aucun. */
+  edgeShade: number;
+  /** Largeur de ce relief, en px CSS. */
+  edgeShadeWidthPx: number;
 }
 
 export const DEFAULT_GLASS: GlassParams = {
@@ -104,6 +110,8 @@ export const DEFAULT_GLASS: GlassParams = {
   shadowOffsetPx: 8,
   shadowBlurPx: 10,
   mergePx: 12,
+  edgeShade: 0,
+  edgeShadeWidthPx: 7,
 };
 
 export const MAX_LENSES = 8;
@@ -168,6 +176,7 @@ uniform float u_shadowBlur;   // px physiques
 uniform float u_merge;        // px physiques
 uniform float u_lensMerge[MAX_LENSES]; // portée de fusion propre à une lentille (0 : u_merge)
 uniform float u_lensGlare[MAX_LENSES]; // rotation des reflets propre à une lentille (rad, horaire)
+uniform vec4 u_lensBox[MAX_LENSES];    // rectangle arrondi : demi-côtés, rayon de coin (px phys.) ; x = 0 : cercle
 uniform float u_thickness;
 uniform float u_refFactor;
 uniform float u_distance;
@@ -181,14 +190,25 @@ uniform float u_glareFactor;
 uniform float u_glareConvergence;
 uniform float u_glareOppositeFactor;
 uniform float u_glareAngle;
+uniform float u_edgeShade;
+uniform float u_edgeShadeWidth; // px physiques
 // Calque posé sur une autre vue (la scène 3D) : transparent hors du verre et de son ombre.
 uniform bool u_overlay;
 out vec4 fragColor;
 
+// Bruit de tramage (interleaved gradient noise) : ±0,5/255 ajouté avant la quantification 8 bits,
+// il casse les bandes visibles dans les dégradés doux (ombre portée surtout).
+float ditherNoise() {
+  return fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))) - 0.5;
+}
+
 // Résultat final : en calque, l'ombre est un noir translucide et le fond n'est pas redessiné.
 vec4 composite(vec4 bg, float shadow, vec4 glass, float glassAlpha) {
-  if (!u_overlay) return mix(vec4(bg.rgb * (1.0 - shadow), 1.0), glass, glassAlpha);
+  float n = ditherNoise() / 255.0;
+  if (!u_overlay) return mix(vec4(bg.rgb * (1.0 - shadow) + n, 1.0), glass, glassAlpha);
   float a = glassAlpha + shadow * (1.0 - glassAlpha);
+  // L'ombre vit dans le canal alpha : c'est lui qu'on trame (seulement là où il y a quelque chose).
+  if (a > 0.0) a = clamp(a + n, 0.0, 1.0);
   return a > 0.0 ? vec4(glass.rgb * glassAlpha / a, a) : vec4(0.0);
 }
 
@@ -215,12 +235,12 @@ vec3 lchToSrgb(vec3 lch) {
   return vec3(compand(rgb.x), compand(rgb.y), compand(rgb.z));
 }
 
-vec4 sampleDispersion(vec2 offset) {
+vec4 sampleDispersion(vec2 uv, vec2 offset) {
   float f = u_dispersion;
   vec2 oR = offset * (1.0 - (N_R - 1.0) * f);
   vec2 oG = offset * (1.0 - (N_G - 1.0) * f);
   vec2 oB = offset * (1.0 - (N_B - 1.0) * f);
-  return vec4(texture(u_blurredBg, v_uv + oR).r, texture(u_blurredBg, v_uv + oG).g, texture(u_blurredBg, v_uv + oB).b, 1.0);
+  return vec4(texture(u_blurredBg, uv + oR).r, texture(u_blurredBg, uv + oG).g, texture(u_blurredBg, uv + oB).b, 1.0);
 }
 
 // Distance signée (approchée) au bord de la lentille i : un cercle dont le rayon s'allonge en lobes
@@ -228,6 +248,11 @@ vec4 sampleDispersion(vec2 offset) {
 float lensSd(vec2 p, int i) {
   vec4 L = u_lenses[i];
   vec2 d = p - L.xy;
+  vec4 B = u_lensBox[i];
+  if (B.x > 0.0) {
+    vec2 q = abs(d) - (B.xy - B.z);
+    return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - B.z;
+  }
   float len = length(d);
   vec2 n = d / max(len, 1e-4);
   float k = 1.0;
@@ -259,6 +284,58 @@ float shadowAt(vec2 p, float offset, float blur) {
   return 1.0 - smoothstep(-blur, blur, sceneSd(p + vec2(0.0, offset)));
 }
 
+// Verre (réfraction, Fresnel, reflet) et couverture au point p (px physiques) pour la lentille
+// lensIndex (porte rayon, reflets) ; la forme est l'union lisse de toutes les lentilles.
+void glassAt(vec2 p, vec4 lens, int lensIndex, out vec4 glass, out float coverage) {
+  float sd = sceneSd(p);
+  // Normale de la forme déformée (gradient par différences centrées).
+  vec2 g = vec2(sceneSd(p + vec2(1.0, 0.0)) - sceneSd(p - vec2(1.0, 0.0)),
+                sceneSd(p + vec2(0.0, 1.0)) - sceneSd(p - vec2(0.0, 1.0)));
+  vec2 normal = normalize(g + vec2(1e-6));
+  float inside = max(-sd, 0.0);               // profondeur dans le verre, px physiques
+  float thickness = max(u_thickness * lens.z, 1.0);
+
+  // Réfraction (Snell) : nulle au-delà de l'épaisseur, maximale au bord.
+  float x = 1.0 - inside / thickness;
+  float thetaI = safeAsin(x * x);
+  float thetaT = safeAsin(sin(thetaI) / u_refFactor);
+  float edgeFactor = inside >= thickness ? 0.0 : -tan(thetaT - thetaI);
+
+  vec2 offsetPx = -normal * edgeFactor * u_distance * lens.z;
+  glass = sampleDispersion(p / u_resolution, offsetPx / u_resolution);
+
+  // Fresnel : liseré clair au bord (distances en px CSS, comme le Studio).
+  float dCss = -inside / u_dpr;
+  float fresnel = clamp(pow(1.0 + dCss / 1500.0 * pow(500.0 / u_fresnelRange, 2.0) + u_fresnelHardness, 5.0), 0.0, 1.0);
+  vec3 fresnelLch = vec3(100.0, 0.0, 0.0);
+  glass = mix(glass, vec4(lchToSrgb(fresnelLch), 1.0), fresnel * u_fresnelFactor * 0.7);
+
+  // Reflet directionnel.
+  float glareGeo = clamp(pow(1.0 + dCss / 1500.0 * pow(500.0 / u_glareRange, 2.0) + u_glareHardness, 5.0), 0.0, 1.0);
+  float a = atan(normal.y, normal.x);
+  if (a < 0.0) a += 2.0 * PI;
+  float glareAngle = (a - PI / 4.0 + u_glareAngle + u_lensGlare[lensIndex]) * 2.0;
+  bool farSide = (glareAngle > PI * 1.5 && glareAngle < PI * 3.5) || glareAngle < -PI * 0.5;
+  float glareF = (0.5 + sin(glareAngle) * 0.5) * (farSide ? 1.2 * u_glareOppositeFactor : 1.2) * u_glareFactor;
+  glareF = clamp(pow(glareF, 0.1 + u_glareConvergence * 2.0), 0.0, 1.0);
+  vec3 glareLch = srgbToLch(glass.rgb);
+  glareLch.x = clamp(glareLch.x + 150.0 * glareF * glareGeo, 0.0, 120.0);
+  glareLch.y += 30.0 * glareF * glareGeo;
+  glass = mix(glass, vec4(clamp(lchToSrgb(glareLch), 0.0, 1.0), 1.0), glareF * glareGeo);
+
+  // Relief sans liseré blanc : la teinte du verre s'assombrit vers le bord côté bas et
+  // s'éclaircit à peine côté haut (lumière venant d'en haut à gauche), comme une pastille bombée.
+  if (u_edgeShade > 0.0) {
+    float rim = exp(-inside / max(u_edgeShadeWidth, 1.0));
+    float l = dot(normal, normalize(vec2(-0.35, 0.94)));   // y vers le haut
+    float shade = l > 0.0 ? 0.28 * l : 0.3 * l;
+    glass.rgb *= 1.0 + u_edgeShade * rim * shade;
+  }
+
+  // Bord anticrénelé sur ~1 px physique.
+  coverage = 1.0 - smoothstep(-0.75, 0.75, sd);
+}
+
 void main() {
   vec4 bg = texture(u_bg, v_uv);
   vec2 p = gl_FragCoord.xy;
@@ -279,46 +356,21 @@ void main() {
   float a1 = u_shadowOpacity * shadowAt(p, u_shadowOffset, u_shadowBlur);
   float a2 = u_shadowOpacity * 0.7 * shadowAt(p, u_shadowOffset * 0.3, u_shadowBlur * 0.3);
   float shadow = (1.0 - (1.0 - a1) * (1.0 - a2)) * lens.w;
-  if (lens.w <= 0.0 || sd > 1.0) { fragColor = composite(bg, shadow, bg, 0.0); return; }
+  if (lens.w <= 0.0 || sd > 1.5) { fragColor = composite(bg, shadow, bg, 0.0); return; }
 
-  // Normale de la forme déformée (gradient par différences centrées).
-  vec2 g = vec2(sceneSd(p + vec2(1.0, 0.0)) - sceneSd(p - vec2(1.0, 0.0)),
-                sceneSd(p + vec2(0.0, 1.0)) - sceneSd(p - vec2(0.0, 1.0)));
-  vec2 normal = normalize(g + vec2(1e-6));
-  float inside = max(-sd, 0.0);               // profondeur dans le verre, px physiques
-  float thickness = max(u_thickness * lens.z, 1.0);
-
-  // Réfraction (Snell) : nulle au-delà de l'épaisseur, maximale au bord.
-  float x = 1.0 - inside / thickness;
-  float thetaI = safeAsin(x * x);
-  float thetaT = safeAsin(sin(thetaI) / u_refFactor);
-  float edgeFactor = inside >= thickness ? 0.0 : -tan(thetaT - thetaI);
-
-  vec2 offsetPx = -normal * edgeFactor * u_distance * lens.z;
-  vec4 glass = sampleDispersion(offsetPx / u_resolution);
-
-  // Fresnel : liseré clair au bord (distances en px CSS, comme le Studio).
-  float dCss = -inside / u_dpr;
-  float fresnel = clamp(pow(1.0 + dCss / 1500.0 * pow(500.0 / u_fresnelRange, 2.0) + u_fresnelHardness, 5.0), 0.0, 1.0);
-  vec3 fresnelLch = vec3(100.0, 0.0, 0.0);
-  glass = mix(glass, vec4(lchToSrgb(fresnelLch), 1.0), fresnel * u_fresnelFactor * 0.7);
-
-  // Reflet directionnel.
-  float glareGeo = clamp(pow(1.0 + dCss / 1500.0 * pow(500.0 / u_glareRange, 2.0) + u_glareHardness, 5.0), 0.0, 1.0);
-  float a = atan(normal.y, normal.x);
-  if (a < 0.0) a += 2.0 * PI;
-  float glareAngle = (a - PI / 4.0 + u_glareAngle + u_lensGlare[best]) * 2.0;
-  bool farSide = (glareAngle > PI * 1.5 && glareAngle < PI * 3.5) || glareAngle < -PI * 0.5;
-  float glareF = (0.5 + sin(glareAngle) * 0.5) * (farSide ? 1.2 * u_glareOppositeFactor : 1.2) * u_glareFactor;
-  glareF = clamp(pow(glareF, 0.1 + u_glareConvergence * 2.0), 0.0, 1.0);
-  vec3 glareLch = srgbToLch(glass.rgb);
-  glareLch.x = clamp(glareLch.x + 150.0 * glareF * glareGeo, 0.0, 120.0);
-  glareLch.y += 30.0 * glareF * glareGeo;
-  glass = mix(glass, vec4(clamp(lchToSrgb(glareLch), 0.0, 1.0), 1.0), glareF * glareGeo);
-
-  // Bord anticrénelé sur ~1 px physique, et fondu pendant le gonflement.
-  float coverage = 1.0 - smoothstep(-0.75, 0.75, sd);
-  fragColor = composite(bg, shadow, glass, coverage * lens.w);
+  // Suréchantillonnage 2x2 du verre (bord, reflets, liseré) : le rendu est à la résolution de
+  // l'écran, sans MSAA, donc les arêtes vives du Fresnel et du reflet crénelaient.
+  vec3 sum = vec3(0.0);
+  float cov = 0.0;
+  for (int i = 0; i < 4; ++i) {
+    vec2 o = (vec2(float(i - (i / 2) * 2), float(i / 2)) - 0.5) * 0.5;
+    vec4 gl; float c;
+    glassAt(p + o, lens, best, gl, c);
+    sum += gl.rgb * c;
+    cov += c;
+  }
+  vec3 glassRgb = cov > 0.0 ? sum / cov : bg.rgb;
+  fragColor = composite(bg, shadow, vec4(glassRgb, 1.0), (cov * 0.25) * lens.w);
 }`;
 
 function gaussianWeights(sigmaPx: number): { taps: number; weights: Float32Array } {
@@ -355,6 +407,7 @@ export class LiquidGlassRenderer {
   private readonly pullData = new Float32Array(MAX_LENSES * MAX_PULLS * 4);
   private readonly mergeData = new Float32Array(MAX_LENSES);
   private readonly glareData = new Float32Array(MAX_LENSES);
+  private readonly boxData = new Float32Array(MAX_LENSES * 4);
 
   /**
    * @param overlay Calque posé sur la vue réfractée (scène 3D) : seuls le verre et son ombre sont
@@ -500,6 +553,9 @@ export class LiquidGlassRenderer {
       this.lensData[4 * i + 3] = l.strength;
       this.mergeData[i] = (l.mergePx ?? 0) * dpr;
       this.glareData[i] = l.glareTurn ?? 0;
+      this.boxData[4 * i] = (l.box?.halfW ?? 0) * dpr;
+      this.boxData[4 * i + 1] = (l.box?.halfH ?? 0) * dpr;
+      this.boxData[4 * i + 2] = (l.box?.corner ?? 0) * dpr;
       for (let j = 0; j < MAX_PULLS; j++) {
         const pull = l.pulls?.[j];
         const o = 4 * (i * MAX_PULLS + j);
@@ -513,6 +569,7 @@ export class LiquidGlassRenderer {
     gl.uniform4fv(u('u_pulls'), this.pullData);
     gl.uniform1fv(u('u_lensMerge'), this.mergeData);
     gl.uniform1fv(u('u_lensGlare'), this.glareData);
+    gl.uniform4fv(u('u_lensBox'), this.boxData);
     gl.uniform1f(u('u_shadowOpacity'), params.shadowOpacity);
     gl.uniform1f(u('u_shadowOffset'), params.shadowOffsetPx * dpr);
     gl.uniform1f(u('u_shadowBlur'), params.shadowBlurPx * dpr);
@@ -534,6 +591,8 @@ export class LiquidGlassRenderer {
     gl.uniform1f(u('u_glareConvergence'), params.glareConvergence);
     gl.uniform1f(u('u_glareOppositeFactor'), params.glareOppositeFactor);
     gl.uniform1f(u('u_glareAngle'), (params.glareAngle * Math.PI) / 180);
+    gl.uniform1f(u('u_edgeShade'), params.edgeShade);
+    gl.uniform1f(u('u_edgeShadeWidth'), params.edgeShadeWidthPx * dpr);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
 }
@@ -555,6 +614,9 @@ export function collectLenses(root: Element, origin: DOMRect): GlassLens[] {
       .split(',')
       .map(Number);
     const t = Math.min(1, Math.max(0, (r.width - core) / Math.max(full - core, 1e-6)));
+    // Sans verre (nœud réduit, gouttelette rentrée, élément caché) : ne prend pas une des
+    // MAX_LENSES places.
+    if (t <= 0) return;
     const pulls: GlassPull[] = [];
     el.parentElement?.querySelectorAll(`[${GLASS_PULL_ATTR}]`).forEach((h) => {
       const [dx, dy, stretch] = (h.getAttribute(GLASS_PULL_ATTR) ?? '').split(',').map(Number);

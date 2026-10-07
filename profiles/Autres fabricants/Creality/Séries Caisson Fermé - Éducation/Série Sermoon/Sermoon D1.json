@@ -1,0 +1,38 @@
+{
+    "name": "Sermoon D1",
+    "printer_model": "Sermoon D1",
+    "apex": {
+        "generated": true,
+        "manufacturer": "Creality",
+        "model": "Sermoon D1",
+        "catalog_path": "Autres fabricants/Creality/Séries Caisson Fermé - Éducation/Série Sermoon",
+        "orca_source": null,
+        "axes_count": "Inconnu",
+        "kinematics": "Inconnu",
+        "kinematics_preview": {
+            "type": "Inconnu",
+            "image": null
+        },
+        "motherboard": "CREALITY V431 D",
+        "motors": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "drivers": {
+            "X": "A4988",
+            "Y": "A4988",
+            "Z": "A4988",
+            "E": "A4988"
+        },
+        "default_nozzle_profile": null,
+        "auto_leveling": {
+            "tool": "Inconnu"
+        },
+        "hardware_sources": [
+            "https://github.com/MarlinFirmware/Configurations/tree/import-2.1.x/config/examples/Creality/Sermoon%20D1"
+        ],
+        "hardware_note": "Source : configuration d'exemple Marlin (communautaire), qui peut différer de la carte d'origine."
+    }
+}

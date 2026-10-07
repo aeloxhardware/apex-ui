@@ -1,0 +1,35 @@
+{
+    "name": "CR-7",
+    "printer_model": "CR-7",
+    "apex": {
+        "generated": true,
+        "manufacturer": "Creality",
+        "model": "CR-7",
+        "catalog_path": "Autres fabricants/Creality/Imprimantes Spéciales - Archivées/Modèles Spéciaux",
+        "orca_source": null,
+        "axes_count": "Inconnu",
+        "kinematics": "Inconnu",
+        "kinematics_preview": {
+            "type": "Inconnu",
+            "image": null
+        },
+        "motherboard": "Inconnu",
+        "motors": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "drivers": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "default_nozzle_profile": null,
+        "auto_leveling": {
+            "tool": "Inconnu"
+        },
+        "hardware_sources": []
+    }
+}

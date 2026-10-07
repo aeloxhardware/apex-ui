@@ -3,6 +3,8 @@ import clsx from 'clsx';
 import styles from './AxisSidebar.module.scss';
 import { CustomTooltip } from './CustomTooltip';
 import { showSuccess } from '@/utils/toast';
+import { readPanPerspective, setPanPerspective } from '@/utils/panPerspectivePrefs';
+import { hideBottomTip, showBottomTip } from './edit-node/bottomTooltip';
 import type { ParsedGCode } from './gcodeLayer';
 
 type AxisMode = '3-axes' | '5-axes';
@@ -14,6 +16,27 @@ export const AxisSidebar: React.FC = () => {
   const toolbarRef = useRef<HTMLDivElement>(null);
   const buttonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [indicatorStyle, setIndicatorStyle] = useState<React.CSSProperties>({});
+  // Perspective en translation (Viewport3D) : bas = désactivée (l'image glisse, même angle de vue),
+  // haut = activée (la caméra se déplace).
+  const [panPerspective, setPanPerspectiveState] = useState(readPanPerspective);
+  const togglePanPerspective = () => {
+    const next = !panPerspective;
+    setPanPerspectiveState(next);
+    setPanPerspective(next);
+  };
+  // Infobulle de bas d'écran gérée ici (pas CustomTooltip, qui la remet à son message par défaut
+  // au clic) : elle suit l'état de l'interrupteur tant que la souris est dessus.
+  const switchTip = {
+    title: 'Perspective en translation',
+    desc: panPerspective
+      ? 'Activée : déplacer la vue (bouton du milieu) déplace la caméra, les objets changent d’angle comme dans la réalité. Cliquer pour la désactiver.'
+      : 'Désactivée : déplacer la vue (bouton du milieu) fait glisser l’image, les objets restent vus sous le même angle. Cliquer pour l’activer.',
+  };
+  const switchHovered = useRef(false);
+  useEffect(() => {
+    if (switchHovered.current) showBottomTip(switchTip);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [panPerspective]);
 
   const handleSelect = (mode: AxisMode) => {
     setAxisMode(mode);
@@ -62,6 +85,24 @@ export const AxisSidebar: React.FC = () => {
 
   return (
     <div className={styles.container} data-apex-chrome-panel>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={panPerspective}
+        aria-label="Perspective en translation"
+        className={clsx(styles.perspectiveSwitch, panPerspective && styles.perspectiveOn)}
+        onClick={togglePanPerspective}
+        onPointerEnter={() => {
+          switchHovered.current = true;
+          showBottomTip(switchTip);
+        }}
+        onPointerLeave={() => {
+          switchHovered.current = false;
+          hideBottomTip();
+        }}
+      >
+        <span className={styles.perspectiveKnob} />
+      </button>
       <div ref={toolbarRef} className={styles.toolbar}>
         <div className={styles.activeIndicator} style={indicatorStyle} />
 

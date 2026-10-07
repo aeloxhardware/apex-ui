@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import styles from './ModelStatusBox.module.scss';
+import { ExternalScrollArea } from './ExternalScrollArea';
 import { Box, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ELEMENTS_FADE_MS, MODEL_TREE_TOP, MODEL_TREE_PILL_GAP, PILL_TOP } from '@/utils/spaceMorphGeometry';
@@ -16,12 +17,21 @@ interface ModelItem {
   children: SubMeshItem[];
 }
 
-export const ModelStatusBox: React.FC = () => {
+interface ModelStatusBoxProps {
+  /**
+   * Vrai si le composant est monté alors que Prévisualisation est déjà (ou vient d'être) active :
+   * depuis l'Accueil / Paramètres il est démonté, donc monté dans le même commit que la bascule et
+   * `apex-preview-toggled` est parti avant qu'il n'écoute — sans cela il apparaissait à tort.
+   */
+  startsInPreview?: boolean;
+}
+
+export const ModelStatusBox: React.FC<ModelStatusBoxProps> = ({ startsInPreview = false }) => {
   const [models, setModels] = useState<ModelItem[]>([]);
   const [selectedModelName, setSelectedModelName] = useState<string | null>(null);
   const [selectedModelNames, setSelectedModelNames] = useState<Set<string>>(new Set());
   const [expandedModels, setExpandedModels] = useState<Record<string, boolean>>({});
-  const [previewActive, setPreviewActive] = useState(false);
+  const [previewActive, setPreviewActive] = useState(startsInPreview);
   // Le mode modélisation a sa propre arborescence (les corps) : celle des modèles importés
   // ferait doublon, on l'escamote comme en mode Prévisualisation.
   const [modelingActive, setModelingActive] = useState(false);
@@ -179,6 +189,7 @@ export const ModelStatusBox: React.FC = () => {
         {!previewActive && !modelingActive && (
           <motion.div
             ref={toolbarRef}
+            data-scroll-edge
             className={styles.toolbar}
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -204,7 +215,7 @@ export const ModelStatusBox: React.FC = () => {
               x: { duration: 0.9, ease: 'easeInOut' },
             }}
           >
-        <div className={styles.content}>
+        <ExternalScrollArea className={styles.scrollArea} contentClassName={styles.content}>
           {models.length === 0 ? (
             <motion.div 
               initial={{ opacity: 0 }} 
@@ -277,7 +288,7 @@ export const ModelStatusBox: React.FC = () => {
               </AnimatePresence>
             </ul>
           )}
-        </div>
+        </ExternalScrollArea>
           </motion.div>
         )}
       </AnimatePresence>

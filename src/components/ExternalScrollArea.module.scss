@@ -1,0 +1,62 @@
+.root {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  border-radius: inherit;
+}
+
+// Barre native masquée : le curseur (.thumb) est dessiné hors du conteneur.
+.scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: scroll;
+  border-radius: inherit;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    width: 0;
+    background: transparent;
+  }
+}
+
+.thumb {
+  position: absolute;
+  // Réglables par le parent : --scroll-thumb-gap (écart au bord), --scroll-thumb-width, --scroll-thumb-width-hover.
+  left: calc(100% + var(--scroll-thumb-gap, 4px));
+  width: var(--scroll-thumb-width, 6px);
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border-radius: 999px;
+  cursor: default;
+  z-index: 2;
+  transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease;
+
+  // Sortie de la boîte : PENDANT qu'elle disparaît, le curseur glisse vers elle en s'effaçant, tout
+  // en continuant de la suivre si elle bouge (`translate` et `filter` pour ne pas entrer en conflit
+  // avec `top`/`left`/`opacity` posés par JS).
+  translate: 0 0;
+  filter: opacity(1);
+  transition: width 0.25s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease,
+    translate 0.2s cubic-bezier(0.4, 0, 1, 1), filter 0.2s cubic-bezier(0.4, 0, 1, 1);
+
+  &.leaving {
+    translate: -16px 0;
+    filter: opacity(0);
+    pointer-events: none;
+  }
+
+  // Avec un bord de référence : dessiné dans le body, position posée image par image (JS).
+  &.fixed {
+    position: fixed;
+    z-index: 1100;
+  }
+
+  &:hover,
+  &.dragging {
+    width: var(--scroll-thumb-width-hover, 12px);
+    background: rgba(255, 255, 255, 0.35);
+  }
+}

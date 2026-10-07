@@ -1,0 +1,141 @@
+// Même disposition que ParamsPanel : conteneur plein écran sous la barre d'onglets, panneaux cliquables.
+.container {
+  position: fixed;
+  inset: 0;
+  top: 82px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 24px;
+  padding: 48px 24px;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.panel {
+  pointer-events: auto;
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  border-radius: 20px;
+  padding: 40px 44px;
+  isolation: isolate;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
+  background: rgba(10, 15, 26, 0.35);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.logo {
+  width: 72px;
+  height: 72px;
+  margin-bottom: 20px;
+  // Le logo est sombre : même traitement que dans la barre d'onglets.
+  filter: brightness(0) invert(1);
+}
+
+.title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #f4f4f5;
+  margin: 0 0 12px;
+}
+
+.tagline {
+  font-size: 15px;
+  line-height: 1.5;
+  color: #d4d4d8;
+  margin: 0;
+}
+
+.by {
+  font-size: 13px;
+  color: #a1a1aa;
+  margin: 20px 0 0;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  max-width: 560px;
+}
+
+.promise {
+  font-size: 15px;
+  line-height: 1.6;
+  color: #d4d4d8;
+  margin: 0;
+
+  strong {
+    color: #f4f4f5;
+  }
+}
+
+.link {
+  display: inline;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: #00f0ff;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(0, 240, 255, 0.4);
+  cursor: pointer;
+
+  &:hover {
+    text-decoration-color: #00f0ff;
+  }
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.modal {
+  width: 100%;
+  max-width: 480px;
+  border-radius: 20px;
+  padding: 32px 36px;
+  background: rgba(10, 15, 26, 0.85);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+}
+
+.modalTitle {
+  font-size: 20px;
+  font-weight: 700;
+  color: #f4f4f5;
+  margin: 0 0 12px;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+.close {
+  padding: 8px 18px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: #f4f4f5;
+  font: inherit;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.16);
+  }
+}

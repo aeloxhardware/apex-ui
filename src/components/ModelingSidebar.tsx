@@ -19,6 +19,7 @@ import {
   Waves,
 } from 'lucide-react';
 import styles from './ModelingSidebar.module.scss';
+import { ExternalScrollArea } from './ExternalScrollArea';
 import { CustomTooltip } from './CustomTooltip';
 import { ChamferIcon, FilletIcon } from './ModelingIcons';
 import {
@@ -522,6 +523,7 @@ export const ModelingSidebar: React.FC<ModelingSidebarProps> = ({ morph }) => {
       >
         <div
           ref={panelRef}
+          data-scroll-edge
           className={clsx(styles.panel, { [styles.morphing]: !!stage })}
         >
           {/* Jamais visible pendant une déformation : apparaît en cascade (header, Sélection,
@@ -562,7 +564,7 @@ export const ModelingSidebar: React.FC<ModelingSidebarProps> = ({ morph }) => {
 
           <motion.div variants={contentGroupVariants}>
           <div className={styles.sectionLabel}>Corps</div>
-          <div className={styles.treeScroll}>
+          <ExternalScrollArea className={styles.treeScroll} contentClassName={styles.treeContent}>
             {models.length === 0 ? (
               <div className={styles.emptyState}>
                 Aucun corps dans la scène.<br />
@@ -665,7 +667,7 @@ export const ModelingSidebar: React.FC<ModelingSidebarProps> = ({ morph }) => {
                 </AnimatePresence>
               </ul>
             )}
-          </div>
+          </ExternalScrollArea>
           </motion.div>
           </motion.div>
 

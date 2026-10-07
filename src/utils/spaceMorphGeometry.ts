@@ -5,7 +5,7 @@
  * CategoriesSidebar.module.scss (.leftSidebarContainer, .categoriesToolbar,
  * .previewPanelUpper/.previewPanelLower) et ModelingSidebar.module.scss (.container / .panel).
  */
-import { stretchPath, type GlassRect } from './liquidGlass';
+import { mitosisPath, rectPath, stretchPath, type GlassRect } from './liquidGlass';
 
 export const PANEL_LEFT = 24;
 export const PILL_TOP = 212;
@@ -51,6 +51,47 @@ export const previewGeometry = (viewportH: number) => {
   const lower: GlassRect = { x: 0, y: upper.y + upperH + PREVIEW_GAP, w: PREVIEW_W, h: lowerH, r: PREVIEW_R };
   // + marge pour le col qui s'étire avant la rupture.
   return { upper, lower, stageH: lower.y + lower.h + 40 };
+};
+
+// --- Onglet Édition : le panneau du bas se fond dans celui du haut, qui s'agrandit -------------------
+// Disposition des panneaux selon l'onglet, tenue à jour par CategoriesSidebar : « edition » = le panneau
+// du bas a fusionné dans celui du haut (agrandi à leur surface commune). Lue par les morphs de
+// Modélisation, qui partent de la forme réelle du panneau du haut.
+export const previewTabLayout = { edition: false };
+
+/** Panneau du haut agrandi à la surface des deux panneaux et de l'espace qui les sépare. */
+export const previewExpandedUpper = (viewportH: number): GlassRect => {
+  const { upper, lower } = previewGeometry(viewportH);
+  return { ...upper, h: lower.y + lower.h - upper.y };
+};
+
+/** Forme réelle du panneau du haut (agrandie en mode Édition). */
+export const previewUpperRect = (viewportH: number): GlassRect =>
+  previewTabLayout.edition ? previewExpandedUpper(viewportH) : previewGeometry(viewportH).upper;
+
+// Cascade de disparition des éléments du panneau du bas (un par un, du haut vers le bas), puis fusion
+// (mitosis jouée à l'envers : le panneau du bas remonte se refondre dans celui du haut), puis
+// agrandissement du panneau du haut — la même gestuelle que lors des changements d'espace.
+export const TAB_CASCADE_STAGGER_MS = 45;
+export const TAB_CASCADE_FADE_MS = 220;
+export const TAB_MERGE_MS = 700;
+export const TAB_HOLD_MS = 90;
+export const TAB_EXPAND_MS = 520;
+export const TAB_MORPH_MS = TAB_MERGE_MS + TAB_HOLD_MS + TAB_EXPAND_MS;
+
+/**
+ * Contour du verre pendant le changement d'onglet, t ∈ [0, 1] : t = 0 les deux panneaux (Coloration),
+ * t = 1 le panneau du haut agrandi (Édition). Joué à l'envers (reverse), le panneau du haut se
+ * réduit puis enfante celui du bas. Repère : celui du morph de Prévisualisation (départ à upper.y).
+ */
+export const tabMorphPathAt = (viewportH: number, t: number, dx: number, dy: number) => {
+  const { upper, lower } = previewGeometry(viewportH);
+  dy -= upper.y;
+  const expanded = previewExpandedUpper(viewportH);
+  const ms = t * TAB_MORPH_MS;
+  if (ms < TAB_MERGE_MS) return mitosisPath(upper, lower, 1 - ms / TAB_MERGE_MS, dx, dy);
+  if (ms < TAB_MERGE_MS + TAB_HOLD_MS) return rectPath(upper, dx, dy);
+  return stretchPath(upper, expanded, (ms - TAB_MERGE_MS - TAB_HOLD_MS) / TAB_EXPAND_MS, dx, dy);
 };
 
 // Panneau de Modélisation (ModelingSidebar.module.scss : .container top 96 / left 24 / bottom 96,
@@ -106,7 +147,7 @@ export const modelingPathAt = (
   dx: number,
   dy: number,
 ) => {
-  const from = fromPreview ? previewGeometry(viewportH).upper : PILL;
+  const from = fromPreview ? previewUpperRect(viewportH) : PILL;
   return stretchPath(from, modelingGeometry(viewportH), t, dx, dy);
 };
 

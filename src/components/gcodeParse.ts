@@ -6,6 +6,7 @@ import {
   type LineTypeVisibility,
 } from './gcodeLineTypes';
 import { detectGeneratorSignature, guessGeneratorFromFeature, type GCodeGenerator } from './gcodeGenerator';
+import type { ApexHeaderPayload, ApexJournal } from '@/utils/apexHeader';
 
 /**
  * Parseur G-code + calque Babylon de prévisualisation. Deux familles de fichiers :
@@ -149,6 +150,31 @@ export interface ParsedGCode {
   layerMaxSpeedMmS: Float32Array;
   /** Min/max/moyenne par fichier de chaque critère continu, pour normaliser le dégradé (§ légende). */
   ranges: ColorByRanges;
+
+  // --- Correspondance avec le texte du fichier (édition : recalcul et réécriture de E) ---
+  /** Ligne du fichier (index à partir de 0) qui produit le mouvement ; un arc G2/G3 découpé partage
+   * la ligne de l'arc entre plusieurs mouvements. */
+  lineIndex: Uint32Array;
+  /** Delta d'extrudeur du mouvement (mm), rétractions comprises (négatif). */
+  eDelta: Float64Array;
+  /** Position absolue de l'extrudeur (mm) avant le mouvement, en mode absolu (M82) ; NaN en relatif. */
+  eAbsBefore: Float64Array;
+  /** Le mot E est présent sur la ligne du mouvement. */
+  hasEWord: Uint8Array;
+  /** Mode d'extrusion relatif (M83 ou G91) au mouvement. */
+  eRelative: Uint8Array;
+  /** Le fichier passe en pouces (G20) à un moment : la réécriture n'est pas prise en charge. */
+  usesInches: boolean;
+  /** Mouvements modifiés par l'onglet Édition depuis le chargement (positions dans `moves`,
+   * extrusion dans `eDelta`) : les lignes à réécrire à l'enregistrement. */
+  editedMoves?: Set<number>;
+  /** Mouvements dont le dépôt a été rogné par l'édition (rognage) : ils ne déposent plus. */
+  trimmedMoves?: Set<number>;
+  /** Bloc d'en-tête chiffré Apex lu au chargement (utils/apexHeader.ts), null s'il n'y en a pas. */
+  apexHeader?: ApexHeaderPayload | null;
+  /** Journal des modifications courant (piles d'annulation et de rétablissement du noyau),
+   * écrit dans l'en-tête chiffré à l'enregistrement si le réglage est activé. */
+  editJournal?: ApexJournal;
 }
 
 /** Rayon du plateau de l'Apex (mm), cf. RADIUS dans Viewport3D.tsx. */
@@ -418,6 +444,15 @@ export function parseGCode(text: string): ParsedGCode {
   const polarLayerZByBucket = new Float32Array(POLAR_LAYER_BUCKETS).fill(NaN);
   const layerHeights: number[] = [];
   const layerIndices: number[] = [];
+  // Correspondance mouvement → texte (cf. ParsedGCode.lineIndex et suivants).
+  const lineIndices: number[] = [];
+  const eAbsBefores: number[] = [];
+  const eWordFlags: number[] = [];
+  const eRelFlags: number[] = [];
+  let currentLine = 0;
+  let currentHasE = false;
+  let currentEAbsBefore = NaN;
+  let usesInches = false;
 
   const handleComment = (comment: string) => {
     if (TOOL_AXIS_RE.test(comment)) { toolOriented = true; return; }
@@ -528,6 +563,10 @@ export function parseGCode(text: string): ParsedGCode {
     }
     layerHeights.push(layerHeight);
     layerIndices.push(polar ? 0 : layerIdx);
+    lineIndices.push(currentLine);
+    eAbsBefores.push(relativeXYZ || relativeE ? NaN : currentEAbsBefore);
+    eWordFlags.push(currentHasE ? 1 : 0);
+    eRelFlags.push(relativeXYZ || relativeE ? 1 : 0);
 
     x = nx; y = ny; z = nz; b = nb; c = nc;
   };
@@ -545,6 +584,8 @@ export function parseGCode(text: string): ParsedGCode {
   const axis = (current: number, word: number, scale: number) =>
     has(word) ? (relativeXYZ ? current + word * scale : word * scale) : current;
   const extrusionDelta = () => {
+    currentHasE = has(w.E);
+    currentEAbsBefore = eAbs ?? NaN;
     if (!has(w.E)) return 0;
     const e = w.E * unit;
     if (relativeXYZ || relativeE) return e;
@@ -553,7 +594,12 @@ export function parseGCode(text: string): ParsedGCode {
     return de;
   };
 
-  for (const rawLine of text.split('\n')) {
+  const lines = text.split('\n');
+  for (let lineNo = 0; lineNo < lines.length; lineNo++) {
+    const rawLine = lines[lineNo];
+    currentLine = lineNo;
+    currentHasE = false;
+    currentEAbsBefore = eAbs ?? NaN;
     const semi = rawLine.indexOf(';');
     if (semi >= 0) handleComment(rawLine.slice(semi + 1));
     let code = semi >= 0 ? rawLine.slice(0, semi) : rawLine;
@@ -663,7 +709,7 @@ export function parseGCode(text: string): ParsedGCode {
       case 11:
         push(x, y, z, b, firmwareRetract);
         break;
-      case 20: unit = 25.4; break;
+      case 20: unit = 25.4; usesInches = true; break;
       case 21: unit = 1; break;
       case 28: {
         const all = !has(w.X) && !has(w.Y) && !has(w.Z);
@@ -911,6 +957,12 @@ export function parseGCode(text: string): ParsedGCode {
     layerIndex,
     layerMaxSpeedMmS,
     ranges,
+    lineIndex: Uint32Array.from(lineIndices),
+    eDelta: Float64Array.from(eDeltas),
+    eAbsBefore: Float64Array.from(eAbsBefores),
+    hasEWord: Uint8Array.from(eWordFlags),
+    eRelative: Uint8Array.from(eRelFlags),
+    usesInches,
   };
 }
 

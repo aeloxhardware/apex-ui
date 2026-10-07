@@ -10,8 +10,11 @@ import styles from './Viewport3D.module.scss';
 import { createGCodeLayer, GCODE_MESH_PREFIX, type ParsedGCode, type ColorByMode } from './gcodeLayer';
 import { createGCodeEditController, type GCodeEditController } from './edit-node/gcodeEditController';
 import GCodeEditOverlay from './edit-node/GCodeEditOverlay';
+import { createScreenLine, createScreenLines } from './screenLine';
 import type { ColorByScope } from './gcodeColormap';
 import type { LineTypeVisibility } from './gcodeLineTypes';
+import { PAN_PERSPECTIVE_EVENT, readPanPerspective } from '@/utils/panPerspectivePrefs';
+import { previewZoomStepFactor } from '@/utils/previewZoomPrefs';
 
 const DEFAULT_BLUR_LEVEL = 40;
 
@@ -123,7 +126,7 @@ export const Viewport3D = () => {
   useLayoutEffect(() => {
     if (!canvasRef.current) return;
     const canvas = canvasRef.current;
-    const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true });
+    const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true }, true);
     engineRef.current = engine;
     const scene = new BABYLON.Scene(engine);
     sceneRef.current = scene;
@@ -140,11 +143,78 @@ export const Viewport3D = () => {
     // par défaut sont [bouton 0 + Ctrl → pan], [bouton 0 → rotate], [bouton 2 → pan] ; on les
     // retire et on les remplace par [bouton 1 → pan] et [bouton 2 → rotate], en gardant intactes
     // les entrées clavier/molette/tactile du même tableau.
-    camera.movement.input.inputMap = [
-      ...camera.movement.input.inputMap.filter((entry) => entry.source !== "pointer"),
-      { source: "pointer", button: 1, interaction: "pan" },
-      { source: "pointer", button: 2, interaction: "rotate" },
-    ];
+    const baseInputMap = camera.movement.input.inputMap.filter((entry) => entry.source !== "pointer");
+    camera.movement.input.inputMap = [...baseInputMap, { source: "pointer", button: 2, interaction: "rotate" }];
+
+    /**
+     * Panoramique (bouton du milieu) par DÉCALAGE DE L'IMAGE, pas de la caméra (demande de
+     * l'utilisateur, 2026-10-06, tous les espaces) : les objets restent vus sous le même angle
+     * quelle que soit la translation, comme une image qu'on fait glisser. Physiquement, c'est un
+     * objectif décentré (axe optique décalé) : la perspective n'est plus celle d'un œil qui se
+     * déplace, mais c'est plus simple à lire. Le décalage est ajouté à la projection (en
+     * coordonnées normalisées) ; tout ce qui la lit (rendu, culling, picking, projections du nœud
+     * d'édition) le voit. Il est remis à zéro par les vues prédéfinies et l'entrée en Modélisation.
+     *
+     * Sélecteur « perspective en translation » (AxisSidebar, `apex-pan-perspective`) : activé, le
+     * bouton du milieu rend la main au panoramique de Babylon (la caméra se déplace, perspective
+     * physique) ; le décalage d'image déjà posé est conservé (pas de saut).
+     */
+    const lensShift = { x: 0, y: 0 };
+    const baseGetProjectionMatrix = camera.getProjectionMatrix.bind(camera);
+    const shiftedProjection = new BABYLON.Matrix();
+    const shiftedArray = new Float32Array(16);
+    camera.getProjectionMatrix = (force?: boolean) => {
+      const base = baseGetProjectionMatrix(force);
+      if (lensShift.x === 0 && lensShift.y === 0) return base;
+      const m = base.m;
+      for (let i = 0; i < 16; i++) shiftedArray[i] = m[i];
+      // Clip' = clip + décalage × w (vecteur ligne × matrice : colonnes x et y, w en colonne 3).
+      for (let row = 0; row < 4; row++) {
+        shiftedArray[row * 4] += lensShift.x * m[row * 4 + 3];
+        shiftedArray[row * 4 + 1] += lensShift.y * m[row * 4 + 3];
+      }
+      BABYLON.Matrix.FromArrayToRef(shiftedArray, 0, shiftedProjection);
+      return shiftedProjection;
+    };
+    const resetLensShift = () => { lensShift.x = 0; lensShift.y = 0; };
+    let panPerspective = readPanPerspective();
+    const applyPanMode = () => {
+      camera.movement.input.inputMap = [
+        ...baseInputMap,
+        ...(panPerspective ? [{ source: "pointer" as const, button: 1, interaction: "pan" as const }] : []),
+        { source: "pointer", button: 2, interaction: "rotate" },
+      ];
+    };
+    applyPanMode();
+    const onPanPerspective = (e: Event) => {
+      panPerspective = !!(e as CustomEvent<{ enabled: boolean }>).detail?.enabled;
+      applyPanMode();
+    };
+    window.addEventListener(PAN_PERSPECTIVE_EVENT, onPanPerspective);
+    let panPointer: { id: number; x: number; y: number } | null = null;
+    const onPanDown = (event: PointerEvent) => {
+      if (event.button !== 1 || panPerspective) return;
+      event.preventDefault(); // pas de défilement automatique du bouton du milieu
+      panPointer = { id: event.pointerId, x: event.clientX, y: event.clientY };
+      canvas.setPointerCapture(event.pointerId);
+    };
+    const onPanMove = (event: PointerEvent) => {
+      if (!panPointer || event.pointerId !== panPointer.id) return;
+      const w = Math.max(1, canvas.clientWidth), h = Math.max(1, canvas.clientHeight);
+      lensShift.x += (2 * (event.clientX - panPointer.x)) / w;
+      lensShift.y -= (2 * (event.clientY - panPointer.y)) / h;
+      panPointer.x = event.clientX;
+      panPointer.y = event.clientY;
+    };
+    const onPanUp = (event: PointerEvent) => {
+      if (!panPointer || event.pointerId !== panPointer.id) return;
+      panPointer = null;
+      if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+    };
+    canvas.addEventListener("pointerdown", onPanDown);
+    canvas.addEventListener("pointermove", onPanMove);
+    canvas.addEventListener("pointerup", onPanUp);
+    canvas.addEventListener("pointercancel", onPanUp);
 
     /**
      * Zoom molette VERS LE CURSEUR, multiplicatif. Remplace l'entrée molette de Babylon :
@@ -157,36 +227,58 @@ export const Viewport3D = () => {
      * `zoomToMouseLocation` de Babylon fait l'équivalent, mais son inertie s'arrête sur des seuils
      * ABSOLUS qui tronquent le mouvement aux petites échelles (même défaut que l'ancien pan).
      * L'adoucissement est donc refait ici, en échelle logarithmique, indépendant de l'échelle.
+     *
+     * Hors Modélisation (demande de l'utilisateur, 2026-10-06), le pas est LINÉAIRE : chaque cran
+     * avance ou recule d'une même distance en mm, quel que soit l'éloignement (le pas en
+     * pourcentage ralentissait le dézoom de près). L'adoucissement et le zoom vers le curseur
+     * restent les mêmes. Le pas est ensuite modulé par `previewZoomStepFactor` (réglages du panneau
+     * « Fonction » de Prévisualisation) : loi de puissance douce de la distance au point visé.
      */
     camera.inputs.removeByType("ArcRotateCameraMouseWheelInput");
     const ZOOM_LOG_PER_WHEEL_UNIT = 0.15 / 100; // cran standard (deltaY 100) ≈ ×1,16 / ÷1,16
+    // Hors Modélisation : mm par unité de molette (cran standard ≈ 30 mm, proche du pas en
+    // pourcentage à la distance par défaut de 300 mm).
+    const ZOOM_MM_PER_WHEEL_UNIT = 30 / 100;
     const ZOOM_SMOOTHING_PER_FRAME = 0.35; // part du zoom restant appliquée à chaque image (60 i/s)
     // Au-delà, le point visé est quasi à l'horizon : on zoome alors vers la cible, sans quoi un
     // cran projetterait la caméra à des kilomètres.
     const ZOOM_MAX_ANCHOR_DISTANCE_RADII = 20;
     let pendingZoomLog = 0;
+    let pendingZoomMm = 0;
     const zoomAnchor = new BABYLON.Vector3();
     const onCanvasWheel = (event: WheelEvent) => {
       event.preventDefault();
       const unit = event.deltaMode === 1 ? 33 : event.deltaMode === 2 ? 100 : 1; // lignes / pages
-      pendingZoomLog += event.deltaY * unit * ZOOM_LOG_PER_WHEEL_UNIT;
+      if (modelingActive) pendingZoomLog += event.deltaY * unit * ZOOM_LOG_PER_WHEEL_UNIT;
+      else {
+        // Distance caméra → point visé sous le curseur (plan horizontal de la cible, comme l'ancre
+        // du zoom) ; à défaut, le rayon de la caméra.
+        let distance = camera.radius;
+        const ray = scene.createPickingRay(scene.pointerX, scene.pointerY, BABYLON.Matrix.Identity(), camera);
+        if (Math.abs(ray.direction.y) > 1e-9) {
+          const t = (camera.target.y - ray.origin.y) / ray.direction.y;
+          if (t > 0 && t <= camera.radius * ZOOM_MAX_ANCHOR_DISTANCE_RADII) distance = t;
+        }
+        pendingZoomMm += event.deltaY * unit * ZOOM_MM_PER_WHEEL_UNIT * previewZoomStepFactor(distance);
+      }
     };
     canvas.addEventListener("wheel", onCanvasWheel, { passive: false });
     const zoomTowardCursorObserver = scene.onBeforeRenderObservable.add(() => {
-      if (pendingZoomLog === 0) return;
+      if (pendingZoomLog === 0 && pendingZoomMm === 0) return;
       const frames = engine.getDeltaTime() / (1000 / 60);
       const portion = 1 - Math.pow(1 - ZOOM_SMOOTHING_PER_FRAME, Math.max(frames, 0.01));
-      let stepLog = Math.abs(pendingZoomLog) < 1e-4 ? pendingZoomLog : pendingZoomLog * portion;
+      const stepLog = Math.abs(pendingZoomLog) < 1e-4 ? pendingZoomLog : pendingZoomLog * portion;
       pendingZoomLog -= stepLog;
+      const stepMm = Math.abs(pendingZoomMm) < 1e-3 ? pendingZoomMm : pendingZoomMm * portion;
+      pendingZoomMm -= stepMm;
 
       // Respect des butées : on écrête le facteur plutôt que de laisser Babylon ramener le rayon
       // (ce qui décalerait le point visé).
       const minR = camera.lowerRadiusLimit ?? 0;
       const maxR = camera.upperRadiusLimit ?? Number.POSITIVE_INFINITY;
-      const targetR = Math.min(Math.max(camera.radius * Math.exp(stepLog), minR), maxR);
-      if (targetR === camera.radius) { pendingZoomLog = 0; return; }
-      stepLog = Math.log(targetR / camera.radius);
-      const factor = Math.exp(stepLog);
+      const targetR = Math.min(Math.max(camera.radius * Math.exp(stepLog) + stepMm, minR), maxR);
+      if (targetR === camera.radius) { pendingZoomLog = 0; pendingZoomMm = 0; return; }
+      const factor = targetR / camera.radius;
 
       // Point visé : intersection du rayon souris avec le plan horizontal de la cible.
       zoomAnchor.copyFrom(camera.target);
@@ -210,7 +302,9 @@ export const Viewport3D = () => {
     // via blurRT restent crénelés sans une passe FXAA sur la sortie finale du pipeline.
     const renderPipeline = new BABYLON.DefaultRenderingPipeline("apexRenderPipeline", false, scene, [camera]);
     renderPipeline.fxaaEnabled = true;
-    renderPipeline.samples = 4;
+    renderPipeline.samples = 8;
+    // Les verres DOM (GlassPanelBackdrop) se dessinent en fin d'image (post-traitements du pipeline inclus : plus tôt, le canevas n'a pas encore l'image finale).
+    engine.onEndFrameObservable.add(() => window.dispatchEvent(new Event('apex-scene-rendered')));
 
     camera.angularSensibilityX = 3500;
     camera.angularSensibilityY = 3500;
@@ -318,6 +412,7 @@ export const Viewport3D = () => {
 
       const targetRadius = 300;
       const targetLookAt = new BABYLON.Vector3(0, HEIGHT / 2, 0);
+      resetLensShift();
       camera.target = targetLookAt;
       camera.radius = targetRadius;
 
@@ -661,6 +756,10 @@ export const Viewport3D = () => {
     // visuellement du fond quadrillé. `plateActionRoot` (boutons d'action) suit la même élévation.
     volumeRoot.position.y = HEIGHT * 0.5;
 
+    // Contours en rubans d'épaisseur constante à l'écran (cf. screenLine.ts) : une LinesMesh WebGL
+    // fait toujours 1 px, trop fin pour que l'anticrénelage le lisse, et GreasedLine varie encore
+    // avec la profondeur. `LINE_WIDTH_PX` : épaisseur en pixels de rendu.
+    const LINE_WIDTH_PX = 2.5;
     const originAxisLength = HOLE_RADIUS * 1.4;
     // Sous la surface du plateau (glassDisc est à y = 0.1) : le disque, opaque, les occlut vus
     // du dessus (le depth-test les cache), mais ils entrent dans la capture `blurRT` et
@@ -676,8 +775,8 @@ export const Viewport3D = () => {
     const originAxesRoot = new BABYLON.TransformNode("originAxesRoot", scene);
     originAxesRoot.parent = volumeRoot;
     originAxes.forEach(([dir, color], i) => {
-      const axisLine = BABYLON.MeshBuilder.CreateLines(`originAxis${i}`, { points: [originAxisBase, dir] }, scene) as BABYLON.LinesMesh;
-      axisLine.color = color;
+      // zOffset 0 : sous la surface du plateau, ces axes doivent rester occultés par le disque.
+      const axisLine = createScreenLine(scene, `originAxis${i}`, [originAxisBase, dir], color, LINE_WIDTH_PX, 1, { zOffset: 0 });
       axisLine.parent = originAxesRoot;
     });
 
@@ -741,7 +840,7 @@ export const Viewport3D = () => {
     glassDiscMat.setTexture("blurTex", blurRT);
     glassDiscMat.backFaceCulling = false;
 
-    const glassDisc = BABYLON.MeshBuilder.CreateDisc("glassDisc", { radius: RADIUS, tessellation: 96 }, scene);
+    const glassDisc = BABYLON.MeshBuilder.CreateDisc("glassDisc", { radius: RADIUS, tessellation: 360 }, scene);
     glassDisc.rotation.x = Math.PI / 2;
     // Nettement au-dessus du fond quadrillé (backdrop, y = -0.05) : l'ancien écart de 0.03 mm
     // était trop fin pour se voir et frôlait le z-fighting à distance. Reste sous 1 mm pour ne
@@ -761,23 +860,24 @@ export const Viewport3D = () => {
       if (capturedInBlur(m) && blurRT.renderList) blurRT.renderList.push(m);
     });
 
+    const makeScreenLine = (name: string, points: BABYLON.Vector3[], color: BABYLON.Color3, alpha = 1, widthScale = 1) =>
+      createScreenLine(scene, name, points, color, LINE_WIDTH_PX * widthScale, alpha);
+
     const outlinePoints = [];
-    for (let i = 0; i <= 64; i++) {
-      const angle = (i / 64) * Math.PI * 2;
+    for (let i = 0; i <= 720; i++) {
+      const angle = (i / 720) * Math.PI * 2;
       // Même hauteur que glassDisc : sans ça le contour cerclait le vide sous le disque surélevé.
       outlinePoints.push(new BABYLON.Vector3(Math.cos(angle) * RADIUS, glassDisc.position.y, Math.sin(angle) * RADIUS));
     }
-    const outline = BABYLON.MeshBuilder.CreateLines("plateOutline", { points: outlinePoints }, scene) as BABYLON.LinesMesh;
-    outline.color = new BABYLON.Color3(0, 0.94, 1); 
+    const outline = makeScreenLine("plateOutline", outlinePoints, new BABYLON.Color3(0, 0.94, 1));
     outline.parent = volumeRoot;
 
     const topOutlinePoints = [];
-    for (let i = 0; i <= 64; i++) {
-      const angle = (i / 64) * Math.PI * 2;
+    for (let i = 0; i <= 720; i++) {
+      const angle = (i / 720) * Math.PI * 2;
       topOutlinePoints.push(new BABYLON.Vector3(Math.cos(angle) * RADIUS, HEIGHT, Math.sin(angle) * RADIUS));
     }
-    const topOutline = BABYLON.MeshBuilder.CreateLines("topOutline", { points: topOutlinePoints }, scene) as BABYLON.LinesMesh;
-    topOutline.color = new BABYLON.Color3(0, 0.94, 1);
+    const topOutline = makeScreenLine("topOutline", topOutlinePoints, new BABYLON.Color3(0, 0.94, 1));
     topOutline.parent = volumeRoot;
 
     // Grille d'esquisse du mode modélisation : masquée tant qu'on est en mode slicer, elle
@@ -1356,6 +1456,7 @@ export const Viewport3D = () => {
         // La cible héritée du slicer est à mi-hauteur du volume d'impression ; la grille, elle,
         // est au sol. Sans ce recentrage le cadrage viserait au-dessus du plan de travail.
         camera.setTarget(BABYLON.Vector3.Zero());
+        resetLensShift();
         camera.radius = GRID_DEFAULT_HALF_EXTENT_MM / Math.tan(camera.fov / 2);
         // Vue de trois quarts plongeante : à beta rasant la grille est vue par la tranche et
         // les étiquettes, couchées dans son plan, deviennent illisibles.
@@ -1460,7 +1561,33 @@ export const Viewport3D = () => {
 
     const plateActionRoot = new BABYLON.TransformNode('plateActionRoot', scene);
     plateActionRoot.position.y = HEIGHT * 0.5;
-    const plateActionButtons: { mesh: BABYLON.Mesh; outline: BABYLON.LinesMesh; iconMat: BABYLON.StandardMaterial }[] = [];
+    // Contours des boutons du plateau : presque blancs au repos, blanc franc au survol.
+    // Un ruban GreasedLine n'a pas de jointure : à un angle vif (coins des boutons) les deux
+    // tronçons se décalent en un cran visible. On arrondit donc chaque coin franc du contour
+    // (courbe de Bézier quadratique de rayon `radius`, mm) ; les points d'arc dense ne bougent pas.
+    const roundClosedCorners = (pts: BABYLON.Vector3[], radius: number): BABYLON.Vector3[] => {
+      const n = pts.length;
+      const out: BABYLON.Vector3[] = [];
+      for (let i = 0; i < n; i++) {
+        const prev = pts[(i + n - 1) % n], cur = pts[i], next = pts[(i + 1) % n];
+        const a = prev.subtract(cur), b = next.subtract(cur);
+        const la = a.length(), lb = b.length();
+        const cos = BABYLON.Vector3.Dot(a, b) / Math.max(1e-9, la * lb);
+        // Angle intérieur > ~150° (quasi droit/arc dense) : on laisse tel quel.
+        if (cos < -0.866) { out.push(cur); continue; }
+        const r = Math.min(radius, la * 0.45, lb * 0.45);
+        const p0 = cur.add(a.scale(r / la)), p1 = cur.add(b.scale(r / lb));
+        for (let j = 0; j <= 8; j++) {
+          const t = j / 8, u = 1 - t;
+          out.push(p0.scale(u * u).addInPlace(cur.scale(2 * u * t)).addInPlace(p1.scale(t * t)));
+        }
+      }
+      out.push(out[0]);
+      return out;
+    };
+
+    const PLATE_ACTION_OUTLINE_ALPHA = 0.85;
+    const plateActionButtons: { mesh: BABYLON.Mesh; outline: BABYLON.Mesh; iconMat: BABYLON.StandardMaterial }[] = [];
     const rowSpan = plateActions.length * PLATE_ACTION_SPAN_DEG + (plateActions.length - 1) * PLATE_ACTION_SPACING_DEG;
     const midR = PLATE_ACTION_INNER_R + PLATE_ACTION_WIDTH / 2;
     const capR = PLATE_ACTION_WIDTH / 2;
@@ -1479,8 +1606,8 @@ export const Viewport3D = () => {
       // Contour fermé (bord intérieur → cap de fin → bord extérieur à rebours → cap de début),
       // triangulé en éventail depuis le centre du bouton : le secteur est assez peu courbé
       // pour rester étoilé par rapport à ce centre.
-      const STEPS = 12;
-      const CAP_STEPS = 10;
+      const STEPS = 48;
+      const CAP_STEPS = 24;
       const contour: BABYLON.Vector3[] = [];
       for (let j = 0; j <= STEPS; j++) contour.push(polar(PLATE_ACTION_INNER_R, t0 + ((t1 - t0) * j) / STEPS));
       const cap = (theta: number, dir: 1 | -1, fromInner: boolean) => {
@@ -1514,14 +1641,13 @@ export const Viewport3D = () => {
 
       mesh.material = glassDiscMat;
 
-      const outline = BABYLON.MeshBuilder.CreateLines(
+      const outline = makeScreenLine(
         `plateActionOutline${k}`,
-        { points: [...contour, contour[0]].map((p) => p.add(new BABYLON.Vector3(0, 0.05, 0))) },
-        scene,
+        roundClosedCorners(contour, 1.2).map((p) => p.add(new BABYLON.Vector3(0, 0.05, 0))),
+        new BABYLON.Color3(1, 1, 1),
+        PLATE_ACTION_OUTLINE_ALPHA,
+        1.4,
       );
-      outline.color = new BABYLON.Color3(1, 1, 1);
-      outline.alpha = 0.28;
-      outline.isPickable = false;
       outline.parent = plateActionRoot;
 
       // Icône couchée sur le bouton, orientation fixe : son haut suit la tangente de l'arc (sens
@@ -1682,13 +1808,13 @@ export const Viewport3D = () => {
         if (plateActionHovered !== null) {
           const prev = plateActionButtons[plateActionHovered];
           prev.mesh.material = glassDiscMat;
-          prev.outline.alpha = 0.28;
+          prev.outline.material!.alpha = PLATE_ACTION_OUTLINE_ALPHA;
           prev.iconMat.alpha = 0.8;
         }
         if (index !== null) {
           const next = plateActionButtons[index];
           next.mesh.material = plateActionHoverMat;
-          next.outline.alpha = 0.6;
+          next.outline.material!.alpha = 1;
           next.iconMat.alpha = 1;
           const action = plateActions[index];
           window.dispatchEvent(new CustomEvent('apex-set-tooltip', { detail: { title: action.title, desc: action.description } }));
@@ -1765,7 +1891,7 @@ export const Viewport3D = () => {
     let boxPhase: BoxDrawPhase = 'idle';
     let boxBaseStart: BABYLON.Vector3 | null = null;
     let boxBaseCorner: BABYLON.Vector3 | null = null;
-    let boxPreviewOutline: BABYLON.LinesMesh | null = null;
+    let boxPreviewOutline: BABYLON.Mesh | null = null;
     let boxExtrudeHeight = 0;
 
     // Plan invisible au niveau du plateau : seul mesh pickable en mode dessin, il donne un
@@ -1791,7 +1917,7 @@ export const Viewport3D = () => {
     groundPickPlane.material = groundPickPlaneMat;
 
     const disposeBoxPreview = () => {
-      boxPreviewOutline?.dispose();
+      boxPreviewOutline?.dispose(false, true);
       boxPreviewOutline = null;
     };
 
@@ -1851,7 +1977,7 @@ export const Viewport3D = () => {
     };
 
     /** Contour d'un pavé droit (8 sommets) en lignes bleu lumineux — pas de faces pleines. */
-    const buildBoxOutline = (min: BABYLON.Vector3, max: BABYLON.Vector3, previous?: BABYLON.LinesMesh | null) => {
+    const buildBoxOutline = (min: BABYLON.Vector3, max: BABYLON.Vector3, previous?: BABYLON.Mesh | null) => {
       const corners = [
         new BABYLON.Vector3(min.x, min.y, min.z), new BABYLON.Vector3(max.x, min.y, min.z),
         new BABYLON.Vector3(max.x, min.y, max.z), new BABYLON.Vector3(min.x, min.y, max.z),
@@ -1863,13 +1989,10 @@ export const Viewport3D = () => {
         [corners[4], corners[5], corners[6], corners[7], corners[4]],
         [corners[0], corners[4]], [corners[1], corners[5]], [corners[2], corners[6]], [corners[3], corners[7]],
       ];
-      // `instance` ne peut mettre à jour un LinesMesh que si celui-ci a été créé
-      // `updatable: true` — sans ce flag, réutiliser l'instance échoue silencieusement
-      // (aucune exception, mais aucune mise à jour visible non plus).
-      const mesh = BABYLON.MeshBuilder.CreateLineSystem(
-        "boxDrawOutline", { lines, updatable: true, instance: previous ?? undefined }, scene,
-      ) as BABYLON.LinesMesh;
-      mesh.color = new BABYLON.Color3(0, 0.94, 1);
+      // Recréé à chaque appel (6 polylignes, coût négligeable) : un ruban écran n'a pas de mise à
+      // jour en place par `instance` comme un LinesMesh.
+      previous?.dispose(false, true);
+      const mesh = createScreenLines(scene, "boxDrawOutline", lines, new BABYLON.Color3(0, 0.94, 1), LINE_WIDTH_PX);
       mesh.isPickable = false;
       return mesh;
     };
@@ -2086,11 +2209,11 @@ export const Viewport3D = () => {
     let pyramidPhase: PyramidPhase = 'idle';
     let pyramidBaseStart: BABYLON.Vector3 | null = null;
     let pyramidBaseCorner: BABYLON.Vector3 | null = null;
-    let pyramidPreviewRings: BABYLON.LinesMesh | null = null;
+    let pyramidPreviewRings: BABYLON.Mesh | null = null;
     let pyramidHeight = 0;
 
     const disposePyramidPreview = () => {
-      pyramidPreviewRings?.dispose();
+      pyramidPreviewRings?.dispose(false, true);
       pyramidPreviewRings = null;
     };
 
@@ -2120,7 +2243,7 @@ export const Viewport3D = () => {
      * y=0, le dernier est réduit au centre à y=`height` (le sommet). Un seul LinesMesh pour
      * tous les anneaux, régénéré à chaque frame comme `buildBoxOutline`. */
     const buildPyramidPreview = (
-      min: BABYLON.Vector3, max: BABYLON.Vector3, height: number, previous?: BABYLON.LinesMesh | null,
+      min: BABYLON.Vector3, max: BABYLON.Vector3, height: number, previous?: BABYLON.Mesh | null,
     ) => {
       const ringCount = pyramidRingCount(min, max, height);
       const cx = (min.x + max.x) / 2;
@@ -2151,9 +2274,8 @@ export const Viewport3D = () => {
       // nombre de lignes différent corrompt le buffer au lieu d'échouer proprement (c'est
       // ce qui produisait le motif décalé/« en escalier » au lieu d'anneaux concentriques).
       // On recrée donc le mesh à chaque appel plutôt que de tenter une mise à jour en place.
-      previous?.dispose();
-      const mesh = BABYLON.MeshBuilder.CreateLineSystem("pyramidDrawPreview", { lines }, scene) as BABYLON.LinesMesh;
-      mesh.color = new BABYLON.Color3(0, 0.94, 1);
+      previous?.dispose(false, true);
+      const mesh = createScreenLines(scene, "pyramidDrawPreview", lines, new BABYLON.Color3(0, 0.94, 1), LINE_WIDTH_PX);
       mesh.isPickable = false;
       return mesh;
     };
@@ -3512,8 +3634,24 @@ export const Viewport3D = () => {
       engine.resize();
     };
     window.addEventListener('resize', handleResize);
+    // Le conteneur du canvas peut changer de taille sans événement `resize` de la fenêtre
+    // (panneaux, changement d'espace, zoom/DPI) : sans cela le tampon de rendu garde l'ancienne
+    // taille et l'image apparaît étirée, aplatie ou déformée.
+    let resizeFrame = 0;
+    const resizeObserver = new ResizeObserver(() => {
+      cancelAnimationFrame(resizeFrame);
+      resizeFrame = requestAnimationFrame(() => { if (!scene.isDisposed) engine.resize(); });
+    });
+    resizeObserver.observe(canvas);
+    if (canvas.parentElement) resizeObserver.observe(canvas.parentElement);
 
     engine.runRenderLoop(() => {
+      // Garde-fou : tampon de rendu différent de la taille affichée → on resynchronise.
+      if (canvas.clientWidth > 0 && canvas.clientHeight > 0 &&
+          (Math.abs(engine.getRenderWidth() - Math.round(canvas.clientWidth * engine.getHardwareScalingLevel() ** -1)) > 2 ||
+           Math.abs(engine.getRenderHeight() - Math.round(canvas.clientHeight * engine.getHardwareScalingLevel() ** -1)) > 2)) {
+        engine.resize();
+      }
       if (!scene.isDisposed) {
         scene.render();
       }
@@ -3521,6 +3659,8 @@ export const Viewport3D = () => {
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      cancelAnimationFrame(resizeFrame);
+      resizeObserver.disconnect();
       window.removeEventListener('apex-import-model', onImportModel);
       window.removeEventListener('apex-select-all-models', onSelectAll);
       window.removeEventListener('apex-request-slice-models', onRequestSliceModels);
@@ -3553,6 +3693,11 @@ export const Viewport3D = () => {
       window.removeEventListener('apex-arrange-models', onArrangeModels);
       disposePlateActions();
       canvas.removeEventListener("wheel", onCanvasWheel);
+      window.removeEventListener(PAN_PERSPECTIVE_EVENT, onPanPerspective);
+      canvas.removeEventListener("pointerdown", onPanDown);
+      canvas.removeEventListener("pointermove", onPanMove);
+      canvas.removeEventListener("pointerup", onPanUp);
+      canvas.removeEventListener("pointercancel", onPanUp);
       renderPipeline.dispose();
       gizmoManager.dispose();
       scene.dispose();

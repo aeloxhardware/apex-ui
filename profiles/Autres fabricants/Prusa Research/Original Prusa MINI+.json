@@ -1,0 +1,57 @@
+{
+    "bed_model": "mini_bed.stl",
+    "bed_texture": "mini.svg",
+    "default_materials": "Prusa Generic ABS;Prusa Generic PLA;Prusa Generic PLA-CF;Prusa Generic PETG;Prusa Generic TPU;Prusa Generic ASA;Prusa Generic PC;Prusa Generic PVA;Prusa Generic PA;Prusa Generic PA-CF",
+    "family": "Prusa",
+    "hotend_model": "",
+    "machine_tech": "FFF",
+    "model_id": "MINI",
+    "name": "Prusa MINI",
+    "nozzle_diameter": "0.25;0.4;0.6;0.8",
+    "inherits": "",
+    "apex": {
+        "generated": true,
+        "manufacturer": "Prusa Research",
+        "model": "Original Prusa MINI+",
+        "catalog_path": "Autres fabricants/Prusa Research",
+        "orca_source": "Prusa/machine/Prusa MINI.json",
+        "axes_count": 3,
+        "kinematics": [
+            "X",
+            "Y",
+            "Z"
+        ],
+        "kinematics_preview": {
+            "type": "Inconnu",
+            "image": null
+        },
+        "motherboard": "PRUSA BUDDY",
+        "motors": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "drivers": {
+            "X": "TMC2209 (UART/SPI)",
+            "Y": "TMC2209 (UART/SPI)",
+            "Z": "TMC2209 (UART/SPI)",
+            "E": "TMC2209 (UART/SPI)"
+        },
+        "default_nozzle_profile": {
+            "diameter_mm": 0,
+            "profile_id": null
+        },
+        "auto_leveling": {
+            "tool": "Inconnu"
+        },
+        "nonplanar": {
+            "max_angle_deg": null,
+            "max_distance_mm": null
+        },
+        "hardware_sources": [
+            "https://github.com/MarlinFirmware/Configurations/tree/import-2.1.x/config/examples/Prusa/MINI"
+        ],
+        "hardware_note": "Source : configuration d'exemple Marlin (communautaire), qui peut différer de la carte d'origine."
+    }
+}

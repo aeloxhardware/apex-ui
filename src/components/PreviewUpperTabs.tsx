@@ -2,6 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { Palette, Pencil, Sparkles } from 'lucide-react';
 import styles from './PreviewUpperTabs.module.scss';
 import { EditionPanel } from './edit-node/EditionPanel';
+import { HeadAxisValues } from './edit-node/HeadAxisValues';
+import {
+  PREVIEW_ZOOM_SPEED_MAX,
+  PREVIEW_ZOOM_SPEED_MIN,
+  getPreviewZoomPrefs,
+  setPreviewZoomPrefs,
+  subscribePreviewZoomPrefs,
+} from '@/utils/previewZoomPrefs';
 
 export type PreviewTabId = 'coloration' | 'edition' | 'fonction';
 
@@ -32,7 +40,44 @@ export const usePreviewTab = () => {
   return tab;
 };
 
-const ComingSoon: React.FC = () => <div className={styles.comingSoon}>Coming soon</div>;
+const ZOOM_TOOLTIP = {
+  title: 'Zoom de la molette',
+  desc: "Automatique : le pas de zoom s'ajuste à la distance du point visé sous le curseur, en douceur (il diminue en approchant, mais moins vite que la distance, sans jamais ralentir d'un coup). Le curseur règle la vitesse dans tous les cas ; sans l'automatisme, le pas est fixe.",
+};
+
+// Vitesse en échelle logarithmique : le milieu du curseur = ×1.
+const speedToSlider = (speed: number) => Math.log(speed / PREVIEW_ZOOM_SPEED_MIN) / Math.log(PREVIEW_ZOOM_SPEED_MAX / PREVIEW_ZOOM_SPEED_MIN);
+const sliderToSpeed = (t: number) => PREVIEW_ZOOM_SPEED_MIN * Math.pow(PREVIEW_ZOOM_SPEED_MAX / PREVIEW_ZOOM_SPEED_MIN, t);
+
+const ZoomPanel: React.FC = () => {
+  const [prefs, setPrefs] = useState(getPreviewZoomPrefs);
+  useEffect(() => subscribePreviewZoomPrefs(setPrefs), []);
+  return (
+    <div
+      className={styles.zoomPanel}
+      onMouseEnter={() => window.dispatchEvent(new CustomEvent('apex-set-tooltip', { detail: ZOOM_TOOLTIP }))}
+      onMouseLeave={() => window.dispatchEvent(new CustomEvent('apex-reset-tooltip'))}
+    >
+      <div className={styles.zoomTitle}>Zoom de la molette</div>
+      <label className={styles.zoomRow}>
+        <input type="checkbox" checked={prefs.auto} onChange={(e) => setPreviewZoomPrefs({ auto: e.target.checked })} />
+        <span>Ajustement automatique au curseur</span>
+      </label>
+      <div className={styles.zoomRow}>
+        <span>Vitesse</span>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.01}
+          value={speedToSlider(prefs.speed)}
+          onChange={(e) => setPreviewZoomPrefs({ speed: sliderToSpeed(parseFloat(e.target.value)) })}
+        />
+        <span className={styles.zoomValue}>×{prefs.speed.toFixed(2)}</span>
+      </div>
+    </div>
+  );
+};
 
 /**
  * Contenu du panneau du haut de Prévisualisation, selon l'icône choisie dans la colonne de droite
@@ -41,6 +86,11 @@ const ComingSoon: React.FC = () => <div className={styles.comingSoon}>Coming soo
 export const PreviewUpperTabs: React.FC<{ coloration: React.ReactNode }> = ({ coloration }) => {
   const tab = usePreviewTab();
   if (tab === 'edition') return <EditionPanel />;
-  if (tab === 'fonction') return <ComingSoon />;
-  return <>{coloration}</>;
+  if (tab === 'fonction') return <ZoomPanel />;
+  return (
+    <div className={styles.colorationRoot}>
+      <div className={styles.headBand}><HeadAxisValues /></div>
+      <div className={styles.legendSlot}>{coloration}</div>
+    </div>
+  );
 };

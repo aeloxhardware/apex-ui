@@ -15,6 +15,7 @@ try {
 const OPS = {
   load: (request) => addon.load(request),
   setHandle: (index, influence) => addon.setHandle(index, influence),
+  setLayerLimits: (minMm, maxMm, widthFactor) => addon.setLayerLimits(minMm, maxMm, widthFactor),
   drag: (transform, options) => addon.drag(transform, options ?? {}),
   commit: () => addon.commit(),
   cancel: () => addon.cancel(),
@@ -22,6 +23,12 @@ const OPS = {
   redo: () => addon.redo(),
   setLocked: (indices, locked) => addon.setLocked(indices, locked),
   clearLocks: () => addon.clearLocks(),
+  restoreHistory: (history) => addon.restoreHistory(history),
+  setHeadSamples: (samples) => addon.setHeadSamples(samples),
+  lockRegion: (index, radius, locked) => addon.lockRegion(index, radius, locked),
+  lockedIndices: () => addon.lockedIndices(),
+  nearest: (x, y, z, maxDistanceMm) => addon.nearest(x, y, z, maxDistanceMm),
+  validate: (options) => addon.validate(options ?? {}),
 };
 
 function serve(port) {

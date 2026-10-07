@@ -1,0 +1,35 @@
+{
+    "name": "Halot-Max",
+    "printer_model": "Halot-Max",
+    "apex": {
+        "generated": true,
+        "manufacturer": "Creality",
+        "model": "Halot-Max",
+        "catalog_path": "Autres fabricants/Creality/Série Résine (SLA - LCD - Halot & LD)/Gamme Halot",
+        "orca_source": null,
+        "axes_count": "Inconnu",
+        "kinematics": "Inconnu",
+        "kinematics_preview": {
+            "type": "Inconnu",
+            "image": null
+        },
+        "motherboard": "Propriétaire",
+        "motors": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "drivers": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "default_nozzle_profile": null,
+        "auto_leveling": {
+            "tool": "Inconnu"
+        },
+        "hardware_sources": []
+    }
+}

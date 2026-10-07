@@ -93,6 +93,10 @@
 .infoBox {
   @extend %floatingBox;
   padding: 12px 14px;
+  max-height: calc(100vh - 430px);
+  min-height: 120px;
+  overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .infoList {

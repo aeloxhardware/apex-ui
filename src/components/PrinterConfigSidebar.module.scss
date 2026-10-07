@@ -363,3 +363,67 @@
     font-weight: 600;
   }
 }
+
+// Avis affiché à la place des imprimantes d'un fabricant (cf. MANUFACTURER_NOTICES).
+.noticePanel {
+  position: fixed;
+  top: 76px;
+  width: 300px;
+  padding: 16px 18px;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
+  z-index: 1004;
+  isolation: isolate;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(10, 15, 26, 0.25);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+  }
+}
+
+.noticeTitle {
+  font-family: 'Orbitron', sans-serif !important;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: #00f0ff;
+  margin: 0 0 10px;
+}
+
+.noticeText {
+  font-size: 12px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.78);
+  margin: 0;
+}
+
+// Écriture attachée volontairement kitsch (police Luxurious Script, déclarée dans src/index.css).
+.noticeKitsch {
+  font-family: 'Luxurious Script', cursive;
+  font-size: 18px;
+  color: #ffd166;
+  white-space: nowrap;
+}
+
+// Petite infobulle de souris (position fixe, suit l'endroit où la souris s'est arrêtée).
+.noticeQuip {
+  position: fixed;
+  max-width: 260px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(10, 15, 26, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 11px;
+  line-height: 1.4;
+  pointer-events: none;
+  z-index: 2000;
+}

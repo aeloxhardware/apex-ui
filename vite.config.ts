@@ -46,12 +46,41 @@ function apexConvertDevServer(): Plugin {
   };
 }
 
+/**
+ * Serveur de développement seulement : profils d'imprimantes (dossier `profiles/`) lus par le même
+ * module que l'application de bureau (electron/profiles.cjs), pour le menu Imprimantes en navigateur.
+ */
+function apexProfilesDevServer(): Plugin {
+  const root = path.resolve(__dirname, "profiles");
+  return {
+    name: "apex-profiles-dev-server",
+    apply: "serve",
+    configureServer(server) {
+      server.middlewares.use("/__apex/profiles", (req, res) => {
+        const { scanProfiles, readProfile } = require("./electron/profiles.cjs");
+        res.setHeader("Content-Type", "application/json; charset=utf-8");
+        res.setHeader("Cache-Control", "no-cache");
+        try {
+          const url = new URL(req.url ?? "/", "http://localhost");
+          const body = url.pathname === "/read"
+            ? readProfile(root, url.searchParams.get("path"))
+            : scanProfiles(root);
+          res.end(JSON.stringify(body));
+        } catch (err) {
+          res.statusCode = 400;
+          res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+        }
+      });
+    },
+  };
+}
+
 export default defineConfig(() => ({
   server: {
     host: "::",
     port: 8080,
   },
-  plugins: [react(), apexConvertDevServer()],
+  plugins: [react(), apexConvertDevServer(), apexProfilesDevServer()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

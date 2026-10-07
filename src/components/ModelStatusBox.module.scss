@@ -15,12 +15,21 @@
   flex-direction: column;
   pointer-events: auto;
 
+  // Style flou (celui de l'infobulle de bas d'écran avant l'inversion des styles).
   background: rgba(10, 15, 26, 0.25);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
-  border: none;
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
+  border: none;
   padding: 12px 16px;
+
+  // Verre WebGL indisponible : retour au verre CSS d'origine.
+  &[data-glass-fallback] {
+    background: rgba(10, 15, 26, 0.25);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
+  }
   border-radius: 22px;
   width: 293px;
   min-height: 120px;
@@ -46,20 +55,14 @@
   text-overflow: ellipsis;
 }
 
+// Curseur externe (ExternalScrollArea) : posé à 4 px hors du bord droit de la boîte (data-scroll-edge).
+.scrollArea {
+  max-height: 200px;
+}
+
 .content {
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
-  max-height: 200px;
-  padding-right: 4px;
-
-  &::-webkit-scrollbar {
-    width: 3px;
-  }
-  &::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 4px;
-  }
 }
 
 .emptyText {

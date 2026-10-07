@@ -1,0 +1,35 @@
+{
+    "name": "Carbon M1",
+    "printer_model": "Carbon M1",
+    "apex": {
+        "generated": true,
+        "manufacturer": "Carbon",
+        "model": "Carbon M1",
+        "catalog_path": "Autres fabricants/Carbon",
+        "orca_source": null,
+        "axes_count": "Inconnu",
+        "kinematics": "Inconnu",
+        "kinematics_preview": {
+            "type": "Inconnu",
+            "image": null
+        },
+        "motherboard": "Propriétaire",
+        "motors": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "drivers": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "default_nozzle_profile": null,
+        "auto_leveling": {
+            "tool": "Inconnu"
+        },
+        "hardware_sources": []
+    }
+}

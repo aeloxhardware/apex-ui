@@ -1,6 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { animate, motion, useMotionValue, type AnimationPlaybackControls } from 'framer-motion';
+import { GlassPanelBackdrop } from './edit-node/GlassPanelBackdrop';
 import styles from './TopRightMenu.module.scss';
 
 // Même tempo que la barre d'outils de la Sidebar au changement d'espace
@@ -11,9 +12,6 @@ import styles from './TopRightMenu.module.scss';
 const RESHAPE_DURATION = 1.1;
 const RESHAPE_TIMES = [0, 0.45, 0.725, 1];
 const RESHAPE_EASE = [0.25, 1, 0.5, 1] as const;
-
-/** Largeur de la barre d'aide en Prévisualisation (bornée par `max-width` en CSS). */
-const PREVIEW_WIDTH = 666;
 
 interface Geometry {
   left: number;
@@ -76,7 +74,8 @@ export const TopRightMenu: React.FC = () => {
     const container = containerRef.current;
     const el = toolbarRef.current;
     fromRef.current = null;
-    const restWidth = previewActive ? PREVIEW_WIDTH : 'auto';
+    // Largeur ajustée au texte dans les deux espaces (une ligne, bornée par `max-width` en CSS).
+    const restWidth = 'auto';
     animationsRef.current.forEach((a) => a.stop());
     animationsRef.current = [];
     if (!from || !container || !el) {
@@ -126,6 +125,7 @@ export const TopRightMenu: React.FC = () => {
       className={clsx(styles.container, previewActive && styles.containerPreview)}
       data-apex-chrome-panel
     >
+      <GlassPanelBackdrop targetRef={toolbarRef} corner={20} warp={1.8} />
       <motion.div
         ref={toolbarRef}
         className={clsx(styles.toolbar, styles.secondaryToolbar)}

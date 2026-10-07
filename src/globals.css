@@ -29,6 +29,14 @@
   src: url('/fonts/oxanium-v21-latin-700.woff2') format('woff2');
   font-display: block;
 }
+/* Luxurious Script (OFL) : écriture attachée de l'avis Bambu Lab du menu Imprimantes. */
+@font-face {
+  font-family: 'Luxurious Script';
+  font-style: normal;
+  font-weight: 400;
+  src: url('/fonts/LuxuriousScript-Regular.ttf') format('truetype');
+  font-display: swap;
+}
 
 @tailwind base;
 @tailwind components;

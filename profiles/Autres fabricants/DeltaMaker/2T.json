@@ -1,0 +1,173 @@
+{
+    "auxiliary_fan": "0",
+    "before_layer_change_gcode": ";BEFORE_LAYER_CHANGE\n;[layer_z]\nG92 E0\n",
+    "change_filament_gcode": "",
+    "default_filament_profile": [
+        "DeltaMaker Brand PLA",
+        "DeltaMaker Generic PLA"
+    ],
+    "default_print_profile": "0.18mm Standard @DeltaMaker",
+    "deretraction_speed": [
+        "40"
+    ],
+    "extruder_clearance_height_to_lid": "140",
+    "extruder_clearance_height_to_rod": "36",
+    "extruder_clearance_radius": "65",
+    "extruder_colour": [
+        "#FCE94F"
+    ],
+    "extruder_offset": [
+        "0x0"
+    ],
+    "from": "system",
+    "gcode_flavor": "klipper",
+    "inherits": "",
+    "layer_change_gcode": ";AFTER_LAYER_CHANGE\n;[layer_z]",
+    "machine_end_gcode": "G28\nM104 S0\nM84 ; disable motors",
+    "machine_max_acceleration_e": [
+        "5000"
+    ],
+    "machine_max_acceleration_extruding": [
+        "5000"
+    ],
+    "machine_max_acceleration_retracting": [
+        "5000"
+    ],
+    "machine_max_acceleration_x": [
+        "3500"
+    ],
+    "machine_max_acceleration_y": [
+        "3500"
+    ],
+    "machine_max_acceleration_z": [
+        "500"
+    ],
+    "machine_max_jerk_e": [
+        "2.5"
+    ],
+    "machine_max_jerk_x": [
+        "10"
+    ],
+    "machine_max_jerk_y": [
+        "10"
+    ],
+    "machine_max_jerk_z": [
+        "2"
+    ],
+    "machine_max_speed_e": [
+        "120"
+    ],
+    "machine_max_speed_x": [
+        "500"
+    ],
+    "machine_max_speed_y": [
+        "500"
+    ],
+    "machine_max_speed_z": [
+        "150"
+    ],
+    "machine_min_extruding_rate": [
+        "0"
+    ],
+    "machine_min_travel_rate": [
+        "0"
+    ],
+    "machine_pause_gcode": "",
+    "machine_start_gcode": "M104 S[nozzle_temperature_initial_layer] ; set temp\nG28\nM109 S[nozzle_temperature_initial_layer] ; wait for temp\nG28\nG91 ; relative positioning\nG1 Z-40 F4000\nG90 ; absolute positioning\n",
+    "max_layer_height": [
+        "0.3"
+    ],
+    "min_layer_height": [
+        "0.1"
+    ],
+    "name": "DeltaMaker 2T 0.5 nozzle",
+    "nozzle_diameter": [
+        "0.5"
+    ],
+    "nozzle_type": "undefine",
+    "printable_area": [
+        "-69x-120",
+        "-138x0",
+        "-69x120",
+        "69x120",
+        "138x0",
+        "69x-120"
+    ],
+    "printable_height": "460",
+    "printer_model": "DeltaMaker 2T",
+    "printer_settings_id": "",
+    "printer_technology": "FFF",
+    "printer_variant": "0.5",
+    "retract_before_wipe": [
+        "0%"
+    ],
+    "retract_length_toolchange": [
+        "2"
+    ],
+    "retract_restart_extra": [
+        "0"
+    ],
+    "retract_restart_extra_toolchange": [
+        "0"
+    ],
+    "retract_when_changing_layer": [
+        "1"
+    ],
+    "retraction_length": [
+        "7"
+    ],
+    "retraction_minimum_travel": [
+        "2"
+    ],
+    "retraction_speed": [
+        "80"
+    ],
+    "silent_mode": "1",
+    "single_extruder_multi_material": "0",
+    "z_hop": [
+        "0.8"
+    ],
+    "z_lift_type": "NormalLift",
+    "apex": {
+        "generated": true,
+        "manufacturer": "DeltaMaker",
+        "model": "2T",
+        "catalog_path": "Autres fabricants/DeltaMaker",
+        "orca_source": "DeltaMaker/machine/DeltaMaker 2T 0.5 nozzle.json",
+        "axes_count": 3,
+        "kinematics": [
+            "X",
+            "Y",
+            "Z"
+        ],
+        "kinematics_preview": {
+            "type": "Inconnu",
+            "image": null
+        },
+        "motherboard": "Inconnu",
+        "motors": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "drivers": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "default_nozzle_profile": {
+            "diameter_mm": 0.5,
+            "profile_id": null
+        },
+        "auto_leveling": {
+            "tool": "Inconnu"
+        },
+        "nonplanar": {
+            "max_angle_deg": null,
+            "max_distance_mm": null
+        },
+        "hardware_sources": []
+    }
+}

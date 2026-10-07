@@ -1,0 +1,35 @@
+{
+    "name": "EOS Formiga P 110",
+    "printer_model": "EOS Formiga P 110",
+    "apex": {
+        "generated": true,
+        "manufacturer": "EOS",
+        "model": "EOS Formiga P 110",
+        "catalog_path": "Autres fabricants/EOS",
+        "orca_source": null,
+        "axes_count": "Inconnu",
+        "kinematics": "Inconnu",
+        "kinematics_preview": {
+            "type": "Inconnu",
+            "image": null
+        },
+        "motherboard": "Propriétaire",
+        "motors": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "drivers": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "default_nozzle_profile": null,
+        "auto_leveling": {
+            "tool": "Inconnu"
+        },
+        "hardware_sources": []
+    }
+}

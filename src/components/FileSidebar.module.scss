@@ -57,3 +57,32 @@
   background: rgba(255, 255, 255, 0.2);
   margin: 0 4px;
 }
+
+// Séparateur + bouton Profils imprimante : hors Préparation/Prévisualisation, le groupe se replie
+// (largeur, fondu, rétrécissement, flou) et la barre se referme dessus, sans à-coup.
+.printerGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 80px;
+  margin-left: 0;
+  opacity: 1;
+  transform: scale(1);
+  filter: blur(0);
+  transition:
+    max-width 0.45s cubic-bezier(0.65, 0, 0.35, 1),
+    margin-left 0.45s cubic-bezier(0.65, 0, 0.35, 1),
+    opacity 0.3s ease,
+    transform 0.45s cubic-bezier(0.65, 0, 0.35, 1),
+    filter 0.35s ease;
+}
+
+.printerGroupHidden {
+  max-width: 0;
+  margin-left: -6px; // compense le gap de .toolbar : plus aucun vide à la place du groupe
+  opacity: 0;
+  transform: scale(0.4);
+  filter: blur(6px);
+  overflow: hidden;
+  pointer-events: none;
+}

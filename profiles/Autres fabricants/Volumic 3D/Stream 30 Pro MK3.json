@@ -1,0 +1,35 @@
+{
+    "name": "Stream 30 Pro MK3",
+    "printer_model": "Stream 30 Pro MK3",
+    "apex": {
+        "generated": true,
+        "manufacturer": "Volumic 3D",
+        "model": "Stream 30 Pro MK3",
+        "catalog_path": "Autres fabricants/Volumic 3D",
+        "orca_source": null,
+        "axes_count": "Inconnu",
+        "kinematics": "Inconnu",
+        "kinematics_preview": {
+            "type": "Inconnu",
+            "image": null
+        },
+        "motherboard": "Inconnu",
+        "motors": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "drivers": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "default_nozzle_profile": null,
+        "auto_leveling": {
+            "tool": "Inconnu"
+        },
+        "hardware_sources": []
+    }
+}

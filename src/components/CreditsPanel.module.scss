@@ -1,0 +1,161 @@
+// Panneau latéral des crédits (Paramètres) : texte énorme, défilant dans le panneau.
+.panel {
+  pointer-events: auto;
+  position: relative;
+  flex: 0 1 clamp(420px, 44vw, 860px);
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-radius: 20px;
+  isolation: isolate;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
+  // Même fond que le panneau de réglages.
+  background: rgba(10, 15, 26, 0.35);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.content {
+  padding: 36px 44px 48px;
+}
+
+// Curseur du panneau de remerciements : plus large que celui des petits panneaux.
+.scrollArea {
+  --scroll-thumb-gap: 8px;
+  --scroll-thumb-width: 12px;
+  --scroll-thumb-width-hover: 18px;
+}
+
+.title {
+  font-size: clamp(56px, 6.2vw, 112px);
+  line-height: 0.95;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #f4f4f5;
+  margin: 0 0 12px;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: clamp(16px, 1.4vw, 24px);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.group {
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.groupTitle {
+  font-size: clamp(22px, 2.2vw, 38px);
+  font-weight: 700;
+  color: #00f0ff;
+  margin: 0 0 20px;
+}
+
+.entry {
+  margin-bottom: 26px;
+}
+
+.name {
+  font-size: clamp(30px, 3.4vw, 60px);
+  line-height: 1.05;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.by {
+  font-size: clamp(18px, 1.7vw, 30px);
+  color: rgba(255, 255, 255, 0.8);
+  margin-top: 4px;
+}
+
+.license {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 1px 12px;
+  border-radius: 999px;
+  font-size: 0.7em;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.link {
+  display: inline-block;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  margin-top: 10px;
+  font-size: clamp(16px, 1.4vw, 24px);
+  font-weight: 600;
+  color: #00f0ff;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-color: rgba(0, 240, 255, 0.4);
+  cursor: pointer;
+  transition: color 0.2s ease, text-decoration-color 0.2s ease;
+
+  &:hover {
+    color: #7df9ff;
+    text-decoration-color: currentColor;
+  }
+}
+
+.groupSubtitle {
+  margin: -12px 0 20px;
+  font-size: clamp(14px, 1.2vw, 20px);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.licenseNote {
+  margin-top: 2px;
+  font-size: clamp(13px, 1.05vw, 18px);
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.citation {
+  margin: 12px 0 0;
+  padding: 4px 0 4px 16px;
+  border-left: 3px solid rgba(0, 240, 255, 0.5);
+  font-size: clamp(14px, 1.15vw, 19px);
+  font-style: italic;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.obligation {
+  margin-top: 10px;
+  font-size: clamp(14px, 1.15vw, 19px);
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.note {
+  margin: 40px 0 0;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: clamp(13px, 1.05vw, 18px);
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.use {
+  font-size: clamp(14px, 1.2vw, 20px);
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.55);
+  margin-top: 4px;
+}
+
+@media (max-width: 1100px) {
+  .panel {
+    flex-basis: 100%;
+  }
+}
+
+.flag {
+  font-family: 'Twemoji Country Flags', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif;
+  margin-right: 4px;
+}

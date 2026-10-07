@@ -8,6 +8,7 @@ import type { ColorByMode, ColorByRange, ContinuousColorByMode } from './gcodeLa
 import { COLOR_BY_LABELS, COLOR_BY_UNITS, COLORMAP_STOPS_HEX, defaultColorByScope, type ColorByScope } from './gcodeColormap';
 import type { GCodeFileInfo } from '@/hooks/use-gcode-preview';
 import styles from './GCodeLineTypeLegend.module.scss';
+import { ExternalScrollArea } from './ExternalScrollArea';
 
 interface GCodeLineTypeLegendProps {
   /** G-code chargé (statistiques par type de ligne), ou null : toutes les valeurs en « — ». */
@@ -431,7 +432,7 @@ export const GCodeLineTypeLegend = React.memo<GCodeLineTypeLegendProps>(({
           </motion.div>
 
           {fileInfo ? (
-            <div className={styles.rows}>
+            <ExternalScrollArea className={styles.rowsArea} contentClassName={styles.rows}>
               {LINE_TYPES.map((type) => {
                 const stat = fileInfo.lineStats[type.id];
                 const hasTime = !!stat && stat.time > 0;
@@ -473,7 +474,7 @@ export const GCodeLineTypeLegend = React.memo<GCodeLineTypeLegendProps>(({
                   </motion.label>
                 );
               })}
-            </div>
+            </ExternalScrollArea>
           ) : (
             <motion.p className={styles.gradientEmpty} variants={itemVariants}>
               Aucun G-code chargé.

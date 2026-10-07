@@ -8,8 +8,7 @@
   padding: 12px 8px 10px 12px;
 }
 
-// En-tête et lignes partagent la même grille ; `scrollbar-gutter` réserve la même largeur de barre
-// de défilement des deux côtés pour garder les colonnes alignées.
+// En-tête et lignes partagent la même grille (le curseur externe ne prend aucune largeur).
 .grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 56px 62px 48px 46px 16px;
@@ -22,21 +21,18 @@
   flex: 0 0 auto;
   height: 26px;
   overflow-y: hidden;
-  scrollbar-gutter: stable;
   font-size: 10px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.45);
   white-space: nowrap;
 }
 
+.rowsArea {
+  // Curseur dessiné hors du panneau (data-scroll-edge), rien à réserver ici.
+}
+
 .rows {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
   overflow-x: hidden;
-  scrollbar-gutter: stable;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
 }
 
 .row {

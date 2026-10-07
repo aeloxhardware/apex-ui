@@ -1,0 +1,56 @@
+{
+    "bed_model": "creality_ender5pro_buildplate_model.stl",
+    "bed_texture": "creality_ender5pro_buildplate_texture.svg",
+    "default_materials": "Creality Generic PLA;Creality Generic PETG;Creality Generic ABS",
+    "family": "Creality",
+    "hotend_model": "hotend.stl",
+    "machine_tech": "FFF",
+    "model_id": "Creality_Ender_5_Pro_2019",
+    "name": "Creality Ender-5 Pro (2019)",
+    "nozzle_diameter": "0.2;0.25;0.3;0.4;0.5;0.6;0.8;1.0",
+    "inherits": "",
+    "apex": {
+        "generated": true,
+        "manufacturer": "Creality",
+        "model": "Ender-5 Pro",
+        "catalog_path": "Autres fabricants/Creality/Série Ender/Ender-5",
+        "orca_source": "Creality/machine/Creality Ender-5 Pro (2019).json",
+        "axes_count": 3,
+        "kinematics": [
+            "X",
+            "Y",
+            "Z"
+        ],
+        "kinematics_preview": {
+            "type": "Inconnu",
+            "image": null
+        },
+        "motherboard": "Carte d'origine (MCU STM32F103)",
+        "motors": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "drivers": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "default_nozzle_profile": {
+            "diameter_mm": 0,
+            "profile_id": null
+        },
+        "auto_leveling": {
+            "tool": "Aucune (config Klipper d'origine)"
+        },
+        "nonplanar": {
+            "max_angle_deg": null,
+            "max_distance_mm": null
+        },
+        "hardware_sources": [
+            "https://github.com/Klipper3d/klipper/blob/master/config/printer-creality-ender5pro-2020.cfg"
+        ]
+    }
+}

@@ -1,0 +1,88 @@
+{
+    "name": "Aetheris-4",
+    "printer_model": "Aetheris-4",
+    "printer_technology": "FFF",
+    "printer_structure": "polar",
+    "gcode_flavor": "reprapfirmware",
+    "printable_height": "140",
+    "apex": {
+        "generated": true,
+        "manufacturer": "Aelox Hardware",
+        "model": "Aetheris-4",
+        "catalog_path": "Aelox Hardware",
+        "orca_source": null,
+        "support_4_axes": true,
+        "multicolor": false,
+        "bed_shape": "circular",
+        "kinematics_label": "Polaire à plan de fabrication dynamique",
+        "build_volume_label": "250 (R) × 140 (H) mm",
+        "max_nozzle_temp_c": 280,
+        "max_bed_temp_c": 80,
+        "max_print_speed_mm_s": 150,
+        "auto_leveling": {
+            "tool": "Inconnu",
+            "available": true
+        },
+        "connectivity": [
+            "Wi-Fi",
+            "SD"
+        ],
+        "enclosed_chamber": false,
+        "axes_count": 4,
+        "kinematics": [
+            "R",
+            "C",
+            "Z",
+            "B"
+        ],
+        "kinematics_preview": {
+            "type": "polar",
+            "image": null
+        },
+        "pivot_distance_mm": {
+            "B": 46
+        },
+        "rotary_axes": [
+            {
+                "axis": "B",
+                "role": "head_tilt",
+                "range_deg": [
+                    0,
+                    185
+                ],
+                "max_speed_deg_s": 1666.7,
+                "max_acceleration_deg_s2": 1300,
+                "mass_kg": "Inconnu",
+                "size_mm": "Inconnu"
+            },
+            {
+                "axis": "C",
+                "role": "bed_rotation",
+                "range_deg": "Inconnu",
+                "max_speed_deg_s": "Inconnu",
+                "max_acceleration_deg_s2": "Inconnu",
+                "mass_kg": "Inconnu",
+                "size_mm": "Inconnu"
+            }
+        ],
+        "motherboard": "Inconnu",
+        "motors": {
+            "R": "Inconnu",
+            "C": "Inconnu",
+            "Z": "Inconnu",
+            "B": "Inconnu",
+            "E": "Inconnu"
+        },
+        "drivers": {
+            "R": "Inconnu",
+            "C": "Inconnu",
+            "Z": "Inconnu",
+            "B": "Inconnu",
+            "E": "Inconnu"
+        },
+        "default_nozzle_profile": {
+            "diameter_mm": "Inconnu",
+            "profile_id": null
+        }
+    }
+}

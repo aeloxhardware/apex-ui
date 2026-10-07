@@ -11,7 +11,8 @@ import {
 import { detectGeneratorSignature, guessGeneratorFromFeature, type GCodeGenerator } from './gcodeGenerator';
 import { colorForMode, defaultColorByScope, type ColorByScope } from './gcodeColormap';
 import { isColorByDeferred } from '@/utils/gcodeColorByPrefs';
-import { attachEditDeform, editDeformState, EDIT_WEIGHT_KIND } from './gcodeEditDeform';
+import { attachEditDeform, editDeformState, EDIT_AXIS_KIND, EDIT_SLIDE_KIND, EDIT_WEIGHT_KIND } from './gcodeEditDeform';
+import { EDIT_VALUES_PER_POINT } from '@/utils/editKernelClient';
 
 import {
   type GCodeKind, type GCodeMove, type LineTypeStat, type MarkerTypeId, type ContinuousColorByMode,
@@ -147,6 +148,10 @@ interface PathMesh {
   normals?: Float32Array;
   /** Poids d'édition par sommet (cordons), alloué au premier usage. */
   editWeights?: Float32Array;
+  /** Normale de paroi d'édition par sommet (3 valeurs, repère local ; nulle hors coque). */
+  editSlide?: Float32Array;
+  /** Axe de tête d'édition par sommet (3 valeurs, repère local ; mode « empilement »). */
+  editAxis?: Float32Array;
 }
 
 /** Section du cordon déposé (mm) : largeur de part et d'autre de la trajectoire, et épaisseur le
@@ -526,12 +531,32 @@ export interface GCodeLayer {
   getMoveTip(k: number, out: BABYLON.Vector3): BABYLON.Vector3;
   /** Édition : poids d'influence par mouvement (indices croissants), appliqués par le vertex shader
    * des cordons ; null les efface. Recalcul une fois par pose / réglage, jamais par image. */
-  setEditWeights(indices: Uint32Array | null, weights?: Float32Array): void;
-  /** Édition : translation en direct (repère du plateau) des points pondérés. */
-  setEditTranslation(translation: BABYLON.Vector3): void;
-  /** Édition : nouvelles valeurs firmware validées (4 par indice : R, C, Z, B) — met à jour les
-   * mouvements et réécrit en place la géométrie des seuls segments touchés. */
-  applyMoveEdits(indices: Uint32Array, values: Float64Array): void;
+  setEditWeights(indices: Uint32Array | null, weights?: Float32Array, slideNormals?: Float32Array, axes?: Float32Array): void;
+  /** Onglet Édition : cordons en gris neutre (vrai) ou selon le mode « colorer par » (faux). */
+  setEditNeutral(neutral: boolean): void;
+  /** Édition : déformation en direct des points pondérés (repère du plateau),
+   * p' = pivot + R(w·angle, axe)(p − pivot) + w·translation. */
+  setEditTransform(transform: {
+    translation: BABYLON.Vector3;
+    pivot: BABYLON.Vector3;
+    axis: BABYLON.Vector3;
+    angle: number;
+    /** Mode « empilement » : axe de tête du nœud (local) ; absent ou nul hors de ce mode. */
+    stackAxis?: BABYLON.Vector3;
+  }): void;
+  /** Édition : nouvelles valeurs validées par le noyau (R, C, Z, B, E par indice) — met à jour
+   * les mouvements, l'extrusion (`eDelta`), la liste des mouvements modifiés (`editedMoves`), et
+   * réécrit en place la géométrie des seuls segments touchés. */
+  applyMoveEdits(indices: Uint32Array, values: Float64Array, trimmed?: Uint32Array, trimState?: boolean): void;
+  /** Édition : pose (ou retire, avec null) un drapeau d'alerte / d'état sur des mouvements. `bit` : l'un
+   * des EDIT_FLAG_* (gcodeEditDeform.ts) ; l'ensemble précédent de ce bit est remplacé. */
+  setEditFlagBit(bit: number, indices: Uint32Array | null): void;
+  /** Édition : aperçu des déplacements à vide pendant un glissement. `tips` : positions déformées
+   * (repère du plateau, x y z par indice) ; null rétablit la géométrie validée. */
+  setTravelPreview(indices: Uint32Array | null, tips?: Float32Array): void;
+  /** Modèle de la tête échantillonné pour les collisions (repère de la tête, pointe à l'origine, x y z
+   * par échantillon) ; null tant que le modèle n'est pas chargé. */
+  getHeadSamples(spacingMm?: number): Float32Array | null;
   dispose(): void;
 }
 
@@ -674,6 +699,7 @@ export function createGCodeLayer(
   // radiateur, ventilateur, connecteurs…) est simplement désactivé — jamais de plan de coupe ni de
   // bouchon à poser, chaque maillage garde ses propres faces, déjà fermées, intactes.
   let headModelNozzleMeshes: BABYLON.AbstractMesh[] | null = null;
+  let headModelReady = false;
   const applyHeadVisibility = () => {
     if (!headModelNozzleMeshes) {
       // Modèle glTF pas encore chargé (ou échec) : seules les primitives de repli existent.
@@ -701,6 +727,7 @@ export function createGCodeLayer(
       nozzle.dispose(false, true);
       body.dispose(false, true);
       headModelNozzleMeshes = result.nozzleMeshes;
+      headModelReady = true;
       applyHeadVisibility();
     })
     .catch((err) => console.warn('Modèle de tête G-code non chargé, primitives conservées :', err));
@@ -731,6 +758,16 @@ export function createGCodeLayer(
   vertexColorBeadMat.emissiveColor = BABYLON.Color3.White();
   vertexColorBeadMat.backFaceCulling = false;
   attachEditDeform(vertexColorBeadMat);
+  // Onglet Édition : cordons d'un gris neutre éclairé (le relief se lit, la teinte violette des
+  // zones contraintes par les nœuds ressort), quel que soit le mode « colorer par ».
+  const neutralBeadMat = new BABYLON.StandardMaterial(`${GCODE_MESH_PREFIX}BeadMatNeutral`, scene);
+  neutralBeadMat.diffuseColor = new BABYLON.Color3(0.62, 0.63, 0.65);
+  neutralBeadMat.emissiveColor = new BABYLON.Color3(0.07, 0.07, 0.08);
+  neutralBeadMat.specularColor = new BABYLON.Color3(0.3, 0.3, 0.3);
+  neutralBeadMat.specularPower = 48;
+  neutralBeadMat.backFaceCulling = false;
+  attachEditDeform(neutralBeadMat);
+  let editNeutral = false;
   // Tronçon vivant en mode continu (cf. updateLive) : couleur plate recalculée chaque image, trop
   // petit pour justifier une mise à jour de couleurs par sommet à chaque frame (cf. plan §3).
   const liveColorByMat = new BABYLON.StandardMaterial(`${GCODE_MESH_PREFIX}LiveBeadMatColorBy`, scene);
@@ -998,6 +1035,10 @@ export function createGCodeLayer(
       const isContinuous = colorBy !== 'lineType';
       for (const entry of paths) {
         if (!entry.isExtrusion || !entry.mesh) continue;
+        if (editNeutral) {
+          entry.mesh.material = neutralBeadMat;
+          continue;
+        }
         if (!isContinuous) {
           entry.mesh.material = entry.categoryMaterial ?? entry.mesh.material;
           continue;
@@ -1053,6 +1094,13 @@ export function createGCodeLayer(
     pickBuildSeq++; // l'index de sélection de l'ancienne géométrie n'est plus valable
     pickGrid = null;
     pickHighlight?.setEnabled(false);
+    if (next !== parsed) {
+      // Autre fichier : drapeaux, poids et aperçus d'édition décrivaient l'ancien.
+      moveFlags = null;
+      flagSets.clear();
+      lastWeights = null;
+      travelPreviewKeys.clear();
+    }
     parsed = next;
     const { moves } = next;
     const precisionMm = colorBy !== 'lineType' ? renderPrecisionMm : null;
@@ -1117,6 +1165,10 @@ export function createGCodeLayer(
     applyColorBy();
     headNode.setEnabled(moves.length > 0);
     if (pickWanted) void buildPickIndex();
+    // Reconstruction du même fichier : les attributs d'édition sont à reposer sur les nouveaux maillages.
+    if (flagSets.size > 0 || lastWeights) {
+      setEditWeights(lastWeights?.indices ?? null, lastWeights?.weights, lastWeights?.slideNormals, lastWeights?.axes);
+    }
   };
 
   // ---------------------------------------------------------------------------------------------
@@ -1313,39 +1365,244 @@ export function createGCodeLayer(
   // mouvements validés par le noyau C++.
   // ---------------------------------------------------------------------------------------------
 
-  const setEditWeights = (indices: Uint32Array | null, weights?: Float32Array) => {
+  // Normales de paroi (repère du noyau, cf. slideNormals) : copiées en repère local (y ↔ z), et
+  // interpolées entre les deux points d'un segment comme les poids ; le shader retire du
+  // déplacement sa composante selon la normale, au prorata de sa longueur (une extrémité en coque,
+  // l'autre non : glissement partiel, sans cassure du cordon).
+  // Drapeaux d'édition par mouvement (bits EDIT_FLAG_*), écrits dans l'attribut de poids (valeur =
+  // poids + 2 × drapeaux) : alertes de limites / collisions, matière verrouillée, dépôts rognés,
+  // épaisseurs modifiées. Un échantillon prend les drapeaux du point d'extrémité le plus proche.
+  let moveFlags: Uint8Array | null = null;
+  const flagSets = new Map<number, Uint32Array>();
+  let lastWeights: {
+    indices: Uint32Array; weights: Float32Array; slideNormals?: Float32Array; axes?: Float32Array;
+  } | null = null;
+  const flagOfSample = (k: number, f: number) => (moveFlags ? moveFlags[f < 0.5 && k > 0 ? k - 1 : k] : 0);
+
+  const setEditWeights = (
+    indices: Uint32Array | null, weights?: Float32Array, slideNormals?: Float32Array, axes?: Float32Array,
+  ) => {
     if (!parsed) return;
+    lastWeights = indices && weights && indices.length ? { indices, weights, slideNormals, axes } : null;
     let dense: Float32Array | null = null;
+    let denseSlide: Float32Array | null = null;
+    let denseAxis: Float32Array | null = null;
     if (indices && weights && indices.length) {
       dense = new Float32Array(parsed.moves.length);
       for (let i = 0; i < indices.length; i++) dense[indices[i]] = weights[i];
+      if (slideNormals && slideNormals.length === 3 * indices.length) {
+        denseSlide = new Float32Array(3 * parsed.moves.length);
+        for (let i = 0; i < indices.length; i++) {
+          const k = 3 * indices[i];
+          denseSlide[k] = slideNormals[3 * i];
+          denseSlide[k + 1] = slideNormals[3 * i + 2];
+          denseSlide[k + 2] = slideNormals[3 * i + 1];
+        }
+      }
+      if (axes && axes.length === 3 * indices.length) {
+        denseAxis = new Float32Array(3 * parsed.moves.length);
+        for (let i = 0; i < indices.length; i++) {
+          const k = 3 * indices[i];
+          denseAxis[k] = axes[3 * i];
+          denseAxis[k + 1] = axes[3 * i + 2];
+          denseAxis[k + 2] = axes[3 * i + 1];
+        }
+      }
     }
+    const anyFlag = flagSets.size > 0;
     for (const entry of paths) {
       const { mesh, sampleOwner: owner, sampleFrac: frac } = entry;
       if (!entry.isExtrusion || !mesh || !owner || !frac) continue;
-      const had = !!entry.editWeights;
-      if (!dense && !had) continue;
+      const hadWeights = !!entry.editWeights;
+      if (!dense && !hadWeights && !anyFlag) continue;
       const data = entry.editWeights ?? new Float32Array(owner.length * TUBE_SIDES);
-      let any = false;
-      if (dense) {
-        for (let j = 0; j < owner.length; j++) {
-          const k = owner[j];
-          const f = frac[j];
-          const w = (k > 0 ? dense[k - 1] * (1 - f) : 0) + dense[k] * f;
-          if (w > 0) any = true;
-          data.fill(w, j * TUBE_SIDES, (j + 1) * TUBE_SIDES);
+      // Glissement et axe (68 Mo chacun sur un gros fichier) : seulement pendant un nœud actif.
+      const wantSlide = !!dense || !!entry.editSlide;
+      const slide = wantSlide ? (entry.editSlide ?? new Float32Array(owner.length * TUBE_SIDES * 3)) : null;
+      const axis = wantSlide ? (entry.editAxis ?? new Float32Array(owner.length * TUBE_SIDES * 3)) : null;
+      let any = anyFlag;
+      for (let j = 0; j < owner.length; j++) {
+        const k = owner[j];
+        const f = frac[j];
+        const w = dense ? (k > 0 ? dense[k - 1] * (1 - f) : 0) + dense[k] * f : 0;
+        if (w > 0) any = true;
+        data.fill(w + 2 * flagOfSample(k, f), j * TUBE_SIDES, (j + 1) * TUBE_SIDES);
+        if (slide && axis) {
+          for (let c = 0; c < 3; c++) {
+            const v = denseSlide ? (k > 0 ? denseSlide[3 * (k - 1) + c] * (1 - f) : 0) + denseSlide[3 * k + c] * f : 0;
+            for (let t = 0; t < TUBE_SIDES; t++) slide[3 * (j * TUBE_SIDES + t) + c] = v;
+            const a = denseAxis ? (k > 0 ? denseAxis[3 * (k - 1) + c] * (1 - f) : 0) + denseAxis[3 * k + c] * f : 0;
+            for (let t = 0; t < TUBE_SIDES; t++) axis[3 * (j * TUBE_SIDES + t) + c] = a;
+          }
         }
-      } else {
-        data.fill(0);
       }
-      if (!had && !any) continue;
-      if (!had) {
+      if (!hadWeights && !any) continue;
+      if (!hadWeights) {
         entry.editWeights = data;
         mesh.setVerticesData(EDIT_WEIGHT_KIND, data, true, 1);
       } else {
         mesh.updateVerticesData(EDIT_WEIGHT_KIND, data);
       }
+      if (slide && axis) {
+        if (!entry.editSlide) {
+          entry.editSlide = slide;
+          entry.editAxis = axis;
+          mesh.setVerticesData(EDIT_SLIDE_KIND, slide, true, 3);
+          mesh.setVerticesData(EDIT_AXIS_KIND, axis, true, 3);
+        } else {
+          mesh.updateVerticesData(EDIT_SLIDE_KIND, slide);
+          mesh.updateVerticesData(EDIT_AXIS_KIND, axis);
+        }
+      }
     }
+  };
+
+  /** Recalcule les drapeaux des échantillons proches des mouvements `changed`, sans toucher aux poids. */
+  const refreshFlagSamples = (changed: Set<number>) => {
+    if (!parsed) return;
+    const owners = new Set<number>();
+    for (const k of changed) { owners.add(k); owners.add(k + 1); }
+    for (const entry of paths) {
+      const { mesh, sampleOwner: owner, sampleFrac: frac } = entry;
+      if (!entry.isExtrusion || !mesh || !owner || !frac) continue;
+      if (!entry.editWeights) {
+        if (flagSets.size === 0) continue;
+        entry.editWeights = new Float32Array(owner.length * TUBE_SIDES);
+        mesh.setVerticesData(EDIT_WEIGHT_KIND, entry.editWeights, true, 1);
+      }
+      const data = entry.editWeights;
+      let touched = false;
+      for (const kk of owners) {
+        const lo = lowerBound(owner, kk);
+        if (lo >= owner.length || owner[lo] !== kk) continue;
+        const hi = lowerBound(owner, kk + 1);
+        for (let j = lo; j < hi; j++) {
+          const raw = data[j * TUBE_SIDES];
+          const w = raw - 2 * Math.floor(raw * 0.5);
+          data.fill(w + 2 * flagOfSample(kk, frac[j]), j * TUBE_SIDES, (j + 1) * TUBE_SIDES);
+        }
+        touched = true;
+      }
+      if (touched) mesh.updateVerticesData(EDIT_WEIGHT_KIND, data);
+    }
+  };
+
+  const setEditFlagBit = (bit: number, indices: Uint32Array | null) => {
+    if (!parsed) return;
+    const n = parsed.moves.length;
+    if (!moveFlags || moveFlags.length !== n) moveFlags = new Uint8Array(n);
+    const changed = new Set<number>();
+    const old = flagSets.get(bit);
+    if (old) for (const k of old) { if (k < n && (moveFlags[k] & bit)) { moveFlags[k] &= ~bit; changed.add(k); } }
+    if (indices && indices.length) {
+      for (const k of indices) { if (k < n) { moveFlags[k] |= bit; changed.add(k); } }
+      flagSets.set(bit, indices);
+    } else {
+      flagSets.delete(bit);
+    }
+    if (changed.size) refreshFlagSamples(changed);
+  };
+
+  // --- Aperçu des déplacements à vide pendant un glissement ----------------------------------------
+  const travelPreviewKeys = new Set<number>();
+  const tmpA = new BABYLON.Vector3();
+  const tmpB = new BABYLON.Vector3();
+  const tmpP = new BABYLON.Vector3();
+  /** Réécrit les sommets du segment k d'un trajet : géométrie validée, ou ligne droite entre des
+   * extrémités données (début / fin, null : celle du G-code). */
+  const writeTravelSegment = (entry: PathEntry, k: number, start: BABYLON.Vector3 | null, end: BABYLON.Vector3 | null) => {
+    const { lineStart, positions } = entry;
+    if (!lineStart || !positions || !sampler || k < 1 || k >= segments.length || !entry.include(k)) return;
+    const vb = entry.mesh?.getVertexBuffer(BABYLON.VertexBuffer.PositionKind);
+    const n = segments[k];
+    const v0 = lineStart[k];
+    if (start || end) {
+      if (!start) sampler.tip(k - 1, 1, tmpA);
+      if (!end) sampler.tip(k, 1, tmpB);
+      const a = start ?? tmpA;
+      const b = end ?? tmpB;
+      for (let s = 0; s <= n; s++) {
+        const f = s / n;
+        const p = (v0 + s) * 3;
+        positions[p] = a.x + (b.x - a.x) * f;
+        positions[p + 1] = a.y + (b.y - a.y) * f;
+        positions[p + 2] = a.z + (b.z - a.z) * f;
+      }
+    } else {
+      for (let s = 0; s <= n; s++) {
+        sampler.tip(k, s / n, tmpP);
+        const p = (v0 + s) * 3;
+        positions[p] = tmpP.x; positions[p + 1] = tmpP.y; positions[p + 2] = tmpP.z;
+      }
+    }
+    vb?.updateDirectly(positions.subarray(v0 * 3, (v0 + n + 1) * 3), v0 * 3);
+  };
+
+  const setTravelPreview = (indices: Uint32Array | null, tips?: Float32Array) => {
+    if (!parsed || !sampler) return;
+    for (const k of travelPreviewKeys) for (const entry of paths) if (!entry.isExtrusion) writeTravelSegment(entry, k, null, null);
+    travelPreviewKeys.clear();
+    if (!indices || !tips || !indices.length) return;
+    const moved = new Map<number, BABYLON.Vector3>();
+    for (let i = 0; i < indices.length; i++) moved.set(indices[i], new BABYLON.Vector3(tips[3 * i], tips[3 * i + 1], tips[3 * i + 2]));
+    for (const k of moved.keys()) { travelPreviewKeys.add(k); travelPreviewKeys.add(k + 1); }
+    for (const k of travelPreviewKeys) {
+      for (const entry of paths) {
+        if (!entry.isExtrusion) writeTravelSegment(entry, k, moved.get(k - 1) ?? null, moved.get(k) ?? null);
+      }
+    }
+  };
+
+  // --- Modèle de tête échantillonné (collisions) -----------------------------------------------------
+  const getHeadSamples = (spacingMm = 3): Float32Array | null => {
+    if (!headModelReady) return null;
+    headNode.computeWorldMatrix(true);
+    const toHead = new BABYLON.Matrix();
+    const invHead = headNode.getWorldMatrix().clone().invert();
+    const cells = new Map<string, [number, number, number]>();
+    const MAX_SAMPLES = 4000;
+    const keep = (p: BABYLON.Vector3) => {
+      if (cells.size >= MAX_SAMPLES) return;
+      const key = `${Math.floor(p.x / spacingMm)},${Math.floor(p.y / spacingMm)},${Math.floor(p.z / spacingMm)}`;
+      if (!cells.has(key)) cells.set(key, [p.x, p.y, p.z]);
+    };
+    const v = new BABYLON.Vector3();
+    const a = new BABYLON.Vector3();
+    const b = new BABYLON.Vector3();
+    const edge = new BABYLON.Vector3();
+    for (const mesh of headNode.getChildMeshes()) {
+      if (!(mesh instanceof BABYLON.Mesh) || mesh.name.includes('NOZZLE origin')) continue;
+      const pos = mesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+      if (!pos) continue;
+      mesh.computeWorldMatrix(true);
+      mesh.getWorldMatrix().multiplyToRef(invHead, toHead);
+      const idx = mesh.getIndices();
+      const at = (i: number, out: BABYLON.Vector3) => {
+        v.set(pos[3 * i], pos[3 * i + 1], pos[3 * i + 2]);
+        BABYLON.Vector3.TransformCoordinatesToRef(v, toHead, out);
+      };
+      if (idx) {
+        // Arêtes subdivisées au pas : une tête a de grandes faces dont les sommets seuls laisseraient des trous.
+        for (let t = 0; t + 2 < idx.length; t += 3) {
+          for (let e = 0; e < 3; e++) {
+            at(idx[t + e], a);
+            at(idx[t + ((e + 1) % 3)], b);
+            const len = BABYLON.Vector3.Distance(a, b);
+            const steps = Math.min(40, Math.max(1, Math.ceil(len / spacingMm)));
+            for (let s = 0; s <= steps; s++) {
+              BABYLON.Vector3.LerpToRef(a, b, s / steps, edge);
+              keep(edge);
+            }
+          }
+        }
+      } else {
+        for (let i = 0; i < pos.length / 3; i++) { at(i, a); keep(a); }
+      }
+    }
+    const out = new Float32Array(cells.size * 3);
+    let i = 0;
+    for (const p of cells.values()) { out[i++] = p[0]; out[i++] = p[1]; out[i++] = p[2]; }
+    return out;
   };
 
   /** Premier échantillon de `owner` (croissant) dont le propriétaire est ≥ k. */
@@ -1387,6 +1644,18 @@ export function createGCodeLayer(
     const localNrm = new Float32Array(n * TUBE_SIDES * 3);
     const tangent = { x: 1, y: 0, z: 0 };
     for (let j = a; j <= b; j++) writeSampleRing(localPos, localNrm, centers, axes, localStrip, n, j - c0, tangent);
+    // Dépôt rogné : le cordon du mouvement n'existe plus, ses anneaux se réduisent à leur centre.
+    const trimmedMoves = parsed?.trimmedMoves;
+    if (trimmedMoves && trimmedMoves.size > 0) {
+      for (let j = a; j <= b; j++) {
+        if (!trimmedMoves.has(owner[j])) continue;
+        const p = (j - c0) * 3;
+        for (let t = 0; t < TUBE_SIDES; t++) {
+          const q = ((j - c0) * TUBE_SIDES + t) * 3;
+          localPos[q] = centers[p]; localPos[q + 1] = centers[p + 1]; localPos[q + 2] = centers[p + 2];
+        }
+      }
+    }
     const from = (a - c0) * TUBE_SIDES * 3;
     const to = (b - c0 + 1) * TUBE_SIDES * 3;
     const offset = a * TUBE_SIDES * 3;
@@ -1396,21 +1665,35 @@ export function createGCodeLayer(
     mesh.getVertexBuffer(BABYLON.VertexBuffer.NormalKind)?.updateDirectly(normals.subarray(offset, offset + to - from), offset);
   };
 
-  const applyMoveEdits = (indices: Uint32Array, values: Float64Array) => {
+  const applyMoveEdits = (indices: Uint32Array, values: Float64Array, trimmed?: Uint32Array, trimState?: boolean) => {
     if (!parsed || !sampler || !indices.length) return;
     const { moves } = parsed;
+    const edited = (parsed.editedMoves ??= new Set<number>());
     const touched = new Set<number>();
     for (let i = 0; i < indices.length; i++) {
       const k = indices[i];
       const m = moves[k];
-      m.x = values[4 * i];
-      m.y = values[4 * i + 1];
-      m.z = values[4 * i + 2];
-      m.b = values[4 * i + 3];
+      const v = i * EDIT_VALUES_PER_POINT;
+      m.x = values[v];
+      m.y = values[v + 1];
+      m.z = values[v + 2];
+      m.b = values[v + 3];
+      parsed.eDelta[k] = values[v + 4];
+      edited.add(k);
       // Un point modifié change les deux segments qui le touchent : celui qui y arrive (k) et
       // celui qui en part (k + 1).
       touched.add(k);
       if (k + 1 < moves.length) touched.add(k + 1);
+    }
+    // Dépôts rognés (ou rétablis par une annulation) : le mouvement ne dépose plus (ou dépose de nouveau).
+    if (trimmed && trimmed.length) {
+      const set = (parsed.trimmedMoves ??= new Set<number>());
+      for (const k of trimmed) {
+        moves[k].extruding = !trimState;
+        if (trimState) set.add(k); else set.delete(k);
+        touched.add(k);
+        if (k + 1 < moves.length) touched.add(k + 1);
+      }
     }
     const dirty = Float64Array.from(touched).sort();
 
@@ -1557,10 +1840,23 @@ export function createGCodeLayer(
       return out;
     },
     setEditWeights,
-    setEditTranslation(translation) {
+    setEditNeutral(neutral: boolean) {
+      if (editNeutral === neutral) return;
+      editNeutral = neutral;
+      applyColorBy();
+    },
+    setEditTransform({ translation, pivot, axis, angle, stackAxis }) {
       editDeformState.translation.copyFrom(translation);
+      editDeformState.pivot.copyFrom(pivot);
+      editDeformState.axis.copyFrom(axis);
+      editDeformState.angle = angle;
+      if (stackAxis) editDeformState.stackAxis.copyFrom(stackAxis);
+      else editDeformState.stackAxis.setAll(0);
     },
     applyMoveEdits,
+    setEditFlagBit,
+    setTravelPreview,
+    getHeadSamples,
     dispose() {
       disposed = true;
       if (deferredColorByRaf) cancelAnimationFrame(deferredColorByRaf);

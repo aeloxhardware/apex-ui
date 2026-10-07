@@ -9,24 +9,8 @@ interface SlicingProgressModalProps {
   onFinished: () => void;
 }
 
-// Langue/voix pour la lecture TTS des etapes (synthese vocale du navigateur).
-const TTS_LANG = 'fr-FR';
-
-// Reduction orale ciblee de "de" en "d'" pour sonner plus naturel a l'ecoute
-// (le texte AFFICHE dans la modale reste inchange, seul ce qui est envoye au
-// TTS est transforme). Liste explicite, pas une regle generale sur "de + mot"
-// qui abregerait a tort des cas ou "de" doit rester prononce pleinement.
-const ORAL_CONTRACTIONS: [RegExp, string][] = [
-  [/\bde programmes\b/gi, "d'programmes"],
-  [/\bde maillage\b/gi, "d'maillage"],
-];
-
-function toSpokenText(label: string): string {
-  return ORAL_CONTRACTIONS.reduce(
-    (text, [pattern, replacement]) => text.replace(pattern, replacement),
-    label,
-  );
-}
+// Duree d'affichage de chaque etape.
+const STEP_DURATION_MS = 1200;
 
 export const SlicingProgressModal: React.FC<SlicingProgressModalProps> = ({ isOpen, onClose, onFinished }) => {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
@@ -55,47 +39,13 @@ export const SlicingProgressModal: React.FC<SlicingProgressModalProps> = ({ isOp
     setIsDone(false);
   }, [isOpen]);
 
-  // Lit l'etape courante via la synthese vocale du navigateur (Web Speech API).
-  // L'evenement 'end' natif marque la fin reelle de la lecture.
+  // Passe a l'etape suivante apres un delai fixe.
   useEffect(() => {
     if (!isOpen || isDone) return;
-    if (!('speechSynthesis' in window)) {
-      // TTS indisponible dans ce navigateur : ne bloque pas la sequence.
-      const t = setTimeout(advanceToNextStep, 1200);
-      return () => clearTimeout(t);
-    }
-
-    const step = SLICING_STEPS[currentStepIndex];
     advancedRef.current = false;
-
-    const utterance = new SpeechSynthesisUtterance(toSpokenText(step.label));
-    utterance.lang = TTS_LANG;
-    utterance.onend = () => advanceToNextStep();
-    utterance.onerror = () => advanceToNextStep();
-
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utterance);
-
-    return () => {
-      window.speechSynthesis.cancel();
-    };
+    const t = setTimeout(advanceToNextStep, STEP_DURATION_MS);
+    return () => clearTimeout(t);
   }, [isOpen, currentStepIndex, isDone]);
-
-  // Coupe la synthese vocale a la fermeture de la boite de dialogue.
-  useEffect(() => {
-    if (isOpen) return;
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    return () => {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
-    };
-  }, []);
 
   if (!isOpen) return null;
 

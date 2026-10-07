@@ -196,9 +196,12 @@ export const SpaceTransitionOverlay: React.FC = () => {
   return (
     <AnimatePresence>
       {label && (
-        <div className={styles.overlay}>
+        // data-veil-* : lus par GlassPanelBackdrop (paintSpaceVeil) pour que le verre des panneaux, qui
+        // réfracte le canevas 3D et non le DOM, montre le rideau et non la scène cachée derrière.
+        <div className={styles.overlay} data-veil-root>
           {/* Étape 1 : flou seul, sans teinte — entièrement monté avant la moindre tuile. */}
           <motion.div
+            data-veil-blur
             className={styles.blurLayer}
             initial={{ backdropFilter: 'blur(0px)' }}
             animate={{ backdropFilter: fadingOut ? 'blur(0px)' : 'blur(18px)' }}
@@ -211,6 +214,7 @@ export const SpaceTransitionOverlay: React.FC = () => {
             {phase !== 'blur' && TILES.map(({ col, row, delayMs }) => (
               <motion.div
                 key={`${runId}-${col}-${row}`}
+                data-veil-tile
                 className={styles.tile}
                 style={{
                   left: `${(col / TILE_COLS) * 100}%`,

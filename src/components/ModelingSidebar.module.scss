@@ -183,19 +183,16 @@ $panel-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
 
 /* ---- Arborescence ---- */
 
+// Curseur externe (ExternalScrollArea) : le panneau rogne (overflow: hidden), le curseur est donc
+// dessiné hors du rognage, à 4 px du bord droit du panneau (data-scroll-edge).
 .treeScroll {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+}
+
+.treeContent {
   overflow-x: hidden;
   padding: 0 8px 8px;
-
-  &::-webkit-scrollbar { width: 4px; }
-  &::-webkit-scrollbar-track { background: transparent; }
-  &::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
-    border-radius: 2px;
-  }
 }
 
 .treeList {

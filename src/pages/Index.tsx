@@ -18,12 +18,14 @@ import { ViewCube } from '@/components/ViewCube';
 import { Viewport3D } from '@/components/Viewport3D';
 import { SpaceTransitionOverlay } from '@/components/SpaceTransitionOverlay';
 import { ParamsPanel } from '@/components/ParamsPanel';
+import { HomePanel } from '@/components/HomePanel';
 import { GCodePreview } from '@/components/GCodePreview';
 import { GCodePreviewBar } from '@/components/GCodePreviewBar';
 import { GCodeSpeedSelector } from '@/components/GCodeSpeedSelector';
 import { GCodeLineTypeLegend } from '@/components/GCodeLineTypeLegend';
 import { GCodeInfoPanel } from '@/components/GCodeInfoPanel';
 import { PreviewUpperTabs } from '@/components/PreviewUpperTabs';
+import { DitherOverlay } from '@/components/DitherOverlay';
 import { GCodeConversionCard } from '@/components/GCodeConversionCard';
 import { UnlayeredDetectedDialog } from '@/components/UnlayeredDetectedDialog';
 import { useGCodePreview } from '@/hooks/use-gcode-preview';
@@ -37,7 +39,8 @@ interface ModelStatus {
 }
 
 const Index = () => {
-  const [activeTab, setActiveTab] = useState<'3d-view' | 'settings' | 'developer' | 'params'>('3d-view');
+  // L'application s'ouvre sur l'Accueil (espace sans 3D) ; le viewport n'est monté qu'en le quittant.
+  const [activeTab, setActiveTab] = useState<'3d-view' | 'settings' | 'developer' | 'params' | 'home'>('home');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [isPrinterConfigOpen, setIsPrinterConfigOpen] = useState(false);
   const [selectedPrinter, setSelectedPrinter] = useState('Prusa MK4');
@@ -96,7 +99,14 @@ const Index = () => {
   // Espace Paramètres : le Viewport3D (et tout le reste du chrome sauf la barre d'onglets
   // Sidebar et la barre fichier/son FileSidebar) est entièrement démonté, pas seulement masqué —
   // aucune scène Babylon.js ne doit tourner en fond pendant que cet espace est affiché.
-  const isParams = activeTab === 'params';
+  // Paramètres et Accueil : mêmes espaces sans 3D.
+  const isParams = activeTab === 'params' || activeTab === 'home';
+
+  // Le menu Profils imprimante n'existe que dans Préparation et Prévisualisation (activeTab '3d-view') :
+  // il se ferme avec son bouton quand on les quitte.
+  useEffect(() => {
+    if (activeTab !== '3d-view') setIsPrinterConfigOpen(false);
+  }, [activeTab]);
 
   // Une fois CategoriesSidebar (et son panneau du bas) effectivement démontée par le passage en
   // Modélisation, `leavingToModeling` peut redescendre : il n'a plus d'effet visuel à cet instant
@@ -187,6 +197,7 @@ const Index = () => {
       className="flex flex-col h-screen w-screen overflow-hidden select-none relative"
       style={{ backgroundColor: '#2a2d34' }}
     >
+      <DitherOverlay />
       <FileSidebar 
         onOpenModel={handleOpenModel}
         onSaveProject={handleSaveProject}
@@ -195,13 +206,14 @@ const Index = () => {
           setIsPrinterConfigOpen(!isPrinterConfigOpen);
           setActiveCategory(null);
         }}
+        showPrinterButton={activeTab === '3d-view'}
         selectedPrinter={selectedPrinter}
         selectedFilament={selectedFilament}
       />
 
       {!isParams && (
         <>
-          <ModelStatusBox />
+          <ModelStatusBox startsInPreview={isPreviewActive} />
           <ModelHoverTooltip />
           <TextureEditorModal />
           <SliceModal
@@ -240,7 +252,7 @@ const Index = () => {
           }
           setActiveTab(tab === 'box' ? '3d-view' : tab);
           setIsPrinterConfigOpen(false);
-          if (tab === 'params') {
+          if (tab === 'params' || tab === 'home') {
             setIsSliceModalOpen(false);
             setIsSlicingProgressOpen(false);
           }
@@ -257,6 +269,10 @@ const Index = () => {
         {!isParams && (
           <motion.div
             key="apex-3d-chrome"
+            // Remplit la colonne : sans cela, `main` (flex-1) n'a plus de parent flex, sa hauteur
+            // devient celle de son contenu, et le canevas 3D prend la hauteur intrinsèque de son
+            // tampon au lieu de celle de la fenêtre (bande vide en bas de l'écran).
+            className="flex-1 min-h-0 flex flex-col"
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 24 }}
@@ -371,7 +387,8 @@ const Index = () => {
         )}
       </AnimatePresence>
 
-      {isParams && <ParamsPanel />}
+      {activeTab === 'params' && <ParamsPanel />}
+      {activeTab === 'home' && <HomePanel />}
 
       {/* Bottom status / stats overlay — monté au niveau racine (comme ModelStatusBox), PAS à
           l'intérieur du motion.div "apex-3d-chrome" : framer-motion pose transform/will-change sur

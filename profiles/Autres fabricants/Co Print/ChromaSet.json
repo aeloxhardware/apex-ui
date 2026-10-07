@@ -1,0 +1,213 @@
+{
+    "change_filament_gcode": "FILAMENT_CHANGE LAYER_NUM=[layer_num] NEXT_EXTRUDER=[next_extruder]",
+    "cooling_tube_length": [
+        "0"
+    ],
+    "cooling_tube_retraction": [
+        "0"
+    ],
+    "default_filament_profile": [
+        "CoPrint Generic PLA"
+    ],
+    "default_print_profile": "0.2mm Standard @Co Print ChromaSet 0.4",
+    "deretraction_speed": [
+        "30"
+    ],
+    "enable_filament_ramming": [
+        "0"
+    ],
+    "extra_loading_move": [
+        "0"
+    ],
+    "extruder_clearance_height_to_lid": [
+        "140"
+    ],
+    "extruder_clearance_height_to_rod": [
+        "36"
+    ],
+    "extruder_clearance_radius": [
+        "65"
+    ],
+    "extruder_colour": [
+        "#FCE94F"
+    ],
+    "extruder_offset": [
+        "0x0"
+    ],
+    "from": "system",
+    "gcode_flavor": "klipper",
+    "high_current_on_filament_swap": [
+        "0"
+    ],
+    "inherits": "",
+    "machine_end_gcode": "end_print",
+    "machine_load_filament_time": "9.75",
+    "machine_max_acceleration_e": [
+        "2500"
+    ],
+    "machine_max_acceleration_extruding": [
+        "5000"
+    ],
+    "machine_max_acceleration_retracting": [
+        "2500"
+    ],
+    "machine_max_acceleration_travel": [
+        "40000"
+    ],
+    "machine_max_acceleration_x": [
+        "5000"
+    ],
+    "machine_max_acceleration_y": [
+        "5000"
+    ],
+    "machine_max_acceleration_z": [
+        "100"
+    ],
+    "machine_max_jerk_e": [
+        "2.5"
+    ],
+    "machine_max_jerk_x": [
+        "8"
+    ],
+    "machine_max_jerk_y": [
+        "8"
+    ],
+    "machine_max_jerk_z": [
+        "0.2"
+    ],
+    "machine_max_speed_e": [
+        "100"
+    ],
+    "machine_max_speed_x": [
+        "500"
+    ],
+    "machine_max_speed_y": [
+        "500"
+    ],
+    "machine_max_speed_z": [
+        "10"
+    ],
+    "machine_min_extruding_rate": [
+        "0"
+    ],
+    "machine_min_travel_rate": [
+        "0"
+    ],
+    "machine_start_gcode": "start_print  EXTRUDER=[initial_extruder] EXTRUDER_TEMP=[nozzle_temperature_initial_layer] BED_TEMP=[bed_temperature_initial_layer_single]",
+    "machine_unload_filament_time": "9.75",
+    "max_layer_height": [
+        "0.32"
+    ],
+    "min_layer_height": [
+        "0.08"
+    ],
+    "name": "Co Print ChromaSet 0.4 nozzle - Ender-3 V3 Plus",
+    "nozzle_diameter": [
+        "0.4"
+    ],
+    "nozzle_volume": [
+        "156"
+    ],
+    "parking_pos_retraction": [
+        "0"
+    ],
+    "printable_area": [
+        "0x0",
+        "290x0",
+        "290x283",
+        "0x283"
+    ],
+    "printable_height": "330",
+    "printer_model": "Co Print ChromaSet",
+    "printer_settings_id": "",
+    "printer_technology": "FFF",
+    "printer_variant": "0.4",
+    "retract_before_wipe": [
+        "0%"
+    ],
+    "retract_length_toolchange": [
+        "2"
+    ],
+    "retract_lift_below": [
+        "343"
+    ],
+    "retract_restart_extra": [
+        "0"
+    ],
+    "retract_restart_extra_toolchange": [
+        "0"
+    ],
+    "retract_when_changing_layer": [
+        "0"
+    ],
+    "retraction_length": [
+        "0.5"
+    ],
+    "retraction_minimum_travel": [
+        "1"
+    ],
+    "retraction_speed": [
+        "60"
+    ],
+    "silent_mode": "0",
+    "single_extruder_multi_material": "1",
+    "thumbnails": [
+        "300x300",
+        "400x300",
+        "96x96",
+        "32x32"
+    ],
+    "thumbnails_format": "PNG",
+    "wipe": [
+        "1"
+    ],
+    "wipe_distance": [
+        "2"
+    ],
+    "z_hop": [
+        "0.2"
+    ],
+    "z_hop_types": "Spiral Lift",
+    "apex": {
+        "generated": true,
+        "manufacturer": "Co Print",
+        "model": "ChromaSet",
+        "catalog_path": "Autres fabricants/Co Print",
+        "orca_source": "Co Print/machine/Co Print ChromaSet 0.4 nozzle - Ender-3 V3 Plus.json",
+        "axes_count": 3,
+        "kinematics": [
+            "X",
+            "Y",
+            "Z"
+        ],
+        "kinematics_preview": {
+            "type": "Inconnu",
+            "image": null
+        },
+        "motherboard": "Inconnu",
+        "motors": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "drivers": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "default_nozzle_profile": {
+            "diameter_mm": 0.4,
+            "profile_id": null
+        },
+        "auto_leveling": {
+            "tool": "Inconnu"
+        },
+        "nonplanar": {
+            "max_angle_deg": null,
+            "max_distance_mm": null
+        },
+        "hardware_sources": []
+    }
+}

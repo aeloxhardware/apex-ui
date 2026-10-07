@@ -10,6 +10,8 @@ interface FileSidebarProps {
   onSaveProject?: () => void;
   onOpenSettings?: () => void;
   onOpenPrinterConfig?: () => void;
+  /** Bouton Profils imprimante : visible dans Préparation et Prévisualisation seulement. */
+  showPrinterButton?: boolean;
   selectedPrinter?: string;
   selectedFilament?: string;
 }
@@ -19,6 +21,7 @@ export const FileSidebar: React.FC<FileSidebarProps> = ({
   onSaveProject,
   onOpenSettings,
   onOpenPrinterConfig,
+  showPrinterButton = true,
   selectedPrinter = 'Prusa MK4',
   selectedFilament = 'PLA Premium 1.75mm',
 }) => {
@@ -45,16 +48,19 @@ export const FileSidebar: React.FC<FileSidebarProps> = ({
           </button>
         </CustomTooltip>
 
-        <div className={styles.separator} />
+        <div className={clsx(styles.printerGroup, { [styles.printerGroupHidden]: !showPrinterButton })} aria-hidden={!showPrinterButton}>
+          <div className={styles.separator} />
 
-        <CustomTooltip content="Configuration Imprimante & Filament" description={`Imprimante active : ${selectedPrinter} | Filament sélectionné : ${selectedFilament}. Cliquez pour modifier.`}>
-          <button
-            className={clsx(styles.button, styles.configButton)}
-            onClick={onOpenPrinterConfig || onOpenSettings}
-          >
-            <Printer size={18} />
-          </button>
-        </CustomTooltip>
+          <CustomTooltip content="Configuration Imprimante & Filament" description={`Imprimante active : ${selectedPrinter} | Filament sélectionné : ${selectedFilament}. Cliquez pour modifier.`}>
+            <button
+              className={clsx(styles.button, styles.configButton)}
+              onClick={onOpenPrinterConfig || onOpenSettings}
+              tabIndex={showPrinterButton ? 0 : -1}
+            >
+              <Printer size={18} />
+            </button>
+          </CustomTooltip>
+        </div>
 
         <div className={styles.separator} />
 

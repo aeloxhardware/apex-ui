@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useLayoutEffect } from 'react';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -15,7 +15,11 @@ import { LiquidGlassMorph, GLASS_BLUR_PX, PREVIEW_GLASS_BLUR_PX } from './Liquid
 import styles from './CategoriesSidebar.module.scss';
 import { showSuccess } from '@/utils/toast';
 import { mitosisPath, rectPath, stretchPath, type GlassRect } from '@/utils/liquidGlass';
-import { PANEL_LEFT, PILL_TOP, PILL, PREVIEW_W, previewGeometry, FROM_PREVIEW_FADE_MS } from '@/utils/spaceMorphGeometry';
+import {
+  PANEL_LEFT, PILL_TOP, PILL, PREVIEW_W, previewGeometry, FROM_PREVIEW_FADE_MS, previewTabLayout, tabMorphPathAt,
+  TAB_CASCADE_FADE_MS, TAB_CASCADE_STAGGER_MS, TAB_MORPH_MS,
+} from '@/utils/spaceMorphGeometry';
+import { getPreviewTab, usePreviewTab } from './PreviewUpperTabs';
 import { usePreviewPanelVars } from '@/hooks/use-preview-panel-vars';
 
 // Géométrie du menu de catégorie, en px, dans le repère de la pilule (fixed, left 24 / top 212).
@@ -352,6 +356,19 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
   const [previewMorphPhase, setPreviewMorphPhase] = useState<'forward' | 'reverse' | null>(null);
   const [previewPanelsBorn, setPreviewPanelsBorn] = useState(initialPreviewActive);
   const previewActiveRef = useRef(initialPreviewActive);
+
+  // Onglet Édition : le panneau du bas disparaît (ses éléments s'effacent en cascade) en se fondant dans
+  // celui du haut par mitose inversée, puis le panneau du haut s'agrandit à leur surface commune ;
+  // Coloration fait l'inverse. `editionLayout` : disposition AFFICHÉE (fusionnée), qui suit l'onglet
+  // une fois l'animation terminée.
+  //  - 'cascade' : éléments du panneau du bas qui s'effacent
+  //  - 'absorb'  : le verre fusionne les deux panneaux puis s'agrandit
+  //  - 'release' : le verre se réduit puis enfante le panneau du bas
+  const tab = usePreviewTab();
+  const [editionLayout, setEditionLayout] = useState(initialPreviewActive && getPreviewTab() === 'edition');
+  const [tabMorph, setTabMorph] = useState<'cascade' | 'absorb' | 'release' | null>(null);
+  const [lowerKey, setLowerKey] = useState(0);
+  const lowerRef = useRef<HTMLDivElement>(null);
   // Repousse la pilule quand l'arborescence des modèles (ModelStatusBox, juste au-dessus) déborde
   // de sa hauteur de base, plutôt que de la laisser recouverte (cf. apex-model-tree-resized).
   const [modelTreeOverflow, setModelTreeOverflow] = useState(0);
@@ -389,6 +406,8 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
         // l'envers) avant de démonter — jamais de disparition instantanée. `previewActive` lui-
         // même ne repasse à false qu'à la fin de cette animation (cf. onDone du morph), pour que
         // les panneaux réels restent montés (silencieux, cf. .morphing) tout du long.
+        setTabMorph(null);
+        setEditionLayout(false);
         setPreviewMorphPhase('reverse');
         return;
       }
@@ -425,6 +444,50 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
     if (ms < PREVIEW_STRETCH_MS + PREVIEW_HOLD_MS) return rectPath(upper, dx, dy);
     return mitosisPath(upper, lower, (ms - PREVIEW_STRETCH_MS - PREVIEW_HOLD_MS) / PREVIEW_DIVIDE_MS, dx, dy);
   }, []);
+
+  const tabPathAt = useCallback((t: number, dx: number, dy: number) => tabMorphPathAt(window.innerHeight, t, dx, dy), []);
+
+  // Les morphs de Modélisation partent de la forme réelle du panneau du haut.
+  useLayoutEffect(() => {
+    previewTabLayout.edition = editionLayout && previewActive;
+    return () => { previewTabLayout.edition = false; };
+  }, [editionLayout, previewActive]);
+
+  // Changement d'onglet : lance l'animation quand le panneau est au repos et que l'onglet voulu
+  // n'est pas la disposition affichée (aussi au retour d'un onglet choisi pendant une autre animation).
+  useEffect(() => {
+    if (!previewActive || !previewPanelsBorn || previewMorphPhase || leavingToModeling || tabMorph) return;
+    const wantEdition = tab === 'edition';
+    if (wantEdition === editionLayout) return;
+    setTabMorph(wantEdition ? 'cascade' : 'release');
+  }, [tab, editionLayout, tabMorph, previewActive, previewPanelsBorn, previewMorphPhase, leavingToModeling]);
+
+  // Cascade : chaque élément du panneau du bas s'efface à son tour (du haut vers le bas), puis le verre fusionne.
+  useEffect(() => {
+    if (tabMorph !== 'cascade') return;
+    let cancelled = false;
+    const root = lowerRef.current;
+    const targets: Element[] = [];
+    root?.querySelectorAll('[data-cascade="header"] > dl > div, [data-cascade="header"] > p').forEach((e) => targets.push(e));
+    const footer = root?.querySelector('[data-cascade="footer"]')?.firstElementChild;
+    if (footer) targets.push(...Array.from(footer.children));
+    const animations = targets.map((el, i) => el.animate(
+      [{ opacity: 1, transform: 'translateY(0)' }, { opacity: 0, transform: 'translateY(-8px)' }],
+      { duration: TAB_CASCADE_FADE_MS, delay: i * TAB_CASCADE_STAGGER_MS, easing: 'cubic-bezier(0.4, 0, 0.2, 1)', fill: 'forwards' },
+    ));
+    let finished = false;
+    Promise.all(animations.map((a) => a.finished.catch(() => undefined))).then(() => {
+      if (cancelled) return;
+      finished = true;
+      setTabMorph('absorb');
+    });
+    return () => {
+      cancelled = true;
+      // Terminée, la cascade garde ses éléments effacés (fill) jusqu'au démontage du panneau ; seule une
+      // interruption les rétablit.
+      if (!finished) animations.forEach((a) => a.cancel());
+    };
+  }, [tabMorph]);
 
   const handleCategoryClick = (cat: CategoryItem) => {
     if (cat.disabled) {
@@ -697,6 +760,31 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
         />
       )}
 
+      {/* Changement d'onglet (Coloration ↔ Édition) : le verre fusionne le panneau du bas dans celui du haut
+          puis l'agrandit ('absorb'), ou l'inverse ('release', même timeline à l'envers). */}
+      {(tabMorph === 'absorb' || tabMorph === 'release') && (
+        <LiquidGlassMorph
+          key={`tab-${tabMorph}`}
+          left={PANEL_LEFT}
+          top={PILL_TOP + previewGeo.upper.y}
+          width={PREVIEW_W}
+          height={previewGeo.stageH - previewGeo.upper.y}
+          duration={TAB_MORPH_MS}
+          pathAt={tabPathAt}
+          reverse={tabMorph === 'release'}
+          blur={[PREVIEW_GLASS_BLUR_PX, PREVIEW_GLASS_BLUR_PX]}
+          onDone={() => {
+            if (tabMorph === 'absorb') {
+              setEditionLayout(true);
+            } else {
+              setEditionLayout(false);
+              setLowerKey((k) => k + 1);
+            }
+            setTabMorph(null);
+          }}
+        />
+      )}
+
       {/* Panneaux de Prévisualisation, nés de la mitose : contenu à brancher plus tard. Pas
           d'animation d'entrée/sortie propre en temps normal — leur verre est identique à la
           dernière image du morphing ; ils s'effacent (.morphing) dès que la fusion inverse démarre,
@@ -710,13 +798,20 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
       {previewActive && previewPanelsBorn && (
         <React.Fragment key="preview-panels">
           <div
-            className={clsx(styles.previewPanelUpper, { [styles.morphing]: previewMorphPhase === 'reverse' })}
+            data-scroll-edge
+            className={clsx(styles.previewPanelUpper, {
+              [styles.morphing]: previewMorphPhase === 'reverse' || tabMorph === 'absorb' || tabMorph === 'release',
+              [styles.previewPanelUpperExpanded]: editionLayout,
+            })}
           >
             {/* Le contenu s'efface dès le clic vers Modélisation : seule la forme du panneau est
                 reprise par ModelingSidebar. */}
             {previewUpperContent && (
               <motion.div
-                className={styles.previewPanelBody}
+                className={clsx(styles.previewPanelBody, {
+                  // Le contenu de l'onglet n'apparaît qu'une fois le panneau à sa forme finale.
+                  [styles.previewPanelBodyWaiting]: tabMorph !== null || (tab === 'edition') !== editionLayout,
+                })}
                 animate={{ opacity: leavingToModeling ? 0 : 1 }}
                 transition={{ duration: FROM_PREVIEW_FADE_MS / 1000, ease: 'easeInOut' }}
               >
@@ -724,18 +819,26 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
               </motion.div>
             )}
           </div>
-          <motion.div
-            className={clsx(styles.previewPanelLower, { [styles.morphing]: previewMorphPhase === 'reverse' })}
-            initial={wasInitialPreviewActive ? { opacity: 0, x: -20 } : false}
-            animate={{
-              opacity: leavingToModeling ? 0 : 1,
-              x: leavingToModeling ? -20 : 0,
-              transition: { duration: FROM_PREVIEW_FADE_MS / 1000, ease: 'easeInOut' },
-            }}
-          >
-            {previewLowerHeader && <div className={styles.previewPanelHeader}>{previewLowerHeader}</div>}
-            {previewLowerContent && <div className={styles.previewPanelFooter}>{previewLowerContent}</div>}
-          </motion.div>
+          {/* Fusionné dans le panneau du haut en mode Édition : démonté, puis remonté (ses éléments
+              réapparaissent en cascade) au retour à Coloration. */}
+          {(!editionLayout || tabMorph === 'cascade' || tabMorph === 'absorb') && (
+            <motion.div
+              key={`lower-${lowerKey}`}
+              ref={lowerRef}
+              className={clsx(styles.previewPanelLower, {
+                [styles.morphing]: previewMorphPhase === 'reverse' || tabMorph === 'absorb',
+              })}
+              initial={wasInitialPreviewActive && lowerKey === 0 ? { opacity: 0, x: -20 } : false}
+              animate={{
+                opacity: leavingToModeling ? 0 : 1,
+                x: leavingToModeling ? -20 : 0,
+                transition: { duration: FROM_PREVIEW_FADE_MS / 1000, ease: 'easeInOut' },
+              }}
+            >
+              {previewLowerHeader && <div className={styles.previewPanelHeader} data-cascade="header">{previewLowerHeader}</div>}
+              {previewLowerContent && <div className={styles.previewPanelFooter} data-cascade="footer">{previewLowerContent}</div>}
+            </motion.div>
+          )}
           {/* Opacité seule (jamais de transform) : le contenu est en `position: fixed`. */}
           {previewBelowContent && (
             <motion.div

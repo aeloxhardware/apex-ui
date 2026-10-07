@@ -1,0 +1,35 @@
+{
+    "name": "CR-10 Smart Pro",
+    "printer_model": "CR-10 Smart Pro",
+    "apex": {
+        "generated": true,
+        "manufacturer": "Creality",
+        "model": "CR-10 Smart Pro",
+        "catalog_path": "Autres fabricants/Creality/Série CR (Core - Cartésiennes Grand Format)/CR-10",
+        "orca_source": null,
+        "axes_count": "Inconnu",
+        "kinematics": "Inconnu",
+        "kinematics_preview": {
+            "type": "Inconnu",
+            "image": null
+        },
+        "motherboard": "Inconnu",
+        "motors": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "drivers": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "default_nozzle_profile": null,
+        "auto_leveling": {
+            "tool": "Inconnu"
+        },
+        "hardware_sources": []
+    }
+}

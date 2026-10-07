@@ -5,11 +5,54 @@
   z-index: 100;
   display: flex;
   align-items: center;
+  gap: 8px;
   pointer-events: none;
+}
+
+// Petit interrupteur vertical « perspective en translation » : même verre que la barre des axes,
+// carré arrondi, pastille carrée en bas (désactivée) ou en haut (activée, cyan).
+.perspectiveSwitch {
+  position: relative;
+  flex-shrink: 0;
+  width: 22px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 7px;
+  background: rgba(10, 15, 26, 0.25);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
+  pointer-events: auto;
+  cursor: pointer;
+  outline: none;
+  transition: background-color 0.2s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+}
+
+.perspectiveKnob {
+  position: absolute;
+  left: 5px;
+  top: 19px;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.65);
+  transition: top 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.perspectiveOn .perspectiveKnob {
+  top: 5px;
+  background: #00f0ff;
+  box-shadow: 0 0 8px rgba(0, 240, 255, 0.6);
 }
 
 .toolbar {
   position: relative;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   background: rgba(10, 15, 26, 0.25);
@@ -44,6 +87,7 @@
   font-weight: 600;
   padding: 8px 14px;
   border-radius: 10px;
+  white-space: nowrap;
   cursor: pointer;
   transition: all 0.2s ease;
   outline: none;

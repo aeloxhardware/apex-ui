@@ -1,0 +1,160 @@
+// Au-dessus de tout (rideau de transition compris) ; le fond floute et assombrit toute la fenêtre.
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 5000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 32px;
+  background: rgba(4, 7, 14, 0.45);
+  backdrop-filter: blur(18px) saturate(1.1);
+  -webkit-backdrop-filter: blur(18px) saturate(1.1);
+}
+
+.window {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 920px;
+  max-height: 100%;
+  border-radius: 24px;
+  isolation: isolate;
+  background: rgba(10, 15, 26, 0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 16px 56px 0 rgba(0, 0, 0, 0.5), 0 2px 10px 0 rgba(0, 0, 0, 0.3);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 28px 36px 18px;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(26px, 3vw, 40px);
+  font-weight: 700;
+  color: #f4f4f5;
+}
+
+.close {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  transition: background 0.2s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.18);
+  }
+}
+
+.body {
+  // Le curseur externe se place dans la marge : elle laisse 4 px + 12 px de place hors de la fenêtre.
+  margin-bottom: 8px;
+}
+
+.list {
+  padding: 0 36px 32px;
+}
+
+.sectionTitle {
+  margin: 24px 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #00f0ff;
+}
+
+.card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding: 16px 18px 16px 22px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: background 0.2s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.09);
+  }
+}
+
+.cardText {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cardTitle {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.cardDesc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.iconButton {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  transition: background 0.2s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.18);
+  }
+}
+
+.download {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border: none;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #00f0ff;
+  background: rgba(0, 240, 255, 0.12);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.18);
+  cursor: pointer;
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover {
+    background: rgba(0, 240, 255, 0.22);
+    box-shadow: 0 0 16px rgba(0, 240, 255, 0.3);
+  }
+}
+
+@media (max-width: 720px) {
+  .card {
+    flex-wrap: wrap;
+  }
+}

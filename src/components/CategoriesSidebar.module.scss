@@ -144,6 +144,11 @@
   height: var(--preview-upper-h, max(120px, 100vh - 714px));
 }
 
+// Onglet Édition : le panneau du haut absorbe celui du bas et occupe leur surface commune.
+.previewPanelUpperExpanded {
+  height: calc(var(--preview-upper-h, max(120px, 100vh - 714px)) + 16px + var(--preview-lower-h, 250px));
+}
+
 // Panneau du bas, né par mitose du panneau du haut (contenu à brancher plus tard).
 .previewPanelLower {
   @extend %previewPanelBase;
@@ -161,6 +166,13 @@
   .morphing > & {
     opacity: 0 !important;
   }
+}
+
+// Contenu du panneau du haut en attente de la forme finale du panneau (changement d'onglet).
+.previewPanelBodyWaiting {
+  opacity: 0 !important;
+  pointer-events: none;
+  transition: opacity 0.15s ease !important;
 }
 
 // Haut du panneau du bas (informations G-code, cf. `previewLowerHeader`).

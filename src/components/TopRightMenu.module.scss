@@ -37,14 +37,14 @@
   // (transform, largeur), qu'une transition CSS ferait traîner.
   transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
-  background: rgba(10, 15, 26, 0.25);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  // Fond, ombre et bord : verre Liquid Glass WebGL dessiné dessous (GlassPanelBackdrop). Seule une
+  // légère teinte reste ici pour la lisibilité du texte.
+  background: rgba(10, 15, 26, 0.04);
   border: none;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
   border-radius: 20px;
   padding: 10px 24px;
-  // Largeur en style inline (TopRightMenu.tsx) : `auto` en temps normal, fixe en Prévisualisation.
+  // Largeur en style inline (TopRightMenu.tsx) : `auto` (ajustée au texte), animée seulement au
+  // changement d'espace.
   max-width: 90vw;
   white-space: nowrap;
 }

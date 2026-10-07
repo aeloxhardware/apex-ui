@@ -1,0 +1,160 @@
+{
+    "before_layer_change_gcode": ";BEFORE_LAYER_CHANGE\nG92 E0",
+    "change_filament_gcode": "PAUSE\nG1 E1.0 F300 ; prime after color change",
+    "default_filament_profile": "Generic PLA @E3NG v1.2S",
+    "default_print_profile": "0.20mm Standard @E3NG v1.2S",
+    "deretraction_speed": "60",
+    "emit_machine_limits_to_gcode": "0",
+    "extruder_clearance_height_to_lid": "140",
+    "extruder_clearance_height_to_rod": "36",
+    "extruder_clearance_radius": "65",
+    "extruder_colour": "#02aba2",
+    "extruder_offset": "0x0",
+    "from": "system",
+    "gcode_flavor": "klipper",
+    "inherits": "",
+    "layer_change_gcode": ";AFTER_LAYER_CHANGE",
+    "machine_end_gcode": "PRINT_END",
+    "machine_max_acceleration_e": [
+        "7500",
+        "7500"
+    ],
+    "machine_max_acceleration_extruding": [
+        "20000",
+        "20000"
+    ],
+    "machine_max_acceleration_retracting": [
+        "20000",
+        "20000"
+    ],
+    "machine_max_acceleration_travel": [
+        "10000",
+        "10000"
+    ],
+    "machine_max_acceleration_x": [
+        "20000",
+        "20000"
+    ],
+    "machine_max_acceleration_y": [
+        "20000",
+        "20000"
+    ],
+    "machine_max_acceleration_z": [
+        "500",
+        "500"
+    ],
+    "machine_max_speed_e": [
+        "25",
+        "25"
+    ],
+    "machine_max_speed_x": [
+        "400",
+        "400"
+    ],
+    "machine_max_speed_y": [
+        "400",
+        "400"
+    ],
+    "machine_max_speed_z": [
+        "12",
+        "12"
+    ],
+    "machine_min_extruding_rate": [
+        "0",
+        "0"
+    ],
+    "machine_min_travel_rate": [
+        "0",
+        "0"
+    ],
+    "machine_pause_gcode": "PAUSE\n",
+    "machine_start_gcode": "M104 S0 ; Stops OrcaSlicer from sending temp waits separately\nM140 S0\nPRINT_START EXTRUDER=[first_layer_temperature] BED=[first_layer_bed_temperature]\n; Start of actual GCode for the print",
+    "max_layer_height": "0.30",
+    "min_layer_height": "0.10",
+    "name": "E3NG v1.2S - 0.4 nozzle",
+    "nozzle_diameter": [
+        "0.4"
+    ],
+    "printable_area": [
+        "0x0",
+        "232x0",
+        "232x232",
+        "0x232"
+    ],
+    "printable_height": "245",
+    "printer_model": "E3NG v1.2S",
+    "printer_notes": [
+        "Design by RH3D"
+    ],
+    "printer_settings_id": "",
+    "printer_structure": "corexy",
+    "printer_technology": "FFF",
+    "printer_variant": "0.4",
+    "retract_before_wipe": "80%",
+    "retract_length_toolchange": "0",
+    "retract_lift_below": "240",
+    "retract_restart_extra": "0",
+    "retract_restart_extra_toolchange": "0",
+    "retract_when_changing_layer": "1",
+    "retraction_length": "0.6",
+    "retraction_minimum_travel": "1.5",
+    "retraction_speed": "40",
+    "single_extruder_multi_material": "0",
+    "thumbnails": [
+        "16x16/QOI",
+        "313x173/QOI",
+        "440x240/QOI",
+        "480x240/QOI",
+        "32x32/PNG",
+        "320x240/PNG",
+        "640x480/PNG"
+    ],
+    "travel_slope": "1",
+    "use_firmware_retraction": "1",
+    "use_relative_e_distances": "1",
+    "wipe": "1",
+    "z_hop": "0.0",
+    "z_hop_types": "Slope Lift",
+    "apex": {
+        "generated": true,
+        "manufacturer": "RH3D",
+        "model": "E3NG v1.2S -",
+        "catalog_path": "Autres fabricants/RH3D",
+        "orca_source": "RH3D/machine/E3NG v1.2S - 0.4 nozzle.json",
+        "axes_count": 3,
+        "kinematics": [
+            "X",
+            "Y",
+            "Z"
+        ],
+        "kinematics_preview": {
+            "type": "corexy",
+            "image": null
+        },
+        "motherboard": "Inconnu",
+        "motors": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "drivers": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "default_nozzle_profile": {
+            "diameter_mm": 0.4,
+            "profile_id": null
+        },
+        "auto_leveling": {
+            "tool": "Inconnu"
+        },
+        "nonplanar": {
+            "max_angle_deg": null,
+            "max_distance_mm": null
+        },
+        "hardware_sources": []
+    }
+}

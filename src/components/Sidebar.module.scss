@@ -130,6 +130,12 @@
   width: 42px;
   height: 42px;
   padding: 2px;
+  // Le logo ouvre l'espace Accueil : bouton sans habillage.
+  border: none;
+  background: none;
+  cursor: pointer;
+  position: relative;
+  z-index: 2;
 
   .logoImg {
     width: 32px;
@@ -161,15 +167,22 @@
 
 .activeIndicator {
   position: absolute;
-  background: rgba(255, 255, 255, 0.12);
-  box-shadow: 
-    0 0 14px rgba(255, 255, 255, 0.15), 
-    inset 0 0 10px rgba(255, 255, 255, 0.05);
-  border-radius: 14px;
+  // La lueur est un drop-shadow du conteneur : le clip-path de la forme (.activeIndicatorShape)
+  // rognerait un box-shadow.
+  filter: drop-shadow(0 0 7px rgba(255, 255, 255, 0.15));
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: none;
   z-index: 1;
   opacity: 0;
+}
+
+// Rectangle arrondi (onglets) ou triangle arrondi (logo) : deux polygones de même nombre de points,
+// interpolés par la transition.
+.activeIndicatorShape {
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.12);
+  transition: clip-path 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .uploadActionButton {

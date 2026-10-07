@@ -1,0 +1,38 @@
+{
+    "name": "Ender-3 Max Neo",
+    "printer_model": "Ender-3 Max Neo",
+    "apex": {
+        "generated": true,
+        "manufacturer": "Creality",
+        "model": "Ender-3 Max Neo",
+        "catalog_path": "Autres fabricants/Creality/Série Ender/Ender-3",
+        "orca_source": null,
+        "axes_count": "Inconnu",
+        "kinematics": "Inconnu",
+        "kinematics_preview": {
+            "type": "Inconnu",
+            "image": null
+        },
+        "motherboard": "CREALITY V4",
+        "motors": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "drivers": {
+            "X": "TMC2208 (standalone)",
+            "Y": "TMC2208 (standalone)",
+            "Z": "TMC2208 (standalone)",
+            "E": "TMC2208 (standalone)"
+        },
+        "default_nozzle_profile": null,
+        "auto_leveling": {
+            "tool": "Inconnu"
+        },
+        "hardware_sources": [
+            "https://github.com/MarlinFirmware/Configurations/tree/import-2.1.x/config/examples/Creality/Ender-3%20Max%20Neo/CrealityV422"
+        ],
+        "hardware_note": "Source : configuration d'exemple Marlin (communautaire), qui peut différer de la carte d'origine."
+    }
+}

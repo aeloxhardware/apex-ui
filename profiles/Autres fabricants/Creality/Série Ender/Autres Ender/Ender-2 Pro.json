@@ -1,0 +1,37 @@
+{
+    "name": "Ender-2 Pro",
+    "printer_model": "Ender-2 Pro",
+    "apex": {
+        "generated": true,
+        "manufacturer": "Creality",
+        "model": "Ender-2 Pro",
+        "catalog_path": "Autres fabricants/Creality/Série Ender/Autres Ender",
+        "orca_source": null,
+        "axes_count": "Inconnu",
+        "kinematics": "Inconnu",
+        "kinematics_preview": {
+            "type": "Inconnu",
+            "image": null
+        },
+        "motherboard": "Carte d'origine (MCU STM32F103)",
+        "motors": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "drivers": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "default_nozzle_profile": null,
+        "auto_leveling": {
+            "tool": "Aucune (config Klipper d'origine)"
+        },
+        "hardware_sources": [
+            "https://github.com/Klipper3d/klipper/blob/master/config/printer-creality-ender2pro-2021.cfg"
+        ]
+    }
+}

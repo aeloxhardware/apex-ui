@@ -58,6 +58,7 @@ const NodeLab: React.FC = () => {
   const [trimming, setTrimming] = useState(false);
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const [loading, setLoading] = useState(false);
+  const [positionLocked, setPositionLocked] = useState(false);
   const labRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [glassError, setGlassError] = useState<string | null>(null);
@@ -110,6 +111,8 @@ const NodeLab: React.FC = () => {
           y={pos.y}
           onMove={(x, y) => setPos({ x, y })}
           loading={loading}
+          positionLocked={positionLocked}
+          onTogglePositionLock={() => setPositionLocked((v) => !v)}
           active={active}
           trimming={trimming}
           onActivate={() => setActive(true)}

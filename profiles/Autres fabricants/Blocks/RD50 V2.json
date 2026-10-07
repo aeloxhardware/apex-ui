@@ -1,0 +1,200 @@
+{
+    "auxiliary_fan": "0",
+    "bed_exclude_area": [
+        "0x0"
+    ],
+    "before_layer_change_gcode": ";BEFORE_LAYER_CHANGE\n;[layer_z]\nG92 E0\n",
+    "change_filament_gcode": "CHANGE_FILAMENT",
+    "default_filament_profile": [
+        "Blocks Generic PLA"
+    ],
+    "default_print_profile": "0.20mm Standard 0.4 nozzle @Blocks_RD50_V2",
+    "deretraction_speed": [
+        "80"
+    ],
+    "extruder_clearance_height_to_lid": "140",
+    "extruder_clearance_height_to_rod": "40",
+    "extruder_clearance_radius": "74",
+    "extruder_colour": [
+        "#FCE94F"
+    ],
+    "extruder_offset": [
+        "0x0"
+    ],
+    "from": "system",
+    "gcode_flavor": "klipper",
+    "inherits": "",
+    "layer_change_gcode": ";AFTER_LAYER_CHANGE\n;[layer_z]\n",
+    "machine_end_gcode": "M400\nPRINT_END",
+    "machine_max_acceleration_e": [
+        "5000",
+        "5000"
+    ],
+    "machine_max_acceleration_extruding": [
+        "20000",
+        "20000"
+    ],
+    "machine_max_acceleration_retracting": [
+        "5000",
+        "5000"
+    ],
+    "machine_max_acceleration_travel": [
+        "5000",
+        "5000"
+    ],
+    "machine_max_acceleration_x": [
+        "5000",
+        "5000"
+    ],
+    "machine_max_acceleration_y": [
+        "5000",
+        "5000"
+    ],
+    "machine_max_acceleration_z": [
+        "500",
+        "200"
+    ],
+    "machine_max_jerk_e": [
+        "0",
+        "0"
+    ],
+    "machine_max_jerk_x": [
+        "0",
+        "0"
+    ],
+    "machine_max_jerk_y": [
+        "0",
+        "0"
+    ],
+    "machine_max_jerk_z": [
+        "0",
+        "0"
+    ],
+    "machine_max_speed_e": [
+        "25",
+        "25"
+    ],
+    "machine_max_speed_x": [
+        "500",
+        "200"
+    ],
+    "machine_max_speed_y": [
+        "500",
+        "200"
+    ],
+    "machine_max_speed_z": [
+        "12",
+        "12"
+    ],
+    "machine_min_extruding_rate": [
+        "0",
+        "0"
+    ],
+    "machine_min_travel_rate": [
+        "0",
+        "0"
+    ],
+    "machine_pause_gcode": "PAUSE",
+    "machine_start_gcode": "PRINT_START EXTRUDER=[nozzle_temperature_initial_layer] BED=[bed_temperature_initial_layer]",
+    "max_layer_height": [
+        "0.30"
+    ],
+    "min_layer_height": [
+        "0.10"
+    ],
+    "name": "BLOCKS RD50 V2 0.4 nozzle",
+    "nozzle_diameter": [
+        "0.4"
+    ],
+    "nozzle_type": "undefine",
+    "printable_area": [
+        "0x0",
+        "500x0",
+        "500x500",
+        "0x500"
+    ],
+    "printable_height": "500",
+    "printer_model": "BLOCKS RD50 V2",
+    "printer_settings_id": "",
+    "printer_technology": "FFF",
+    "printer_variant": "0.4",
+    "retract_before_wipe": [
+        "70%"
+    ],
+    "retract_length_toolchange": [
+        "2"
+    ],
+    "retract_restart_extra": [
+        "0"
+    ],
+    "retract_restart_extra_toolchange": [
+        "0"
+    ],
+    "retract_when_changing_layer": [
+        "1"
+    ],
+    "retraction_length": [
+        "1.2"
+    ],
+    "retraction_minimum_travel": [
+        "1"
+    ],
+    "retraction_speed": [
+        "30"
+    ],
+    "scan_first_layer": "0",
+    "silent_mode": "0",
+    "single_extruder_multi_material": "1",
+    "upward_compatible_machine": [
+        "BLOCKS RD50 V2"
+    ],
+    "wipe": [
+        "1"
+    ],
+    "z_hop": [
+        "0.4"
+    ],
+    "z_hop_types": "Normal Lift",
+    "apex": {
+        "generated": true,
+        "manufacturer": "Blocks",
+        "model": "RD50 V2",
+        "catalog_path": "Autres fabricants/Blocks",
+        "orca_source": "Blocks/machine/BLOCKS RD50 V2 0.4 nozzle.json",
+        "axes_count": 3,
+        "kinematics": [
+            "X",
+            "Y",
+            "Z"
+        ],
+        "kinematics_preview": {
+            "type": "Inconnu",
+            "image": null
+        },
+        "motherboard": "Inconnu",
+        "motors": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "drivers": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "default_nozzle_profile": {
+            "diameter_mm": 0.4,
+            "profile_id": null
+        },
+        "auto_leveling": {
+            "tool": "Inconnu"
+        },
+        "nonplanar": {
+            "max_angle_deg": null,
+            "max_distance_mm": null
+        },
+        "hardware_sources": []
+    }
+}

@@ -1,0 +1,58 @@
+{
+    "bed_model": "bbl-3dp-X1.stl",
+    "bed_texture": "bbl-3dp-logo.svg",
+    "default_bed_type": "Textured PEI Plate",
+    "default_materials": "Bambu PLA Matte @BBL X1C;Bambu PLA Basic @BBL X1C;Bambu PLA-CF @BBL X1C;Bambu PETG-CF @BBL X1C;Bambu ABS @BBL X1E;Bambu ASA @BBL X1E;Bambu PC @BBL X1E;Bambu PAHT-CF @BBL X1C;Bambu Support For PLA @BBL X1C;Bambu Support For PA/PET @BBL X1C;Generic PPA-CF @BBL X1E;Generic PPS @BBL X1E;Generic PPS-CF @BBL X1E;Bambu PETG HF @BBL X1C",
+    "family": "BBL-3DP",
+    "machine_tech": "FFF",
+    "model_id": "C13",
+    "name": "Bambu Lab X1E",
+    "nozzle_diameter": "0.4;0.2;0.6;0.8",
+    "url": "http://www.bambulab.com/Parameters/printer_model/Bambu Lab X1 Carbon.json",
+    "inherits": "",
+    "apex": {
+        "generated": true,
+        "manufacturer": "Bambu Lab",
+        "model": "X1E Enterprise",
+        "catalog_path": "Autres fabricants/Bambu Lab",
+        "orca_source": "BBL/machine/Bambu Lab X1E.json",
+        "axes_count": 3,
+        "kinematics": [
+            "X",
+            "Y",
+            "Z"
+        ],
+        "kinematics_preview": {
+            "type": "Inconnu",
+            "image": null
+        },
+        "motherboard": "Propriétaire",
+        "motors": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "drivers": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "default_nozzle_profile": {
+            "diameter_mm": 0,
+            "profile_id": null
+        },
+        "auto_leveling": {
+            "tool": "Capteurs de force (jauge de contrainte) sous le plateau",
+            "strain_gauge": true
+        },
+        "nonplanar": {
+            "max_angle_deg": null,
+            "max_distance_mm": null
+        },
+        "hardware_sources": [
+            "https://www.3dprintergear.com.au/bambu-lab-heatbed-sensor-interface-board-compatibl"
+        ]
+    }
+}

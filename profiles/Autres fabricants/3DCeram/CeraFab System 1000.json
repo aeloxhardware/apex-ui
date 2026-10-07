@@ -1,0 +1,35 @@
+{
+    "name": "CeraFab System 1000",
+    "printer_model": "CeraFab System 1000",
+    "apex": {
+        "generated": true,
+        "manufacturer": "3DCeram",
+        "model": "CeraFab System 1000",
+        "catalog_path": "Autres fabricants/3DCeram",
+        "orca_source": null,
+        "axes_count": "Inconnu",
+        "kinematics": "Inconnu",
+        "kinematics_preview": {
+            "type": "Inconnu",
+            "image": null
+        },
+        "motherboard": "Propriétaire",
+        "motors": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "drivers": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "default_nozzle_profile": null,
+        "auto_leveling": {
+            "tool": "Inconnu"
+        },
+        "hardware_sources": []
+    }
+}

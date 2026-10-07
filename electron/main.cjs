@@ -1,7 +1,8 @@
-const { app, BrowserWindow, ipcMain, dialog, utilityProcess, MessageChannelMain } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, utilityProcess, MessageChannelMain } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const { convertGCode } = require('./python-runner.cjs');
+const { scanProfiles, readProfile } = require('./profiles.cjs');
 
 const isDev = process.env.ELECTRON_START_URL !== undefined;
 
@@ -18,6 +19,18 @@ function createWindow() {
       nodeIntegration: false,
       preload: path.join(__dirname, 'preload.cjs'),
     },
+  });
+
+  // Alt sert de modificateur (poignées du nœud d'édition : Alt + glisser) : relâcher Alt ne doit
+  // pas faire surgir la barre de menu masquée (autoHideMenuBar).
+  win.webContents.on('before-input-event', (event, input) => {
+    if (input.type === 'keyUp' && input.key === 'Alt') event.preventDefault();
+  });
+
+  // Liens externes (Accueil : remerciements) : ouverts dans le navigateur du système, jamais dans l'application.
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https://')) void shell.openExternal(url);
+    return { action: 'deny' };
   });
 
   if (isDev) {
@@ -43,6 +56,12 @@ ipcMain.handle('apex:convert-gcode', (event, request) =>
     },
   }));
 
+// Profils d'imprimantes : dossier `profiles/` du dépôt, copié dans les ressources à l'empaquetage.
+const profilesRoot = () =>
+  app.isPackaged ? path.join(process.resourcesPath, 'profiles') : path.join(__dirname, '..', 'profiles');
+ipcMain.handle('apex:profiles-scan', () => scanProfiles(profilesRoot()));
+ipcMain.handle('apex:profiles-read', (_event, rel) => readProfile(profilesRoot(), rel));
+
 ipcMain.handle('apex:save-gcode', async (event, request) => {
   const { name, text } = request ?? {};
   if (typeof text !== 'string') throw new Error("Requête d'enregistrement invalide.");
@@ -54,6 +73,26 @@ ipcMain.handle('apex:save-gcode', async (event, request) => {
   if (canceled || !filePath) return { saved: false };
   await fs.promises.writeFile(filePath, text, 'utf8');
   return { saved: true, path: filePath };
+});
+
+// Modification en place d'un G-code édité (onglet Édition) : écriture atomique, fichier temporaire
+// voisin puis renommage, pour ne jamais laisser un fichier à moitié écrit. Seules les extensions
+// G-code sont acceptées.
+ipcMain.handle('apex:write-gcode', async (_event, request) => {
+  const { path: target, text } = request ?? {};
+  if (typeof target !== 'string' || !path.isAbsolute(target) || typeof text !== 'string') {
+    throw new Error("Requête d'écriture invalide.");
+  }
+  if (!/\.(gcode|gco|g|ngc)$/i.test(target)) throw new Error("Ce n'est pas un fichier G-code.");
+  const temp = `${target}.apex-tmp`;
+  try {
+    await fs.promises.writeFile(temp, text, 'utf8');
+    await fs.promises.rename(temp, target);
+  } catch (error) {
+    await fs.promises.rm(temp, { force: true }).catch(() => undefined);
+    throw error;
+  }
+  return { saved: true, path: target };
 });
 
 // Édition du G-code : le noyau C++ (addon N-API, native/) tourne dans un processus utilitaire,

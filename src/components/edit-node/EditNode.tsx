@@ -10,6 +10,7 @@ import {
 } from "framer-motion";
 import { GLASS_LENS_ATTR, GLASS_PULL_ATTR, MAX_PULLS } from "./liquidGlass";
 import styles from "./EditNode.module.scss";
+import { NODE_TIPS, bottomTip, hideBottomTip, showBottomTip, type BottomTip } from "./bottomTooltip";
 
 /**
  * Nœud d'édition du G-code (second style de poignée, cf. CLAUDE.md « Bézier-editor node »).
@@ -45,6 +46,18 @@ export interface EditNodeProps {
   /** Positions imposées des poignées (px relatifs au nœud), par identifiant — l'application les
    * tient en 3D et les reprojette quand la caméra ou le nœud bougent. */
   handleOffsets?: Readonly<Record<number, { dx: number; dy: number }>>;
+  /** Position du nœud verrouillée sur son point d'attache (contour rouge). Déverrouillé, le
+   * glisser choisit le point ; verrouillé, le glisser déforme. */
+  positionLocked?: boolean;
+  /** Bouton cadenas (gouttelette au-dessus du nœud développé) ; sans ce rappel, pas de cadenas. */
+  onTogglePositionLock?: () => void;
+  /** Glissement d'une poignée (début, mouvements, fin) avec son mode (rotation / influence). */
+  onHandleDrag?: (e: HandleDragEvent) => void;
+  /** Point du nœud masqué par la pièce (vu de la caméra) : le nœud s'estompe, sans cesser d'être utilisable. */
+  occluded?: boolean;
+  /** Mode d'influence Auto : poignées violettes, à leur écartement par défaut, que l'on ne peut plus
+   * changer (seule leur orientation se règle) ; pas de verrouillage. */
+  fixedHandles?: boolean;
 }
 
 export interface EditNodeHandle {
@@ -53,6 +66,26 @@ export interface EditNodeHandle {
   dy: number;
   locked: boolean;
 }
+
+/**
+ * Glissement d'une poignée. Glisser seul : la poignée fait tourner la déformation ET règle
+ * l'influence ; Ctrl (⌘ sur Mac) : rotation seule ; Alt : influence seule. Le mode suit les touches
+ * tenues à chaque mouvement.
+ */
+export type HandleDragMode = "both" | "rotate" | "influence";
+
+export interface HandleDragEvent {
+  id: number;
+  phase: "start" | "move" | "end";
+  mode: HandleDragMode;
+  /** Position de la poignée (px relatifs au nœud). */
+  dx: number;
+  dy: number;
+  locked: boolean;
+}
+
+const dragModeOf = (e: { ctrlKey: boolean; metaKey: boolean; altKey: boolean }): HandleDragMode =>
+  e.ctrlKey || e.metaKey ? "rotate" : e.altKey ? "influence" : "both";
 
 const CORE_PX = 12;
 const BUBBLE_PX = 46; // 76 × 0,6 (76 = 168 / 2,2)
@@ -149,13 +182,13 @@ const DeleteIcon: React.FC = () => (
 // Poignées (style éditeur de Bézier), distances depuis le centre du nœud, en px.
 const HANDLE_REST_PX = BUBBLE_R + 20;
 const HANDLE_MIN_PX = 1;
-const HANDLE_MAX_PX = BUBBLE_R + 120;
 // Bouton relâché à moins de cette distance du centre : la poignée est supprimée.
 const DELETE_RADIUS_PX = BUBBLE_R - 3;
 // Angles initiaux (repère mathématique) : diagonale bas-gauche -> haut-droite.
 const INITIAL_ANGLES = [Math.PI / 4, (5 * Math.PI) / 4];
-// Tractions du noyau réservées : mitose du « + », inertie du glissement (arrière et avant).
-const MAX_HANDLES = MAX_PULLS - 3;
+// Tractions du noyau réservées : mitose des deux gouttelettes (« + » et cadenas), inertie du
+// glissement (arrière et avant).
+const MAX_HANDLES = MAX_PULLS - 4;
 
 // Glissement du nœud : seuil avant qu'un appui devienne un déplacement, et inertie du verre.
 const DRAG_THRESHOLD_PX = 3;
@@ -163,10 +196,11 @@ const MOVE_STRETCH_PER_PXS = 0.00035;
 const MOVE_STRETCH_MAX = 0.3;
 const MOVE_LEAD_FLATTEN = 0.35;
 
-// Bouton « + » : gouttelette de verre qui sort sous le nœud.
+// Gouttelettes de verre qui se divisent du nœud : « + » dessous, cadenas dessus.
 const ADD_SIZE_PX = 18;
 const ADD_DISTANCE_PX = BUBBLE_R + 17;
 const ADD_ANGLE = (3 * Math.PI) / 2;
+const LOCK_ANGLE = Math.PI / 2;
 // Portée de fusion du « + » avec le noyau : large pendant la division (col de verre), puis
 // inférieure à l'écart final entre les deux (7 px) pour qu'ils se séparent nettement.
 const ADD_MERGE_START_PX = 26;
@@ -240,6 +274,12 @@ interface HandleProps {
   offset?: { dx: number; dy: number };
   /** Position, longueur ou verrouillage changés par l'utilisateur. */
   onChanged: () => void;
+  onDrag?: (e: HandleDragEvent) => void;
+  /** Poignée sélectionnée (la dernière saisie) : anneau blanc. */
+  selected?: boolean;
+  onSelect?: (id: number) => void;
+  /** Mode Auto : longueur fixée à HANDLE_REST_PX, seule l'orientation se règle ; violette, sans verrouillage. */
+  fixed?: boolean;
 }
 
 const Handle: React.FC<HandleProps> = ({
@@ -258,7 +298,18 @@ const Handle: React.FC<HandleProps> = ({
   onRemove,
   offset,
   onChanged,
+  onDrag,
+  selected = false,
+  onSelect,
+  fixed = false,
 }) => {
+  const fixedRef = useRef(fixed);
+  fixedRef.current = fixed;
+  /** Mode Auto : même direction, écartement par défaut. */
+  const atRest = (x: number, y: number) => {
+    const length = Math.hypot(x, y);
+    return length > 1e-6 ? { x: (x / length) * HANDLE_REST_PX, y: (y / length) * HANDLE_REST_PX } : { x, y };
+  };
   const startLength = spawn ? HANDLE_MIN_PX : HANDLE_REST_PX;
   const lockedRef = useRef(false);
   const animating = useRef(false);
@@ -323,10 +374,39 @@ const Handle: React.FC<HandleProps> = ({
   // font glisser à l'écran), sauf pendant que l'utilisateur la tient ou qu'elle s'anime.
   useLayoutEffect(() => {
     if (!offset || drag.current || animating.current) return;
-    hx.set(offset.dx);
-    hy.set(offset.dy);
+    const p = fixedRef.current ? atRest(offset.dx, offset.dy) : { x: offset.dx, y: offset.dy };
+    hx.set(p.x);
+    hy.set(p.y);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [offset?.dx, offset?.dy]);
+
+  // Bascule du mode : la poignée rentre à son écartement par défaut (Auto) ou reprend sa longueur
+  // tenue par l'application (Portée), en ressort.
+  const firstFixed = useRef(true);
+  useEffect(() => {
+    if (firstFixed.current) {
+      firstFixed.current = false;
+      return;
+    }
+    const p = fixed
+      ? atRest(hx.get(), hy.get())
+      : offset ? { x: offset.dx, y: offset.dy } : { x: hx.get(), y: hy.get() };
+    animating.current = true;
+    const a = animate(hx, p.x, RESET_SPRING);
+    const b = animate(hy, p.y, RESET_SPRING);
+    let live = true;
+    void Promise.all([a, b]).then(() => {
+      animating.current = false;
+      if (live) target.set(stretchFor(Math.hypot(hx.get(), hy.get())));
+    });
+    return () => {
+      live = false;
+      a.stop();
+      b.stop();
+      animating.current = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fixed]);
 
   const setDoomedState = (value: boolean) => {
     if (doomedRef.current === value) return;
@@ -371,10 +451,14 @@ const Handle: React.FC<HandleProps> = ({
     const a = anchor.getBoundingClientRect();
     const x = e.clientX - a.left, y = e.clientY - a.top;
     const length = Math.hypot(x, y) || 1;
-    const k = Math.min(HANDLE_MAX_PX, Math.max(HANDLE_MIN_PX, length)) / length;
+    // Aucune longueur maximale : la poignée suit le pointeur aussi loin qu'il va. Mode Auto :
+    // écartement par défaut, seule l'orientation suit le pointeur.
+    const k = (fixedRef.current ? HANDLE_REST_PX : Math.max(HANDLE_MIN_PX, length)) / length;
     hx.set(x * k);
     hy.set(y * k);
     relockAt(x * k, y * k);
+    // Avant onChanged : l'application doit connaître le mode avant la nouvelle position.
+    onDrag?.({ id, phase: "move", mode: dragModeOf(e), dx: x * k, dy: y * k, locked: lockedRef.current });
 
     const now = performance.now();
     const prev = drag.current;
@@ -442,15 +526,24 @@ const Handle: React.FC<HandleProps> = ({
         x2={x2}
         y2={y2}
         style={{ opacity }}
-        className={`${styles.handleArm} ${doomed ? styles.doomed : ""}`}
+        className={`${styles.handleArm} ${fixed ? styles.auto : ""} ${doomed ? styles.doomed : ""}`}
       />
+      {selected && (
+        <motion.circle
+          r={7.5}
+          cx={x2}
+          cy={y2}
+          style={{ opacity }}
+          className={styles.handleRing}
+        />
+      )}
       <motion.circle
         ref={knobRef}
         r={4}
         cx={x2}
         cy={y2}
         style={{ opacity }}
-        className={`${styles.handleKnob} ${active ? styles.live : ""} ${locked ? styles.locked : ""} ${doomed ? styles.doomed : ""}`}
+        className={`${styles.handleKnob} ${active ? styles.live : ""} ${fixed ? styles.auto : locked ? styles.locked : ""} ${doomed ? styles.doomed : ""}`}
         onClick={(e) => {
           e.stopPropagation();
           // Fin d'un glissement, ou second clic d'un double-clic : pas de bascule.
@@ -458,7 +551,7 @@ const Handle: React.FC<HandleProps> = ({
             suppressClick.current = false;
             return;
           }
-          if (e.detail > 1) return;
+          if (e.detail > 1 || fixed) return;
           window.clearTimeout(clickTimer.current);
           clickTimer.current = window.setTimeout(toggleLock, DOUBLE_CLICK_MS);
         }}
@@ -475,11 +568,16 @@ const Handle: React.FC<HandleProps> = ({
           relockAt(rx, ry);
           target.set(stretchFor(HANDLE_REST_PX));
         }}
+        {...bottomTip(NODE_TIPS.handle.title, NODE_TIPS.handle.desc)}
         onPointerDown={(e) => {
           e.stopPropagation();
+          // Alt maintenu : pas de menu de la fenêtre ni de comportement natif.
+          if (e.altKey) e.preventDefault();
           e.currentTarget.setPointerCapture(e.pointerId);
           pressStart.current = { x: e.clientX, y: e.clientY };
           drag.current = { x: e.clientX, y: e.clientY, t: performance.now() };
+          onSelect?.(id);
+          onDrag?.({ id, phase: "start", mode: dragModeOf(e), dx: hx.get(), dy: hy.get(), locked: lockedRef.current });
           target.set(currentStretch() + GRAB_PULSE);
           window.clearTimeout(idleTimer.current);
           idleTimer.current = window.setTimeout(
@@ -497,10 +595,16 @@ const Handle: React.FC<HandleProps> = ({
             Math.hypot(e.clientX - pressStart.current.x, e.clientY - pressStart.current.y) >=
             DRAG_THRESHOLD_PX;
           window.clearTimeout(idleTimer.current);
+          onDrag?.({ id, phase: "end", mode: dragModeOf(e), dx: hx.get(), dy: hy.get(), locked: lockedRef.current });
           if (doomedRef.current) {
             setDoomedState(false);
             onRemove(id);
             return;
+          }
+          // Position tenue par l'application (rotation seule : l'influence n'a pas bougé, la
+          // poignée revient à sa place en ressort).
+          if (offset) {
+            void Promise.all([animate(hx, offset.dx, RESET_SPRING), animate(hy, offset.dy, RESET_SPRING)]);
           }
           // Relâchée, la vitesse retombe : le verre revient vers sa tension en oscillant.
           target.set(currentStretch());
@@ -510,8 +614,87 @@ const Handle: React.FC<HandleProps> = ({
   );
 };
 
+interface DropletProps {
+  /** Direction de sortie (repère mathématique). */
+  angle: number;
+  /** Division (0 : dans le noyau, 1 : séparée). */
+  divide: MotionValue<number>;
+  /** Cliquable. */
+  live: boolean;
+  /** Indisponible (icône estompée). */
+  dim?: boolean;
+  label: string;
+  /** Infobulle de bas d'écran. */
+  tip: BottomTip;
+  onPress: () => void;
+  /** Icône, dessinée dans un viewBox 0 0 12 12. */
+  children: React.ReactNode;
+}
+
+/**
+ * Bouton gouttelette (« + », cadenas) : seconde lentille de verre qui naît dans le noyau et s'en
+ * divise par mitose. Pendant la division, le noyau s'allonge vers elle (traction lue par son verre)
+ * et un col de verre les relie (fusion de grande portée) puis s'amincit et se rompt.
+ */
+const Droplet: React.FC<DropletProps> = ({ angle, divide, live, dim, label, tip, onPress, children }) => {
+  const ux = Math.cos(angle), uy = -Math.sin(angle);
+  const x = useTransform(divide, (d) => ux * ADD_DISTANCE_PX * Math.max(0, d));
+  const y = useTransform(divide, (d) => uy * ADD_DISTANCE_PX * Math.max(0, d));
+  const size = useTransform(divide, (d) => ADD_SIZE_PX * (0.6 + 0.4 * clamp01(d)) * clamp01(d * 8));
+  const iconOpacity = useTransform(divide, (d) => clamp01(d * 2 - 0.8));
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const pullRef = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    const write = () => {
+      const d = divide.get();
+      const merge = ADD_MERGE_END_PX + (ADD_MERGE_START_PX - ADD_MERGE_END_PX) * (1 - clamp01(d));
+      buttonRef.current?.setAttribute(GLASS_LENS_ATTR, `0,${ADD_SIZE_PX},${merge}`);
+      const elongation = MITOSIS_STRETCH * Math.sin(Math.PI * clamp01(d));
+      pullRef.current?.setAttribute(GLASS_PULL_ATTR, `${ux},${uy},${elongation}`);
+    };
+    write();
+    return divide.on("change", write);
+  }, [divide, ux, uy]);
+
+  return (
+    <>
+      <span ref={pullRef} hidden />
+      <div className={styles.addAnchor}>
+        <motion.button
+          ref={buttonRef}
+          type="button"
+          aria-label={label}
+          {...bottomTip(tip.title, tip.desc)}
+          className={`${styles.add} ${live ? styles.live : ""}`}
+          style={{ x, y, width: size, height: size }}
+          whileHover={{ scale: 1.12 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onPress();
+          }}
+          onDoubleClick={(e) => e.stopPropagation()}
+        >
+          <motion.svg viewBox="0 0 12 12" style={{ opacity: dim ? 0.35 : iconOpacity }}>
+            {children}
+          </motion.svg>
+        </motion.button>
+      </div>
+    </>
+  );
+};
+
+/** Cadenas ouvert (position libre) ou fermé (position verrouillée). */
+const LockIcon: React.FC<{ closed: boolean }> = ({ closed }) => (
+  <>
+    <rect x="2.75" y="5.5" width="6.5" height="4.75" rx="1" />
+    <path d={closed ? "M4.25 5.5 V4 a1.75 1.75 0 0 1 3.5 0 V5.5" : "M4.25 5.5 V3 a1.75 1.75 0 0 1 3.5 0 V3.4"} />
+  </>
+);
+
 // Boîte réelle (pas 0 × 0 + overflow visible : Chromium ne peignait alors rien sous le filtre).
-// Large : une poignée verrouillée peut finir loin du nœud quand celui-ci est déplacé.
+// Les poignées n'ont pas de longueur maximale : ce qui dépasse la boîte reste peint (overflow
+// visible, cf. .handles).
 const HANDLES_HALF_PX = 900;
 
 // Un double-clic commence par un clic : la réduction attend ce délai pour ne pas se déclencher
@@ -531,7 +714,17 @@ const EditNode: React.FC<EditNodeProps> = ({
   onMoveEnd,
   onHandlesChange,
   handleOffsets,
+  positionLocked = false,
+  onTogglePositionLock,
+  onHandleDrag,
+  occluded = false,
+  fixedHandles = false,
 }) => {
+  // Poignée sélectionnée : la dernière saisie ; l'anneau disparaît quand le nœud se réduit.
+  const [selectedHandle, setSelectedHandle] = useState<number | null>(null);
+  useEffect(() => {
+    if (!active) setSelectedHandle(null);
+  }, [active]);
   // Chargement : rotation continue des reflets ; à l'arrêt, ils ralentissent jusqu'à leur position
   // de repos (les reflets sont symétriques : période π).
   const spin = useMotionValue(0);
@@ -626,32 +819,11 @@ const EditNode: React.FC<EditNodeProps> = ({
   const addHandle = () => {
     if (handles.length >= MAX_HANDLES) return;
     const taken = [...registry.current.values()].map(({ hx, hy }) => Math.atan2(-hy.get(), hx.get()));
-    const angle = freeAngle([...taken, ADD_ANGLE]);
+    const angle = freeAngle([...taken, ADD_ANGLE, ...(onTogglePositionLock ? [LOCK_ANGLE] : [])]);
     setHandles((list) => [...list, { id: nextId.current++, angle, spawn: true }]);
   };
 
-  // Mitose du « + » : la gouttelette naît dans le noyau, descend en étirant le noyau vers elle ; un
-  // col de verre les relie (fusion de grande portée) puis s'amincit et se rompt.
-  const addOffset = useTransform(divide, (d) => ADD_DISTANCE_PX * Math.max(0, d));
-  const addSize = useTransform(
-    divide,
-    (d) => ADD_SIZE_PX * (0.6 + 0.4 * clamp01(d)) * clamp01(d * 8),
-  );
-  const addOpacity = useTransform(divide, (d) => clamp01(d * 2 - 0.8));
   const canAdd = handles.length < MAX_HANDLES;
-  const addRef = useRef<HTMLButtonElement>(null);
-  const mitosisPullRef = useRef<HTMLSpanElement>(null);
-  useEffect(() => {
-    const write = () => {
-      const d = divide.get();
-      const merge = ADD_MERGE_END_PX + (ADD_MERGE_START_PX - ADD_MERGE_END_PX) * (1 - clamp01(d));
-      addRef.current?.setAttribute(GLASS_LENS_ATTR, `0,${ADD_SIZE_PX},${merge}`);
-      const elongation = MITOSIS_STRETCH * Math.sin(Math.PI * clamp01(d));
-      mitosisPullRef.current?.setAttribute(GLASS_PULL_ATTR, `0,1,${elongation}`);
-    };
-    write();
-    return divide.on("change", write);
-  }, [divide]);
 
   // Glissement du nœud : le verre traîne derrière le mouvement (étiré à l'arrière, aplati à
   // l'avant), proportionnellement à la vitesse, et oscille en se remettant à l'arrêt.
@@ -679,6 +851,13 @@ const EditNode: React.FC<EditNodeProps> = ({
     lastX: number; lastY: number; lastT: number; moved: boolean;
   } | null>(null);
   const suppressClick = useRef(false);
+  // Infobulle du noyau : dépend de l'état (réduit, développé libre ou verrouillé) ; remise à jour si
+  // l'état change sous le pointeur.
+  const bodyTip = !active ? NODE_TIPS.collapsed : positionLocked ? NODE_TIPS.expandedLocked : NODE_TIPS.expandedFree;
+  const bodyHovered = useRef(false);
+  useEffect(() => {
+    if (bodyHovered.current) showBottomTip(bodyTip);
+  }, [bodyTip]);
   const moveIdle = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(moveIdle.current), []);
 
@@ -686,13 +865,21 @@ const EditNode: React.FC<EditNodeProps> = ({
     <div
       ref={anchorRef}
       className={styles.anchor}
-      style={{ transform: `translate(${x}px, ${y}px)` }}
+      style={{ transform: `translate(${x}px, ${y}px)`, opacity: occluded ? 0.28 : 1, transition: "opacity 0.18s ease" }}
     >
       <motion.div
         ref={bodyRef}
         className={styles.body}
         style={{ width: size, height: size, backgroundColor, boxShadow }}
         whileHover={active ? undefined : { scale: 1.25 }}
+        onPointerEnter={() => {
+          bodyHovered.current = true;
+          showBottomTip(bodyTip);
+        }}
+        onPointerLeave={() => {
+          bodyHovered.current = false;
+          hideBottomTip();
+        }}
         onPointerDown={(e) => {
           if (!onMove || e.button !== 0) return;
           e.currentTarget.setPointerCapture(e.pointerId);
@@ -769,31 +956,36 @@ const EditNode: React.FC<EditNodeProps> = ({
             {doomed !== null ? <DeleteIcon /> : trimming ? <TrimmingIcon /> : <StackedCurvesIcon />}
           </motion.div>
         </motion.div>
+        {/* Position verrouillée : contour rouge, nœud développé ou réduit. */}
+        <div className={`${styles.lockRing} ${positionLocked ? styles.lockRingOn : ""}`} />
       </motion.div>
-      {/* Tractions du noyau (lues par son verre) : mitose du « + », inertie du glissement. */}
-      <span ref={mitosisPullRef} hidden />
+      {/* Tractions du noyau (lues par son verre) : inertie du glissement ; celles des mitoses
+          sont portées par chaque gouttelette. */}
       <span ref={trailPullRef} hidden />
       <span ref={leadPullRef} hidden />
-      <div className={styles.addAnchor}>
-        <motion.button
-          ref={addRef}
-          type="button"
-          aria-label="Ajouter une poignée"
-          className={`${styles.add} ${active && canAdd ? styles.live : ""}`}
-          style={{ y: addOffset, width: addSize, height: addSize }}
-          whileHover={{ scale: 1.12 }}
-          whileTap={{ scale: 0.9 }}
-          onClick={(e) => {
-            e.stopPropagation();
-            addHandle();
-          }}
-          onDoubleClick={(e) => e.stopPropagation()}
+      <Droplet
+        angle={ADD_ANGLE}
+        divide={divide}
+        live={active && canAdd}
+        dim={!canAdd}
+        label="Ajouter une poignée"
+        tip={NODE_TIPS.add}
+        onPress={addHandle}
+      >
+        <path d="M6 2.5 V9.5 M2.5 6 H9.5" />
+      </Droplet>
+      {onTogglePositionLock && (
+        <Droplet
+          angle={LOCK_ANGLE}
+          divide={divide}
+          live={active}
+          label={positionLocked ? "Déverrouiller la position du nœud" : "Verrouiller la position du nœud"}
+          tip={positionLocked ? NODE_TIPS.unlock : NODE_TIPS.lock}
+          onPress={onTogglePositionLock}
         >
-          <motion.svg viewBox="0 0 12 12" style={{ opacity: canAdd ? addOpacity : 0.35 }}>
-            <path d="M6 2.5 V9.5 M2.5 6 H9.5" />
-          </motion.svg>
-        </motion.button>
-      </div>
+          <LockIcon closed={positionLocked} />
+        </Droplet>
+      )}
       <svg
         className={styles.handles}
         width={2 * HANDLES_HALF_PX}
@@ -813,12 +1005,16 @@ const EditNode: React.FC<EditNodeProps> = ({
             nodeY={y}
             open={open}
             active={active}
+            fixed={fixedHandles}
             anchorRef={anchorRef}
             registry={registry}
             onDoomedChange={onDoomedChange}
             onRemove={onRemove}
             offset={handleOffsets?.[h.id]}
             onChanged={reportHandles}
+            onDrag={onHandleDrag}
+            selected={selectedHandle === h.id}
+            onSelect={setSelectedHandle}
           />
         ))}
       </svg>

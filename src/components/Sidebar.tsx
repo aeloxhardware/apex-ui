@@ -16,6 +16,7 @@ import {
   Layers,
   Settings
 } from 'lucide-react';
+import { LOGO_PAD_X, LOGO_PAD_Y, PILL_CLIP, TRIANGLE_CLIP } from '@/utils/indicatorShapes';
 import styles from './Sidebar.module.scss';
 import { CustomTooltip } from './CustomTooltip';
 import { PREVIEW_TABS, setPreviewTab, usePreviewTab } from './PreviewUpperTabs';
@@ -43,14 +44,14 @@ const BOTTOM_TOOLBAR_REST_TOP = 20 + 58 + 10;
 const CONTAINER_RESHAPE_DURATION = 1.1;
 
 interface SidebarProps {
-  activeTab: '3d-view' | 'settings' | 'developer' | 'params';
+  activeTab: '3d-view' | 'settings' | 'developer' | 'params' | 'home';
   /**
    * `toPreview` n'est vrai que pour l'unique cas où `tab === 'box'` signifie « vers
    * Prévisualisation » plutôt que « vers Préparation » (cf. handleLayerClick, branche `entering`) —
    * Index.tsx en a besoin pour savoir, en sortant de Modélisation, vers quelle forme (pilule ou
    * panneaux de Prévisualisation) jouer le morph.
    */
-  onTabChange: (tab: 'box' | 'settings' | 'developer' | 'params', toPreview?: boolean) => void;
+  onTabChange: (tab: 'box' | 'settings' | 'developer' | 'params' | 'home', toPreview?: boolean) => void;
   onOpenModel?: () => void;
 }
 
@@ -92,12 +93,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const modelingSlotRef = useRef<HTMLDivElement>(null);
   const buttonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [indicatorStyle, setIndicatorStyle] = React.useState<React.CSSProperties>({});
+  // Sur le logo (Accueil), le surlignage devient un triangle aux bords arrondis (cf. utils/indicatorShapes.ts).
+  const [indicatorOnLogo, setIndicatorOnLogo] = React.useState(false);
 
   /** L'onglet « Modélisation » porte la valeur 'settings'. */
   const isModeling = activeTab === 'settings';
   /** L'onglet « Paramètres » porte la valeur 'params' : le viewport et ses outils n'ont plus
    * de sens dans cet espace, cf. le fondu-glissement sur `.bottomToolbar` plus bas. */
-  const isParams = activeTab === 'params';
+  const isParams = activeTab === 'params' || activeTab === 'home';
 
   // Gabarit cible du conteneur commun pour chaque mode — voir le commentaire au-dessus de
   // `.bottomToolbar` dans le JSX pour la logique d'animation qui s'en sert. En mode
@@ -114,7 +117,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     fileInputRef.current?.click();
   };
 
-  const SPACE_LABELS: Record<'box' | 'settings' | 'developer' | 'layers' | 'params', string> = {
+  const SPACE_LABELS: Record<'box' | 'settings' | 'developer' | 'layers' | 'params' | 'home', string> = {
+    home: 'Accueil',
     box: 'Préparation',
     settings: 'Modélisation',
     developer: 'Dev',
@@ -123,7 +127,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   // Son propre à l'espace d'arrivée. Pas de son pour la console Dev ni pour les Paramètres.
-  const SPACE_SOUNDS: Record<'box' | 'settings' | 'developer' | 'layers' | 'params', UiSoundName | null> = {
+  const SPACE_SOUNDS: Record<'box' | 'settings' | 'developer' | 'layers' | 'params' | 'home', UiSoundName | null> = {
+    home: null,
     box: 'spacePreparation',
     settings: 'spaceModeling',
     developer: null,
@@ -168,7 +173,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }));
   };
 
-  const handleTopTabClick = (tabName: 'box' | 'settings' | 'developer' | 'params') => {
+  const handleTopTabClick = (tabName: 'box' | 'settings' | 'developer' | 'params' | 'home') => {
     if (tabName === 'settings' && !isModeling) {
       // Signale DÈS LE CLIC — avant même que le rideau plein écran ne commence à monter, pas
       // seulement une fois l'écran couvert (`onCovered`, ~900ms plus tard) — que les éléments sans
@@ -372,15 +377,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
       const activeButtonKey = activeTool === 'layers' ? 'layers' : (activeTab === '3d-view' ? 'box' : activeTab);
       const activeButton = buttonRefs.current.get(activeButtonKey);
 
+      setIndicatorOnLogo(activeButtonKey === 'home');
       if (activeButton) {
         const toolbarRect = topToolbarRef.current.getBoundingClientRect();
         const buttonRect = activeButton.getBoundingClientRect();
 
+        // Sur le logo, la boîte déborde du bouton pour que le triangle entoure le logo.
+        const padX = activeButtonKey === 'home' ? LOGO_PAD_X : 0;
+        const padY = activeButtonKey === 'home' ? LOGO_PAD_Y : 0;
         setIndicatorStyle({
-          width: buttonRect.width,
-          height: buttonRect.height,
-          left: buttonRect.left - toolbarRect.left,
-          top: buttonRect.top - toolbarRect.top,
+          width: buttonRect.width + 2 * padX,
+          height: buttonRect.height + 2 * padY,
+          left: buttonRect.left - toolbarRect.left - padX,
+          top: buttonRect.top - toolbarRect.top - padY,
           opacity: 1,
         });
       } else {
@@ -428,12 +437,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
         ref={topToolbarRef}
         className={clsx(styles.toolbar, styles.topToolbar)}
       >
-        <div className={styles.activeIndicator} style={indicatorStyle}></div>
+        <div className={styles.activeIndicator} style={indicatorStyle}>
+          <div className={styles.activeIndicatorShape} style={{ clipPath: indicatorOnLogo ? TRIANGLE_CLIP : PILL_CLIP }} />
+        </div>
 
-        <CustomTooltip content="Apex Slicer Studio" description="Logiciel de préparation et de découpe 3D haute performance pour l'impression additive professionnelle.">
-          <div className={styles.logoContainer}>
+        <CustomTooltip content="Apex Slicer Studio" description="Openware de tranchage de modèles 3D destiné à la fabrication additive non-planaire à plan de construction dynamique.">
+          <button
+            ref={(el) => { if (el) buttonRefs.current.set('home', el); }}
+            className={styles.logoContainer}
+            onClick={() => handleTopTabClick('home')}
+            aria-label="Accueil"
+          >
             <img src="/logo.svg" alt="Logo" className={styles.logoImg} />
-          </div>
+          </button>
         </CustomTooltip>
 
         <div className={styles.topSeparator} />

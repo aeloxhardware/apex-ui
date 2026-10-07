@@ -1,0 +1,35 @@
+{
+    "name": "Ender-7",
+    "printer_model": "Ender-7",
+    "apex": {
+        "generated": true,
+        "manufacturer": "Creality",
+        "model": "Ender-7",
+        "catalog_path": "Autres fabricants/Creality/Série Ender/Ender-6 - Ender-7",
+        "orca_source": null,
+        "axes_count": "Inconnu",
+        "kinematics": "Inconnu",
+        "kinematics_preview": {
+            "type": "Inconnu",
+            "image": null
+        },
+        "motherboard": "Inconnu",
+        "motors": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "drivers": {
+            "X": "Inconnu",
+            "Y": "Inconnu",
+            "Z": "Inconnu",
+            "E": "Inconnu"
+        },
+        "default_nozzle_profile": null,
+        "auto_leveling": {
+            "tool": "Inconnu"
+        },
+        "hardware_sources": []
+    }
+}

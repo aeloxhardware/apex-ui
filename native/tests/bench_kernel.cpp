@@ -120,7 +120,7 @@ int main(int argc, char** argv) {
   kp.pivot_mm = 46.0;
   kp.support_radius_mm = argc > 2 ? std::atof(argv[2]) : 0.5;
   EditKernel kernel;
-  const LoadStats ls = kernel.load(moves.r.size(), moves.r.data(), moves.c.data(), moves.z.data(), moves.b.data(),
+  const LoadStats ls = kernel.load(moves.r.size(), moves.r.data(), moves.c.data(), moves.z.data(), moves.b.data(), nullptr,
                                    moves.ext.data(), kp);
   size_t without = 0;
   for (uint32_t i = 0; i < kernel.size(); ++i) {
@@ -131,6 +131,54 @@ int main(int argc, char** argv) {
   std::printf("  %zu points de trajectoire, %zu passes, %zu cellules de %.2f mm, %zu contacts, %zu points sans support\n",
               ls.pass_points, ls.passes, ls.cells, ls.cell_mm, ls.support_edges, without);
 
+  if (std::getenv("APEX_BENCH_TRIM")) {
+    // Rognage, couche du noeud seule : points de matiere touches et rognes pour une descente de 0,5 mm.
+    for (int k = 1; k <= 12; ++k) {
+      InfluenceParams p;
+      p.spatial = {true, 5.0, Falloff::Plateau};
+      p.trim.enabled = true;
+      p.trim.layers = 0;
+      p.drag_direction = {0.0, 0.0, -1.0};
+      const uint32_t h = static_cast<uint32_t>(kernel.size() * k / 13);
+      auto t1 = Clock::now();
+      if (!kernel.set_handle(h, p)) { std::printf("  poignee %u refusee\n", h); continue; }
+      const double place_ms = ms_since(t1);
+      size_t matter = 0;
+      for (const uint32_t q : kernel.affected()) if (kernel.pass_of(q) >= 0) ++matter;
+      // Estimation de la couche : points a moins de 5 mm dans la tranche d'une demi-epaisseur autour du noeud.
+      size_t slab = 0;
+      {
+        const uint32_t hh = kernel.handle();
+        const Vec3 c = kernel.tip(hh), a = kernel.axis(hh);
+        const float lh = kernel.layer_height(hh);
+        const double half = 0.5 * (std::isfinite(lh) && lh > 0.0f ? lh : 0.2);
+        for (uint32_t i = 0; i < kernel.size(); ++i) {
+          if (kernel.pass_of(i) < 0) continue;
+          const Vec3 d{kernel.tip(i).x - c.x, kernel.tip(i).y - c.y, kernel.tip(i).z - c.z};
+          const double ax = d.x * a.x + d.y * a.y + d.z * a.z;
+          if (std::abs(ax) < half && std::sqrt(d.x * d.x + d.y * d.y + d.z * d.z) < 5.0) ++slab;
+        }
+      }
+      std::printf("  [tranche %zu] ", slab);
+      Transform t;
+      t.translation = {0.0, 0.0, -0.5};
+      auto t2 = Clock::now();
+      kernel.drag(t, true);
+      const double drag_ms = ms_since(t2);
+      std::printf("  poignee %u : %zu points de matiere, %zu rognes, applique %.3f (pose %.1f ms, image %.1f ms)\n", h, matter,
+                  kernel.trimmed().size(), kernel.applied_translation().z, place_ms, drag_ms);
+      const uint32_t lp = kernel.limit_point(), ls = kernel.limit_support();
+      if (lp != kNoIndex && ls != kNoIndex) {
+        const Vec3 a = kernel.axis(lp);
+        const Vec3 d{kernel.tip(lp).x - kernel.tip(ls).x, kernel.tip(lp).y - kernel.tip(ls).y, kernel.tip(lp).z - kernel.tip(ls).z};
+        const double ax = d.x * a.x + d.y * a.y + d.z * a.z;
+        std::printf("      limite : point %u (h %.3f) sur support %u (h %.3f), ecart axial %.3f, lateral %.3f, passes %d / %d\n", lp,
+                    kernel.layer_height(lp), ls, kernel.layer_height(ls), ax,
+                    std::sqrt(std::max(0.0, d.x * d.x + d.y * d.y + d.z * d.z - ax * ax)), kernel.pass_of(lp), kernel.pass_of(ls));
+      }
+    }
+    return 0;
+  }
   const Config configs[] = {
       {"sphere 2 mm", make(true, 2.0, false, 0, false, 0)},
       {"sphere 5 mm", make(true, 5.0, false, 0, false, 0)},
