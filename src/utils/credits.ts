@@ -11,6 +11,8 @@ export interface CreditEntry {
   by: string;
   /** Drapeau (émoji) de la nationalité de l'auteur, affiché à côté de son nom. */
   flag?: string;
+  /** Nationalité déduite, non confirmée : le drapeau est suivi d'un « (?) ». */
+  flagGuess?: boolean;
   /** Licence, telle que publiée par l'auteur. */
   license: string;
   /** Précision sur la licence (double licence, composant inclus…). */
@@ -52,13 +54,13 @@ export const CREDITS: CreditGroup[] = [
     entries: [
       {
         name: 'Liquid Glass Studio',
-        by: 'Charles Yin',
+        flag: '🌍', by: 'Charles Yin',
         license: 'MIT',
         use: 'Shaders de réfraction, de dispersion et de reflet du nœud d’édition et des panneaux de verre.',
       },
       {
         name: 'GLSL-Color-Functions',
-        by: 'Rachmanin0xFF',
+        flag: '🌍', by: 'Rachmanin0xFF',
         license: 'MIT',
         use: 'Conversions de couleur utilisées par les shaders du verre.',
       },
@@ -70,27 +72,27 @@ export const CREDITS: CreditGroup[] = [
       { name: 'Babylon.js', flag: '🇺🇸', by: 'Microsoft et la communauté Babylon.js', license: 'Apache 2.0', use: 'Vue 3D, chargement des modèles, rendu du tracé.' },
       { name: 'Electron', flag: '🇺🇸', by: 'OpenJS Foundation', license: 'MIT', use: 'Application de bureau et processus du noyau d’édition.' },
       { name: 'React', flag: '🇺🇸', by: 'Meta', license: 'MIT', use: 'Interface.' },
-      { name: 'Vite', by: 'Evan You et les contributeurs de Vite', license: 'MIT', use: 'Compilation et serveur de développement.' },
+      { name: 'Vite', flag: '🌍', by: 'Evan You et les contributeurs de Vite', license: 'MIT', use: 'Compilation et serveur de développement.' },
       { name: 'Framer Motion', flag: '🇳🇱', by: 'Framer', license: 'MIT', use: 'Animations des panneaux.' },
     ],
   },
   {
     title: 'Composants d’interface',
     entries: [
-      { name: 'shadcn/ui', by: 'shadcn', license: 'MIT', use: 'Base des composants.' },
+      { name: 'shadcn/ui', flag: '🌍', by: 'shadcn', license: 'MIT', use: 'Base des composants.' },
       { name: 'Radix UI', flag: '🇺🇸', by: 'WorkOS', license: 'MIT', use: 'Primitives accessibles.' },
       { name: 'Tailwind CSS', flag: '🇺🇸', by: 'Tailwind Labs', license: 'MIT', use: 'Mise en page.' },
       { name: 'Lucide', flag: '🌍', by: 'Les contributeurs de Lucide', license: 'ISC', use: 'Icônes.' },
       { name: 'Tabler Icons', flag: '🇵🇱', by: 'Paweł Kuna', license: 'MIT', use: 'Icônes.' },
       { name: 'Recharts', flag: '🌍', by: 'Les contributeurs de Recharts', license: 'MIT', use: 'Graphiques.' },
-      { name: 'Sonner', by: 'Emil Kowalski', license: 'MIT', use: 'Notifications.' },
+      { name: 'Sonner', flag: '🌍', by: 'Emil Kowalski', license: 'MIT', use: 'Notifications.' },
     ],
   },
   {
     title: 'Polices',
     entries: [
       { name: 'Orbitron', flag: '🇺🇸', by: 'Matt McInerney', license: 'SIL Open Font License 1.1', use: 'Police principale.' },
-      { name: 'Oxanium', by: 'Severin Meyer', license: 'SIL Open Font License 1.1', use: 'Police d’interface.' },
+      { name: 'Oxanium', flag: '🌍', by: 'Severin Meyer', license: 'SIL Open Font License 1.1', use: 'Police d’interface.' },
       { name: 'Russo One', flag: '🇷🇺', by: 'Jovanny Lemonad', license: 'SIL Open Font License 1.1', use: 'Police d’affichage.' },
       { name: 'Ethnocentric', flag: '🇨🇦', by: 'Typodermic Fonts', license: 'Licence Typodermic', use: 'Police des titres.' },
     ],
@@ -100,7 +102,7 @@ export const CREDITS: CreditGroup[] = [
     entries: [
       {
         name: 'S4 Slicer (méthode « Bird »)',
-        by: 'Joshua Bird',
+        flag: '🇦🇺', flagGuess: true, by: 'Joshua Bird',
         license: 'GPL-3.0',
         use: 'Méthode de tranchage non planaire par déformation (tranchage à plat dans l’espace déformé, puis retour dans la pièce). Elle sert à la voie de recherche qui a produit les pièces du salon, et doit être intégrée au cœur C++.',
         url: 'https://github.com/jyjblrd/S4_Slicer',
@@ -133,15 +135,15 @@ export const CREDITS: CreditGroup[] = [
     title: 'Moteur · Noyau natif C++',
     entries: [
       { name: 'Eigen', flag: '🇫🇷', by: 'Benoît Jacob, Gaël Guennebaud et les contributeurs d’Eigen', license: 'MPL-2.0', use: 'Algèbre linéaire du noyau natif.' },
-      { name: 'Clipper2', by: 'Angus Johnson', license: 'Boost Software License 1.0', use: 'Décalages de polygones (parois et remplissage) dans le noyau natif.' },
-      { name: 'pybind11', by: 'Wenzel Jakob et les contributeurs', license: 'BSD-3-Clause', use: 'Liaison entre le noyau C++ et Python.' },
+      { name: 'Clipper2', flag: '🇦🇺', flagGuess: true, by: 'Angus Johnson', license: 'Boost Software License 1.0', use: 'Décalages de polygones (parois et remplissage) dans le noyau natif.' },
+      { name: 'pybind11', flag: '🇩🇪', flagGuess: true, by: 'Wenzel Jakob et les contributeurs', license: 'BSD-3-Clause', use: 'Liaison entre le noyau C++ et Python.' },
     ],
   },
   {
     title: 'Moteur · Recherche, visualisation et développement',
     subtitle: 'Hors de l’application livrée.',
     entries: [
-      { name: 'libigl', by: 'Alec Jacobson, Daniele Panozzo et les contributeurs', license: 'MPL-2.0', use: 'Chemins sur surface dans la recherche (lissage non planaire).' },
+      { name: 'libigl', flag: '🌍', by: 'Alec Jacobson, Daniele Panozzo et les contributeurs', license: 'MPL-2.0', use: 'Chemins sur surface dans la recherche (lissage non planaire).' },
       { name: 'potpourri3d', flag: '🇺🇸', by: 'Nicholas Sharp', license: 'MIT', use: 'Géodésiques sur surface dans la recherche (lissage non planaire).' },
       { name: 'Matplotlib', flag: '🇺🇸', by: 'John D. Hunter, Michael Droettboom et l’équipe de développement de Matplotlib', license: 'Licence Matplotlib', licenseNote: 'type PSF', use: 'Animations d’ordre des couches et graphiques de contrôle.' },
       { name: 'Pillow', flag: '🇺🇸', by: 'Jeffrey A. Clark et les contributeurs', license: 'MIT-CMU', use: 'Écriture des GIF de contrôle.' },

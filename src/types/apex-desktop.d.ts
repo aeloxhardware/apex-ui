@@ -41,11 +41,22 @@ declare global {
   }
 
   interface ApexDesktopBridge {
+    /** Interface imposée au lancement (`--ui=` / APEX_UI) : « liquid » ou « classic », sinon null. */
+    launchUi?: string | null;
+    /** L'interface est prête : ferme l'écran de démarrage et affiche la fenêtre principale. */
+    appReady(): void;
+    /** Étape affichée sur l'écran de démarrage tant que l'interface n'est pas prête. */
+    appStatus?(text: string): void;
     convertGCode(request: ApexConvertRequest): Promise<{ text: string; summary: ApexConvertSummary | null }>;
     /** Abonnement à la progression (0–100) ; renvoie la fonction de désabonnement. */
     onConvertProgress(callback: (percent: number) => void): () => void;
     saveGCode(request: { name: string; text: string }): Promise<{ saved: boolean; path?: string }>;
     /** Écrit (atomiquement) un G-code à un chemin connu : modification en place. */
+    setDevMode?(enabled: boolean): void;
+    /** Vrai si l'application a été installée par l'installateur (désinstalleur présent). */
+    canUninstall?(): Promise<boolean>;
+    /** Lance le désinstalleur (confirmation, UAC, suppression). */
+    uninstall?(): Promise<boolean>;
     writeGCode(request: { path: string; text: string }): Promise<{ saved: boolean; path: string }>;
     /** Chemin réel d'un fichier déposé ou choisi, null s'il n'en a pas. */
     pathForFile?(file: File): string | null;

@@ -231,19 +231,27 @@ export interface EditDragResult {
   travelTips?: Float32Array;
 }
 
-/** Couches insérées par une validation (re-tranchage) : points à insérer AVANT l'indice `before` (indices
- * de l'état d'avant), EDIT_VALUES_PER_POINT valeurs par point (R, C, Z, B, E = delta E du segment qui y
- * arrive) ; `extruding[i]` : ce segment dépose. */
-export interface EditResliceInsert {
-  before: number;
+/** Bloc de points insérés dans la trajectoire (re-tranchage) : `at` = indice du premier point DANS L'ÉTAT AVEC
+ * LES BLOCS, EDIT_VALUES_PER_POINT valeurs par point (R, C, Z, B, E = delta E du segment qui y arrive) ;
+ * `extruding[i]` : ce segment dépose. */
+export interface EditInsertBlock {
+  at: number;
   values: Float64Array;
   extruding: Uint8Array;
 }
 
+/** Changement de topologie d'une validation, d'une annulation ou d'un rétablissement. Les indices de
+ * `EditChange.indices` sont ceux de l'état AVEC les blocs : à l'insertion, insérer avant d'appliquer les
+ * valeurs ; au retrait, appliquer les valeurs avant de retirer. */
+export interface EditSplice {
+  inserted: boolean;
+  blocks: EditInsertBlock[];
+}
+
 export interface EditChange {
   ok: boolean;
-  /** Couches à insérer dans le fichier (re-tranchage) ; absent sans insertion. */
-  reslice?: EditResliceInsert[];
+  /** Points insérés (re-tranchage) ou retirés par cette modification ; absent sans changement de topologie. */
+  splice?: EditSplice;
   /** Points modifiés : déplacés, et ceux dont seul E change. */
   indices?: Uint32Array;
   /** EDIT_VALUES_PER_POINT valeurs par indice : R, C, Z, B, E. */
@@ -327,6 +335,15 @@ class EditKernelClient {
 
   load(moves: EditMoves, params: EditKernelParams): Promise<EditLoadStats> {
     return this.call('load', { ...moves, params });
+  }
+
+  /** Temps machine et types de ligne par mouvement, à redonner après une insertion de points. */
+  setTimes(times: Float64Array | null): Promise<void> {
+    return this.call('setTimes', times);
+  }
+
+  setTypes(types: Uint8Array | null): Promise<void> {
+    return this.call('setTypes', types);
   }
 
   /** Change les bornes d'épaisseur du noyau chargé (sans rechargement) ; refaire setHandle ensuite. */

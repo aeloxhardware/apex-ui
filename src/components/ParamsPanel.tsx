@@ -5,6 +5,7 @@ import {
   setColorByDeferred,
   subscribeColorByDeferred,
 } from '@/utils/gcodeColorByPrefs';
+import { isDevModeEnabled, setDevModeEnabled, subscribeDevMode } from '@/utils/devModePrefs';
 import { isEditJournalEnabled, setEditJournalEnabled, subscribeEditJournal } from '@/utils/editJournalPrefs';
 import {
   UI_SCALE_MAX,
@@ -16,6 +17,7 @@ import {
   setUiScale,
   subscribeUiScale,
 } from '@/utils/uiScalePrefs';
+import { getLaunchInterfaceMode, getStoredInterfaceMode, setStoredInterfaceMode } from '@/utils/interfaceMode';
 import styles from './ParamsPanel.module.scss';
 
 const UI_NEUTRAL_TOOLTIP = {
@@ -43,13 +45,24 @@ export const ParamsPanel: React.FC = () => {
   // modifier l'état partagé, que gcodeLayer.ts lit directement au moment de recolorer.
   const [colorByDeferred, setColorByDeferredState] = useState(isColorByDeferred);
   useEffect(() => subscribeColorByDeferred(setColorByDeferredState), []);
+  const [devMode, setDevModeState] = useState(isDevModeEnabled);
+  useEffect(() => subscribeDevMode(setDevModeState), []);
   const [editJournal, setEditJournalState] = useState(isEditJournalEnabled);
   useEffect(() => subscribeEditJournal(setEditJournalState), []);
+
+  // Désinstallation : proposée seulement dans l'application installée (désinstalleur à côté de l'exe).
+  const [canUninstall, setCanUninstall] = useState(false);
+  useEffect(() => {
+    void window.apexDesktop?.canUninstall?.().then(setCanUninstall).catch(() => setCanUninstall(false));
+  }, []);
 
   const [, forceRender] = useState(0);
   useEffect(() => subscribeUiScale(() => forceRender((n) => n + 1)), []);
   const uiScale = getUiScale();
   const uiNeutral = isUiNeutral();
+  // Interface du PROCHAIN lancement (lue une seule fois au lancement, cf. utils/interfaceMode.ts) :
+  // le réglage est mémorisé tout de suite, la session en cours ne change pas.
+  const [classicNext, setClassicNext] = useState(() => getStoredInterfaceMode() === 'classic');
 
   return (
     <div className={styles.container}>
@@ -91,6 +104,21 @@ export const ParamsPanel: React.FC = () => {
             />
             <span>Apex Neutral</span>
           </label>
+          <label className={styles.checkboxRow}>
+            <input
+              type="checkbox"
+              className={styles.checkbox}
+              checked={classicNext}
+              onChange={(e) => {
+                setClassicNext(e.target.checked);
+                setStoredInterfaceMode(e.target.checked ? 'classic' : 'liquid');
+              }}
+            />
+            <span>Interface à plat au prochain lancement (noir et blanc, sans verre, flou, transparence, sons ni animations)</span>
+          </label>
+          {(classicNext ? 'classic' : 'liquid') !== getLaunchInterfaceMode() && (
+            <p className={styles.subtitle}>Pris en compte au prochain lancement de l'application.</p>
+          )}
         </section>
 
         <section className={styles.section}>
@@ -121,7 +149,26 @@ export const ParamsPanel: React.FC = () => {
             />
             <span>Enregistrer l'historique des modifications dans le G-code</span>
           </label>
+          <label className={styles.checkboxRow}>
+            <input
+              type="checkbox"
+              className={styles.checkbox}
+              checked={devMode}
+              onChange={(e) => setDevModeEnabled(e.target.checked)}
+            />
+            <span>Mode dev (onglet Dev et raccourcis du navigateur : Ctrl+R, F5, F12…)</span>
+          </label>
         </section>
+
+        {canUninstall && (
+          <section className={styles.section}>
+            <h3 className={styles.sectionTitle}>Application</h3>
+            <button type="button" className={styles.dangerButton} onClick={() => void window.apexDesktop?.uninstall?.()}>
+              Désinstaller Apex Slicer…
+            </button>
+            <p className={styles.subtitle}>Demande confirmation, puis l'autorisation administrateur, et ferme l'application.</p>
+          </section>
+        )}
       </motion.div>
     </div>
   );

@@ -76,6 +76,12 @@ function apexProfilesDevServer(): Plugin {
 }
 
 export default defineConfig(() => ({
+  // Chemins relatifs : l'application de bureau charge dist/index.html par file:// (electron/main.cjs), ou `/assets/...`
+  // pointerait vers la racine du disque et l'ecran resterait noir.
+  base: "./",
+  define: {
+    __APEX_VERSION__: JSON.stringify(require("./package.json").apexVersion),
+  },
   server: {
     host: "::",
     port: 8080,

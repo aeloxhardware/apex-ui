@@ -18,11 +18,11 @@ import {
   type EditHandleRefusal,
   type EditHistoryEntry,
   type EditInfluence,
-  type EditResliceInsert,
+  type EditSplice,
   type EditTransform,
   type EditValidation,
 } from '@/utils/editKernelClient';
-import { showSuccess } from '@/utils/toast';
+import { insertMoves, removeMoves, remapMoveIndex } from '@/utils/gcodeSplice';
 import { loadLayerLimits, saveLayerLimits, layerFloorMm, sanitizeLayerLimits, type LayerLimits } from '@/utils/layerLimits';
 import { loadMachineLimits, saveMachineLimits, toKernelLimits, type MachineLimits } from '@/utils/machineLimits';
 import { fingerprintOf, type ApexJournalEntry } from '@/utils/apexHeader';
@@ -33,11 +33,8 @@ import {
   DEFAULT_EDIT_SYMMETRY,
   DEFAULT_LOCK_RADIUS_MM,
   EDIT_ANALYZE_EVENT,
-  EDIT_BAKE_EVENT,
-  EDIT_BAKE_PREPARE_EVENT,
   EDIT_CLEAR_LOCKS_EVENT,
   EDIT_COPY_EVENT,
-  EDIT_FILE_INFO_EVENT,
   EDIT_INFLUENCE_EVENT,
   EDIT_LIMITS_EVENT,
   EDIT_LAYER_LIMITS_EVENT,
@@ -50,10 +47,8 @@ import {
   EDIT_SET_DELTA_EVENT,
   EDIT_STATE_EVENT,
   EDIT_SYMMETRY_EVENT,
-  EDIT_UNBAKE_EVENT,
   EDIT_UNDO_EVENT,
   type EditDelta,
-  type EditFileInfo,
   type EditInfluenceSettings,
   type EditLockMode,
   type EditStateDetail,
@@ -249,17 +244,11 @@ export function createGCodeEditController(opts: {
   let nodeSeq = 0;
   let undoDepth = 0;
   let redoDepth = 0;
-  // Re-tranchage : opérations annulables / rétablissables côté fichier (instantanés, cf. use-gcode-preview), couches
-  // à insérer dans l'aperçu en cours, et plans d'insertion des validations depuis la dernière réécriture.
-  let bakeUndoDepth = 0;
-  let bakeRedoDepth = 0;
+  // Re-tranchage : couches à insérer dans l'aperçu en cours (cf. updatePreview).
+  // Une validation (noyau, puis G-code, calque, symétrie) est en cours : annuler / rétablir attendent sa fin.
+  let committing = false;
   let reslicePoints = 0;
   let resliceMaxCount = 0;
-  let reslicePlans: EditResliceInsert[] = [];
-  let bakeSnapshotTaken = false;
-  // Validations (du noyau) depuis la première qui a produit des couches à insérer, et part déjà affichée.
-  let pendingResliceCommits = 0;
-  let pendingResliceApplied = 0;
   let affected = 0;
   let delta: EditDelta | null = null;
   let busyCount = 0;
@@ -288,7 +277,7 @@ export function createGCodeEditController(opts: {
     if (disposed) return;
     const detail: EditStateDetail = {
       status, message, placing, hasNode: !!node, busy: busyCount > 0,
-      undoDepth: undoDepth + bakeUndoDepth, redoDepth: redoDepth + bakeRedoDepth, affected, delta, influence,
+      undoDepth, redoDepth, affected, delta, influence,
       nodeTrimming: node ? node.trimming : null,
       trimmed: trimmedCount, reslicePoints, resliceMaxCount, thickness, validation,
       locks: locksCount, lockMode, lockRadiusMm,
@@ -775,6 +764,7 @@ export function createGCodeEditController(opts: {
     trimmed?: Uint32Array,
     group?: string,
   ) => {
+    if (parsed.insertedBlocks?.length) return;
     const journal = (parsed.editJournal ??= { undo: [], redo: [] });
     const entry: ApexJournalEntry = {
       at: new Date().toISOString(),
@@ -1270,61 +1260,37 @@ export function createGCodeEditController(opts: {
 
   const newGroupId = () => `g${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
 
-  // --- re-tranchage : couches interpolées insérées dans le fichier ------------------------------------------
+  // --- re-tranchage : couches interpolées insérées dans la trajectoire, en place -----------------------------
 
-  const BAKE_TIMEOUT_MS = 180_000;
-  /** Envoie un événement au lecteur de G-code et attend sa réponse (faux sans réponse dans le délai). */
-  const askReader = (name: string, detail: Record<string, unknown>) => new Promise<boolean>((resolve) => {
-    const timer = window.setTimeout(() => resolve(false), BAKE_TIMEOUT_MS);
-    window.dispatchEvent(new CustomEvent(name, {
-      detail: { ...detail, done: (ok: boolean) => { window.clearTimeout(timer); resolve(ok); } },
-    }));
-  });
-
-  /** Instantané du fichier avant d'appliquer une validation qui insère des couches (annulation). */
-  const prepareBake = async (): Promise<boolean> => {
-    if (bakeSnapshotTaken) return true;
-    bakeSnapshotTaken = await askReader(EDIT_BAKE_PREPARE_EVENT, {});
-    return bakeSnapshotTaken;
+  /** Temps machine et types de ligne par mouvement, à redonner au noyau après une insertion de points. */
+  const syncKernelMoves = async (parsed: ParsedGCode) => {
+    const typeIndex = new Map<string, number>(LINE_TYPES.map((t, i) => [t.id, i]));
+    const types = new Uint8Array(parsed.moves.length);
+    parsed.moves.forEach((m, k) => { types[k] = typeIndex.get(m.type) ?? 0; });
+    await editKernel.setTypes(types);
+    await editKernel.setTimes(Float64Array.from(parsed.times));
   };
 
-  /** La réécriture a échoué : les validations depuis la première insertion ont réduit E en comptant sur des
-   * couches qui n'existeront pas, on les annule (les plus récentes d'abord ; seules celles déjà affichées
-   * sont défaites à l'écran). */
-  const abortReslice = async (commits: number, applied: number, why: string) => {
-    reslicePlans = [];
-    bakeSnapshotTaken = false;
-    for (let i = 0; i < commits; i++) {
-      const c = await editKernel.undo();
-      undoDepth = c.undoDepth;
-      redoDepth = c.redoDepth;
-      if (!c.ok) break;
-      if (i >= commits - applied) applyChange(c.indices, c.values, c.trimmed, c.trimState);
+  /** Points insérés ou retirés par le noyau (re-tranchage) : le G-code affiché, le calque 3D et les nœuds suivent,
+   * sans réécrire ni relire le fichier. À l'insertion, avant d'appliquer les valeurs ; au retrait, après. */
+  const applySplice = async (splice: EditSplice) => {
+    const parsed = layer.getParsed();
+    if (!parsed || splice.blocks.length === 0) return;
+    const length = parsed.moves.length;
+    for (const m of nodes.values()) {
+      const k = remapMoveIndex(m.index, splice.blocks, splice.inserted, length);
+      m.index = k >= 0 ? k : Math.max(0, splice.blocks[0].at - 1);
     }
-    pendingResliceCommits = 0;
-    pendingResliceApplied = 0;
-    hold(why);
-    requestWeights();
-    updateView(true);
-    emit();
-  };
-
-  /** Réécrit le fichier avec les couches insérées et le relit (le lecteur recharge, le contrôleur repart de lui). */
-  const bakeAndReload = async () => {
-    const inserts = reslicePlans;
-    const commits = pendingResliceCommits;
-    const applied = pendingResliceApplied;
-    reslicePlans = [];
-    pendingResliceCommits = 0;
-    pendingResliceApplied = 0;
-    const points = inserts.reduce((sum, ins) => sum + ins.extruding.length, 0);
-    const ok = await busy(askReader(EDIT_BAKE_EVENT, { inserts }));
-    bakeSnapshotTaken = false;
-    if (!ok) {
-      await abortReslice(commits, applied, "Les couches n'ont pas pu être insérées : la déformation est annulée.");
-      return;
-    }
-    showSuccess(`Couches interpolées : ${inserts.length} zone(s), ${points.toLocaleString('fr-FR')} points ajoutés au G-code.`);
+    if (splice.inserted) insertMoves(parsed, splice.blocks);
+    else removeMoves(parsed, splice.blocks);
+    // Le journal du fichier décrivait l'ancienne numérotation (et n'est plus écrit tant que des plages sont insérées).
+    parsed.editJournal = { undo: [], redo: [] };
+    liveB = null;
+    judgedSet = null;
+    await layer.replaceMoves(parsed);
+    await syncKernelMoves(parsed);
+    for (const m of nodes.values()) m.anchor = layer.getMoveTip(m.index, new BABYLON.Vector3());
+    void refreshLocks();
   };
 
   /** Valide la déformation en cours (translation du nœud et rotation des poignées). */
@@ -1345,21 +1311,15 @@ export function createGCodeEditController(opts: {
     const nodeIndex = n.index;
     const anchorKernel = toKernel(n.anchor);
     const group = newGroupId();
+    committing = true;
     void busy(editKernel.commit(transform)).then(async (change) => {
       if (node !== n) return;
       undoDepth = change.undoDepth;
       redoDepth = change.redoDepth;
+      // Re-tranchage : des couches sont insérées (indices de `change` = état avec elles).
+      if (change.ok && change.splice?.inserted) await applySplice(change.splice);
       const parsed = layer.getParsed();
-      // Re-tranchage : des couches sont à insérer. Le fichier va être réécrit et relu : instantané d'abord,
-      // avant d'appliquer cette validation au G-code affiché (annulation = retour à cet instantané).
-      const resliced = change.ok && !!change.reslice?.length;
-      if (resliced) reslicePlans.push(...change.reslice!);
-      if (change.ok && reslicePlans.length > 0) pendingResliceCommits++;
-      if (resliced && !(await prepareBake())) {
-        await abortReslice(pendingResliceCommits, pendingResliceApplied, "Instantané du fichier impossible : la déformation est annulée.");
-        return;
-      }
-      if (change.ok && change.indices && change.values && parsed && !resliced) {
+      if (change.ok && change.indices && change.values && parsed && !parsed.insertedBlocks?.length) {
         // Valeurs d'avant lues AVANT d'appliquer la modification au G-code affiché.
         const before = currentValues(parsed, change.indices);
         void journalCommit(
@@ -1373,7 +1333,6 @@ export function createGCodeEditController(opts: {
         change.ok ? change.indices : undefined, change.ok ? change.values : undefined,
         change.ok ? change.trimmed : undefined, change.ok ? change.trimState : undefined,
       );
-      if (change.ok && reslicePlans.length > 0) pendingResliceApplied++;
       n.original = originalOf(n.index);
       // Validée : la portée revient à celle que recommandent les poignées.
       n.reach = { scale: 1, growing: false, saturated: false, affected: 0 };
@@ -1382,17 +1341,13 @@ export function createGCodeEditController(opts: {
       emit();
       if (change.ok) {
         if (symmetry.mode !== 'none') await applySymmetry(journalTransform, influenceUsed, anchorKernel, group);
-        if (reslicePlans.length > 0) {
-          await bakeAndReload();
-          return;
-        }
         void afterEdit(change.indices);
       }
     }).catch((error) => {
       if (import.meta.env.DEV) console.error('[édition] validation :', error);
       message = error instanceof Error ? error.message : String(error);
       emit();
-    });
+    }).finally(() => { committing = false; });
   };
 
   // --- symétrie : la déformation validée est répétée en d'autres points (cyclique ou miroir) ---------
@@ -1463,19 +1418,12 @@ export function createGCodeEditController(opts: {
         const change = await editKernel.commit(tr2);
         const parsed = layer.getParsed();
         if (!change.ok || !change.indices || !change.values || !parsed) { skipped.push('copie sans effet'); continue; }
-        const resliced = !!change.reslice?.length;
-        if (resliced) reslicePlans.push(...change.reslice!);
-        if (reslicePlans.length > 0) pendingResliceCommits++;
-        if (resliced && !(await prepareBake())) {
-          await abortReslice(pendingResliceCommits, pendingResliceApplied, "Instantané du fichier impossible : la copie est annulée.");
-          return;
-        }
-        if (!resliced) {
+        if (change.splice?.inserted) await applySplice(change.splice);
+        if (!parsed.insertedBlocks?.length) {
           const before = currentValues(parsed, change.indices);
           void journalCommit(parsed, index, tr2, infl2, change.indices, before, change.values, change.trimmed, group);
         }
         layer.applyMoveEdits(change.indices, change.values, change.trimmed, change.trimState);
-        if (reslicePlans.length > 0) pendingResliceApplied++;
         undoDepth = change.undoDepth;
         redoDepth = change.redoDepth;
         if (undoGroups.length === 0) undoGroups.push(0);
@@ -1682,20 +1630,11 @@ export function createGCodeEditController(opts: {
 
   let historyBusy = false;
   const historyStep = (step: 'undo' | 'redo') => {
-    if (status !== 'ready' || historyBusy) return;
+    if (status !== 'ready' || historyBusy || committing) return;
     // Une validation et ses copies par symétrie ne font qu'une étape.
     const groups = step === 'undo' ? undoGroups : redoGroups;
     const other = step === 'undo' ? redoGroups : undoGroups;
     const depth = step === 'undo' ? undoDepth : redoDepth;
-    // Plus rien à défaire dans le noyau : l'opération précédente est peut-être une insertion de couches.
-    if (depth === 0 && (step === 'undo' ? bakeUndoDepth : bakeRedoDepth) > 0) {
-      historyBusy = true;
-      void busy(askReader(EDIT_UNBAKE_EVENT, { redo: step === 'redo' })).then((ok) => {
-        historyBusy = false;
-        if (!ok) { hold("Retour au fichier précédent impossible."); emit(); }
-      }).catch(() => { historyBusy = false; });
-      return;
-    }
     const count = Math.max(1, Math.min(groups.length ? groups[groups.length - 1] : 1, depth || 1));
     historyBusy = true;
     void busy((async () => {
@@ -1707,9 +1646,12 @@ export function createGCodeEditController(opts: {
         redoDepth = change.redoDepth;
         if (!change.ok) break;
         done++;
+        // Couches inserées : rétablir les remet avant les valeurs, annuler les retire après.
+        if (change.splice?.inserted) await applySplice(change.splice);
         const parsed = layer.getParsed();
         if (parsed) journalStep(parsed, step);
         applyChange(change.indices, change.values, change.trimmed, change.trimState);
+        if (change.splice && !change.splice.inserted) await applySplice(change.splice);
         if (change.indices?.length) touched = change.indices;
       }
       if (done > 0) {
@@ -1782,13 +1724,6 @@ export function createGCodeEditController(opts: {
       .then(() => { if (node) requestWeights(); })
       .catch(() => undefined);
   };
-  const onFileInfo = (e: Event) => {
-    const info = (e as CustomEvent<EditFileInfo>).detail;
-    if (!info) return;
-    bakeUndoDepth = info.bakeUndo ?? 0;
-    bakeRedoDepth = info.bakeRedo ?? 0;
-    emit();
-  };
   const onAnalyze = (e: Event) => { void analyzeFile(!!(e as CustomEvent<{ collisions: boolean }>).detail?.collisions); };
   const onUndo = () => historyStep('undo');
   const onRedo = () => historyStep('redo');
@@ -1813,7 +1748,6 @@ export function createGCodeEditController(opts: {
   window.addEventListener(EDIT_SYMMETRY_EVENT, onSymmetry);
   window.addEventListener(EDIT_LIMITS_EVENT, onLimits);
   window.addEventListener(EDIT_LAYER_LIMITS_EVENT, onLayerLimits);
-  window.addEventListener(EDIT_FILE_INFO_EVENT, onFileInfo);
   window.addEventListener(EDIT_ANALYZE_EVENT, onAnalyze);
   window.addEventListener(EDIT_PLACE_EVENT, onPlace);
   window.addEventListener(EDIT_INFLUENCE_EVENT, onInfluence);
@@ -1899,7 +1833,6 @@ export function createGCodeEditController(opts: {
       window.removeEventListener(EDIT_SYMMETRY_EVENT, onSymmetry);
       window.removeEventListener(EDIT_LIMITS_EVENT, onLimits);
       window.removeEventListener(EDIT_LAYER_LIMITS_EVENT, onLayerLimits);
-      window.removeEventListener(EDIT_FILE_INFO_EVENT, onFileInfo);
       window.removeEventListener(EDIT_ANALYZE_EVENT, onAnalyze);
       window.clearTimeout(headTimer);
       window.clearTimeout(validateTimer);

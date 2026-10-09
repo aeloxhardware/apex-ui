@@ -176,6 +176,24 @@ struct LoadStats {
 constexpr uint32_t kNoIndex = 0xFFFFFFFFu;
 constexpr int kSupportSlots = 4;
 
+// Points inseres dans la trajectoire (re-tranchage) : `at` = indice du premier point inséré DANS L'ETAT
+// APRES insertion, `values` kValuesPerPoint par point (R, C, Z, B, E), `extruding` : le segment qui arrive
+// au point depose. Les blocs d'une meme operation sont donnes par `at` croissant.
+struct InsertBlock {
+  uint32_t at = 0;
+  std::vector<double> values;
+  std::vector<uint8_t> extruding;
+  size_t count() const { return extruding.size(); }
+};
+
+// Dernier changement de topologie (commit, annulation, retablissement) : `inserted` vrai = blocs inseres,
+// faux = blocs retires. Les indices de `last_indices()` sont toujours ceux de l'etat AVEC les blocs ; a
+// l'insertion, inserer avant d'appliquer les valeurs, au retrait, appliquer les valeurs avant de retirer.
+struct Splice {
+  bool inserted = false;
+  std::vector<InsertBlock> blocks;
+};
+
 // Pourquoi set_handle refuse un point.
 enum class HandleRefusal : uint8_t { None = 0, Invalid = 1, Locked = 2, Plate = 3, Surface = 4 };
 
@@ -316,6 +334,7 @@ class EditKernel {
     std::vector<uint8_t> extruding;
   };
   const std::vector<ResliceInsert>& last_reslice() const { return reslice_plan_; }
+  const Splice& last_splice() const { return last_splice_; }
   bool reslice_active() const { return reslice_; }
   // Nombre de couches a inserer par point (parallele a affected() puis dependents()) pour la
   // deformation en cours ; vide hors re-tranchage.
@@ -373,6 +392,10 @@ class EditKernel {
     // Points dont le segment d'arrivee a ete rogne par cette modification (indices croissants, sous-
     // ensemble de `indices`) : leur extrusion passe a 0 et ils ne deposent plus.
     std::vector<uint32_t> trimmed;
+    // Points inseres par cette modification (re-tranchage) ; `indices` et `trimmed` sont alors ceux de l'etat
+    // apres insertion. Les entrees plus anciennes restent dans l'indexation d'avant : on ne les atteint
+    // qu'apres avoir retire les blocs (annulation dans l'ordre inverse).
+    std::vector<InsertBlock> inserted;
   };
   // Remplace l'historique d'annulation par celui relu dans le journal du fichier (reouverture) :
   // l'etat courant est deja celui d'apres `undo`. Faux (et rien de change) si une entree ne
@@ -404,6 +427,9 @@ class EditKernel {
   float effective_height(size_t idx) const;
   void compute_layer_counts();
   void build_reslice_plan();
+  void init_derived(LoadStats* stats);
+  void insert_blocks(const std::vector<InsertBlock>& blocks);
+  void remove_blocks(const std::vector<InsertBlock>& blocks);
   void compute_trimmed();
   void clear_handle();
   uint32_t snap_to_pass_point(uint32_t index) const;
@@ -449,6 +475,7 @@ class EditKernel {
   std::vector<uint32_t> reslice_order_;                              // rangs (affected puis dependents) par indice de point
   std::vector<ResliceRun> reslice_runs_;
   std::vector<ResliceInsert> reslice_plan_;
+  Splice last_splice_;
   int stack_sign_ = 0;
   bool direction_stale_ = false;
   // Coques : -1 inconnu, 0 interieur, 1 coque ; normale de paroi (unitaire) si coque.

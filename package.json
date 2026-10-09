@@ -1,6 +1,7 @@
 {
   "name": "vite_react_shadcn_ts",
-  "version": "0.0.0",
+  "version": "0.2.1",
+  "apexVersion": "alpha-0.2.1.3.1.3.1.221",
   "private": true,
   "type": "module",
   "main": "electron/main.cjs",
@@ -103,7 +104,8 @@
     "productName": "Apex Slicer",
     "files": [
       "dist/**/*",
-      "electron/**/*"
+      "electron/**/*",
+      "!node_modules/**/*"
     ],
     "directories": {
       "output": "release"
@@ -127,12 +129,20 @@
       "category": "public.app-category.graphics-design"
     },
     "win": {
-      "icon": "public/mini-logo.png",
+      "icon": "build/icon-256.png",
       "target": "nsis",
       "extraResources": [
         {
           "from": "build/python-embed",
           "to": "python"
+        },
+        {
+          "from": "native/build/apex_edit.node",
+          "to": "native/apex_edit.node"
+        },
+        {
+          "from": "native/build/apex_backdrop.node",
+          "to": "native/apex_backdrop.node"
         }
       ]
     },

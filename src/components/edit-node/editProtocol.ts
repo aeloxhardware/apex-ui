@@ -168,15 +168,6 @@ export { DEFAULT_MACHINE_LIMITS, DEFAULT_LAYER_LIMITS };
  * enregistrer le G-code modifié, en place (`inplace`) ou en copie (`copy`). */
 export const EDIT_SAVE_EVENT = 'apex-edit-save';
 
-/** Re-tranchage : des couches interpolées s'insèrent dans le G-code, dont le nombre de lignes change et
- * donc tous les indices de mouvements : le fichier est réécrit puis rechargé (« cuit »). Contrôleur →
- * lecteur de G-code (use-gcode-preview). Étapes :
- *  - EDIT_BAKE_PREPARE_EVENT { done } : instantané du fichier AVANT la validation (pour l'annulation) ;
- *  - EDIT_BAKE_EVENT { inserts, done } : réécriture avec les insertions et rechargement ;
- *  - EDIT_UNBAKE_EVENT { redo, done } : annuler / rétablir une telle opération (retour à l'instantané). */
-export const EDIT_BAKE_PREPARE_EVENT = 'apex-edit-bake-prepare';
-export const EDIT_BAKE_EVENT = 'apex-edit-bake';
-export const EDIT_UNBAKE_EVENT = 'apex-edit-unbake';
 export type EditSaveMode = 'inplace' | 'copy';
 
 /** Lecteur de G-code → panneau : le fichier affiché peut-il être modifié en place ? (D4 : tranché
@@ -185,7 +176,4 @@ export const EDIT_FILE_INFO_EVENT = 'apex-edit-file-info';
 export interface EditFileInfo {
   name: string | null;
   canSaveInPlace: boolean;
-  /** Opérations de re-tranchage annulables / rétablissables (instantanés du fichier). */
-  bakeUndo: number;
-  bakeRedo: number;
 }

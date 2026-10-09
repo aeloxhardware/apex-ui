@@ -27,5 +27,11 @@ contextBridge.exposeInMainWorld('installerApi', {
   // quit-debug.log cote main process, pour diagnostiquer le blocage de
   // fermeture (la console DevTools ne suffit pas si personne ne regarde
   // au bon moment).
+  // Demarrage de l'intro (musique, animations) : le main l'envoie une fois le logo de chargement disparu.
+  rendererReady: () => ipcRenderer.send('installer:renderer-ready'),
+  onStart: (callback) => ipcRenderer.once('installer:start', () => callback()),
+  // Deplacement de la fenetre par glisser sur une zone sans controle (voir renderer.js, initWindowDrag).
+  dragStart: () => ipcRenderer.send('installer:drag-start'),
+  dragMove: () => ipcRenderer.send('installer:drag-move'),
   debugLog: (message) => ipcRenderer.send('installer:debug-log', message),
 });

@@ -19,10 +19,11 @@ import {
 import { LOGO_PAD_X, LOGO_PAD_Y, PILL_CLIP, TRIANGLE_CLIP } from '@/utils/indicatorShapes';
 import styles from './Sidebar.module.scss';
 import { CustomTooltip } from './CustomTooltip';
-import { PREVIEW_TABS, setPreviewTab, usePreviewTab } from './PreviewUpperTabs';
+import { PREVIEW_TABS, getPreviewTab, setPreviewTab, usePreviewTab } from './PreviewUpperTabs';
 import { playUiSound, type UiSoundName } from '@/utils/uiSound';
 import { GCODE_FILE_EXT } from '@/hooks/use-gcode-preview';
 import { showSuccess } from '@/utils/toast';
+import { APP_TAGLINE_DEV, APP_TAGLINE_PREVIEW, isDevModeEnabled, subscribeDevMode } from '@/utils/devModePrefs';
 
 // Doit correspondre à ViewCube.module.scss (`.container`) : la colonne d'outils du mode
 // Prévisualisation vient se coller au même bord droit, juste sous le gizmo.
@@ -63,6 +64,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [activeTool, setActiveTool] = useState<'select' | 'move' | 'rotate' | 'scale' | 'texture' | 'layers'>('select');
   const [isPreviewActive, setIsPreviewActive] = useState(false);
   const previewTab = usePreviewTab();
+  const [devMode, setDevModeState] = useState(isDevModeEnabled);
+  useEffect(() => subscribeDevMode(setDevModeState), []);
+  // Désactiver le mode dev depuis un espace devenu caché (Dev, Modélisation) ramène à l'Accueil ;
+  // l'onglet « Fonction » grisé ne doit pas rester affiché.
+  useEffect(() => {
+    if (devMode) return;
+    if (activeTab === 'developer' || activeTab === 'settings') onTabChange('home');
+    if (getPreviewTab() === 'fonction') setPreviewTab('coloration');
+  }, [devMode, activeTab, onTabChange]);
   // Géométrie du conteneur juste avant de lancer la transition en cours : mesurée à la volée
   // (voir `playSpaceTransition`) quel que soit le mode de départ (slicer, prévisualisation
   // ou modélisation), pour que l'animation de conteneur parte toujours de sa forme réelle et
@@ -441,31 +451,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className={styles.activeIndicatorShape} style={{ clipPath: indicatorOnLogo ? TRIANGLE_CLIP : PILL_CLIP }} />
         </div>
 
-        <CustomTooltip content="Apex Slicer Studio" description="Openware de tranchage de modèles 3D destiné à la fabrication additive non-planaire à plan de construction dynamique.">
+        <CustomTooltip content="Apex Slicer Studio" description={devMode ? APP_TAGLINE_DEV : APP_TAGLINE_PREVIEW}>
           <button
             ref={(el) => { if (el) buttonRefs.current.set('home', el); }}
             className={styles.logoContainer}
             onClick={() => handleTopTabClick('home')}
             aria-label="Accueil"
           >
-            <img src="/logo.svg" alt="Logo" className={styles.logoImg} />
+            <img src={`${import.meta.env.BASE_URL}logo.svg`} alt="Logo" className={styles.logoImg} />
           </button>
         </CustomTooltip>
 
         <div className={styles.topSeparator} />
 
-        <CustomTooltip content="Vue 3D Perspective" description="Basculez sur l'espace de travail principal pour inspecter et manipuler vos modèles sur le plateau d'impression.">
-          <button
-            ref={(el) => { if (el) buttonRefs.current.set('box', el); }}
-            className={clsx(styles.button, styles.topButton, {
-              [styles.active]: activeTab === '3d-view' && !isPreviewActive,
-            })}
-            onClick={() => handleTopTabClick('box')}
-          >
-            <FileSliders size={22} />
-            <span className={styles.topButtonLabel}>Préparation</span>
-          </button>
-        </CustomTooltip>
+        {devMode && (
+          <CustomTooltip content="Vue 3D Perspective" description="Basculez sur l'espace de travail principal pour inspecter et manipuler vos modèles sur le plateau d'impression.">
+            <button
+              ref={(el) => { if (el) buttonRefs.current.set('box', el); }}
+              className={clsx(styles.button, styles.topButton, {
+                [styles.active]: activeTab === '3d-view' && !isPreviewActive,
+              })}
+              onClick={() => handleTopTabClick('box')}
+            >
+              <FileSliders size={22} />
+              <span className={styles.topButtonLabel}>Préparation</span>
+            </button>
+          </CustomTooltip>
+        )}
 
         <CustomTooltip content="Prévisualisation" description="Visualisez le parcours de la buse et ajustez différents paramètres si cela ne vous convient pas.">
           <button
@@ -480,31 +492,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </CustomTooltip>
 
-        <CustomTooltip content="Modélisation" description="Accédez aux outils de modélisation et de préparation de votre modèle.">
-          <button
-            ref={(el) => { if (el) buttonRefs.current.set('settings', el); }}
-            className={clsx(styles.button, styles.topButton, {
-              [styles.active]: activeTab === 'settings',
-            })}
-            onClick={() => handleTopTabClick('settings')}
-          >
-            <Box size={22} />
-            <span className={styles.topButtonLabel}>Modélisation</span>
-          </button>
-        </CustomTooltip>
+        {devMode && (
+          <CustomTooltip content="Modélisation" description="Accédez aux outils de modélisation et de préparation de votre modèle.">
+            <button
+              ref={(el) => { if (el) buttonRefs.current.set('settings', el); }}
+              className={clsx(styles.button, styles.topButton, {
+                [styles.active]: activeTab === 'settings',
+              })}
+              onClick={() => handleTopTabClick('settings')}
+            >
+              <Box size={22} />
+              <span className={styles.topButtonLabel}>Modélisation</span>
+            </button>
+          </CustomTooltip>
+        )}
 
-        <CustomTooltip content="Console Développeur" description="Inspectez les flux G-code générés en temps réel et les journaux de diagnostic système.">
-          <button
-            ref={(el) => { if (el) buttonRefs.current.set('developer', el); }}
-            className={clsx(styles.button, styles.topButton, {
-              [styles.active]: activeTab === 'developer',
-            })}
-            onClick={() => handleTopTabClick('developer')}
-          >
-            <Code size={22} />
-            <span className={styles.topButtonLabel}>Dev</span>
-          </button>
-        </CustomTooltip>
+        {devMode && (
+          <CustomTooltip content="Console Développeur" description="Inspectez les flux G-code générés en temps réel et les journaux de diagnostic système.">
+            <button
+              ref={(el) => { if (el) buttonRefs.current.set('developer', el); }}
+              className={clsx(styles.button, styles.topButton, {
+                [styles.active]: activeTab === 'developer',
+              })}
+              onClick={() => handleTopTabClick('developer')}
+            >
+              <Code size={22} />
+              <span className={styles.topButtonLabel}>Dev</span>
+            </button>
+          </CustomTooltip>
+        )}
 
         <CustomTooltip content="Paramètres" description="Réglages généraux de l'application, sans le viewport 3D.">
           <button
@@ -694,12 +710,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
               initial="hidden"
               className="flex items-center"
             >
-              <CustomTooltip content={t.label} description={t.description}>
+              <CustomTooltip
+                content={t.label}
+                description={!devMode && t.id === 'fonction' ? 'Arrive bientôt' : t.description}
+              >
                 <button
                   className={clsx(styles.button, styles.bottomButton, { [styles.active]: previewTab === t.id })}
+                  style={!devMode && t.id === 'fonction' ? { opacity: 0.35, filter: 'grayscale(1)', cursor: 'not-allowed' } : undefined}
                   aria-label={t.label}
                   aria-pressed={previewTab === t.id}
-                  onClick={() => setPreviewTab(t.id)}
+                  aria-disabled={!devMode && t.id === 'fonction'}
+                  onClick={() => { if (devMode || t.id !== 'fonction') setPreviewTab(t.id); }}
                 >
                   {t.icon}
                 </button>

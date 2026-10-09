@@ -3,9 +3,18 @@
 // du canal vers le noyau C++ d'édition.
 const { contextBridge, ipcRenderer, webUtils, webFrame } = require('electron');
 
+const uiArg = process.argv.find((a) => a.startsWith('--apex-ui='));
+
 contextBridge.exposeInMainWorld('apexDesktop', {
+  // Interface imposée au lancement (`--ui=` / APEX_UI), sinon null : cf. src/utils/interfaceMode.ts.
+  launchUi: uiArg ? uiArg.slice('--apex-ui='.length) : null,
   // Échelle de l'interface (Paramètres) : zoom natif, le canvas et le pointeur restent justes.
   setZoomFactor: (factor) => webFrame.setZoomFactor(factor),
+  // Mode dev (Paramètres) : désactivé, le process principal bloque les raccourcis du navigateur.
+  setDevMode: (enabled) => ipcRenderer.send('apex:set-dev-mode', Boolean(enabled)),
+  // Desinstallation (application installee par l'installateur seulement).
+  canUninstall: () => ipcRenderer.invoke('apex:can-uninstall'),
+  uninstall: () => ipcRenderer.invoke('apex:uninstall'),
   convertGCode: (request) => ipcRenderer.invoke('apex:convert-gcode', request),
   onConvertProgress: (callback) => {
     const listener = (_event, percent) => callback(percent);
@@ -25,6 +34,9 @@ contextBridge.exposeInMainWorld('apexDesktop', {
   scanProfiles: () => ipcRenderer.invoke('apex:profiles-scan'),
   readProfile: (path) => ipcRenderer.invoke('apex:profiles-read', path),
   openEditChannel: () => ipcRenderer.send('apex:edit-open'),
+  // L'interface est prête (premier rendu du viewport) : le main ferme l'écran de démarrage.
+  appReady: () => ipcRenderer.send('apex:app-ready'),
+  appStatus: (text) => ipcRenderer.send('apex:app-status', String(text)),
 });
 
 // Un MessagePort ne traverse pas contextBridge : il est remis à la page par window.postMessage

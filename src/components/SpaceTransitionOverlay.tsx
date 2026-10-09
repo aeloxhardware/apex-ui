@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useRef, useLayoutEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './SpaceTransitionOverlay.module.scss';
+import VeilWorker from '@/workers/veil.worker?worker&inline';
+import { BLUR_MS, TILE_ANIM_MS, TILE_COLS, TILE_ROWS, TILE_STEP_MS, veilNow, veilState, type VeilClock } from '@/utils/veilTimeline';
 
 /**
  * Rideau plein écran joué à chaque changement d'espace (Préparation / Prévisualisation /
@@ -24,15 +26,7 @@ import styles from './SpaceTransitionOverlay.module.scss';
  * (cf. CLAUDE.md).
  */
 
-const BLUR_MS = 320;      // 1. montée du flou seul, doit être TERMINÉE avant la moindre tuile
-// Tuiles 3× plus petites (en aire) que la grille précédente (8×5) : même ratio, dimensions
-// multipliées par √3.
-const TILE_COLS = 14;
-const TILE_ROWS = 9;
-// Réduit par rapport à la grille précédente (8×5, pas 28ms) pour garder une durée de balayage
-// comparable malgré la diagonale plus longue (14+9 vs 8+5 pas).
-const TILE_STEP_MS = 15;  // délai entre deux tuiles consécutives dans l'ordre de balayage
-const TILE_ANIM_MS = 260; // durée d'apparition d'une tuile individuelle
+// Chronologie des tuiles (BLUR_MS, TILE_*) : src/utils/veilTimeline.ts, partagée avec le Worker qui les peint.
 // Le dernier délai + sa propre durée d'anim = durée totale de la phase "paint".
 const PAINT_MS = (TILE_COLS + TILE_ROWS - 2) * TILE_STEP_MS + TILE_ANIM_MS;
 // 3. texte affiché, voile plein écran (switch réel ici). La barre sous le nom de l'espace
@@ -54,15 +48,22 @@ interface SpaceTransitionDetail {
   onCovered?: () => void;
 }
 
-// Grille de tuiles avec leur délai de balayage : distance (en pas de grille) au coin haut-droit,
-// donc la tuile (col=COLS-1, row=0) part la première et (col=0, row=ROWS-1) la dernière — un
-// vrai balayage diagonal plutôt qu'un simple décalage ligne par ligne.
-const TILES = Array.from({ length: TILE_COLS * TILE_ROWS }, (_, i) => {
-  const col = i % TILE_COLS;
-  const row = Math.floor(i / TILE_COLS);
-  const distance = (TILE_COLS - 1 - col) + row;
-  return { col, row, delayMs: distance * TILE_STEP_MS };
-});
+// Tuiles peintes par un Worker (OffscreenCanvas, cf. veil.worker.ts) : l'animation ne dépend pas du thread
+// principal, qui peut être occupé (initialisation du viewport, montage d'un espace, maillage).
+// Singleton : `transferControlToOffscreen` ne peut être appelé qu'une fois par canevas (StrictMode
+// monte les effets deux fois en développement).
+let veilWorker: Worker | null = null;
+let veilCanvas: HTMLCanvasElement | null = null;
+const sendVeil = (msg: unknown) => veilWorker?.postMessage(msg);
+const startVeil = (dir: VeilClock['dir']) => {
+  const clock: VeilClock = { dir, start: veilNow() };
+  veilState.clock = clock;
+  sendVeil({ type: 'play', clock });
+};
+const clearVeil = () => {
+  veilState.clock = null;
+  sendVeil({ type: 'clear' });
+};
 
 // Largeur cible (en px) que le nom de l'espace doit occuper, quel que soit le nombre de
 // lettres — c'est ce qui fait que "DEV" et "PRÉVISUALISATION" remplissent tous les deux le
@@ -74,9 +75,7 @@ export const SpaceTransitionOverlay: React.FC = () => {
   const [label, setLabel] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>('blur');
   const timeoutsRef = useRef<number[]>([]);
-  // Change à chaque déclenchement pour forcer framer-motion à rejouer l'apparition des tuiles
-  // (sans clé, une 2e transition juste après la 1re les laisserait déjà toutes posées).
-  const [runId, setRunId] = useState(0);
+  const veilCanvasRef = useRef<HTMLCanvasElement>(null);
   const spaceNameRef = useRef<HTMLSpanElement>(null);
   // Espacement de lettres recalculé pour chaque `label` afin que le texte remplisse toujours
   // SPACE_NAME_TARGET_WIDTH_PX, au lieu d'un `letter-spacing` fixe qui laisse un mot court
@@ -115,18 +114,49 @@ export const SpaceTransitionOverlay: React.FC = () => {
   const fadingRef = useRef(false);
   const [holding, setHolding] = useState(false);
 
+  // Canevas du voile : confié au Worker une fois pour toutes, redimensionné avec la fenêtre.
+  useEffect(() => {
+    const canvas = veilCanvasRef.current;
+    if (!canvas) return;
+    const size = () => sendVeil({ type: 'size', w: window.innerWidth, h: window.innerHeight, dpr: window.devicePixelRatio || 1 });
+    if (!veilWorker) {
+      try {
+        veilWorker = new VeilWorker();
+        veilCanvas = canvas;
+        const offscreen = canvas.transferControlToOffscreen();
+        veilWorker.postMessage({ type: 'init', canvas: offscreen }, [offscreen]);
+      } catch (error) {
+        console.warn('Voile hors thread indisponible :', error);
+        veilWorker = null;
+        return;
+      }
+    } else if (veilCanvas !== canvas) {
+      return;
+    }
+    size();
+    window.addEventListener('resize', size);
+    return () => window.removeEventListener('resize', size);
+  }, []);
+
   useEffect(() => {
     const clearTimeouts = () => {
       timeoutsRef.current.forEach((id) => window.clearTimeout(id));
       timeoutsRef.current = [];
     };
 
+    // Rendu 3D en pause tant que le voile est opaque (phase « text » et attente de chargement) :
+    // voir `apex-render-pause` dans Viewport3D.
+    const pauseRender = (paused: boolean) => window.dispatchEvent(new CustomEvent('apex-render-pause', { detail: { paused } }));
+
     const beginFadeout = () => {
+      pauseRender(false);
       fadingRef.current = true;
+      startVeil('out');
       setPhase('fadeout');
       timeoutsRef.current.push(window.setTimeout(() => {
         runningRef.current = false;
         fadingRef.current = false;
+        clearVeil();
         setLabel(null);
       }, FADEOUT_MS));
     };
@@ -135,17 +165,19 @@ export const SpaceTransitionOverlay: React.FC = () => {
       const textMs = getTextMs(labelText);
 
       clearTimeouts();
+      pauseRender(false);
       waitingRef.current = false;
       fadingRef.current = false;
       runningRef.current = true;
       setLabel(labelText);
       setPhase('blur');
-      setRunId((id) => id + 1);
+      startVeil('in');
 
       timeoutsRef.current.push(
         window.setTimeout(() => setPhase('paint'), BLUR_MS),
         window.setTimeout(() => {
           // Le contenu change une fois toutes les tuiles posées, jamais visible.
+          pauseRender(true);
           onCovered?.();
           setPhase('text');
         }, BLUR_MS + PAINT_MS),
@@ -188,46 +220,29 @@ export const SpaceTransitionOverlay: React.FC = () => {
       window.removeEventListener('apex-space-transition', handleTransition);
       window.removeEventListener('apex-gcode-loading', handleLoading);
       clearTimeouts();
+      pauseRender(false);
     };
   }, []);
 
   const fadingOut = phase === 'fadeout';
 
   return (
+    <>
+      {/* Flou (étape 1) : un seul élément animé en CSS par le compositeur, sans jointure possible. Il est
+          sous le canevas des tuiles, lui-même sous le texte (même z-index, ordre du DOM). `data-veil-blur`
+          est lu par GlassPanelBackdrop. */}
+      <div
+        data-veil-blur
+        className={`${styles.blurLayer} ${!label ? styles.blurOff : fadingOut ? styles.blurOut : styles.blurIn}`}
+        style={{ animationDuration: `${fadingOut ? FADEOUT_MS : BLUR_MS}ms` }}
+      />
+      {/* Tuiles (étapes 2 et 4) : peintes par un Worker dans ce canevas, voir veil.worker.ts. */}
+      <canvas ref={veilCanvasRef} className={styles.veilCanvas} />
     <AnimatePresence>
       {label && (
-        // data-veil-* : lus par GlassPanelBackdrop (paintSpaceVeil) pour que le verre des panneaux, qui
-        // réfracte le canevas 3D et non le DOM, montre le rideau et non la scène cachée derrière.
+        // data-veil-root : posé tant que le rideau est affiché. Le verre des panneaux, qui réfracte le canevas
+        // 3D et non le DOM, redessine le voile lui-même (veilState) pour ne pas montrer la scène cachée.
         <div className={styles.overlay} data-veil-root>
-          {/* Étape 1 : flou seul, sans teinte — entièrement monté avant la moindre tuile. */}
-          <motion.div
-            data-veil-blur
-            className={styles.blurLayer}
-            initial={{ backdropFilter: 'blur(0px)' }}
-            animate={{ backdropFilter: fadingOut ? 'blur(0px)' : 'blur(18px)' }}
-            transition={{ duration: (fadingOut ? FADEOUT_MS : BLUR_MS) / 1000, ease: [0.4, 0, 0.2, 1] }}
-          />
-
-          {/* Étape 2 (paint) / 4 (fadeout) : mêmes tuiles, même balayage et mêmes délais dans les
-              deux sens — seule la cible (posée vs. retirée) change avec `fadingOut`. */}
-          <div className={styles.tileGrid}>
-            {phase !== 'blur' && TILES.map(({ col, row, delayMs }) => (
-              <motion.div
-                key={`${runId}-${col}-${row}`}
-                data-veil-tile
-                className={styles.tile}
-                style={{
-                  left: `${(col / TILE_COLS) * 100}%`,
-                  top: `${(row / TILE_ROWS) * 100}%`,
-                  width: `${100 / TILE_COLS}%`,
-                  height: `${100 / TILE_ROWS}%`,
-                }}
-                initial={{ opacity: 0, scale: 1.3 }}
-                animate={fadingOut ? { opacity: 0, scale: 1.3 } : { opacity: 1, scale: 1 }}
-                transition={{ duration: TILE_ANIM_MS / 1000, delay: delayMs / 1000, ease: [0.16, 1, 0.3, 1] }}
-              />
-            ))}
-          </div>
 
           <AnimatePresence>
             {painted && (
@@ -266,5 +281,6 @@ export const SpaceTransitionOverlay: React.FC = () => {
         </div>
       )}
     </AnimatePresence>
+    </>
   );
 };

@@ -48,6 +48,22 @@ html, body {
    bas de .windowSurface). Tout le reste du contenu (dragHandle, boutons,
    ecrans...) n'a pas de z-index explicite mais suit dans l'ordre du DOM,
    donc apparait naturellement au-dessus en empilement normal. */
+/* Verre liquide natif actif (classe posee par electron/main.cjs) : le bureau refracte est dessine par une fenetre
+   native sous celle-ci ; la page devient transparente derriere son contenu. Pas tout a fait transparent : un pixel
+   d'alpha nul laisse passer la souris vers les fenetres de derriere (2 % suffisent, 3 % pour la marge). */
+/* Tant que la fenetre n'est pas revelee (logo de chargement a l'ecran, verre en preparation), la page ne montre RIEN :
+   la classe `boot` est retiree par electron/main.cjs au moment de la revelation. */
+html.boot .app {
+  visibility: hidden;
+}
+html.glass .windowSurface {
+  background: rgba(0, 0, 0, 0.03);
+  box-shadow: none;
+}
+html.glass .meshBackground {
+  display: none;
+}
+
 .meshBackground {
   position: absolute;
   inset: 0;
@@ -406,7 +422,7 @@ html, body {
 
 .btnGhost:hover {
   background: rgba(255, 255, 255, 0.1);
-  color: white;
+  color: rgba(255, 255, 255, 1);
 }
 
 .btnPrimary {
@@ -1087,4 +1103,29 @@ html, body {
    propre fond glassmorphism, pas celui de la boite. */
 .criticalActions {
   width: 100%;
+}
+
+/* Ombres portees des elements de l'interface (la fenetre de verre a la sienne, dessinee par l'addon natif : voir
+   native/src/backdrop.hlsl). Declarees en dernier : les etats :hover / [aria-pressed] / :focus, plus specifiques,
+   gardent leur propre lueur. */
+.pathInput,
+.btnGhost,
+.optionRow,
+.planCard,
+.choiceCard,
+.closeBtn,
+.devReplayBtn {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+.progressBarTrack {
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+.confirmBox,
+.criticalBox {
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+.logoMark,
+h1,
+.brandTitle {
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.35));
 }

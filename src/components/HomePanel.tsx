@@ -1,7 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { CreditsPanel } from './CreditsPanel';
+import { TopoBackground } from './TopoBackground';
+import { GlassPanelBackdrop } from './edit-node/GlassPanelBackdrop';
+import { APP_TAGLINE_DEV, APP_TAGLINE_PREVIEW, useDevMode } from '@/utils/devModePrefs';
 import styles from './HomePanel.module.scss';
 
 /**
@@ -12,7 +15,10 @@ const LICENSE_URL = 'https://www.gnu.org/licenses/agpl-3.0.html';
 const AELOX_URL = 'https://aeloxhardware.com';
 
 export const HomePanel: React.FC = () => {
+  const devMode = useDevMode();
   const [licenseOpen, setLicenseOpen] = useState(false);
+  const identityRef = useRef<HTMLDivElement>(null);
+  const promiseRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!licenseOpen) return;
@@ -22,24 +28,27 @@ export const HomePanel: React.FC = () => {
   }, [licenseOpen]);
 
   return (
+    <>
+      <TopoBackground />
+      <GlassPanelBackdrop targetRef={identityRef} corner={20} warp={1} blurPx={0.55} distortion={3} whiteRim />
+      <GlassPanelBackdrop targetRef={promiseRef} corner={20} warp={1} blurPx={0.55} distortion={3} whiteRim />
     <div className={styles.container}>
       <div className={styles.column}>
         <motion.div
+          ref={identityRef}
           className={styles.panel}
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 16 }}
           transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
         >
-          <img src="/logo.svg" alt="" className={styles.logo} />
+          <img src={`${import.meta.env.BASE_URL}logo.svg`} alt="" className={styles.logo} />
           <h2 className={styles.title}>Apex Slicer Studio</h2>
-          <p className={styles.tagline}>
-            Openware de tranchage de modèles 3D destiné à la fabrication additive non-planaire à plan de
-            construction dynamique.
-          </p>
+          <p className={styles.tagline}>{devMode ? APP_TAGLINE_DEV : APP_TAGLINE_PREVIEW}</p>
           <p className={styles.by}>Aelox Hardware</p>
         </motion.div>
         <motion.div
+          ref={promiseRef}
           className={styles.panel}
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -93,5 +102,6 @@ export const HomePanel: React.FC = () => {
           document.body,
         )}
     </div>
+    </>
   );
 };

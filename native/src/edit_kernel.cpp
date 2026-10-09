@@ -158,18 +158,42 @@ LoadStats EditKernel::load(size_t n, const double* r, const double* c, const dou
   else e_.assign(n, 0.0);
   extruding_.assign(extruding, extruding + n);
   locked_.assign(n, 0);
+  init_derived(&stats);
+  undo_.clear();
+  redo_.clear();
+  last_indices_.clear();
+  last_values_.clear();
+  last_splice_ = Splice{};
+  times_.clear();
+  type_.clear();
+
+  stats.points = n;
+  stats.pass_points = pass_points_.size();
+  stats.passes = pass_start_.size();
+  stats.cells = nx_ * ny_ * nz_;
+  stats.cell_mm = cell_;
+  stats.support_edges = rev_.size();
+  stats.total_ms = ms_since(t0);
+  return stats;
+}
+
+// Tout ce qui derive des tableaux de base (r_, c_, z_, b_, e_, extruding_, locked_) : pointes et axes, passes,
+// grille, supports, graphe inverse, profondeurs, coques, brouillons. Sans effet sur l'historique.
+void EditKernel::init_derived(LoadStats* stats) {
+  const auto t0 = Clock::now();
+  const size_t n = r_.size();
   tip_.resize(n);
   axis_.resize(n);
   parallel_for(n, threads_, kParallelGrain, [&](size_t lo, size_t hi) {
     for (size_t i = lo; i < hi; ++i) update_point_geometry(i);
   });
   build_passes();
-  stats.geometry_ms = ms_since(t0);
+  if (stats) stats->geometry_ms = ms_since(t0);
 
   const auto t1 = Clock::now();
   setup_grid();
   rebuild_grid();
-  stats.grid_ms = ms_since(t1);
+  if (stats) stats->grid_ms = ms_since(t1);
 
   const auto t2 = Clock::now();
   supports_.assign(n * kSupportSlots, kNoIndex);
@@ -180,7 +204,7 @@ LoadStats EditKernel::load(size_t n, const double* r, const double* c, const dou
   compute_depths();
   shell_state_.assign(n, -1);
   shell_normal_.assign(n, Vec3{});
-  stats.supports_ms = ms_since(t2);
+  if (stats) stats->supports_ms = ms_since(t2);
 
   slot_.assign(n, -1);
   along_.assign(n, kInf);
@@ -192,19 +216,94 @@ LoadStats EditKernel::load(size_t n, const double* r, const double* c, const dou
   dependents_.clear();
   base_heights_.clear();
   dragged_ = false;
-  undo_.clear();
-  redo_.clear();
-  last_indices_.clear();
-  last_values_.clear();
+}
 
-  stats.points = n;
-  stats.pass_points = pass_points_.size();
-  stats.passes = pass_start_.size();
-  stats.cells = nx_ * ny_ * nz_;
-  stats.cell_mm = cell_;
-  stats.support_edges = rev_.size();
-  stats.total_ms = ms_since(t0);
-  return stats;
+// Insere des blocs de points (positions `at` apres insertion, croissantes). Les points inseres prennent le
+// type de ligne du point devant lequel ils entrent ; le temps machine est a redonner (set_times).
+void EditKernel::insert_blocks(const std::vector<InsertBlock>& blocks) {
+  clear_handle();
+  size_t extra = 0;
+  for (const InsertBlock& b : blocks) extra += b.count();
+  if (extra == 0) return;
+  const size_t n = r_.size(), n2 = n + extra;
+  std::vector<double> r2, c2, z2, b2, e2;
+  std::vector<uint8_t> x2, l2, t2;
+  for (auto* v : {&r2, &c2, &z2, &b2, &e2}) v->reserve(n2);
+  x2.reserve(n2);
+  l2.reserve(n2);
+  const bool typed = type_.size() == n;
+  if (typed) t2.reserve(n2);
+  size_t src = 0, added = 0;
+  auto copy_old = [&](size_t upto) {
+    for (; src < upto; ++src) {
+      r2.push_back(r_[src]);
+      c2.push_back(c_[src]);
+      z2.push_back(z_[src]);
+      b2.push_back(b_[src]);
+      e2.push_back(e_[src]);
+      x2.push_back(extruding_[src]);
+      l2.push_back(locked_[src]);
+      if (typed) t2.push_back(type_[src]);
+    }
+  };
+  for (const InsertBlock& blk : blocks) {
+    const size_t old_at = blk.at - added;
+    copy_old(std::min(old_at, n));
+    for (size_t i = 0; i < blk.count(); ++i) {
+      const double* v = &blk.values[kValuesPerPoint * i];
+      r2.push_back(v[0]);
+      c2.push_back(v[1]);
+      z2.push_back(v[2]);
+      b2.push_back(v[3]);
+      e2.push_back(v[4]);
+      x2.push_back(blk.extruding[i]);
+      l2.push_back(0);
+      if (typed) t2.push_back(old_at < n ? type_[old_at] : type_[n - 1]);
+    }
+    added += blk.count();
+  }
+  copy_old(n);
+  r_ = std::move(r2);
+  c_ = std::move(c2);
+  z_ = std::move(z2);
+  b_ = std::move(b2);
+  e_ = std::move(e2);
+  extruding_ = std::move(x2);
+  locked_ = std::move(l2);
+  if (typed) type_ = std::move(t2);
+  times_.clear();
+  init_derived(nullptr);
+}
+
+// Inverse de insert_blocks : retire les plages [at, at + count) (indices de l'etat avec les blocs).
+void EditKernel::remove_blocks(const std::vector<InsertBlock>& blocks) {
+  clear_handle();
+  const size_t n = r_.size();
+  std::vector<uint8_t> drop(n, 0);
+  size_t removed = 0;
+  for (const InsertBlock& b : blocks) {
+    for (size_t i = 0; i < b.count() && b.at + i < n; ++i) {
+      drop[b.at + i] = 1;
+      ++removed;
+    }
+  }
+  if (removed == 0) return;
+  const size_t n2 = n - removed;
+  auto squeeze = [&](auto& v) {
+    size_t w = 0;
+    for (size_t i = 0; i < n; ++i) if (!drop[i]) v[w++] = v[i];
+    v.resize(n2);
+  };
+  squeeze(r_);
+  squeeze(c_);
+  squeeze(z_);
+  squeeze(b_);
+  squeeze(e_);
+  squeeze(extruding_);
+  squeeze(locked_);
+  if (type_.size() == n) squeeze(type_);
+  times_.clear();
+  init_derived(nullptr);
 }
 
 void EditKernel::set_threads(unsigned threads) {
@@ -1738,6 +1837,37 @@ bool EditKernel::commit() {
   build_reslice_plan();
   clear_handle();
   apply(edit.indices, edit.after, &edit.trimmed, true);
+  last_splice_ = Splice{};
+  if (!reslice_plan_.empty()) {
+    // Topologie : les blocs entrent dans l'etat, les indices de l'entree passent dans l'indexation d'apres.
+    std::vector<InsertBlock> blocks;
+    std::vector<uint32_t> before_old;
+    std::vector<size_t> shift;   // points inseres avant (cumul), a chaque bloc
+    size_t added = 0;
+    for (const ResliceInsert& ins : reslice_plan_) {
+      InsertBlock b;
+      b.at = static_cast<uint32_t>(ins.before + added);
+      b.values = ins.values;
+      b.extruding = ins.extruding;
+      before_old.push_back(ins.before);
+      added += b.count();
+      shift.push_back(added);
+      blocks.push_back(std::move(b));
+    }
+    auto post = [&](uint32_t k) {
+      // Nombre de blocs inseres avant ou a l'indice k (avant <= k).
+      const auto it = std::upper_bound(before_old.begin(), before_old.end(), k);
+      const size_t m = static_cast<size_t>(it - before_old.begin());
+      return static_cast<uint32_t>(k + (m ? shift[m - 1] : 0));
+    };
+    for (uint32_t& q : edit.indices) q = post(q);
+    for (uint32_t& q : edit.trimmed) q = post(q);
+    edit.inserted = blocks;
+    insert_blocks(blocks);
+    last_indices_ = edit.indices;
+    last_splice_.inserted = true;
+    last_splice_.blocks = std::move(blocks);
+  }
   undo_.push_back(std::move(edit));
   redo_.clear();
   return true;
@@ -1769,11 +1899,18 @@ bool EditKernel::restore_history(std::vector<HistoryEntry> undo, std::vector<His
 
 bool EditKernel::undo() {
   reslice_plan_.clear();
+  last_splice_ = Splice{};
   if (undo_.empty()) return false;
   clear_handle();
   Edit edit = std::move(undo_.back());
   undo_.pop_back();
+  last_splice_ = Splice{};
   apply(edit.indices, edit.before, &edit.trimmed, false);
+  if (!edit.inserted.empty()) {
+    remove_blocks(edit.inserted);
+    last_splice_.inserted = false;
+    last_splice_.blocks = edit.inserted;
+  }
   redo_.push_back(std::move(edit));
   return true;
 }
@@ -1783,6 +1920,12 @@ bool EditKernel::redo() {
   clear_handle();
   Edit edit = std::move(redo_.back());
   redo_.pop_back();
+  last_splice_ = Splice{};
+  if (!edit.inserted.empty()) {
+    insert_blocks(edit.inserted);
+    last_splice_.inserted = true;
+    last_splice_.blocks = edit.inserted;
+  }
   apply(edit.indices, edit.after, &edit.trimmed, true);
   undo_.push_back(std::move(edit));
   return true;

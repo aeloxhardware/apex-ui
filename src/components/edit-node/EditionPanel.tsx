@@ -237,7 +237,7 @@ const NormalGraph: React.FC<{ indices: Uint32Array; values: Float32Array; worst:
 
 export const EditionPanel: React.FC = () => {
   const [state, setState] = useState<EditStateDetail>(initialState);
-  const [file, setFile] = useState<EditFileInfo>({ name: null, canSaveInPlace: false, bakeUndo: 0, bakeRedo: 0 });
+  const [file, setFile] = useState<EditFileInfo>({ name: null, canSaveInPlace: false });
   const [normalsHelp, setNormalsHelp] = useState(false);
 
   useEffect(() => {

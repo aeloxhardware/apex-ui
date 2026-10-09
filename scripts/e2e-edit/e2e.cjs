@@ -367,18 +367,29 @@ const scenarios = {
     log('aperçu : capacité', stDrag.capacityMm, 'demandé', stDrag.requestedAxialMm, 'points à subdiviser', stDrag.reslicePoints, 'couches max', stDrag.resliceMaxCount);
     log('épaisseur :', JSON.stringify(stDrag.thickness));
     await shot('r1');
+    const tCommit = Date.now();
     await ev(`window.dispatchEvent(new CustomEvent('apex-edit-set-delta', { detail: { values: { z: ${dz} }, commit: true } }))`);
     await waitFor(`window.__apexEdit.debugParsed().moves.length !== ${before} || (window.__st && /impossible|annul/i.test(window.__st.message || ''))`, 'fichier recharge', 120000).catch(() => log('pas de rechargement'));
     await waitFor(`window.__st && window.__st.status === 'ready'`, 'noyau pret apres rechargement', 120000);
+    log('validation -> noyau pret :', Date.now() - tCommit, 'ms');
     const after = await ev(`window.__apexEdit.debugParsed().moves.length`);
     const st1 = await state();
     log('mouvements :', before, '->', after, '| annuler =', st1.undoDepth, '| message =', st1.message);
     await shot('r2');
     if (after !== before) {
-      const blocks = await ev(`(() => { const t = window.__apexGCodeText(); const L = t.split('\\n'); const out = []; for (let i = 0; i < L.length; i++) if (L[i].startsWith('; apex: re-tranchage')) { let j = i; while (j < L.length && !/^G92 E/.test(L[j])) j++; out.push({ at: i, n: j - i, head: L.slice(Math.max(0, i - 2), i + 6), tail: L.slice(j - 3, j + 3) }); } return JSON.stringify(out); })()`);
+      // Texte enregistré : les couches insérées sont écrites, le fichier se relit avec le même nombre de mouvements.
+      const saved = await ev(`window.__apexSavedText()`);
+      fs.writeFileSync(path.join(OUT, 'reslice_saved.gcode'), saved);
+      await ev(`window.__saved = ${JSON.stringify(saved)}`);
+      const reparsed = await ev(`import('/src/utils/gcodeParseAsync.ts').then((m) => m.parseGCodeAsync(${JSON.stringify(saved)})).then((p) => p.moves.length)`);
+      log('texte enregistré :', saved.split(String.fromCharCode(10)).length, 'lignes ; relu :', reparsed, 'mouvements (attendu', after, ')');
+
+      const blocks = await ev(`(() => { const t = window.__saved; const L = t.split('\\n'); const out = []; for (let i = 0; i < L.length; i++) if (L[i].startsWith('; apex: re-tranchage')) { let j = i; while (j < L.length && !/^G92 E/.test(L[j])) j++; out.push({ at: i, n: j - i, head: L.slice(Math.max(0, i - 2), i + 6), tail: L.slice(j - 3, j + 3) }); } return JSON.stringify(out); })()`);
       fs.writeFileSync(path.join(OUT, 'reslice_blocks.json'), blocks);
       log('blocs insérés :', JSON.parse(blocks).length);
 
+      await sleep(1500);
+      { const pre = await state(); log('avant annulation : statut', pre.status, 'annuler', pre.undoDepth, 'occupé', pre.busy, 'msg', pre.message); }
       await ev(`window.dispatchEvent(new CustomEvent('apex-edit-undo'))`);
       await waitFor(`window.__apexEdit.debugParsed().moves.length === ${before}`, 'retour au fichier d avant', 120000);
       await waitFor(`window.__st && window.__st.status === 'ready'`, 'noyau pret apres annulation', 120000);
@@ -386,6 +397,8 @@ const scenarios = {
       log('infos fichier :', await ev('JSON.stringify(window.__fi)'));
       log('après annulation : mouvements =', await ev(`window.__apexEdit.debugParsed().moves.length`), '| rétablir =', st2.redoDepth);
       await ev(`window.dispatchEvent(new CustomEvent('apex-edit-redo'))`);
+      await sleep(4000);
+      log('après redo (4 s) : mouvements =', await ev(`window.__apexEdit.debugParsed().moves.length`), JSON.stringify(await state()).slice(0, 300));
       await waitFor(`window.__apexEdit.debugParsed().moves.length === ${after}`, 'retablissement', 120000);
       log('après rétablissement : mouvements =', await ev(`window.__apexEdit.debugParsed().moves.length`));
     }

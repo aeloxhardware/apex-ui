@@ -289,11 +289,15 @@ float shadowAt(vec2 p, float offset, float blur) {
 void glassAt(vec2 p, vec4 lens, int lensIndex, out vec4 glass, out float coverage) {
   float sd = sceneSd(p);
   // Normale de la forme déformée (gradient par différences centrées).
-  vec2 g = vec2(sceneSd(p + vec2(1.0, 0.0)) - sceneSd(p - vec2(1.0, 0.0)),
-                sceneSd(p + vec2(0.0, 1.0)) - sceneSd(p - vec2(0.0, 1.0)));
-  vec2 normal = normalize(g + vec2(1e-6));
   float inside = max(-sd, 0.0);               // profondeur dans le verre, px physiques
   float thickness = max(u_thickness * lens.z, 1.0);
+  // Rectangle arrondi : la distance a une arête (axe médian) le long des diagonales des coins, où la
+  // normale bascule d'un bord à l'autre — d'où une couture visible dans la bande réfractée. Un pas
+  // large pour le gradient fait tourner la normale progressivement de part et d'autre.
+  float eps = u_lensBox[lensIndex].x > 0.0 ? max(1.0, 0.3 * thickness) : 1.0;
+  vec2 g = vec2(sceneSd(p + vec2(eps, 0.0)) - sceneSd(p - vec2(eps, 0.0)),
+                sceneSd(p + vec2(0.0, eps)) - sceneSd(p - vec2(0.0, eps)));
+  vec2 normal = normalize(g + vec2(1e-6));
 
   // Réfraction (Snell) : nulle au-delà de l'épaisseur, maximale au bord.
   float x = 1.0 - inside / thickness;
@@ -373,20 +377,24 @@ void main() {
   fragColor = composite(bg, shadow, vec4(glassRgb, 1.0), (cov * 0.25) * lens.w);
 }`;
 
-function gaussianWeights(sigmaPx: number): { taps: number; weights: Float32Array } {
+function gaussianWeights(sigmaPx: number): { taps: number; weights: Float32Array; stride: number } {
   const weights = new Float32Array(MAX_BLUR_TAPS + 1);
   if (!(sigmaPx > 0.05)) {
     weights[0] = 1;
-    return { taps: 0, weights };
+    return { taps: 0, weights, stride: 1 };
   }
-  const taps = Math.min(MAX_BLUR_TAPS, Math.ceil(sigmaPx * 3));
+  // Au-delà de MAX_BLUR_TAPS/3 px d'écart type, les prises s'espacent (échantillonnage bilinéaire)
+  // plutôt que de tronquer la gaussienne, qui plafonnait le flou.
+  const stride = Math.max(1, (sigmaPx * 3) / MAX_BLUR_TAPS);
+  const sigma = sigmaPx / stride;
+  const taps = Math.min(MAX_BLUR_TAPS, Math.ceil(sigma * 3));
   let sum = 0;
   for (let i = 0; i <= taps; i++) {
-    weights[i] = Math.exp((-0.5 * i * i) / (sigmaPx * sigmaPx));
+    weights[i] = Math.exp((-0.5 * i * i) / (sigma * sigma));
     sum += i === 0 ? weights[i] : 2 * weights[i];
   }
   for (let i = 0; i <= taps; i++) weights[i] /= sum;
-  return { taps, weights };
+  return { taps, weights, stride };
 }
 
 interface Target {
@@ -417,6 +425,11 @@ export class LiquidGlassRenderer {
     const gl = canvas.getContext('webgl2', { premultipliedAlpha: false, antialias: false, alpha: true });
     if (!gl) throw new Error('WebGL2 indisponible.');
     this.gl = gl;
+    // Compilation parallèle (thread du pilote) quand elle existe : les trois programmes sont lancés
+    // sans attendre leur résultat, et `ready()` n'est interrogé qu'ensuite — sinon `linkProgram` +
+    // `getProgramParameter` bloquaient le thread de l'interface ~100 ms à chaque création (changement
+    // d'espace, ouverture d'un panneau).
+    this.parallelCompile = gl.getExtension('KHR_parallel_shader_compile') !== null;
     this.copy = this.program(COPY);
     this.blur = this.program(BLUR);
     this.main = this.program(MAIN);
@@ -442,8 +455,33 @@ export class LiquidGlassRenderer {
     gl.attachShader(program, compile(gl.FRAGMENT_SHADER, fragment));
     gl.bindAttribLocation(program, 0, 'a_position');
     gl.linkProgram(program);
-    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program) ?? 'link');
+    // Sans compilation parallèle, on garde le contrôle immédiat (échec = exception, comme avant).
+    if (!this.parallelCompile && !gl.getProgramParameter(program, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program) ?? 'link');
     return program;
+  }
+
+  /** `compile()` : les shaders sont lus ici et non plus à la création (voir `parallelCompile`). */
+  private readonly parallelCompile: boolean;
+  private compiled = false;
+  /** Compilation échouée (message dans la console) : le verre ne se dessinera jamais. */
+  failed = false;
+
+  /** Vrai quand les trois programmes sont liés ; faux (sans bloquer) tant que le pilote compile. */
+  ready(): boolean {
+    if (this.compiled) return true;
+    if (this.failed) return false;
+    const gl = this.gl;
+    const programs = [this.copy, this.blur, this.main];
+    if (this.parallelCompile && !programs.every((p) => gl.getProgramParameter(p, 0x91b1 /* COMPLETION_STATUS_KHR */))) return false;
+    for (const p of programs) {
+      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+        console.warn('Verre : édition de liens impossible —', gl.getProgramInfoLog(p));
+        this.failed = true;
+        return false;
+      }
+    }
+    this.compiled = true;
+    return true;
   }
 
   private texture(): WebGLTexture {
@@ -482,6 +520,7 @@ export class LiquidGlassRenderer {
 
   /** Fond à réfracter, à la taille du canevas (pixels physiques). */
   setBackground(source: TexImageSource) {
+    if (!this.ready()) return;
     const gl = this.gl;
     gl.bindTexture(gl.TEXTURE_2D, this.bgTexture);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
@@ -491,6 +530,7 @@ export class LiquidGlassRenderer {
 
   /** Efface le calque (mode `overlay`). */
   clear() {
+    if (!this.ready()) return;
     const gl = this.gl;
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.clearColor(0, 0, 0, 0);
@@ -499,7 +539,7 @@ export class LiquidGlassRenderer {
 
   render(lenses: GlassLens[], dpr: number, params: GlassParams = DEFAULT_GLASS) {
     const gl = this.gl;
-    if (!this.targets || this.width === 0) return;
+    if (!this.ready() || !this.targets || this.width === 0) return;
     const [a, b] = this.targets;
     if (this.overlay && !lenses.some((l) => l.strength > 0 && l.radius > 0)) {
       this.clear();
@@ -508,7 +548,7 @@ export class LiquidGlassRenderer {
     gl.viewport(0, 0, this.width, this.height);
 
     // Flou du fond : vertical vers a, horizontal vers b.
-    const { taps, weights } = gaussianWeights(params.blurPx * dpr);
+    const { taps, weights, stride } = gaussianWeights(params.blurPx * dpr);
     gl.useProgram(this.blur);
     gl.uniform1i(gl.getUniformLocation(this.blur, 'u_tex'), 0);
     gl.uniform1i(gl.getUniformLocation(this.blur, 'u_taps'), taps);
@@ -516,11 +556,11 @@ export class LiquidGlassRenderer {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindFramebuffer(gl.FRAMEBUFFER, a.framebuffer);
     gl.bindTexture(gl.TEXTURE_2D, this.bgTexture);
-    gl.uniform2f(gl.getUniformLocation(this.blur, 'u_step'), 0, 1 / this.height);
+    gl.uniform2f(gl.getUniformLocation(this.blur, 'u_step'), 0, stride / this.height);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     gl.bindFramebuffer(gl.FRAMEBUFFER, b.framebuffer);
     gl.bindTexture(gl.TEXTURE_2D, a.texture);
-    gl.uniform2f(gl.getUniformLocation(this.blur, 'u_step'), 1 / this.width, 0);
+    gl.uniform2f(gl.getUniformLocation(this.blur, 'u_step'), stride / this.width, 0);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 
     // Passe principale vers l'écran.

@@ -8,11 +8,8 @@
   flex-direction: column;
   border-radius: 20px;
   isolation: isolate;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
-  // Même fond que le panneau de réglages.
-  background: rgba(10, 15, 26, 0.35);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  // Fond, ombre et bord : verre Liquid Glass WebGL dessiné dessous (GlassPanelBackdrop).
+  background: rgba(10, 15, 26, 0.04);
 }
 
 .content {
@@ -158,4 +155,18 @@
 .flag {
   font-family: 'Twemoji Country Flags', 'Apple Color Emoji', 'Segoe UI Emoji', sans-serif;
   margin-right: 4px;
+  display: inline-block;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+
+  &:hover {
+    transform: scale(1.25);
+  }
+}
+
+.flagGuess {
+  font-size: 0.8em;
+  color: rgba(255, 255, 255, 0.5);
+  margin-right: 2px;
 }

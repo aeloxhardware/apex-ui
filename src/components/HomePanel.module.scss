@@ -9,7 +9,8 @@
   flex-wrap: wrap;
   gap: 24px;
   padding: 48px 24px;
-  z-index: 20;
+  // Au-dessus du calque de verre (z-index 999).
+  z-index: 1000;
   pointer-events: none;
 }
 
@@ -21,10 +22,8 @@
   border-radius: 20px;
   padding: 40px 44px;
   isolation: isolate;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
-  background: rgba(10, 15, 26, 0.35);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  // Fond, ombre et bord : verre Liquid Glass WebGL dessiné dessous (GlassPanelBackdrop).
+  background: rgba(10, 15, 26, 0.04);
 }
 
 .logo {

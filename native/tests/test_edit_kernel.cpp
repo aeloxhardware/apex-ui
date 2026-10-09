@@ -1053,17 +1053,28 @@ void test_reslice() {
   const double h_node = k.heights()[ns];
   CHECK(h_node > 0.3);
   CHECK(k.layer_counts()[ns] >= 1);
+  const size_t n0 = k.size();
+  const std::vector<double> r0 = k.r(), c0 = k.c(), z0 = k.z(), b0 = k.b(), e0 = k.e();
   CHECK(k.commit());
-  const auto& plan = k.last_reslice();
-  CHECK(!plan.empty());
+  const Splice& sp = k.last_splice();
+  CHECK(sp.inserted);
+  CHECK(!sp.blocks.empty());
+  size_t total_inserted = 0;
+  for (const auto& blk : sp.blocks) total_inserted += blk.count();
+  CHECK(k.size() == n0 + total_inserted);
   size_t printed = 0;
-  for (const auto& ins : plan) {
-    CHECK(ins.before > 0);
+  for (const auto& ins : sp.blocks) {
+    CHECK(ins.at > 0);
     CHECK(ins.values.size() == static_cast<size_t>(kValuesPerPoint) * ins.extruding.size());
     const size_t count = ins.extruding.size();
     CHECK(count >= 6);
+    // Les points inseres sont dans l'etat, aux positions annoncees.
+    for (size_t i = 0; i < count; ++i) {
+      CHECK(k.r()[ins.at + i] == ins.values[kValuesPerPoint * i]);
+      CHECK(k.e()[ins.at + i] == ins.values[kValuesPerPoint * i + 4]);
+    }
     // Le dernier point rejoint le point qui precede (etat valide), le precedent est degage de lui.
-    const uint32_t prev = ins.before - 1;
+    const uint32_t prev = ins.at - 1;
     const double* last = &ins.values[kValuesPerPoint * (count - 1)];
     CHECK_NEAR(last[0], k.r()[prev], 1e-9);
     CHECK_NEAR(last[1], k.c()[prev], 1e-9);
@@ -1100,6 +1111,23 @@ void test_reslice() {
   // Chaque etage fait au plus le maximum : le point du noeud, une fois valide et la couche inseree
   // comprise, a h / (n + 1) <= 0,3.
   CHECK(h_node / (k.layer_counts()[ns] + 1.0) <= 0.3 + 1e-6);
+  // Annuler retire les couches inserees ET defait la deformation : l'etat d'avant, a l'identique.
+  const std::vector<double> r1 = k.r(), c1 = k.c(), z1 = k.z(), b1 = k.b(), e1 = k.e();
+  const size_t n1 = k.size();
+  const std::vector<uint32_t> idx1 = k.last_indices();
+  CHECK(k.undo());
+  CHECK(!k.last_splice().inserted && !k.last_splice().blocks.empty());
+  CHECK(k.size() == n0);
+  CHECK(k.r() == r0 && k.c() == c0 && k.z() == z0 && k.b() == b0 && k.e() == e0);
+  // Retablir les remet, avec la meme deformation (indices de l'etat avec les couches).
+  CHECK(k.redo());
+  CHECK(k.last_splice().inserted);
+  CHECK(k.size() == n1);
+  CHECK(k.r() == r1 && k.c() == c1 && k.z() == z1 && k.b() == b1 && k.e() == e1);
+  CHECK(k.last_indices() == idx1);
+  // Les supports se recalculent sur le nouvel etat : un point au-dessus d'une couche inseree repose sur elle.
+  CHECK(k.undo());
+  CHECK(k.size() == n0);
   // Re-tranchage ignore avec le rognage.
   EditKernel k2;
   load(k2, st.path, default_params());

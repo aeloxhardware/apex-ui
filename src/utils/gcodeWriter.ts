@@ -1,5 +1,5 @@
-import type { ParsedGCode } from '@/components/gcodeParse';
-import { EDIT_VALUES_PER_POINT, type EditResliceInsert } from '@/utils/editKernelClient';
+import type { InsertedRange, ParsedGCode } from '@/components/gcodeParse';
+import { INSERTED_LINE } from '@/utils/gcodeSplice';
 
 /**
  * Réécriture du texte d'un G-code polaire modifié par l'onglet Édition (CDC, D6) : seules les
@@ -13,10 +13,10 @@ import { EDIT_VALUES_PER_POINT, type EditResliceInsert } from '@/utils/editKerne
  * suivants. Plutôt que de réécrire tout le fichier, chaque suite de lignes modifiées est suivie
  * d'un `G92 E<valeur d'origine>` qui recale l'extrudeur : le reste du fichier reste identique.
  *
- * Re-tranchage : des séries de lignes (couches interpolées, `EditResliceInsert`) s'insèrent AVANT la ligne
- * du mouvement `before`. Comme elles décalent toute numérotation, le fichier doit ensuite être relu
- * (« cuit », cf. use-gcode-preview). En extrusion absolue, la série est suivie d'un `G92 E` qui rend
- * l'extrudeur à la valeur qu'attend la suite du fichier.
+ * Re-tranchage : les plages de mouvements insérées par l'édition (`parsed.insertedBlocks`, couches
+ * interpolées, sans ligne dans le texte d'origine) sont écrites AVANT la ligne du mouvement d'origine qui
+ * les suit. En extrusion absolue, la plage est suivie d'un `G92 E` qui rend l'extrudeur à la valeur
+ * qu'attend la suite du fichier.
  */
 
 export type GCodeWriteResult = { ok: true; text: string; changedLines: number } | { ok: false; error: string };
@@ -56,37 +56,37 @@ function feedOf(line: string) {
 }
 
 /**
- * Lignes d'une série insérée avant la ligne `host` (celle du mouvement `before`) : elle donne la
- * commande, l'avance des dépôts et le commentaire de type. `lastFeed` : avance en vigueur avant la série,
- * rendue par son dernier point. `startAbs` : position absolue de l'extrudeur au début de la série (NaN en
- * extrusion relative).
+ * Lignes d'une plage de mouvements insérés (couches interpolées), écrites avant la ligne `host` (celle du
+ * mouvement devant lequel elles entrent) : elle donne la commande, l'avance des dépôts et le commentaire de
+ * type. `lastFeed` : avance en vigueur avant la plage, rendue par son dernier point. `startAbs` : position
+ * absolue de l'extrudeur au début de la plage (NaN en extrusion relative).
  */
-function insertionLines(ins: EditResliceInsert, host: string, lastFeed: string | null, startAbs: number, eol: string): string[] {
+function insertedLines(parsed: ParsedGCode, range: InsertedRange, host: string, lastFeed: string | null, startAbs: number, eol: string): string[] {
   const clean = host.replace(/\r$/, '');
   const semi = clean.indexOf(';');
   const code = semi >= 0 ? clean.slice(0, semi) : clean;
   const comment = semi >= 0 ? clean.slice(semi) : '';
   const cmd = /^\s*([Gg]0?[01])\b/.exec(code)?.[1] ?? 'G00';
   const hostFeed = feedOf(clean) ?? lastFeed;
-  const count = ins.extruding.length;
-  const out: string[] = [`; apex: re-tranchage, ${count} points de couches interpolees${eol}`];
+  const out: string[] = [`; apex: re-tranchage, ${range.count} points de couches interpolees${eol}`];
   const absolute = Number.isFinite(startAbs);
   let abs = startAbs;
-  for (let i = 0; i < count; i++) {
-    const v = ins.values.subarray(EDIT_VALUES_PER_POINT * i, EDIT_VALUES_PER_POINT * (i + 1));
-    let line = `${cmd} Y${format(v[1], POSITION_DIGITS)} X${format(v[0], POSITION_DIGITS)} Z${format(v[2], POSITION_DIGITS)} B${format(v[3], POSITION_DIGITS)}`;
-    if (ins.extruding[i] === 1) {
+  for (let i = 0; i < range.count; i++) {
+    const k = range.at + i;
+    const m = parsed.moves[k];
+    let line = `${cmd} Y${format(m.y, POSITION_DIGITS)} X${format(m.x, POSITION_DIGITS)} Z${format(m.z, POSITION_DIGITS)} B${format(m.b, POSITION_DIGITS)}`;
+    if (m.extruding) {
       if (absolute) {
-        abs += v[4];
+        abs += parsed.eDelta[k];
         line += ` E${format(abs, E_DIGITS)}`;
       } else {
-        line += ` E${format(v[4], E_DIGITS)}`;
+        line += ` E${format(parsed.eDelta[k], E_DIGITS)}`;
       }
       if (hostFeed) line += ` F${hostFeed}`;
       if (comment) line += ` ${comment}`;
     } else {
-      // Dernier point : rend l'avance en vigueur avant la série ; les autres : déplacement rapide.
-      line += ` F${i === count - 1 && lastFeed ? lastFeed : TRAVEL_FEED}`;
+      // Dernier point : rend l'avance en vigueur avant la plage ; les autres : déplacement rapide.
+      line += ` F${i === range.count - 1 && lastFeed ? lastFeed : TRAVEL_FEED}`;
     }
     out.push(line + eol);
   }
@@ -94,45 +94,49 @@ function insertionLines(ins: EditResliceInsert, host: string, lastFeed: string |
   return out;
 }
 
-export function writeEditedGCode(text: string, parsed: ParsedGCode, inserts: EditResliceInsert[] = []): GCodeWriteResult {
+export function writeEditedGCode(text: string, parsed: ParsedGCode): GCodeWriteResult {
   const edited = parsed.editedMoves;
-  if ((!edited || edited.size === 0) && inserts.length === 0) return { ok: true, text, changedLines: 0 };
+  const blocks = parsed.insertedBlocks ?? [];
+  if ((!edited || edited.size === 0) && blocks.length === 0) return { ok: true, text, changedLines: 0 };
   if (parsed.kind !== 'polar') return { ok: false, error: "Seuls les G-code polaires de l'Apex peuvent être réécrits." };
   if (parsed.usesInches) return { ok: false, error: 'Fichier en pouces (G20) : réécriture non prise en charge.' };
 
   const { moves, lineIndex, eDelta, eAbsBefore, hasEWord, eRelative } = parsed;
-  const order = [...(edited ?? [])].sort((a, b) => a - b);
+  const isInserted = (k: number) => lineIndex[k] === INSERTED_LINE;
+  // Mouvements d'origine seulement : les mouvements insérés n'ont pas de ligne à réécrire.
+  const order = [...(edited ?? [])].filter((k) => !isInserted(k)).sort((a, b) => a - b);
   // Une ligne réécrite ne doit porter qu'un seul mouvement (pas d'arc découpé).
+  const sharesLine = (k: number) => {
+    const line = lineIndex[k];
+    return (k > 0 && lineIndex[k - 1] === line) || (k + 1 < moves.length && lineIndex[k + 1] === line);
+  };
   for (const k of order) {
-    const line = lineIndex[k];
-    if ((k > 0 && lineIndex[k - 1] === line) || (k + 1 < moves.length && lineIndex[k + 1] === line)) {
-      return { ok: false, error: `Ligne ${line + 1} : plusieurs mouvements, réécriture impossible.` };
-    }
+    if (sharesLine(k)) return { ok: false, error: `Ligne ${lineIndex[k] + 1} : plusieurs mouvements, réécriture impossible.` };
   }
-  // Insertions : au plus une par mouvement, sur une ligne qui ne porte que ce mouvement.
-  const insertByLine = new Map<number, EditResliceInsert>();
-  for (const ins of inserts) {
-    const k = ins.before;
-    if (!(k >= 1 && k < moves.length) || insertByLine.has(lineIndex[k])) return { ok: false, error: `Insertion invalide avant le mouvement ${k}.` };
-    const line = lineIndex[k];
-    if (lineIndex[k - 1] === line || (k + 1 < moves.length && lineIndex[k + 1] === line)) {
-      return { ok: false, error: `Ligne ${line + 1} : plusieurs mouvements, insertion impossible.` };
-    }
-    if (!eRelative[k] && !Number.isFinite(eAbsBefore[k])) return { ok: false, error: `Extrudeur inconnu avant le mouvement ${k}.` };
-    insertByLine.set(line, ins);
+  // Plages insérées : chacune entre devant un mouvement d'origine (son « hôte »), seul sur sa ligne.
+  const blockByLine = new Map<number, InsertedRange>();
+  for (const range of blocks) {
+    const host = range.at + range.count;
+    if (host >= moves.length || isInserted(host)) return { ok: false, error: `Insertion invalide avant le mouvement ${host}.` };
+    if (sharesLine(host)) return { ok: false, error: `Ligne ${lineIndex[host] + 1} : plusieurs mouvements, insertion impossible.` };
+    if (!eRelative[host] && !Number.isFinite(eAbsBefore[host])) return { ok: false, error: `Extrudeur inconnu avant le mouvement ${host}.` };
+    blockByLine.set(lineIndex[host], range);
   }
+  // Premier mouvement d'origine après k (les plages insérées sont sautées) : c'est lui qu'attend la suite du fichier.
+  const nextOriginal = (k: number) => {
+    let j = k + 1;
+    while (j < moves.length && isInserted(j)) j++;
+    return j;
+  };
 
   const lines = text.split('\n');
   const after = new Map<number, string>(); // ligne → G92 à insérer après elle
-  // Position absolue de l'extrudeur juste avant un mouvement modifié qui prolonge la suite précédente.
-  const runAbsBefore = new Map<number, number>();
   // Position absolue (nouvelle) de l'extrudeur dans la suite de mouvements modifiés consécutifs en
   // cours ; NaN tant qu'aucun E n'y a été réécrit (les mouvements sans E ne la changent pas).
   let runAbs = NaN;
   for (let i = 0; i < order.length; i++) {
     const k = order[i];
     if (i === 0 || order[i - 1] !== k - 1) runAbs = NaN;
-    else if (Number.isFinite(runAbs)) runAbsBefore.set(k, runAbs);
     const m = moves[k];
     const ln = lineIndex[k];
     let line = lines[ln];
@@ -149,7 +153,8 @@ export function writeEditedGCode(text: string, parsed: ParsedGCode, inserts: Edi
     lines[ln] = line;
     // Fin de suite : recaler l'extrudeur sur la valeur que la suite du fichier attend.
     const runEnds = i + 1 >= order.length || order[i + 1] !== k + 1;
-    const expected = k + 1 < moves.length ? eAbsBefore[k + 1] : NaN;
+    const next = nextOriginal(k);
+    const expected = next < moves.length ? eAbsBefore[next] : NaN;
     if (runEnds && Number.isFinite(runAbs) && Number.isFinite(expected) && Math.abs(expected - runAbs) > 10 ** -E_DIGITS) {
       after.set(ln, `G92 E${format(expected, E_DIGITS)} ; apex: recalage de l'extrudeur apres modification`);
     }
@@ -159,11 +164,12 @@ export function writeEditedGCode(text: string, parsed: ParsedGCode, inserts: Edi
   const eol = text.includes('\r\n') ? '\r' : '';
   let lastFeed: string | null = null;
   for (let ln = 0; ln < lines.length; ln++) {
-    const ins = insertByLine.get(ln);
-    if (ins) {
-      const k = ins.before;
-      const startAbs = eRelative[k] ? NaN : (runAbsBefore.get(k) ?? eAbsBefore[k]);
-      for (const line of insertionLines(ins, lines[ln], lastFeed, startAbs, eol)) out.push(line);
+    const range = blockByLine.get(ln);
+    if (range) {
+      const host = range.at + range.count;
+      // L'extrudeur est, devant l'hôte, à la valeur d'origine (les suites modifiées qui précèdent l'ont recalé).
+      const startAbs = eRelative[host] ? NaN : eAbsBefore[host];
+      for (const line of insertedLines(parsed, range, lines[ln], lastFeed, startAbs, eol)) out.push(line);
     }
     out.push(lines[ln]);
     const f = feedOf(lines[ln]);
@@ -171,7 +177,7 @@ export function writeEditedGCode(text: string, parsed: ParsedGCode, inserts: Edi
     const g92 = after.get(ln);
     if (g92) out.push(g92 + eol);
   }
-  return { ok: true, text: out.join('\n'), changedLines: order.length + inserts.length };
+  return { ok: true, text: out.join('\n'), changedLines: order.length + blocks.length };
 }
 
 /**

@@ -2,6 +2,12 @@
 
 import React, { useRef, useState, useLayoutEffect } from 'react';
 import * as BABYLON from 'babylonjs';
+import { installFlatBabylon } from '@/utils/flatBabylon';
+import { FLAT_MAX_FPS, isFlatUi } from '@/utils/interfaceMode';
+import { isPlateShaded, subscribePlateShaded } from '@/utils/plateShadingPrefs';
+
+// Interface classique : aucune animation Babylon (cf. utils/flatBabylon.ts).
+installFlatBabylon(BABYLON);
 import 'babylonjs-loaders';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Upload, BoxSelect, LayoutGrid, Trash2 } from 'lucide-react';
@@ -128,6 +134,7 @@ export const Viewport3D = () => {
     const canvas = canvasRef.current;
     const engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true }, true);
     engineRef.current = engine;
+    window.apexDesktop?.appStatus?.("Ouverture du portail d'accès à l'espace virtuel 3D...");
     const scene = new BABYLON.Scene(engine);
     sceneRef.current = scene;
     scene.clearColor = new BABYLON.Color4(0, 0, 0, 0);
@@ -300,9 +307,13 @@ export const Viewport3D = () => {
     // Le MSAA du contexte WebGL (2ᵉ argument `true` de BABYLON.Engine) ne couvre que le
     // rendu direct — les contours (LinesMesh, edgesRendering des voxels) et le compositing
     // via blurRT restent crénelés sans une passe FXAA sur la sortie finale du pipeline.
-    const renderPipeline = new BABYLON.DefaultRenderingPipeline("apexRenderPipeline", false, scene, [camera]);
-    renderPipeline.fxaaEnabled = true;
-    renderPipeline.samples = 8;
+    // Interface classique : pas de pipeline (MSAA ×8 + FXAA), le MSAA du contexte suffit (cf. utils/interfaceMode.ts).
+    const flat = isFlatUi();
+    const renderPipeline = flat ? null : new BABYLON.DefaultRenderingPipeline("apexRenderPipeline", false, scene, [camera]);
+    if (renderPipeline) {
+      renderPipeline.fxaaEnabled = true;
+      renderPipeline.samples = 8;
+    }
     // Les verres DOM (GlassPanelBackdrop) se dessinent en fin d'image (post-traitements du pipeline inclus : plus tôt, le canevas n'a pas encore l'image finale).
     engine.onEndFrameObservable.add(() => window.dispatchEvent(new Event('apex-scene-rendered')));
 
@@ -393,10 +404,12 @@ export const Viewport3D = () => {
     backdrop.position.y = -0.05;
     backdrop.isPickable = false;
     backdrop.material = backdropMat;
+    // Interface classique : ni grille ni sol (le fond de la page est noir).
+    if (flat) backdrop.setEnabled(false);
 
     // Broadcast camera position on move
     scene.onBeforeRenderObservable.add(() => {
-      if (camera) {
+      if (camera && !flat) { // interface classique : pas de ViewCube, personne n'écoute
         window.dispatchEvent(
           new CustomEvent('apex-camera-updated', {
             detail: { alpha: camera.alpha, beta: camera.beta }
@@ -471,10 +484,13 @@ export const Viewport3D = () => {
     window.addEventListener('apex-set-camera-custom', handleCustomView);
 
     new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
-    const hl = new BABYLON.HighlightLayer("hl1", scene);
-    hl.blurHorizontalSize = 0.5;
-    hl.blurVerticalSize = 0.5;
-    hlRef.current = hl;
+    // Interface classique : sélection par contour (cf. updateFlatOutline), donc pas de HighlightLayer (cible de rendu + flou).
+    if (!flat) {
+      const hl = new BABYLON.HighlightLayer("hl1", scene);
+      hl.blurHorizontalSize = 0.5;
+      hl.blurVerticalSize = 0.5;
+      hlRef.current = hl;
+    }
 
     const gizmoManager = new BABYLON.GizmoManager(scene); 
     gizmoManagerRef.current = gizmoManager; 
@@ -483,7 +499,25 @@ export const Viewport3D = () => {
     gizmoManager.rotationGizmoEnabled = false;
     gizmoManager.scaleGizmoEnabled = false;
 
+    // Interface classique : sélection = contour blanc (renderOutline), sans HighlightLayer (passes de rendu + flou).
+    const outlinedMeshes = new Set<BABYLON.AbstractMesh>();
+    const updateFlatOutline = () => {
+      outlinedMeshes.forEach((m) => { if (!m.isDisposed()) m.renderOutline = false; });
+      outlinedMeshes.clear();
+      selectedMeshesRef.current.forEach((mesh) => {
+        if (!mesh || mesh.isDisposed()) return;
+        [mesh, ...mesh.getChildMeshes(false)].forEach((m) => {
+          if (!(m instanceof BABYLON.Mesh) || m.getTotalVertices() === 0 || m.isDisposed()) return;
+          m.renderOutline = true;
+          m.outlineColor = BABYLON.Color3.White();
+          m.outlineWidth = 0.6;
+          outlinedMeshes.add(m);
+        });
+      });
+    };
+
     const updateHighlight = () => {
+      if (flat) { updateFlatOutline(); return; }
       if (!hlRef.current) return;
       hlRef.current.removeAllMeshes();
       selectedMeshesRef.current.forEach((mesh) => {
@@ -510,8 +544,9 @@ export const Viewport3D = () => {
     }
 
     const applyCustomGizmoColors = () => {
-      const setGizmoColor = (axisGizmo: GizmoAxisInternal | undefined, color: BABYLON.Color3) => {
+      const setGizmoColor = (axisGizmo: GizmoAxisInternal | undefined, axisColor: BABYLON.Color3) => {
         if (!axisGizmo) return;
+        const color = flat ? BABYLON.Color3.White() : axisColor; // interface classique : noir et blanc
         if (axisGizmo._coloredMaterial) {
           axisGizmo._coloredMaterial.diffuseColor = color;
           axisGizmo._coloredMaterial.emissiveColor = color;
@@ -776,8 +811,34 @@ export const Viewport3D = () => {
     originAxesRoot.parent = volumeRoot;
     originAxes.forEach(([dir, color], i) => {
       // zOffset 0 : sous la surface du plateau, ces axes doivent rester occultés par le disque.
-      const axisLine = createScreenLine(scene, `originAxis${i}`, [originAxisBase, dir], color, LINE_WIDTH_PX, 1, { zOffset: 0 });
+      const axisLine = createScreenLine(scene, `originAxis${i}`, [originAxisBase, dir], flat ? BABYLON.Color3.White() : color, LINE_WIDTH_PX, 1, { zOffset: 0 });
       axisLine.parent = originAxesRoot;
+      if (!flat) return;
+      // Interface classique : pas de couleur d'axe, une lettre au bout (Z imprimante = Y Babylon, Y imprimante = Z Babylon).
+      const letter = ['X', 'Z', 'Y'][i];
+      const tex = new BABYLON.DynamicTexture(`originAxisLetter${i}`, { width: 64, height: 64 }, scene, false);
+      const ctx = tex.getContext() as CanvasRenderingContext2D;
+      ctx.clearRect(0, 0, 64, 64);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 48px Arial, Helvetica, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(letter, 32, 34);
+      tex.update();
+      tex.hasAlpha = true;
+      const plane = BABYLON.MeshBuilder.CreatePlane(`originAxisLetterPlane${i}`, { size: originAxisLength * 0.22 }, scene);
+      const letterMat = new BABYLON.StandardMaterial(`originAxisLetterMat${i}`, scene);
+      letterMat.emissiveTexture = tex;
+      letterMat.opacityTexture = tex;
+      letterMat.disableLighting = true;
+      letterMat.backFaceCulling = false;
+      plane.material = letterMat;
+      plane.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL;
+      plane.isPickable = false;
+      plane.parent = originAxesRoot;
+      // Au-dessus de la surface du plateau (y = 0.1) : sinon le disque opaque coupe la lettre des axes posés à plat.
+      plane.position.copyFrom(dir.scale(1.12));
+      plane.position.y = Math.max(plane.position.y, originAxisLength * 0.2);
     });
 
     // Disque flouté au centre du plateau : capture la scène dans une render target à pleine
@@ -795,6 +856,10 @@ export const Viewport3D = () => {
     blurRT.clearColor = blurRTClearColor;
     blurRT.updateSamplingMode(BABYLON.Texture.BILINEAR_SAMPLINGMODE);
     scene.customRenderTargets.push(blurRT);
+    // Interface classique : plateau « à plat » par défaut. La capture floutée du plateau (rendu plein cadre + 2 flous
+    // gaussiens à chaque image) n'est alors pas rendue : le plateau et ses boutons restent noirs. Coché
+    // (« Rendre le plateau avec ombres »), elle redevient vive. Même bascule pour le matériau des modèles (cf. applyPlateShading).
+    if (flat) blurRT.clearColor = new BABYLON.Color4(0, 0, 0, 1);
 
     const blurH = new BABYLON.BlurPostProcess("blurH", new BABYLON.Vector2(1, 0), DEFAULT_BLUR_LEVEL, 1, null, BABYLON.Texture.BILINEAR_SAMPLINGMODE, engine, false);
     const blurV = new BABYLON.BlurPostProcess("blurV", new BABYLON.Vector2(0, 1), DEFAULT_BLUR_LEVEL, 1, null, BABYLON.Texture.BILINEAR_SAMPLINGMODE, engine, false);
@@ -857,8 +922,40 @@ export const Viewport3D = () => {
       m !== glassDisc && !m.name.startsWith('plateAction') && !m.name.startsWith(GCODE_MESH_PREFIX);
     blurRT.renderList = scene.meshes.filter(capturedInBlur);
     scene.onNewMeshAddedObservable.add((m) => {
-      if (capturedInBlur(m) && blurRT.renderList) blurRT.renderList.push(m);
+      if (capturedInBlur(m) && blurRT.renderList && !(flat && !isPlateShaded())) blurRT.renderList.push(m);
     });
+
+    // --- Interface classique : plateau et modèles à plat, ou rendu complet (« avec ombres »). ---
+    const flatModelMat = new BABYLON.StandardMaterial("flatModelMat", scene);
+    flatModelMat.disableLighting = true;
+    flatModelMat.emissiveColor = new BABYLON.Color3(0.85, 0.85, 0.85);
+    flatModelMat.backFaceCulling = false;
+    const originalMaterials = new Map<BABYLON.AbstractMesh, BABYLON.Material | null>();
+    const applyModelShading = () => {
+      if (!flat) return;
+      const shaded = isPlateShaded();
+      modelsRef.current.forEach((root) => {
+        if (root.isDisposed()) return;
+        [root, ...root.getChildMeshes(false)].forEach((m) => {
+          if (shaded) {
+            if (originalMaterials.has(m)) { m.material = originalMaterials.get(m) ?? null; originalMaterials.delete(m); }
+          } else if (m.getTotalVertices() > 0 && m.material !== flatModelMat) {
+            if (!originalMaterials.has(m)) originalMaterials.set(m, m.material);
+            m.material = flatModelMat;
+          }
+        });
+      });
+    };
+    const applyPlateShading = () => {
+      if (!flat) return;
+      const shaded = isPlateShaded();
+      // Capture floutée : rendue à chaque image (verre) ou une dernière fois à vide (plateau noir), puis plus jamais.
+      blurRT.renderList = shaded ? scene.meshes.filter(capturedInBlur) : [];
+      blurRT.refreshRate = shaded ? 1 : 0;
+      applyModelShading();
+    };
+    applyPlateShading();
+    const unsubscribeShading = subscribePlateShaded(applyPlateShading);
 
     const makeScreenLine = (name: string, points: BABYLON.Vector3[], color: BABYLON.Color3, alpha = 1, widthScale = 1) =>
       createScreenLine(scene, name, points, color, LINE_WIDTH_PX * widthScale, alpha);
@@ -869,7 +966,7 @@ export const Viewport3D = () => {
       // Même hauteur que glassDisc : sans ça le contour cerclait le vide sous le disque surélevé.
       outlinePoints.push(new BABYLON.Vector3(Math.cos(angle) * RADIUS, glassDisc.position.y, Math.sin(angle) * RADIUS));
     }
-    const outline = makeScreenLine("plateOutline", outlinePoints, new BABYLON.Color3(0, 0.94, 1));
+    const outline = makeScreenLine("plateOutline", outlinePoints, flat ? BABYLON.Color3.White() : new BABYLON.Color3(0, 0.94, 1));
     outline.parent = volumeRoot;
 
     const topOutlinePoints = [];
@@ -877,7 +974,7 @@ export const Viewport3D = () => {
       const angle = (i / 720) * Math.PI * 2;
       topOutlinePoints.push(new BABYLON.Vector3(Math.cos(angle) * RADIUS, HEIGHT, Math.sin(angle) * RADIUS));
     }
-    const topOutline = makeScreenLine("topOutline", topOutlinePoints, new BABYLON.Color3(0, 0.94, 1));
+    const topOutline = makeScreenLine("topOutline", topOutlinePoints, flat ? BABYLON.Color3.White() : new BABYLON.Color3(0, 0.94, 1));
     topOutline.parent = volumeRoot;
 
     // Grille d'esquisse du mode modélisation : masquée tant qu'on est en mode slicer, elle
@@ -1685,7 +1782,8 @@ export const Viewport3D = () => {
 
     let plateActionPreviewActive = false;
     const updatePlateActionVisibility = () => {
-      plateActionRoot.setEnabled(!modelingActive && !plateActionPreviewActive);
+      // Interface classique : ces boutons sont dans le panneau de gauche (ClassicApp), pas autour du plateau.
+      plateActionRoot.setEnabled(!flat && !modelingActive && !plateActionPreviewActive);
     };
     updatePlateActionVisibility();
     const onPlateActionModeChanged = () => updatePlateActionVisibility();
@@ -2032,7 +2130,7 @@ export const Viewport3D = () => {
       positions.sort((a, b) => a.y - b.y || a.x - b.x || a.z - b.z);
 
       const voxelMeshes: BABYLON.Mesh[] = [];
-      const spawnStagger = Math.min(28, Math.max(6, 900 / positions.length));
+      const spawnStagger = isFlatUi() ? 0 : Math.min(28, Math.max(6, 900 / positions.length));
 
       positions.forEach((pos, i) => {
         setTimeout(() => {
@@ -2093,7 +2191,7 @@ export const Viewport3D = () => {
       scanPlane.material = scanMat;
       scanPlane.isPickable = false;
 
-      const duration = 550;
+      const duration = isFlatUi() ? 1 : 550; // interface classique : aucune animation
       const start = performance.now();
       const step = () => {
         if (scene.isDisposed) return;
@@ -2295,7 +2393,7 @@ export const Viewport3D = () => {
       const cellHeight = height / ringCount;
 
       const cellMeshes: BABYLON.Mesh[] = [];
-      const spawnStagger = Math.min(90, Math.max(40, 700 / ringCount));
+      const spawnStagger = isFlatUi() ? 0 : Math.min(90, Math.max(40, 700 / ringCount));
 
       Array.from({ length: ringCount }, (_, i) => {
         const t = ringCount === 1 ? 0 : i / (ringCount - 1);
@@ -2390,7 +2488,7 @@ export const Viewport3D = () => {
       scanPlane.material = scanMat;
       scanPlane.isPickable = false;
 
-      const duration = 550;
+      const duration = isFlatUi() ? 1 : 550; // interface classique : aucune animation
       const start = performance.now();
       const step = () => {
         if (scene.isDisposed) return;
@@ -2510,6 +2608,7 @@ export const Viewport3D = () => {
       clone.position.addInPlace(new BABYLON.Vector3(spot.x - center.x, PLATE_SURFACE_Y - boundingInfo.min.y, spot.z - center.z));
 
       modelsRef.current.add(clone);
+      applyModelShading();
       return clone;
     };
 
@@ -3489,6 +3588,7 @@ export const Viewport3D = () => {
           }
 
           modelsRef.current.add(r);
+          applyModelShading();
           selectedMeshesRef.current.clear();
           selectedMeshesRef.current.add(r);
           setSelectedMeshName(r.name || "Modèle 3D");
@@ -3630,6 +3730,12 @@ export const Viewport3D = () => {
     };
     window.addEventListener('apex-arrange-models', onArrangeModels);
 
+    let renderPaused = false;
+    const onRenderPause = (e: Event) => {
+      renderPaused = !!(e as CustomEvent<{ paused: boolean }>).detail?.paused;
+    };
+    window.addEventListener('apex-render-pause', onRenderPause);
+
     const handleResize = () => {
       engine.resize();
     };
@@ -3645,19 +3751,35 @@ export const Viewport3D = () => {
     resizeObserver.observe(canvas);
     if (canvas.parentElement) resizeObserver.observe(canvas.parentElement);
 
+    // Interface classique : rendu plafonné à FLAT_MAX_FPS images/s (consommation, cf. utils/interfaceMode.ts). Cadence tenue
+    // en moyenne par une échéance (pas par un écart minimal, qui tomberait à 20 images/s sur un écran 60 Hz).
+    const FLAT_FRAME_MS = 1000 / FLAT_MAX_FPS;
+    let nextFrameAt = 0;
     engine.runRenderLoop(() => {
+      if (flat) {
+        const now = performance.now();
+        if (now < nextFrameAt - 8) return;
+        nextFrameAt = Math.max(nextFrameAt + FLAT_FRAME_MS, now - FLAT_FRAME_MS);
+      }
       // Garde-fou : tampon de rendu différent de la taille affichée → on resynchronise.
       if (canvas.clientWidth > 0 && canvas.clientHeight > 0 &&
           (Math.abs(engine.getRenderWidth() - Math.round(canvas.clientWidth * engine.getHardwareScalingLevel() ** -1)) > 2 ||
            Math.abs(engine.getRenderHeight() - Math.round(canvas.clientHeight * engine.getHardwareScalingLevel() ** -1)) > 2)) {
         engine.resize();
       }
-      if (!scene.isDisposed) {
+      // Rideau opaque (changement d'espace, chargement lourd) : la scène est cachée, son rendu ne ferait
+      // que concurrencer sur le thread principal le montage de l'interface et la construction du
+      // maillage. Les images du moteur continuent (verre, observateurs de fin d'image).
+      if (!scene.isDisposed && !renderPaused) {
         scene.render();
       }
     });
 
+    // Premier rendu complet (shaders compilés) : l'application peut sortir de son écran de démarrage.
+    scene.executeWhenReady(() => window.dispatchEvent(new Event('apex-viewport-ready')));
+
     return () => {
+      window.removeEventListener('apex-render-pause', onRenderPause);
       window.removeEventListener('resize', handleResize);
       cancelAnimationFrame(resizeFrame);
       resizeObserver.disconnect();
@@ -3698,7 +3820,8 @@ export const Viewport3D = () => {
       canvas.removeEventListener("pointermove", onPanMove);
       canvas.removeEventListener("pointerup", onPanUp);
       canvas.removeEventListener("pointercancel", onPanUp);
-      renderPipeline.dispose();
+      unsubscribeShading();
+      renderPipeline?.dispose();
       gizmoManager.dispose();
       scene.dispose();
       engine.dispose();

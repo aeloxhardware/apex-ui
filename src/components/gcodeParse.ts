@@ -85,6 +85,12 @@ export interface ColorByRange {
 
 export type ColorByRanges = Record<ContinuousColorByMode, ColorByRange>;
 
+/** Plage de mouvements insérés par l'édition (re-tranchage), indices courants. */
+export interface InsertedRange {
+  at: number;
+  count: number;
+}
+
 export interface ParsedGCode {
   kind: GCodeKind;
   moves: GCodeMove[];
@@ -168,6 +174,9 @@ export interface ParsedGCode {
   /** Mouvements modifiés par l'onglet Édition depuis le chargement (positions dans `moves`,
    * extrusion dans `eDelta`) : les lignes à réécrire à l'enregistrement. */
   editedMoves?: Set<number>;
+  /** Plages de mouvements insérées par l'édition (couches interpolées), par indice croissant : sans ligne dans
+   * le texte d'origine (`lineIndex` = INSERTED_LINE), elles sont écrites par gcodeWriter.ts. */
+  insertedBlocks?: InsertedRange[];
   /** Mouvements dont le dépôt a été rogné par l'édition (rognage) : ils ne déposent plus. */
   trimmedMoves?: Set<number>;
   /** Bloc d'en-tête chiffré Apex lu au chargement (utils/apexHeader.ts), null s'il n'y en a pas. */

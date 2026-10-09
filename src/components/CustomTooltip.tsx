@@ -6,9 +6,11 @@ interface CustomTooltipProps {
   content: string;
   description: string;
   children: React.ReactNode;
+  /** Enveloppe en ligne (au fil du texte) au lieu d'un bloc pleine largeur ; la bulle se centre alors sur l'enfant. */
+  inline?: boolean;
 }
 
-export const CustomTooltip: React.FC<CustomTooltipProps> = ({ content, description, children }) => {
+export const CustomTooltip: React.FC<CustomTooltipProps> = ({ content, description, children, inline = false }) => {
   const [visible, setVisible] = useState(false);
   const [coords, setCoords] = useState<{ top: number; left: number; transform: string }>({ top: 0, left: 0, transform: '' });
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -62,7 +64,8 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({ content, descripti
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onMouseDown={handleMouseDown}
-      className={`${styles.tooltipWrapper} w-full flex`}
+      style={inline ? { width: 'auto' } : undefined}
+      className={`${styles.tooltipWrapper} ${inline ? 'inline-flex' : 'w-full flex'}`}
     >
       {children}
       {visible && createPortal(

@@ -153,6 +153,11 @@ if (container) {
   // les plages elargies ci-dessous), et refuseFlashLevel (quand > 0)
   // assombrit/desature u_colors en plus, independamment du son en cours.
   function updateFromAudio() {
+    // Verre natif actif : le fond meshique est masque, inutile de le calculer (WebGL + analyse audio) : on le demonte.
+    if (document.documentElement.classList.contains('glass')) {
+      mount.dispose?.();
+      return;
+    }
     const level = getAudioLevel();
     mount.setUniforms({
       u_distortion: 0.2 + level * 0.85,

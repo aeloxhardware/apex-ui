@@ -213,6 +213,23 @@ napi_value change_result(napi_env env, bool ok) {
     // Depots rognes (ou retablis par une annulation) : sous-ensemble de `indices`.
     set(env, o, "trimmed", make_typed(env, napi_uint32_array, g_kernel.last_trimmed().data(), g_kernel.last_trimmed().size()));
     set(env, o, "trimState", make_bool(env, g_kernel.last_trim_state()));
+    // Topologie (re-tranchage) : blocs de points inseres ou retires par cette modification.
+    const Splice& sp = g_kernel.last_splice();
+    if (!sp.blocks.empty()) {
+      napi_value list;
+      napi_create_array_with_length(env, sp.blocks.size(), &list);
+      for (size_t i = 0; i < sp.blocks.size(); ++i) {
+        napi_value item = new_object(env);
+        set(env, item, "at", make_number(env, sp.blocks[i].at));
+        set(env, item, "values", make_typed(env, napi_float64_array, sp.blocks[i].values.data(), sp.blocks[i].values.size()));
+        set(env, item, "extruding", make_typed(env, napi_uint8_array, sp.blocks[i].extruding.data(), sp.blocks[i].extruding.size()));
+        napi_set_element(env, list, static_cast<uint32_t>(i), item);
+      }
+      napi_value spliced = new_object(env);
+      set(env, spliced, "inserted", make_bool(env, sp.inserted));
+      set(env, spliced, "blocks", list);
+      set(env, o, "splice", spliced);
+    }
   }
   set(env, o, "undoDepth", make_number(env, static_cast<double>(g_kernel.undo_depth())));
   set(env, o, "redoDepth", make_number(env, static_cast<double>(g_kernel.redo_depth())));
@@ -474,23 +491,29 @@ napi_value RestoreHistory(napi_env env, napi_callback_info info) {
   return o;
 }
 
-// Commit : modification validee, et couches inserees (re-tranchage) : [{ before, values, extruding }].
-napi_value Commit(napi_env env, napi_callback_info) {
-  napi_value o = change_result(env, g_kernel.commit());
-  const auto& plan = g_kernel.last_reslice();
-  if (!plan.empty()) {
-    napi_value list;
-    napi_create_array_with_length(env, plan.size(), &list);
-    for (size_t i = 0; i < plan.size(); ++i) {
-      napi_value item = new_object(env);
-      set(env, item, "before", make_number(env, plan[i].before));
-      set(env, item, "values", make_typed(env, napi_float64_array, plan[i].values.data(), plan[i].values.size()));
-      set(env, item, "extruding", make_typed(env, napi_uint8_array, plan[i].extruding.data(), plan[i].extruding.size()));
-      napi_set_element(env, list, static_cast<uint32_t>(i), item);
-    }
-    set(env, o, "reslice", list);
-  }
-  return o;
+napi_value Commit(napi_env env, napi_callback_info) { return change_result(env, g_kernel.commit()); }
+
+// setTimes(Float64Array) / setTypes(Uint8Array) : a redonner apres une insertion de points.
+napi_value SetTimes(napi_env env, napi_callback_info info) {
+  if (!g_loaded) return undefined(env);
+  napi_value argv[1];
+  args(env, info, 1, argv);
+  const double* data = nullptr;
+  size_t length = 0;
+  if (get_typed(env, argv[0], napi_float64_array, &data, &length)) g_kernel.set_times(data, length);
+  else g_kernel.set_times(nullptr, 0);
+  return undefined(env);
+}
+
+napi_value SetTypes(napi_env env, napi_callback_info info) {
+  if (!g_loaded) return undefined(env);
+  napi_value argv[1];
+  args(env, info, 1, argv);
+  const uint8_t* data = nullptr;
+  size_t length = 0;
+  if (get_typed(env, argv[0], napi_uint8_array, &data, &length)) g_kernel.set_types(data, length);
+  else g_kernel.set_types(nullptr, 0);
+  return undefined(env);
 }
 napi_value Undo(napi_env env, napi_callback_info) { return change_result(env, g_kernel.undo()); }
 napi_value Redo(napi_env env, napi_callback_info) { return change_result(env, g_kernel.redo()); }
@@ -651,6 +674,8 @@ NAPI_MODULE_INIT() {
       {"load", nullptr, Load, nullptr, nullptr, nullptr, napi_default, nullptr},
       {"setHandle", nullptr, SetHandle, nullptr, nullptr, nullptr, napi_default, nullptr},
       {"setLayerLimits", nullptr, SetLayerLimits, nullptr, nullptr, nullptr, napi_default, nullptr},
+      {"setTimes", nullptr, SetTimes, nullptr, nullptr, nullptr, napi_default, nullptr},
+      {"setTypes", nullptr, SetTypes, nullptr, nullptr, nullptr, napi_default, nullptr},
       {"drag", nullptr, Drag, nullptr, nullptr, nullptr, napi_default, nullptr},
       {"commit", nullptr, Commit, nullptr, nullptr, nullptr, napi_default, nullptr},
       {"cancel", nullptr, Cancel, nullptr, nullptr, nullptr, napi_default, nullptr},

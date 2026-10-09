@@ -131,6 +131,55 @@ int main(int argc, char** argv) {
   std::printf("  %zu points de trajectoire, %zu passes, %zu cellules de %.2f mm, %zu contacts, %zu points sans support\n",
               ls.pass_points, ls.passes, ls.cells, ls.cell_mm, ls.support_edges, without);
 
+  if (std::getenv("APEX_BENCH_RESLICE")) {
+    // Re-tranchage : image de glissement (avec comptage des couches a inserer), validation avec insertion de points
+    // (reconstruction du noyau), annulation et retablissement, pour une montee le long de l'axe du noeud.
+    for (int k = 2; k <= 10; k += 2) {
+      InfluenceParams p;
+      p.spatial = {true, 6.0, Falloff::Plateau};
+      p.reslice = true;
+      const uint32_t h = static_cast<uint32_t>(kernel.size() * k / 11);
+      const Vec3 axis0 = kernel.axis(h);
+      p.drag_direction = axis0;
+      auto t1 = Clock::now();
+      if (!kernel.set_handle(h, p)) { std::printf("  poignee %u refusee\n", h); continue; }
+      const double place_ms = ms_since(t1);
+      const Vec3 a = kernel.handle_axis();
+      Transform t;
+      t.translation = {5.0 * a.x, 5.0 * a.y, 5.0 * a.z};
+      double sum = 0.0, worst = 0.0;
+      for (int f = 0; f < 10; ++f) {
+        auto t2 = Clock::now();
+        kernel.drag(t, true);
+        const double ms = ms_since(t2);
+        sum += ms;
+        worst = std::max(worst, ms);
+      }
+      size_t needing = 0;
+      for (const uint8_t n : kernel.layer_counts()) needing += n > 0 ? 1 : 0;
+      const size_t before = kernel.size();
+      const size_t moved = kernel.affected().size();
+      const double applied = kernel.applied_translation().x * a.x + kernel.applied_translation().y * a.y +
+                             kernel.applied_translation().z * a.z;
+      auto t3 = Clock::now();
+      const bool ok = kernel.commit();
+      const double commit_ms = ms_since(t3);
+      size_t added = 0;
+      for (const auto& b : kernel.last_splice().blocks) added += b.count();
+      auto t4 = Clock::now();
+      if (ok) kernel.undo();
+      const double undo_ms = ms_since(t4);
+      auto t5 = Clock::now();
+      if (ok) kernel.redo();
+      const double redo_ms = ms_since(t5);
+      if (ok) kernel.undo();
+      std::printf("  poignee %u : %zu deplaces, applique %.2f mm, pose %.1f ms, image %.2f ms (max %.2f), %zu points a subdiviser, "
+                  "+%zu points (%zu -> %zu) : validation %.0f ms, annulation %.0f ms, retablissement %.0f ms\n",
+                  h, moved, applied, place_ms, sum / 10.0, worst, needing, added, before, before + added,
+                  commit_ms, undo_ms, redo_ms);
+    }
+    return 0;
+  }
   if (std::getenv("APEX_BENCH_TRIM")) {
     // Rognage, couche du noeud seule : points de matiere touches et rognes pour une descente de 0,5 mm.
     for (int k = 1; k <= 12; ++k) {

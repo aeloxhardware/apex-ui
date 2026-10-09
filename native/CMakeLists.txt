@@ -50,6 +50,42 @@ if(ELECTRON_HEADERS)
     # l'executable hote (electron.exe).
     target_link_options(apex_edit PRIVATE /DELAYLOAD:node.exe)
   endif()
+  # Capture du bureau derriere une fenetre (verre liquide qui refracte Windows) : addon independant,
+  # charge dans le processus principal (electron/backdrop.cjs). Windows seulement.
+  if(WIN32)
+    # Shaders compiles a la construction (fxc du SDK Windows, dans le PATH de vcvars) : aucun D3DCompile au
+    # lancement, qui bloquait le thread de l'interface.
+    find_program(FXC_EXE fxc REQUIRED)
+    set(BACKDROP_HLSL "${CMAKE_CURRENT_SOURCE_DIR}/src/backdrop.hlsl")
+    set(BACKDROP_GEN "${CMAKE_BINARY_DIR}/generated")
+    set(BACKDROP_SHADERS "")
+    foreach(entry IN ITEMS vs psBlurH psBlurV psMain)
+      if(entry STREQUAL "vs")
+        set(profile vs_4_0)
+      else()
+        set(profile ps_4_0)
+      endif()
+      add_custom_command(
+        OUTPUT "${BACKDROP_GEN}/backdrop_${entry}.h"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${BACKDROP_GEN}"
+        COMMAND "${FXC_EXE}" /nologo /T ${profile} /E ${entry} /O3 /Vn kBackdrop_${entry} /Fh "${BACKDROP_GEN}/backdrop_${entry}.h" "${BACKDROP_HLSL}"
+        DEPENDS "${BACKDROP_HLSL}"
+        VERBATIM)
+      list(APPEND BACKDROP_SHADERS "${BACKDROP_GEN}/backdrop_${entry}.h")
+    endforeach()
+    add_library(apex_backdrop SHARED src/backdrop.cpp src/win_delay_load_hook.cpp ${BACKDROP_SHADERS})
+    target_include_directories(apex_backdrop PRIVATE "${BACKDROP_GEN}")
+    set_target_properties(apex_backdrop PROPERTIES
+      PREFIX ""
+      SUFFIX ".node"
+      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+      LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
+    target_include_directories(apex_backdrop PRIVATE "${ELECTRON_HEADERS}")
+    target_compile_definitions(apex_backdrop PRIVATE NAPI_VERSION=8 BUILDING_NODE_EXTENSION)
+    apex_edit_flags(apex_backdrop)
+    target_link_libraries(apex_backdrop PRIVATE "${ELECTRON_NODE_LIB}" delayimp d3d11 dxgi dcomp comctl32 user32 gdi32)
+    target_link_options(apex_backdrop PRIVATE /DELAYLOAD:node.exe)
+  endif()
 endif()
 
 enable_testing()

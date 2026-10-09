@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { DEFAULT_GLASS, LiquidGlassRenderer } from './liquidGlass';
+import { isFlatUi } from '@/utils/interfaceMode';
+import { drawVeilTiles, veilNow, veilState } from '@/utils/veilTimeline';
 
 /** Couleur de fond réelle derrière le canevas 3D : premier ancêtre au fond non transparent. */
 function pageBackground(from: HTMLElement): string {
@@ -27,32 +29,12 @@ function veilBlurPx(): number {
 }
 
 function paintSpaceVeilTiles(ctx: CanvasRenderingContext2D, s: DOMRect, dpr: number) {
-  const tiles = document.querySelectorAll<HTMLElement>('[data-veil-tile]');
-  if (tiles.length === 0) return;
-  const W = window.innerWidth;
-  const H = window.innerHeight;
-  // Dégradé de `.tile` : ellipse 140 % × 160 % centrée en haut à droite du viewport.
-  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
-  g.addColorStop(0, 'rgba(150,152,156,0.9)');
-  g.addColorStop(0.55, 'rgba(58,60,66,0.97)');
-  g.addColorStop(1, 'rgba(20,21,24,1)');
+  const clock = veilState.clock;
+  if (!clock) return;
+  // Même dessin que le Worker du voile (veilTimeline.ts), à l'instant courant.
   ctx.save();
   ctx.setTransform(dpr, 0, 0, dpr, -s.left * dpr, -s.top * dpr);
-  ctx.translate(W, 0);
-  ctx.scale(1.4 * W, 1.6 * H);
-  tiles.forEach((t) => {
-    const o = parseFloat(t.style.opacity);
-    if (!(o > 0.001)) return;
-    const pct = (v: string) => parseFloat(v) / 100;
-    // Coordonnées de la tuile (en % du viewport) ramenées dans le repère du dégradé unitaire.
-    const x = pct(t.style.left) * W;
-    const y = pct(t.style.top) * H;
-    const w = pct(t.style.width) * W;
-    const h = pct(t.style.height) * H;
-    ctx.globalAlpha = Math.min(1, o);
-    ctx.fillStyle = g;
-    ctx.fillRect((x - W) / (1.4 * W) - 0.0005, y / (1.6 * H) - 0.0005, w / (1.4 * W) + 0.001, h / (1.6 * H) + 0.001);
-  });
+  drawVeilTiles(ctx, window.innerWidth, window.innerHeight, dpr, clock, veilNow());
   ctx.restore();
 }
 
@@ -73,6 +55,8 @@ export function GlassPanelBackdrop({
   warp = 1,
   blurPx = 1.5,
   whiteRim = false,
+  distortion = 1,
+  dispersion = DEFAULT_GLASS.dispersion,
 }: {
   targetRef: React.RefObject<HTMLElement | null>;
   corner?: number;
@@ -83,13 +67,18 @@ export function GlassPanelBackdrop({
   blurPx?: number;
   /** Liseré blanc de bord (Fresnel + reflet) ; sinon un relief par ombrage du bord, sans blanc. */
   whiteRim?: boolean;
+  /** Multiplie le déplacement du fond au bord (réfraction) : 1 = réglage par défaut. */
+  distortion?: number;
+  /** Séparation des couleurs au bord (franges colorées) ; 0 = distorsion de forme seule. */
+  dispersion?: number;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const flatRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !enabled) return;
+    // Interface à plat : aucun verre WebGL (les panneaux sont opaques, cf. FlatUi.tsx).
+    if (!canvas || !enabled || isFlatUi()) return;
     let renderer: LiquidGlassRenderer;
     try {
       renderer = new LiquidGlassRenderer(canvas, true);
@@ -101,8 +90,13 @@ export function GlassPanelBackdrop({
     }
     let shown = false;
     const frame = () => {
+      // Shaders encore en compilation : on n'a rien à dessiner (ni fond aplati ni flou, coûteux).
+      if (!renderer.ready()) {
+        if (renderer.failed) targetRef.current?.setAttribute('data-glass-fallback', '1');
+        return;
+      }
       const el = targetRef.current;
-      const scene = document.getElementById('babylon-canvas') as HTMLCanvasElement | null;
+      const scene = (document.getElementById('babylon-canvas') ?? document.getElementById('topo-background')) as HTMLCanvasElement | null;
       if (!el || !scene || scene.width === 0) {
         if (shown) { renderer.clear(); shown = false; }
         return;
@@ -145,13 +139,34 @@ export function GlassPanelBackdrop({
         strength,
         box: { halfW: r.width / 2, halfH: r.height / 2, corner: Math.min(corner, r.height / 2) },
       }], dpr, whiteRim
-        ? { ...DEFAULT_GLASS, blurPx }
-        : { ...DEFAULT_GLASS, blurPx, fresnelFactor: 0, glareFactor: 0, edgeShade: 1 });
+        ? { ...DEFAULT_GLASS, blurPx, distance: DEFAULT_GLASS.distance * distortion, dispersion }
+        : { ...DEFAULT_GLASS, blurPx, distance: DEFAULT_GLASS.distance * distortion, dispersion, fresnelFactor: 0, glareFactor: 0, edgeShade: 1 });
       shown = true;
     };
     window.addEventListener(SCENE_RENDERED_EVENT, frame);
-    return () => window.removeEventListener(SCENE_RENDERED_EVENT, frame);
-  }, [targetRef, corner, enabled, warp, blurPx, whiteRim]);
+    // Sans scène 3D (espace Accueil, fond statique) aucun rendu ne nous réveille : on suit le panneau
+    // (animation d'entrée, redimensionnement) et on ne redessine que s'il a changé.
+    let raf = 0;
+    let sig = '';
+    let settle = 0;
+    const watch = () => {
+      raf = requestAnimationFrame(watch);
+      if (document.getElementById('babylon-canvas')) return;
+      const el = targetRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const next = `${r.left}|${r.top}|${r.width}|${r.height}|${getComputedStyle(el).opacity}`;
+      if (next !== sig) { sig = next; settle = 30; }
+      // Fond animé (relief topographique de l'Accueil) : le verre en réfracte une copie, à rafraîchir
+      // à chaque image sinon il montre un fond périmé dès que le panneau cesse de bouger.
+      if (settle > 0 || document.getElementById('topo-background')) { settle = Math.max(0, settle - 1); frame(); }
+    };
+    raf = requestAnimationFrame(watch);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener(SCENE_RENDERED_EVENT, frame);
+    };
+  }, [targetRef, corner, enabled, warp, blurPx, whiteRim, distortion, dispersion]);
 
   return createPortal(
     <canvas

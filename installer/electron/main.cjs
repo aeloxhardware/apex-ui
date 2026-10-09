@@ -1,7 +1,9 @@
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, screen } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const { execSync, spawn } = require('node:child_process');
+const backdrop = require('./backdrop.cjs');
+const installer = require('./install.cjs');
 
 // Interrupteur global du decor "FitGirl Repack" (fenetre de preparation
 // imitant un installeur crack + les repliques gag avant l'UAC). A false,
@@ -16,7 +18,11 @@ let preflightWindow = null;
 // detachee (Start-Process -Verb RunAs), donc console.log n'est visible
 // nulle part - on trace dans un fichier pour diagnostiquer le blocage de
 // fermeture (icone taskbar residuelle signalee par l'utilisateur).
-const QUIT_LOG_PATH = path.join(__dirname, '..', 'quit-debug.log');
+// Packagee, __dirname est dans app.asar (non inscriptible) et le dossier de l'exe portable disparait a la fermeture :
+// le journal va alors dans le dossier personnel.
+const QUIT_LOG_PATH = app.isPackaged
+  ? path.join(require('node:os').homedir(), 'apex-installer-debug.log')
+  : path.join(__dirname, '..', 'quit-debug.log');
 function quitLog(message) {
   try {
     fs.appendFileSync(QUIT_LOG_PATH, `[${new Date().toISOString()}] ${message}\n`);
@@ -179,6 +185,60 @@ function closePreflightWindow() {
 
 let isRelaunching = false;
 
+// --- Question initiale : toute premiere chose affichee, avant l'UAC et meme avant le logo de chargement. Boite
+// volontairement laide, facon Windows 95. Oui -> la suite habituelle ; Non / croix / Echap -> on quitte. Le process
+// relance en administrateur recoit CONFIRMED_FLAG et ne la reaffiche pas.
+const CONFIRMED_FLAG = '--apex-confirmed';
+let questionWindow = null;
+function showQuestionDialog(onYes) {
+  questionWindow = new BrowserWindow({
+    width: 360,
+    height: 168,
+    center: true,
+    frame: false,
+    resizable: false,
+    maximizable: false,
+    minimizable: false,
+    fullscreenable: false,
+    alwaysOnTop: true,
+    show: false,
+    backgroundColor: '#c0c0c0',
+    title: 'Question',
+    roundedCorners: false,  // angles pointus (Windows 11 arrondit sinon les fenetres sans cadre)
+    icon: path.join(__dirname, 'icon-256.png'),
+    webPreferences: {
+      preload: path.join(__dirname, 'question-preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  questionWindow.setMenuBarVisibility(false);
+  questionWindow.loadFile(path.join(__dirname, 'question.html'));
+  questionWindow.once('ready-to-show', () => {
+    quitLog('question : affichee');
+    questionWindow.show();
+    questionWindow.focus();
+  });
+  ipcMain.once('question:answer', (_event, yes) => {
+    quitLog(`question : reponse ${yes ? 'Oui' : 'Non'}`);
+    if (!yes) {
+      questionWindow?.destroy();
+      app.quit();
+      return;
+    }
+    onYes();
+    // Deja eleve : la fenetre principale est creee, la question peut partir. Sinon (relance en cours), elle reste
+    // masquee jusqu'a la fin de PowerShell (voir relaunchElevatedAndQuit) : fermer ici quitterait l'app trop tot.
+    if (questionWindow && !questionWindow.isDestroyed()) {
+      if (isRelaunching) questionWindow.hide();
+      else questionWindow.destroy();
+    }
+  });
+  questionWindow.on('closed', () => {
+    questionWindow = null;
+  });
+}
+
 function relaunchElevatedAndQuit() {
   isRelaunching = true;
   // Desepinglage avant de declencher l'UAC : garder ces fenetres au niveau
@@ -188,7 +248,10 @@ function relaunchElevatedAndQuit() {
   for (const win of [preflightWindow, gagWindow]) {
     if (win && !win.isDestroyed()) win.setAlwaysOnTop(false);
   }
-  const exePath = process.execPath;
+  // Cible portable : process.execPath est la copie extraite dans %TEMP%, effacee des que le lanceur se ferme ; il faut
+  // relancer l'exe d'origine (PORTABLE_EXECUTABLE_FILE), voir limite #3 de CLAUDE_INSTALLER.md.
+  const portableExe = process.env.PORTABLE_EXECUTABLE_FILE;
+  const exePath = portableExe || process.execPath;
   // En dev, process.execPath pointe vers electron.exe et argv[1] vaut '.'
   // (voir run-electron.cjs) : ce '.' doit se resoudre par rapport au
   // dossier de l'app, d'ou -WorkingDirectory explicite ci-dessous (sinon
@@ -196,8 +259,9 @@ function relaunchElevatedAndQuit() {
   // package.json/main.cjs). En build, execPath est deja l'exe final et les
   // argv suivants sont les arguments reels a repasser tels quels.
   const args = process.argv.slice(1);
+  if (!args.includes(CONFIRMED_FLAG)) args.push(CONFIRMED_FLAG);  // le process eleve ne reposera pas la question
   const argList = args.map((a) => `'${a.replace(/'/g, "''")}'`).join(',');
-  const workDir = path.join(__dirname, '..');
+  const workDir = portableExe ? path.dirname(portableExe) : path.join(__dirname, '..');
   const psCommand = argList
     ? `Start-Process -FilePath '${exePath}' -ArgumentList ${argList} -WorkingDirectory '${workDir}' -Verb RunAs`
     : `Start-Process -FilePath '${exePath}' -WorkingDirectory '${workDir}' -Verb RunAs`;
@@ -210,6 +274,7 @@ function relaunchElevatedAndQuit() {
     stdio: 'ignore',
   });
   child.on('exit', () => {
+    if (questionWindow && !questionWindow.isDestroyed()) questionWindow.destroy();
     closePreflightWindow();
     if (gagWindow && !gagWindow.isDestroyed()) gagWindow.close();
     gagWindow = null;
@@ -265,7 +330,37 @@ function requestGracefulQuit() {
   mainWindow.webContents.send('installer:request-close');
 }
 
+// Logo Apex seul (moitie de la fenetre), sur fond transparent, tant que la fenetre principale n'est pas visible.
+let loadingWindow = null;
+function showLoadingLogo() {
+  loadingWindow = new BrowserWindow({
+    width: 360,
+    height: 320,
+    center: true,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    focusable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    show: false,
+    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+  });
+  loadingWindow.setIgnoreMouseEvents(true);
+  loadingWindow.loadFile(path.join(__dirname, 'loading.html'));
+  loadingWindow.once('ready-to-show', () => {
+    quitLog('logo de chargement : ready-to-show');
+    if (loadingWindow && !loadingWindow.isDestroyed()) loadingWindow.showInactive();
+  });
+  loadingWindow.webContents.on('did-fail-load', (_e, code, desc) => quitLog(`logo de chargement : echec ${code} ${desc}`));
+}
+function closeLoadingLogo() {
+  if (loadingWindow && !loadingWindow.isDestroyed()) loadingWindow.close();
+  loadingWindow = null;
+}
+
 function createWindow() {
+  showLoadingLogo();
   mainWindow = new BrowserWindow({
     width: 640,
     height: 520,
@@ -286,6 +381,8 @@ function createWindow() {
     frame: false,
     transparent: true,
     title: 'Installation — Apex Slicer',
+    // Icone du bouton de barre des taches et d'Alt+Tab (logo Apex, rendu depuis res/logo.svg en 256x256).
+    icon: path.join(__dirname, 'icon-256.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -294,6 +391,64 @@ function createWindow() {
   });
 
   mainWindow.setMenuBarVisibility(false);
+  // Verre liquide natif (backdrop.cjs, meme addon que l'ecran de demarrage du slicer) : le bureau Windows est
+  // refracte derriere la fenetre ; la page ne dessine que son contenu (classe `glass` sur <html>, voir
+  // styles.css). Sans addon, la page garde son fond meshique.
+  // Sequence : la fenetre se charge SANS etre visible (opacite 0) et le verre se prepare en meme temps, cache
+  // (`hold`) ; pendant ce temps le logo Apex seul reste a l'ecran, aucun fond visible. Quand tout est pret ET que le
+  // logo est reste au moins LOADING_MIN_MS, le verre est montre, la fenetre revelee et le logo disparait ensemble.
+  const LOADING_MIN_MS = 1000;
+  const GLASS_FAILSAFE_MS = 3000;
+  let glassOn = false;
+  let glassReady = false;
+  let windowShown = false;
+  let minElapsed = false;
+  let glassStarted = false;
+  let revealed = false;
+  const applyGlass = () => {
+    if (glassOn && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.executeJavaScript("document.documentElement.classList.add('glass')").catch(() => {});
+    }
+  };
+  // La page reste invisible (classe `boot`, voir styles.css) jusqu'a la revelation : setOpacity(0) seul ne cache pas
+  // une fenetre transparente de facon fiable, et le fond meshique apparaissait avant le logo.
+  const unboot = () => mainWindow.webContents.executeJavaScript("document.documentElement.classList.remove('boot')").catch(() => {});
+  const reveal = () => {
+    if (revealed || mainWindow.isDestroyed()) return;
+    revealed = true;
+    if (glassOn) backdrop.release();  // montre le verre retenu
+    applyGlass();
+    unboot();
+    mainWindow.setOpacity(1);
+    closeLoadingLogo();
+    sendStart();
+  };
+  const maybeReveal = () => { if (windowShown && minElapsed && glassReady) reveal(); };
+  // Musique et animations de l'intro : demarrees APRES la disparition du logo, une fois la page prete a les recevoir.
+  let rendererReady = false;
+  const sendStart = () => {
+    if (revealed && rendererReady && !mainWindow.isDestroyed()) mainWindow.webContents.send('installer:start');
+  };
+  ipcMain.once('installer:renderer-ready', () => { rendererReady = true; sendStart(); });
+  const startGlass = () => {
+    if (glassStarted) return;
+    glassStarted = true;
+    const ok = backdrop.follow(mainWindow, { corner: 20, tint: 0, warp: 4, blur: 10, taskbar: true, hold: true }, () => {
+      glassOn = true;
+      glassReady = true;
+      maybeReveal();
+    });
+    if (!ok) {  // pas d'addon : verre du systeme (macOS) ou fond meshique de repli
+      if (backdrop.systemGlass(mainWindow)) glassOn = true;
+      glassReady = true;
+      maybeReveal();
+      return;
+    }
+    setTimeout(() => { glassReady = true; maybeReveal(); }, GLASS_FAILSAFE_MS);  // filet : verre jamais pret
+  };
+  setTimeout(() => { minElapsed = true; maybeReveal(); }, LOADING_MIN_MS);
+  mainWindow.setOpacity(0);
+  mainWindow.webContents.on('did-finish-load', applyGlass);
   mainWindow.loadFile(path.join(__dirname, '../src/index.html'));
   if (process.env.INSTALLER_DEVTOOLS === '1') {
     mainWindow.webContents.openDevTools({ mode: 'detach' });
@@ -310,6 +465,9 @@ function createWindow() {
   // resterait au-dessus de tout en permanence).
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
+    windowShown = true;
+    startGlass();
+    maybeReveal();
     mainWindow.setAlwaysOnTop(true);
     mainWindow.focus();
     setImmediate(() => {
@@ -351,7 +509,23 @@ ipcMain.on('gag:done', () => {
   relaunchElevatedAndQuit();
 });
 
+app.setAppUserModelId('com.aeloxhardware.apexslicer.installer');
+
+process.on('uncaughtException', (error) => quitLog(`uncaughtException : ${error && error.stack}`));
+process.on('unhandledRejection', (error) => quitLog(`unhandledRejection : ${error && error.stack}`));
+app.on('window-all-closed', () => quitLog('window-all-closed'));
+app.on('before-quit', () => quitLog('before-quit'));
+
 app.whenReady().then(() => {
+  quitLog(`whenReady, packaged=${app.isPackaged}, argv=${process.argv.join(' ')}`);
+  if (!process.argv.includes(CONFIRMED_FLAG)) {
+    showQuestionDialog(startInstaller);
+    return;
+  }
+  startInstaller();
+});
+
+function startInstaller() {
   if (!isRunningElevated()) {
     if (fitgirl) {
       // Affiche la fenetre "Setup" (voir showPreflightWindow) et attend le
@@ -370,7 +544,7 @@ app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
-});
+}
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
@@ -387,35 +561,20 @@ ipcMain.handle('installer:choose-directory', async (_event, defaultPath) => {
 });
 
 ipcMain.handle('installer:default-install-path', () => {
-  return path.join(app.getPath('appData'), '..', 'Local', 'Programs', 'Apex Slicer');
+  // Process eleve : installation pour tous les utilisateurs (le dossier Local\Programs serait celui du compte admin).
+  return path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Apex Slicer');
 });
 
-// Etape de progression PLACEHOLDER : l'installation reelle (copie de dist/ +
-// electron/, creation des raccourcis .lnk) sera branchee ici plus tard. Pour
-// l'instant on simule une sequence d'etapes pour valider le flux/design.
-const INSTALL_STEPS = [
-  'Preparation du dossier de destination',
-  "Copie des fichiers de l'application",
-  'Enregistrement du programme',
-  'Creation des raccourcis',
-  'Finalisation',
-];
-
-ipcMain.handle('installer:run-install', async (event, _options) => {
-  for (let i = 0; i < INSTALL_STEPS.length; i++) {
-    event.sender.send('installer:progress', {
-      index: i,
-      total: INSTALL_STEPS.length,
-      label: INSTALL_STEPS[i],
-    });
-    await new Promise((resolve) => setTimeout(resolve, 600));
-  }
-  return { success: true };
-});
+// Installation reelle (voir electron/install.cjs) : extraction du paquet embarque, enregistrement dans « Programmes et
+// fonctionnalites », raccourcis, desinstalleur. Rend {success, error?} ; l'avancement part sur installer:progress.
+ipcMain.handle('installer:run-install', (event, options) =>
+  installer.runInstall(options || {}, (progress) => {
+    if (!event.sender.isDestroyed()) event.sender.send('installer:progress', progress);
+  }),
+);
 
 ipcMain.handle('installer:launch-app', () => {
-  // Placeholder : pointera vers l'executable reellement installe une fois
-  // la copie de fichiers implementee.
+  installer.launchInstalled();
   requestGracefulQuit();
 });
 
@@ -425,6 +584,27 @@ ipcMain.handle('installer:open-external', (_event, url) => {
 
 ipcMain.handle('installer:quit', () => {
   requestGracefulQuit();
+});
+
+// Glisser la fenetre depuis n'importe quelle zone sans controle. -webkit-app-region: drag sur toute la surface
+// rendait hover et clic morts sur les boutons (limite #13) : le deplacement est donc fait a la main, sur le
+// curseur reel (memes unites que getBounds, donc sans derive sur ecran a echelle != 100 %). La taille est
+// reaffirmee a chaque pas : setBounds ne doit jamais la laisser deriver.
+let dragOrigin = null;
+ipcMain.on('installer:drag-start', () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  dragOrigin = { cursor: screen.getCursorScreenPoint(), bounds: mainWindow.getBounds() };
+});
+ipcMain.on('installer:drag-move', () => {
+  if (!dragOrigin || !mainWindow || mainWindow.isDestroyed()) return;
+  const cursor = screen.getCursorScreenPoint();
+  const b = dragOrigin.bounds;
+  mainWindow.setBounds({
+    x: b.x + cursor.x - dragOrigin.cursor.x,
+    y: b.y + cursor.y - dragOrigin.cursor.y,
+    width: b.width,
+    height: b.height,
+  });
 });
 
 ipcMain.on('installer:debug-log', (_event, message) => {

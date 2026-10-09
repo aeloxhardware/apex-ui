@@ -32,6 +32,8 @@ import { useGCodePreview } from '@/hooks/use-gcode-preview';
 import { useAnimate, motion, AnimatePresence } from 'framer-motion';
 import { Box } from 'lucide-react';
 import { showSuccess } from '@/utils/toast';
+import { AlphaWatermark } from '@/components/AlphaWatermark';
+import { useDevMode } from '@/utils/devModePrefs';
 
 interface ModelStatus {
   name: string;
@@ -39,6 +41,7 @@ interface ModelStatus {
 }
 
 const Index = () => {
+  const devMode = useDevMode();
   // L'application s'ouvre sur l'Accueil (espace sans 3D) ; le viewport n'est monté qu'en le quittant.
   const [activeTab, setActiveTab] = useState<'3d-view' | 'settings' | 'developer' | 'params' | 'home'>('home');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
@@ -101,6 +104,22 @@ const Index = () => {
   // aucune scène Babylon.js ne doit tourner en fond pendant que cet espace est affiché.
   // Paramètres et Accueil : mêmes espaces sans 3D.
   const isParams = activeTab === 'params' || activeTab === 'home';
+
+  // Préchargement (interface moderne) : l'application s'ouvre sur l'Accueil, sans 3D. Un Viewport3D invisible
+  // est monté au lancement, le temps que son moteur, ses shaders et ses modèles soient prêts (le splash
+  // l'attend, cf. main.tsx), puis démonté : aucune scène ne tourne en fond (cf. commentaire ci-dessus).
+  // Le premier passage en 3D retrouve ainsi des caches chauds au lieu de tout initialiser.
+  const [warmingViewport, setWarmingViewport] = useState(true);
+  useEffect(() => {
+    if (!warmingViewport) return;
+    const done = () => window.setTimeout(() => setWarmingViewport(false), 0);
+    window.addEventListener('apex-viewport-ready', done, { once: true });
+    return () => window.removeEventListener('apex-viewport-ready', done);
+  }, [warmingViewport]);
+  // Si l'utilisateur quitte l'Accueil avant la fin du préchargement, le vrai viewport prend le relais.
+  useEffect(() => {
+    if (!isParams) setWarmingViewport(false);
+  }, [isParams]);
 
   // Le menu Profils imprimante n'existe que dans Préparation et Prévisualisation (activeTab '3d-view') :
   // il se ferme avec son bouton quand on les quitte.
@@ -387,6 +406,12 @@ const Index = () => {
         )}
       </AnimatePresence>
 
+      {warmingViewport && isParams && (
+        <div aria-hidden className="fixed inset-0 pointer-events-none opacity-0 -z-10 overflow-hidden">
+          <Viewport3D />
+        </div>
+      )}
+
       {activeTab === 'params' && <ParamsPanel />}
       {activeTab === 'home' && <HomePanel />}
 
@@ -453,6 +478,7 @@ const Index = () => {
           chrome ci-dessus, sinon il disparaîtrait avec lui pendant la transition qu'il est
           justement censé masquer. */}
       <SpaceTransitionOverlay />
+      {!devMode && <AlphaWatermark />}
       <UnlayeredDetectedDialog fileInfo={gcodePreview.fileInfo} loading={gcodePreview.isLoading} active={isPreviewActive} />
     </div>
   );

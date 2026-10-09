@@ -23,16 +23,12 @@ import { isLocallySliced, writeEditedGCode } from '@/utils/gcodeWriter';
 import { readApexHeader, writeApexHeader, type ApexHeaderPayload } from '@/utils/apexHeader';
 import { isEditJournalEnabled } from '@/utils/editJournalPrefs';
 import {
-  EDIT_BAKE_EVENT,
-  EDIT_BAKE_PREPARE_EVENT,
   EDIT_FILE_INFO_EVENT,
   EDIT_REQUEST_STATE_EVENT,
   EDIT_SAVE_EVENT,
-  EDIT_UNBAKE_EVENT,
   type EditFileInfo,
   type EditSaveMode,
 } from '@/components/edit-node/editProtocol';
-import type { EditResliceInsert } from '@/utils/editKernelClient';
 
 /**
  * Logique de l'espace Prévisualisation, sans interface : chargement de fichier G-code (dépôt sur
@@ -143,11 +139,6 @@ export function useGCodePreview(active: boolean) {
   // `text` est le texte D'ORIGINE du fichier chargé (base de toute réécriture après édition, cf.
   // gcodeWriter.ts) ; `path` son chemin sur disque quand il est connu (modification en place).
   const currentRef = useRef<{ text: string; name: string; path: string | null } | null>(null);
-  // Re-tranchage (cf. editProtocol.ts, EDIT_BAKE_EVENT) : instantané du fichier avant l'opération en cours,
-  // et instantanés pour annuler / rétablir les opérations déjà faites (textes complets : on en garde peu).
-  const bakeSnapshotRef = useRef<string | null>(null);
-  const bakeUndoRef = useRef<{ text: string; name: string }[]>([]);
-  const bakeRedoRef = useRef<{ text: string; name: string }[]>([]);
   const [conversion, setConversion] = useState<ConversionState>(IDLE_CONVERSION);
 
   useEffect(() => {
@@ -441,7 +432,8 @@ export function useGCodePreview(active: boolean) {
       return null;
     }
     const journal = parsed.editJournal;
-    const hasJournal = !!journal && (journal.undo.length > 0 || journal.redo.length > 0);
+    // Des plages insérées (re-tranchage) décalent la numérotation : le journal ne vaudrait plus pour le fichier écrit.
+    const hasJournal = !!journal && !parsed.insertedBlocks?.length && (journal.undo.length > 0 || journal.redo.length > 0);
     const header = parsed.apexHeader;
     // Rien à changer à l'en-tête : ni journal à écrire, ni journal existant à retirer.
     if (!hasJournal && !header?.journal) return result.text;
@@ -456,6 +448,8 @@ export function useGCodePreview(active: boolean) {
       return null;
     }
   };
+
+  if (import.meta.env.DEV) (window as unknown as { __apexSavedText?: () => Promise<string | null> }).__apexSavedText = () => currentText();
 
   /** Enregistre le G-code affiché, modifications comprises. */
   const exportGCode = async () => {
@@ -491,107 +485,9 @@ export function useGCodePreview(active: boolean) {
   };
 
   const publishEditFileInfo = () => {
-    const detail: EditFileInfo = {
-      name: currentRef.current?.name ?? null, canSaveInPlace: canSaveInPlace(),
-      bakeUndo: bakeUndoRef.current.length, bakeRedo: bakeRedoRef.current.length,
-    };
+    const detail: EditFileInfo = { name: currentRef.current?.name ?? null, canSaveInPlace: canSaveInPlace() };
     window.dispatchEvent(new CustomEvent(EDIT_FILE_INFO_EVENT, { detail }));
   };
-
-  const BAKE_HISTORY_MAX = 3;
-
-  /** Instantané du fichier tel qu'il est (modifications et journal compris), avant une validation qui insérera des couches. */
-  const bakePrepare = async (): Promise<boolean> => {
-    const text = await currentText();
-    bakeSnapshotRef.current = text;
-    return text !== null;
-  };
-
-  /** Réécrit le fichier avec les couches insérées et le relit : les indices de mouvements changent, l'historique
-   * du noyau repart de zéro (l'annulation passe par l'instantané). L'en-tête garde marqueur et métadonnées, sans journal. */
-  const bake = async (inserts: EditResliceInsert[]): Promise<boolean> => {
-    const current = currentRef.current;
-    const parsed = parsedRef.current;
-    const snapshot = bakeSnapshotRef.current;
-    if (!current || !parsed || snapshot === null) return false;
-    const result = writeEditedGCode(current.text, parsed, inserts);
-    if ('error' in result) {
-      showError(`Re-tranchage impossible : ${result.error}`);
-      return false;
-    }
-    let text = result.text;
-    const header = parsed.apexHeader;
-    if (header) {
-      const payload: ApexHeaderPayload = { ...header, format: 1 };
-      delete payload.journal;
-      const empty = !payload.sliced && !payload.meta;
-      try {
-        text = await writeApexHeader(text, empty ? null : payload);
-      } catch (err) {
-        showError(`En-tête Apex impossible à écrire : ${err instanceof Error ? err.message : String(err)}`);
-        return false;
-      }
-    }
-    const { name, path } = current;
-    if (!(await loadText(text, name))) return false;
-    if (currentRef.current) currentRef.current.path = path;
-    bakeUndoRef.current.push({ text: snapshot, name });
-    if (bakeUndoRef.current.length > BAKE_HISTORY_MAX) bakeUndoRef.current.shift();
-    bakeRedoRef.current = [];
-    bakeSnapshotRef.current = null;
-    publishEditFileInfo();
-    return true;
-  };
-
-  /** Annule (ou rétablit) la dernière insertion de couches : retour à l'instantané correspondant. */
-  const unbake = async (redo: boolean): Promise<boolean> => {
-    const from = redo ? bakeRedoRef : bakeUndoRef;
-    const to = redo ? bakeUndoRef : bakeRedoRef;
-    const top = from.current[from.current.length - 1];
-    if (!top) return false;
-    const now = await currentText();
-    const name = currentRef.current?.name ?? top.name;
-    const path = currentRef.current?.path ?? null;
-    if (now === null) return false;
-    from.current.pop();
-    if (!(await loadText(top.text, top.name))) {
-      from.current.push(top);
-      return false;
-    }
-    if (currentRef.current) currentRef.current.path = path;
-    to.current.push({ text: now, name });
-    if (to.current.length > BAKE_HISTORY_MAX) to.current.shift();
-    publishEditFileInfo();
-    return true;
-  };
-
-  const bakePrepareRef = useRef(bakePrepare);
-  bakePrepareRef.current = bakePrepare;
-  const bakeRef = useRef(bake);
-  bakeRef.current = bake;
-  const unbakeRef = useRef(unbake);
-  unbakeRef.current = unbake;
-  useEffect(() => {
-    type Done = { done?: (ok: boolean) => void };
-    const settle = (e: Event, work: Promise<boolean>) => {
-      const done = (e as CustomEvent<Done>).detail?.done;
-      work.then((ok) => done?.(ok), () => done?.(false));
-    };
-    const onPrepare = (e: Event) => settle(e, bakePrepareRef.current());
-    const onBake = (e: Event) => {
-      const inserts = (e as CustomEvent<{ inserts: EditResliceInsert[] }>).detail?.inserts ?? [];
-      settle(e, bakeRef.current(inserts));
-    };
-    const onUnbake = (e: Event) => settle(e, unbakeRef.current(!!(e as CustomEvent<{ redo?: boolean }>).detail?.redo));
-    window.addEventListener(EDIT_BAKE_PREPARE_EVENT, onPrepare);
-    window.addEventListener(EDIT_BAKE_EVENT, onBake);
-    window.addEventListener(EDIT_UNBAKE_EVENT, onUnbake);
-    return () => {
-      window.removeEventListener(EDIT_BAKE_PREPARE_EVENT, onPrepare);
-      window.removeEventListener(EDIT_BAKE_EVENT, onBake);
-      window.removeEventListener(EDIT_UNBAKE_EVENT, onUnbake);
-    };
-  }, []);
 
   // Panneau Édition : enregistrement, et demande d'état (réémission de l'information du fichier).
   const saveEditedRef = useRef(saveEdited);

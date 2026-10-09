@@ -548,6 +548,10 @@ export interface GCodeLayer {
    * les mouvements, l'extrusion (`eDelta`), la liste des mouvements modifiés (`editedMoves`), et
    * réécrit en place la géométrie des seuls segments touchés. */
   applyMoveEdits(indices: Uint32Array, values: Float64Array, trimmed?: Uint32Array, trimState?: boolean): void;
+  /** Édition : des mouvements ont été insérés ou retirés de `parsed` (re-tranchage, indices décalés) :
+   * reconstruit les maillages ; l'ancien affichage reste visible jusqu'à la fin, sans clignotement. Les
+   * drapeaux, poids et aperçus d'édition décrivaient l'ancienne numérotation : ils sont effacés. */
+  replaceMoves(parsed: ParsedGCode): Promise<void>;
   /** Édition : pose (ou retire, avec null) un drapeau d'alerte / d'état sur des mouvements. `bit` : l'un
    * des EDIT_FLAG_* (gcodeEditDeform.ts) ; l'ensemble précédent de ce bit est remplacé. */
   setEditFlagBit(bit: number, indices: Uint32Array | null): void;
@@ -1087,10 +1091,12 @@ export function createGCodeLayer(
   // annule la précédente à la prochaine tranche.
   let buildSeq = 0;
 
-  const buildAll = async (next: ParsedGCode): Promise<void> => {
+  const buildAll = async (next: ParsedGCode, keepOld = false): Promise<void> => {
     const seq = ++buildSeq;
     const cancelled = () => seq !== buildSeq;
-    disposeAll();
+    // Reconstruction « à chaud » : l'ancien affichage reste jusqu'à ce que le nouveau soit prêt.
+    const previous = keepOld ? { paths, markers, offPlatePath } : null;
+    if (!keepOld) disposeAll();
     pickBuildSeq++; // l'index de sélection de l'ancienne géométrie n'est plus valable
     pickGrid = null;
     pickHighlight?.setEnabled(false);
@@ -1154,6 +1160,11 @@ export function createGCodeLayer(
         // bon matériau, pas retomber sur le rouge fixe de buildBeadMesh ci-dessus.
         if (blinkingOffPlate) newOffPlate.mesh.material = offPlateHazardMat;
       }
+    }
+    if (previous) {
+      for (const entry of previous.paths) entry.mesh?.dispose(false, false);
+      for (const entry of previous.markers) entry.mesh.dispose(false, true);
+      previous.offPlatePath?.mesh?.dispose(false, false);
     }
     paths = newPaths;
     markers = newMarkers;
@@ -1737,6 +1748,19 @@ export function createGCodeLayer(
   };
 
   return {
+    async replaceMoves(next) {
+      moveFlags = null;
+      flagSets.clear();
+      lastWeights = null;
+      travelPreviewKeys.clear();
+      const last = next.moves.length - 1;
+      const wasAtEnd = time >= (parsed?.moves.length ?? 1) - 1;
+      await buildAll(next, true);
+      if (parsed !== next) return;
+      if (wasAtEnd) time = last;
+      time = Math.min(time, last);
+      apply();
+    },
     async load(next) {
       await buildAll(next);
       if (parsed !== next) return; // supplanté par un chargement plus récent

@@ -449,7 +449,15 @@ document.addEventListener('click', async (event) => {
         installAxis45: installSelection.axis45 === 'yes',
         installModeler: installSelection.modeler === 'yes',
       };
-      await window.installerApi.runInstall(options);
+      const result = await window.installerApi.runInstall(options);
+      if (!result || !result.success) {
+        // Echec : retour arriere deja fait cote main ; on revient au choix du dossier avec le message d'erreur.
+        window.alert(`L'installation a echoue.
+
+${(result && result.error) || 'Erreur inconnue.'}`);
+        showScreen('welcome');
+        break;
+      }
       showScreen('done');
       break;
     }
@@ -521,12 +529,12 @@ document.addEventListener('mouseout', (event) => {
   lastHoverTarget = null;
 });
 
-window.installerApi.onProgress(({ index, total, label }) => {
+window.installerApi.onProgress(({ index, total, label, percent: exactPercent }) => {
   const fill = document.querySelector('[data-role="progress-fill"]');
   const count = document.querySelector('[data-role="progress-count"]');
   const labelEl = document.querySelector('[data-role="progress-label"]');
 
-  const percent = Math.round(((index + 1) / total) * 100);
+  const percent = typeof exactPercent === 'number' ? exactPercent : Math.round(((index + 1) / total) * 100);
   fill.style.width = `${percent}%`;
   count.textContent = `${index + 1} / ${total}`;
   labelEl.textContent = label;
@@ -573,4 +581,27 @@ window.installerApi.onRequestClose(() => {
 });
 
 initInstallPath();
-playIntro();
+// L'intro (musique prestart, trace du logo) ne demarre qu'APRES la disparition du logo de chargement : le main envoie
+// `installer:start` une fois la fenetre revelee (voir electron/main.cjs).
+window.installerApi.onStart(() => playIntro());
+window.installerApi.rendererReady();
+
+// Glisser la fenetre depuis toute zone sans element interactif (voir main.cjs, installer:drag-start). Le drag natif
+// (-webkit-app-region) reste limite a .dragHandle : sur toute la surface il tue hover et clic (limite #13).
+(function initWindowDrag() {
+  const INTERACTIVE = 'button, input, select, textarea, a, label, [data-action], [role="button"], .planCard, .modeCard, .dragHandle';
+  let dragging = false;
+  document.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0 || event.target.closest(INTERACTIVE)) return;
+    dragging = true;
+    document.documentElement.setPointerCapture?.(event.pointerId);
+    window.installerApi.dragStart();
+  });
+  document.addEventListener('pointermove', () => {
+    if (dragging) window.installerApi.dragMove();
+  });
+  const stop = () => { dragging = false; };
+  document.addEventListener('pointerup', stop);
+  document.addEventListener('pointercancel', stop);
+  window.addEventListener('blur', stop);
+})();
