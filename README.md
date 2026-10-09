@@ -17,7 +17,8 @@ The future UI for Apex Slicer, including modern UX effects. Still in developemen
     <td><img src="./.github/assets/screen-shot-1.png" width="240" /></td>
   </tr>
   <tr>
-    <td><img src="./.github/assets/screen-shot-4.png" width="240" /></td>
+    <td><img src="./.github/assets/screen-shot-2.png" width="240" /></td>
+    <td><img src="./.github/assets/screen-shot-3.png" width="240" /></td>
   </tr>
 </table>
 
