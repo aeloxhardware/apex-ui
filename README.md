@@ -56,13 +56,13 @@ The future UI for Apex Slicer, including modern UX effects. Still in developemen
 - [ ] G-Code Preview
 - [ ] Drag-And-Drop Interface
 
-## Credits
+## Credits & Citations
 
 Thanks to the following resources and inspirations:
 
-- Joshua Bird and his wonderful S4 Slicer algorithm
-- Orca Slicer & Bambu Studio
-- Ultimaker Cura
+- [Joshua Bird](https://github.com/jyjblrd) and his wonderful [S4 Slicer algorithm](https://github.com/jyjblrd/S4_Slicer)
+- [Orca Slicer](https://github.com/OrcaSlicer/OrcaSlicer) & [Bambu Studio](https://github.com/bambulab/BambuStudio)
+- [Ultimaker Cura](https://github.com/Ultimaker/CuraEngine)
 - [Iyinchao's work](https://github.com/iyinchao/liquid-glass-studio)
 
 ## License
