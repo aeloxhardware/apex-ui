@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   isColorByDeferred,
@@ -18,6 +18,8 @@ import {
   subscribeUiScale,
 } from '@/utils/uiScalePrefs';
 import { getLaunchInterfaceMode, getStoredInterfaceMode, setStoredInterfaceMode } from '@/utils/interfaceMode';
+import { START_PAGES, setStartPage, useStartPage } from '@/utils/startPagePrefs';
+import clsx from 'clsx';
 import styles from './ParamsPanel.module.scss';
 
 const UI_NEUTRAL_TOOLTIP = {
@@ -56,6 +58,29 @@ export const ParamsPanel: React.FC = () => {
     void window.apexDesktop?.canUninstall?.().then(setCanUninstall).catch(() => setCanUninstall(false));
   }, []);
 
+  const startPage = useStartPage();
+  // Pastille coulissante du sélecteur de page de démarrage (même technique que ModelingSidebar).
+  const startBarRef = useRef<HTMLDivElement>(null);
+  const startButtonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const [startIndicator, setStartIndicator] = useState<React.CSSProperties>({});
+  useLayoutEffect(() => {
+    const bar = startBarRef.current;
+    if (!bar) return;
+    const measure = () => {
+      const button = startButtonRefs.current.get(startPage);
+      if (!button) return;
+      // offsetLeft/offsetTop : relatifs à la barre (position: relative) et insensibles à
+      // l'animation d'entrée du panneau.
+      setStartIndicator({
+        width: button.offsetWidth, height: button.offsetHeight,
+        left: button.offsetLeft, top: button.offsetTop, opacity: 1,
+      });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(bar);
+    return () => observer.disconnect();
+  }, [startPage]);
   const [, forceRender] = useState(0);
   useEffect(() => subscribeUiScale(() => forceRender((n) => n + 1)), []);
   const uiScale = getUiScale();
@@ -119,6 +144,31 @@ export const ParamsPanel: React.FC = () => {
           {(classicNext ? 'classic' : 'liquid') !== getLaunchInterfaceMode() && (
             <p className={styles.subtitle}>Pris en compte au prochain lancement de l'application.</p>
           )}
+        </section>
+
+        <section className={styles.section}>
+          <h3 className={styles.sectionTitle}>Page de démarrage</h3>
+          <div ref={startBarRef} className={styles.segmented}>
+            <div className={styles.segmentIndicator} style={startIndicator} />
+            {START_PAGES.map(({ id, label }) => {
+              // Modélisation n'existe qu'avec la valeur « dev » (cf. CLAUDE.md) : proposée grisée sinon.
+              const unavailable = id === 'modeling' && !isDevModeEnabled();
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  ref={(el) => { if (el) startButtonRefs.current.set(id, el); }}
+                  className={clsx(styles.segmentButton, { [styles.active]: startPage === id })}
+                  disabled={unavailable}
+                  title={unavailable ? 'Arrive bientôt' : undefined}
+                  onClick={() => setStartPage(id)}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          <p className={styles.subtitle}>Espace sur lequel l'application s'ouvre ; pris en compte au prochain lancement.</p>
         </section>
 
         <section className={styles.section}>

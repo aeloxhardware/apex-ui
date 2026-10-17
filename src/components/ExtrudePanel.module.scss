@@ -1,0 +1,230 @@
+// Panneau latéral droit de l'outil Extrusion, aux couleurs d'Apex (verre sombre, accent cyan) : même
+// vocabulaire que les panneaux de Modélisation (ModelingSidebar.module.scss).
+$accent: #00f0ff;
+$panel-bg: rgba(10, 15, 26, 0.25);
+$panel-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
+$control-bg: rgba(0, 0, 0, 0.28);
+
+.panel {
+  position: fixed;
+  top: 214px; // sous le gizmo de vue et le sélecteur d'axes
+  right: 24px;
+  width: 316px;
+  z-index: 1001;
+  display: flex;
+  flex-direction: column;
+  background: $panel-bg;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border-radius: 18px;
+  box-shadow: $panel-shadow;
+  color: rgba(255, 255, 255, 0.85);
+  pointer-events: auto;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px 6px;
+  color: rgba(255, 255, 255, 0.9);
+  font-family: 'Orbitron', sans-serif !important;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.headerIcon {
+  color: $accent;
+  filter: drop-shadow(0 0 6px rgba(0, 240, 255, 0.5));
+}
+
+.rows {
+  display: grid;
+  grid-template-columns: 82px 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px 14px;
+}
+
+.label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.separator {
+  grid-column: 1 / -1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.12);
+  margin: 2px 0;
+}
+
+.typeButtons {
+  display: flex;
+  gap: 6px;
+}
+
+.typeButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 32px;
+  background: $control-bg;
+  border: none;
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  outline: none;
+  transition: color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover { color: #fff; background: rgba(255, 255, 255, 0.1); }
+
+  &.active {
+    color: $accent;
+    background: rgba(0, 240, 255, 0.16);
+    box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
+  }
+}
+
+.selectButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 32px;
+  padding: 0 12px;
+  background: $control-bg;
+  border: none;
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  outline: none;
+  transition: color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover:not(:disabled) { color: #fff; background: rgba(255, 255, 255, 0.1); }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  &.selected {
+    color: $accent;
+    background: rgba(0, 240, 255, 0.16);
+    box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
+  }
+}
+
+// Liste déroulante (Radix Select, shadcn) : le style par défaut est repris aux couleurs d'Apex.
+.select {
+  height: 32px;
+  padding: 0 10px 0 12px;
+  background: $control-bg !important;
+  border: none !important;
+  border-radius: 10px !important;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: none !important;
+  outline: none;
+
+  &:hover { background: rgba(255, 255, 255, 0.1) !important; }
+  &:focus { box-shadow: 0 0 0 1px rgba(0, 240, 255, 0.5) !important; }
+}
+
+.selectContent {
+  background: rgba(14, 18, 30, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: none;
+  border-radius: 12px;
+  box-shadow: $panel-shadow;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.selectItem {
+  font-size: 12px;
+  border-radius: 8px;
+
+  &:focus,
+  &[data-highlighted] {
+    background: rgba(0, 240, 255, 0.14);
+    color: $accent;
+  }
+}
+
+.distance {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 32px;
+  padding: 0 12px;
+  background: $control-bg;
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 12px;
+  transition: box-shadow 0.2s ease;
+
+  input {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  &:focus-within { box-shadow: 0 0 0 1px rgba(0, 240, 255, 0.5); }
+
+  // Valeur invalide (vide, nulle, négative ou non numérique) : contour rouge, comme les champs du tracé.
+  &.invalid { box-shadow: 0 0 0 2px #ff453a; }
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.spacer { flex: 1; }
+
+.info {
+  display: flex;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.ok,
+.cancel {
+  height: 32px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  outline: none;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+.ok {
+  background: rgba(0, 240, 255, 0.22);
+  color: $accent;
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
+
+  &:hover:not(:disabled) { background: rgba(0, 240, 255, 0.32); transform: translateY(-1px); }
+  &:disabled { opacity: 0.32; cursor: not-allowed; box-shadow: none; }
+}
+
+.cancel {
+  background: $control-bg;
+  color: rgba(255, 255, 255, 0.85);
+
+  &:hover { background: rgba(255, 255, 255, 0.12); transform: translateY(-1px); }
+}

@@ -432,7 +432,14 @@ const Index = () => {
       {!isParams && (
         <div className="fixed bottom-3 left-6 right-24 z-[1000] flex items-center justify-start gap-3 pointer-events-none">
           <div ref={statusBarRef} className="shrink-0">
-            <div className="bg-[rgba(10,15,26,0.25)] backdrop-blur-[4px] -webkit-backdrop-blur-[4px] border-none rounded-lg px-3 py-2 text-xs text-zinc-300 flex items-center space-x-4 pointer-events-auto shadow-[0_8px_32px_0_rgba(0,0,0,0.4),0_2px_8px_0_rgba(0,0,0,0.3)]">
+            <div
+              data-apex-tooltip={modelStatus
+                ? `Modèle « ${modelStatus.name} » posé sur le plateau${modelStatus.dimensions
+                  ? ` : ${modelStatus.dimensions.x.toFixed(1)} × ${modelStatus.dimensions.z.toFixed(1)} × ${modelStatus.dimensions.y.toFixed(1)} mm`
+                  : ''}, prêt à être découpé.`
+                : "Aucun modèle n'est posé sur le plateau : importez-en un ou déposez un fichier pour commencer."}
+              className="bg-[rgba(10,15,26,0.25)] backdrop-blur-[4px] -webkit-backdrop-blur-[4px] border-none rounded-lg px-3 py-2 text-xs text-zinc-300 flex items-center space-x-4 pointer-events-auto shadow-[0_8px_32px_0_rgba(0,0,0,0.4),0_2px_8px_0_rgba(0,0,0,0.3)]"
+            >
               <AnimatePresence mode="wait">
                 {modelStatus ? (
                   <motion.div

@@ -2,9 +2,233 @@
 
 Historique de toutes les versions du logiciel Apex (numéro de version), et non des Releases GitHub. Seul lien avec la publication : le compteur Builds (voir `CLAUDE.md`). Format et règles de numérotation : section « Versioning » de `CLAUDE.md`.
 
-**Version actuelle : `alpha-0.2.1.3.1.3.1.221`**
+**Version actuelle : `alpha-0.2.1.3.4.2.1.221`**
 
 `<préversion>-<public>.<global>.<majeur>.<moyen>.<mineur>.<add-ins>.<correctif>.<builds>`
+
+## alpha-0.2.1.3.4.2.1.221 — 2026-10-13
+
+- Modélisation : outil Extrusion : le corps extrudé apparaît en temps réel pendant que la flèche est tirée ou que la distance est saisie (face déplacée, parois, contours noirs aux seuls bords et coins : pas d'arêtes de triangulation) ; OK le laisse dans la scène. Niveau Add-ins incrémenté, Correctif remis à 1.
+
+## alpha-0.2.1.3.4.1.2.221 — 2026-10-13
+
+- Modélisation : outil Extrusion : les plans (profils d'esquisse et faces de modèles) sont surlignés au survol et se désélectionnent par un second clic ; les profils imbriqués ou croisés sont découpés en régions indépendantes selon leurs recouvrements (un rectangle dans un autre = l'anneau et l'intérieur, deux rectangles qui se croisent = trois régions). Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.4.1.1.221 — 2026-10-13
+
+- Modélisation : outil Extrusion piloté dans la vue 3D. Le sélecteur passe automatiquement sur « Face » (mode précédent rendu à la fin) ; cliquer un profil d'esquisse (rectangle tracé, désormais sélectionnable) ou une face plane d'un modèle (ensemble des triangles coplanaires) la surligne et fait apparaître une flèche parallèle à sa normale, de taille écran constante. La flèche se tire pour régler la distance (aperçu fantôme, valeur en direct dans le panneau, et inversement quand on tape la distance) ; un simple clic sur la flèche active le champ Distance. Une face de modèle s'extrude directement (sans esquisse). Niveau Mineur incrémenté, Add-ins et Correctif remis à 1.
+
+## alpha-0.2.1.3.3.1.7.221 — 2026-10-13
+
+- Modélisation : panneau Extrusion : le texte « Tire le profil d'un plan surfacique… » s'affiche dans le bandeau du bas sur tout le panneau, et l'icône (i) l'affiche seul dans la bulle de souris. Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.3.1.6.221 — 2026-10-13
+
+- Modélisation : texte de l'outil Extrusion (bouton et info du panneau) : « Tire le profil d'un plan surfacique, parallèlement ou non à sa normale pour générer un volume » (l'outil pourra aussi tirer une face d'un maillage et sera réglable). Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.3.1.5.221 — 2026-10-13
+
+- Modélisation : panneau Extrusion : alignement corrigé quand l'avertissement « Aucune esquisse » s'affiche (l'enveloppe du tooltip n'occupait qu'une colonne de la grille et décalait toutes les lignes). Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.3.1.4.221 — 2026-10-13
+
+- Modélisation : panneau Extrusion : distance par défaut 0 mm (champ actif, texte sélectionné ; la valeur 0 reste invalide : contour rouge et OK grisé jusqu'à saisie). Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.3.1.3.221 — 2026-10-13
+
+- Modélisation : panneau Extrusion : les champs Type, Contours et Type d'étendue sont retirés (solide et distance par défaut ; l'esquisse la plus récente est utilisée, un avertissement s'affiche s'il n'y en a pas). Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.3.1.2.221 — 2026-10-13
+
+- Modélisation : l'outil Extrusion se sélectionne toujours au clic (il était refusé, avec un message, sans corps sélectionné) ; son panneau indique « Aucune esquisse » s'il n'y en a pas. Une esquisse tracée sans corps est conservée et l'extrusion crée alors le corps qui la porte. Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.3.1.1.221 — 2026-10-13
+
+- Modélisation : l'outil Extrusion ouvre un panneau latéral droit (Type, Contours, Démarrer, Direction, Étendue, Distance, Opération, OK / Annuler), aux couleurs d'Apex ; OK crée l'extrusion avec les réglages (la feature n'est plus créée au simple clic sur l'outil). Seule l'opération « Nouveau corps » est disponible pour l'instant. Niveau Mineur incrémenté, Add-ins et Correctif remis à 1.
+
+## alpha-0.2.1.3.2.11.5.221 — 2026-10-13
+
+- Modélisation : nouvelle icône du bouton Extrusion (flèche vers le haut au-dessus de deux barres, extrémités arrondies), aussi dans l'arborescence. Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.2.11.4.221 — 2026-10-13
+
+- Modélisation : au retour de l'outil Esquisse, les icônes de la barre réapparaissent en cascade après l'élargissement de la barre, plus lentement (0,42 s chacune) ; le halo du bouton actif n'est plus rogné en rectangle (le rognage des enveloppes ne sert plus qu'au repli). Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.2.11.3.221 — 2026-10-13
+
+- Modélisation : ombre portée sur le sélecteur Corps / Face / Arête / Sommet. Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.2.11.2.221 — 2026-10-13
+
+- Modélisation : animation de la barre d'outils avec l'outil Esquisse rendue fluide : la barre part de sa largeur réellement affichée (elle repartait d'une géométrie périmée, d'où le saut), les icônes se replient en largeur en s'effaçant (le bouton Esquisse glisse au lieu de sauter), puis la barre se raccourcit ; à la fin elle s'élargit tout de suite et les icônes reviennent. Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.2.11.1.221 — 2026-10-13
+
+- Modélisation : quand l'outil Esquisse est actif, les autres icônes de la barre d'outils et la barre de séparation disparaissent en cascade, et la barre se raccourcit (50 px) autour du seul bouton Esquisse, qui reste centré ; tout revient en cascade à la fin de l'esquisse. Niveau Add-ins incrémenté, Correctif remis à 1.
+
+## alpha-0.2.1.3.2.10.1.221 — 2026-10-13
+
+- Modélisation : « Terminer l'esquisse » rend la vue exacte d'avant le bouton Esquisse (caméra, décalage d'image et repère de la grille, avec une animation) ; l'orbite verrouillée n'efface plus le panoramique en perspective. Le bouton Esquisse est séparé du reste de la barre d'outils par une petite barre (barre élargie à 274 px). Niveau Add-ins incrémenté, Correctif remis à 1.
+
+## alpha-0.2.1.3.2.9.2.221 — 2026-10-13
+
+- Modélisation : la barre d'outils Esquisse est recentrée ; le bouton « Terminer l'esquisse » est posé sur son côté droit, hors du flux. Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.2.9.1.221 — 2026-10-13
+
+- Modélisation : le bouton « Terminer l'esquisse » s'avance vers l'utilisateur au survol (il grossit et son ombre se creuse). Niveau Add-ins incrémenté, Correctif remis à 1.
+
+## alpha-0.2.1.3.2.8.11.221 — 2026-10-13
+
+- Modélisation : le cube de l'icône « Terminer l'esquisse » est simplifié en un cube simple (hexagone et trois arêtes intérieures, en contours). Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.2.8.10.221 — 2026-10-13
+
+- Modélisation : le cube de l'icône « Terminer l'esquisse » est dessiné en contours (non plein) ; le reste est inchangé. Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.2.8.9.221 — 2026-10-13
+
+- Modélisation : icône de « Terminer l'esquisse » : les deux morceaux sont rapprochés et la flèche naît sous le plan plein (filet vide autour des plans), mais moins que d'abord (cube décalé de 2 unités seulement). Largeur du bouton 84 px. Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.2.8.8.221 — 2026-10-13
+
+- Modélisation : flèche de l'icône « Terminer l'esquisse » descendue au plus bas de la face du cube, au niveau du plan plein (le cube retrouve sa position centrée). Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.2.8.7.221 — 2026-10-13
+
+- Modélisation : flèche de l'icône « Terminer l'esquisse » centrée verticalement sur la ligne du plan (le cube est remonté de 3 unités pour qu'elle vise sa face). Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.2.8.6.221 — 2026-10-13
+
+- Modélisation : flèche de l'icône « Terminer l'esquisse » agrandie (plus longue, plus large, tête plus haute) et partant du plan, pour qu'on lise que le plan va vers l'espace 3D. Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.2.8.5.221 — 2026-10-13
+
+- Modélisation : icône de « Terminer l'esquisse » : les deux morceaux sont alignés sur la même ligne, à hauteur apparente égale, et espacés d'un vide ; bouton élargi (96 px). Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.2.8.4.221 — 2026-10-13
+
+- Modélisation : icône de « Terminer l'esquisse » refaite en deux morceaux côte à côte, comme la référence fournie (plan en contour au-dessus d'un plan plein, puis cube dans lequel entre une flèche) ; bouton élargi (84 px). Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.2.8.3.221 — 2026-10-13
+
+- Modélisation : icône de « Terminer l'esquisse » redessinée d'après le pictogramme (plan en contour épais arrondi, filet vide, plan plein en dessous, flèche qui entre), vérifiée par rendu. Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.2.8.2.221 — 2026-10-13
+
+- Modélisation : le bouton « Terminer l'esquisse » n'a plus de texte (icône seule, carrée) ; son icône reprend le pictogramme fourni : un plan en contour au-dessus d'un plan plein, avec une flèche qui y entre. Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.2.8.1.221 — 2026-10-13
+
+- Modélisation : bouton « Terminer l'esquisse » (icône : flèche traversant un plan en pointillé) à côté de la barre d'outils Esquisse ; il quitte l'outil, désactive le tracé et rend l'orbite. Niveau Add-ins incrémenté, Correctif remis à 1.
+
+## alpha-0.2.1.3.2.7.1.221 — 2026-10-13
+
+- Infobulles du bandeau du bas (sans bulle de souris) ajoutées sur : l'échelle de Modélisation, la pastille d'état du plateau (texte variable selon le modèle), le bandeau du bas lui-même (« Guide pratique indiquant l'opération réalisée par l'élément couramment survolé de l'interface »), les panneaux et barres latérales (catégories de découpe, panneaux de Prévisualisation, panneau Modélisation, liste des modèles, catalogue d'imprimantes, barre de fichiers, barre de découpe / d'export), la coque du sélecteur 3 / 5 axes et la barre d'onglets du haut. Le sélecteur affiche « 5 AXES » à la place de « 4 AXES » (bouton et notification). Niveau Add-ins incrémenté, Correctif remis à 1.
+
+## alpha-0.2.1.3.2.6.3.221 — 2026-10-13
+
+- Scène 3D : le texte du bandeau du bas au survol du plateau est retiré (le mécanisme `data-apex-tooltip` reste disponible). Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.2.6.2.221 — 2026-10-13
+
+- Infobulle de la scène 3D précisée : elle décrit aussi les commandes (sélection, fenêtre de sélection, orbite, déplacement de la vue, zoom). Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.2.6.1.221 — 2026-10-13
+
+- Infobulles : un élément non interactif peut porter son texte dans le bandeau du bas (attribut `data-apex-tooltip`, sans bulle de souris), géré par TopRightMenu ; le bandeau y revient après tout tooltip précis. Première utilisation : la scène 3D (« Portail d'accès à l'espace tridimensionnel virtuel d'Apex »). Niveau Add-ins incrémenté, Correctif remis à 1.
+
+## alpha-0.2.1.3.2.5.1.221 — 2026-10-13
+
+- Infobulles : la barre d'outils de Modélisation (« Outils de modélisation ») et la barre d'outils Esquisse (« Boîte à outils Esquisse ») ont leur propre texte, dans le bandeau du bas et dans la bulle de souris, sur leur fond ; leurs boutons gardent le leur. `CustomTooltip` gagne les props `container` et `wrapperStyle`. Niveau Add-ins incrémenté, Correctif remis à 1.
+
+## alpha-0.2.1.3.2.4.2.221 — 2026-10-13
+
+- Modélisation : ombre portée sur les deux champs de texte de l'outil Rectangle. Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.2.4.1.221 — 2026-10-13
+
+- Modélisation, outil Rectangle : après le premier clic, deux champs (longueur, largeur) apparaissent à côté des côtés d'arrivée du tracé ; la longueur est sélectionnée par défaut, texte entièrement sélectionné ; saisie possible à tout moment et appliquée en direct à la forme. Tab passe au champ suivant et verrouille la valeur si elle a été modifiée et est valide ; valeur négative, non numérique, vide ou nulle : contour rouge et Tab remet l'ancienne valeur. Entrée valide le rectangle, Échap l'annule. Pilules arrondies sans contour, fond flouté. Niveau Add-ins incrémenté, Correctif remis à 1.
+
+## alpha-0.2.1.3.2.3.7.221 — 2026-10-13
+
+- Modélisation : carré d'aimantation du « + » un peu plus petit (19 px) et à coins à peine arrondis (2 px). Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.2.3.6.221 — 2026-10-13
+
+- Modélisation : le rideau d'entrée reste affiché (barre qui se répète) jusqu'à ce que la scène soit réellement prête, puis se retire ; garde-fou à 8 s. Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.2.3.6.221 — 2026-10-13
+
+- Rideau de changement d'espace : plus de délai obligatoire de 6 s pour Modélisation ; comme les autres espaces, il ne dure que le temps de la barre horizontale qui s'étend (une fois), prolongé seulement par un chargement réellement en cours. Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.2.3.4.221 — 2026-10-13
+
+- Modélisation : curseur « + » de l'outil Rectangle plus petit (25 px) et carré d'aimantation resserré (21 px) pour que les branches du + dépassent un peu. Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.2.3.3.221 — 2026-10-13
+
+- Paramètres : le choix de la page de démarrage est un sélecteur segmenté à pastille coulissante, comme celui Corps / Face / Arête / Sommet de Modélisation (au lieu de cases à cocher). Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.2.3.2.221 — 2026-10-13
+
+- Modélisation : le curseur « + » de l'outil Rectangle est plus épais (2 px) et plus grand (31 px) ; son carré d'aimantation est plus grand (38 px, englobe le +), à bords légèrement arrondis et du cyan du thème d'Apex. Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.2.3.1.221 — 2026-10-13
+
+- Paramètres : choix de la page de démarrage (Accueil, Préparation, Prévisualisation ou Modélisation ; cette dernière seulement avec la valeur « dev »). L'application s'ouvre sur l'Accueil puis rejoint l'espace choisi par le même geste que le clic sur son onglet ; l'interface classique démarre directement dessus. Niveau Add-ins incrémenté, Correctif remis à 1.
+
+## alpha-0.2.1.3.2.2.1.221 — 2026-10-13
+
+- Modélisation : outil Rectangle de l'esquisse. À la création d'une esquisse aucun outil n'est actif ; tous sont inactifs et grisés sauf Rectangle (qui demande d'abord un plan). Une fois actif, le curseur devient un « + » blanc simple qui s'aimante aux traits fins de la grille, avec un carré bleu autour quand il est aimanté ; le rectangle se trace au clic-clic ou au glisser, sur le plan de la grille, et est rangé dans les entités de l'esquisse. Le clic ne sélectionne plus de modèle pendant le tracé. Niveau Add-ins incrémenté, Correctif remis à 1.
+
+## alpha-0.2.1.3.2.1.2.221 — 2026-10-13
+
+- Modélisation : grille régulière à deux familles de traits seulement (principaux et fins = principal / 5), comme Fusion ; pas principal « rond » (1 / 2,5 / 5 / 10 x 10^k) d'au moins 90 px à l'écran, donc ~25 mm par défaut au lieu de 10 mm ; la grille se subdivise moins vite au zoom. Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.2.1.1.221 — 2026-10-13
+
+- Modélisation : la grille s'aligne sur le plan choisi (clic sur un plan ou une face plane pendant la création d'une esquisse, ou sur une face du ViewCube hors esquisse) ; l'orbite ne la change jamais. La vue est orientée pour que les axes x et z de la grille correspondent à la droite et au haut de l'écran. Axes colorés du monde affichés seulement s'ils reposent dans le plan, axes locaux gris pour une face quelconque ; cible caméra et zoom vers le curseur suivent le plan. Niveau Mineur incrémenté, Add-ins et Correctif remis à 1.
+
+## alpha-0.2.1.3.1.4.6.221 — 2026-10-13
+
+- Modélisation : l'orbite est impossible pendant le dessin d'une esquisse (dès le clic sur un plan ou une face plane, jusqu'au changement d'outil, à l'annulation ou à la sortie de l'espace) ; panoramique et zoom restent libres. Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.1.4.5.221 — 2026-10-13
+
+- Modélisation : la sélection d'un plan d'esquisse ne se fait plus qu'au clic gauche (le clic droit et le clic molette, utilisés pour se déplacer, ne la déclenchent plus). Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.1.4.4.221 — 2026-10-13
+
+- Modélisation : calage de l'indicateur du sélecteur Corps / Face / Arête / Sommet corrigé (la correction précédente le décalait : les boutons sont enveloppés par l'infobulle, leur offsetParent n'est pas la barre). Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.1.4.3.221 — 2026-10-13
+
+- Modélisation : les plans d'esquisse sont réellement opaques (rendus après la grille et les chiffres, qui ne transparaissent plus) et leur taille à l'écran est réduite de moitié. Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.1.4.2.221 — 2026-10-13
+
+- Modélisation : les plans d'esquisse sélectionnables sont d'un gris clair uni (au lieu du verre dépoli bleuté) ; cyan clair uni au survol. Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.1.4.1.221 — 2026-10-13
+
+- Modélisation : au clic sur Esquisse, les plans sélectionnables (plaques, repère, axes) gardent une taille constante à l'écran quel que soit le zoom. Niveau Add-ins incrémenté, Correctif remis à 1 (comme à la dernière montée d'Add-ins).
+
+## alpha-0.2.1.3.1.3.5.221 — 2026-10-13
+
+- Modélisation : l'indicateur du sélecteur Corps / Face / Arête / Sommet n'est plus déformé à l'ouverture de l'espace depuis un autre espace (mesure insensible à l'animation d'entrée, remesurée au redimensionnement). Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.1.3.4.221 — 2026-10-13
+
+- Modélisation : la grille est un carré fini (comme Fusion) de ±100 pas, dont la taille change à chaque changement d'échelle ; plan lointain de la caméra proportionnel au rayon (le sol ne s'efface plus au-delà de 10 m). Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.1.3.3.221 — 2026-10-13
+
+- Modélisation : l'intensité et l'épaisseur de chaque famille de traits de la grille sont calculées d'après son écart au niveau de la cible (et non au pixel local) : la grille de taille moyenne ne s'estompe plus au loin. Niveau Correctif incrémenté.
+
+## alpha-0.2.1.3.1.3.2.221 — 2026-10-13
+
+- Modélisation : la grille n'est plus estompée dans l'espace (ni avec la distance, ni vers le bord du plan) : les mêmes familles de traits sont affichées partout ; seul un fondu selon le zoom subsiste. Niveau Correctif incrémenté.
 
 ## alpha-0.2.1.3.1.3.1.221 — 2026-10-09
 

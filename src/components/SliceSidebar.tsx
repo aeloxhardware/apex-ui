@@ -53,7 +53,10 @@ export const SliceSidebar: React.FC<SliceSidebarProps> = ({ onSlice, previewExpo
     const { enabled, onExport, reason } = previewExport;
     return (
       <div className={styles.container} data-apex-chrome-panel>
-        <div className={styles.toolbar}>
+        <div
+          className={styles.toolbar}
+          data-apex-tooltip="Barre d'export : enregistre le G-code affiché pour l'imprimer."
+        >
           <CustomTooltip
             content={enabled ? 'Exporter le G-code' : 'Export indisponible'}
             description={enabled ? "Enregistre le G-code polaire affiché, prêt à être imprimé par l'Apex." : reason}
@@ -74,7 +77,10 @@ export const SliceSidebar: React.FC<SliceSidebarProps> = ({ onSlice, previewExpo
 
   return (
     <div className={styles.container} data-apex-chrome-panel>
-      <div className={styles.toolbar}>
+      <div
+        className={styles.toolbar}
+        data-apex-tooltip="Barre de découpe : lance le calcul du G-code du plateau (slicing)."
+      >
         <CustomTooltip 
           content={hasModels ? "Lancer le Slicing (Découpe)" : "Aucun modèle sur le plateau"} 
           description={hasModels ? "Lancez le calcul complet du G-code pour transformer votre modèle 3D en trajectoires d'impression exploitables." : "Veuillez importer un modèle 3D sur le plateau pour activer le slicing."}

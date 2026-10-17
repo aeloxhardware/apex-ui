@@ -30,14 +30,14 @@ import { BLUR_MS, TILE_ANIM_MS, TILE_COLS, TILE_ROWS, TILE_STEP_MS, veilNow, vei
 // Le dernier délai + sa propre durée d'anim = durée totale de la phase "paint".
 const PAINT_MS = (TILE_COLS + TILE_ROWS - 2) * TILE_STEP_MS + TILE_ANIM_MS;
 // 3. texte affiché, voile plein écran (switch réel ici). La barre sous le nom de l'espace
-// (.scanline) rejoue SCANLINE_REPEAT fois, une fois par seconde, avant que l'espace ne soit
-// dévoilé — le texte reste donc affiché au moins le temps que ces répétitions se terminent.
-// Seule la destination "Modélisation" a droit à 6 répétitions ; toutes les autres (Préparation,
-// Prévisualisation, Dev...) gardent le nombre par défaut.
+// (.scanline) s'étend une fois (SCANLINE_CYCLE_MS) avant que l'espace ne soit dévoilé : c'est le
+// délai minimal, le même pour tous les espaces. Aucun délai obligatoire supplémentaire : si un
+// chargement est en cours (`apex-gcode-loading`), le rideau est maintenu jusqu'à sa fin, et
+// seulement jusque-là. (Modélisation avait 6 répétitions imposées ; retirées à la demande de
+// l'utilisateur, 2026-10-13.)
 const SCANLINE_CYCLE_MS = 1000;
-const SCANLINE_REPEAT_DEFAULT = 1;
-const SCANLINE_REPEAT_MODELING = 6;
-const getScanlineRepeat = (label: string) => (label === 'Modélisation' ? SCANLINE_REPEAT_MODELING : SCANLINE_REPEAT_DEFAULT);
+const SCANLINE_REPEAT = 1;
+const getScanlineRepeat = (_label: string) => SCANLINE_REPEAT;
 const getTextMs = (label: string) => SCANLINE_CYCLE_MS * getScanlineRepeat(label);
 const FADEOUT_MS = PAINT_MS; // 4. même effet de tuiles que l'apparition, même durée totale
 

@@ -55,6 +55,7 @@ Camera conventions (user's decisions, 2026-10-06): panning (middle button) is a 
 
 - New pages go in `src/pages/`, new components in `src/components/`; routes are declared in `src/App.tsx`.
 - Prefer shadcn/ui (`src/components/ui`) + Radix primitives + Tailwind for any new UI; all shadcn dependencies are already installed.
+- **Every element carries its text in the bottom-of-screen tooltip and the mouse tooltip** (user's rule, 2026-10-13): wrap it in `CustomTooltip` (title + description), containers included — a toolbar whose buttons have their own tooltip gets one for its background with `container` (e.g. « Outils de modélisation », « Boîte à outils Esquisse »). New elements need their texts; ask the user for wording rather than inventing it. Non-interactive elements (the 3D scene, panels) get the bottom-of-screen text only, with no mouse bubble, through the `data-apex-tooltip="..."` attribute (read by `TopRightMenu`); the Viewport3D canvas deliberately carries none (user removed it, 2026-10-13).
 - After adding a component to `Index.tsx`'s tree, it must actually be rendered there or it won't be visible — keep the main page in sync with new components.
 
 ## G-code editing: handle-based deformation (design decisions, 2026-10-01)

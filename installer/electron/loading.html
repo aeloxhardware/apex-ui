@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'" />
+<title>Apex</title>
+<style>
+  /* Logo Apex seul, sur fond transparent, affiche avant le chargement de la fenetre principale de l'installateur
+     (voir electron/main.cjs, showLoadingLogo). Aucun fond, aucune carte : juste le logo, en blanc translucide. */
+  html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; user-select: none; }
+  body { display: flex; align-items: center; justify-content: center; }
+  /* Totalement opaque (aucun fondu, aucune transparence, aucun halo) : blanc plein, sans contour. */
+  svg { width: 320px; height: auto; fill: #fff; opacity: 1; }
+</style>
+</head>
+<body>
+  <svg viewBox="0 0 139.5 123.4" xmlns="http://www.w3.org/2000/svg" aria-label="Apex">
+    <path d="M110.5,88l-31.9-55.8c-.1-.2-1.6-2.2-4.3-2.2s-3.8,1.7-4,1.9l-31.4,51.5L0,109.2,56.2,10.4C56.5,9.9,62.8,0,74.6,0c10.5,0,16.4,8,17,8.9l45.7,78.4c.5,1,4.9,10.4-.2,20.3-4.8,9.3-14.1,11.5-15.3,11.8l-109.1,4,38.9-26.3,54.5-.9c.3,0,2.9-.3,4.3-2.7,1.6-2.6.2-5.3.1-5.5h0Z"/>
+  </svg>
+</body>
+</html>

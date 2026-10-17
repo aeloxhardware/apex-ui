@@ -21,7 +21,8 @@ import {
 import styles from './ModelingSidebar.module.scss';
 import { ExternalScrollArea } from './ExternalScrollArea';
 import { CustomTooltip } from './CustomTooltip';
-import { ChamferIcon, FilletIcon } from './ModelingIcons';
+import { ChamferIcon, ExtrudeIcon, FilletIcon, FinishSketchIcon } from './ModelingIcons';
+import { ExtrudePanel, type ExtrudeParams } from './ExtrudePanel';
 import {
   LiquidGlassShadow,
   applyLiquidGlassShadow,
@@ -38,6 +39,8 @@ import {
   type Feature,
   type FeatureKind,
   type SelectionMode,
+  type ExtrudeFeature,
+  type SketchEntity,
   type SketchEntityKind,
   type SketchPlane,
   type SketchPlaneRef,
@@ -65,7 +68,7 @@ const TOOLS: {
   description: string;
 }[] = [
   { kind: 'sketch', icon: PenLine, description: 'Créez des contours géométriques sur un plan ou une surface plane afin de définir la base d\'une conception tridimensionnelle.' },
-  { kind: 'extrude', icon: Box, description: 'Extruder un profil d\'esquisse fermé le long de sa normale.' },
+  { kind: 'extrude', icon: ExtrudeIcon, description: 'Tire le profil d\'un plan surfacique, parallèlement ou non à sa normale pour générer un volume.' },
   { kind: 'revolve', icon: RotateCw, description: 'Faire tourner un profil autour d\'un axe.' },
   { kind: 'fillet', icon: FilletIcon, description: 'Arrondir les arêtes sélectionnées avec un rayon.' },
   { kind: 'chamfer', icon: ChamferIcon, description: 'Biseauter les arêtes sélectionnées.' },
@@ -89,7 +92,7 @@ const SELECTION_MODES: { mode: SelectionMode; label: string; enabled: boolean }[
 
 const FEATURE_ICONS: Record<FeatureKind, React.ElementType> = {
   sketch: PenLine,
-  extrude: Box,
+  extrude: ExtrudeIcon,
   revolve: RotateCw,
   fillet: FilletIcon,
   chamfer: ChamferIcon,
@@ -145,7 +148,15 @@ export const ModelingSidebar: React.FC<ModelingSidebarProps> = ({ morph }) => {
   const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [activeTool, setActiveTool] = useState<FeatureKind | null>(null);
-  const [sketchEntity, setSketchEntity] = useState<SketchEntityKind>('rectangle');
+  // Aucune forme n'est active à la création d'une esquisse : l'utilisateur choisit (pour l'instant
+  // seul le rectangle est disponible).
+  const [sketchEntity, setSketchEntity] = useState<SketchEntityKind | null>(null);
+  const [sketchPlaneChosen, setSketchPlaneChosen] = useState(false);
+  const sketchIdRef = useRef<string | null>(null);
+  // Esquisse « flottante » : tracée sans corps sélectionné, elle attend l'extrusion, qui crée le corps.
+  interface FloatingSketch { id: string; name: string; planeRef: SketchPlaneRef; entities: SketchEntity[] }
+  const floatingSketchRef = useRef<FloatingSketch | null>(null);
+  const [floatingSketchName, setFloatingSketchName] = useState<string | null>(null);
   const [selectionMode, setSelectionMode] = useState<SelectionMode>('body');
 
   const segmentedRef = useRef<HTMLDivElement>(null);
@@ -302,21 +313,41 @@ export const ModelingSidebar: React.FC<ModelingSidebarProps> = ({ morph }) => {
     };
   }, []);
 
-  /** Indicateur coulissant du sélecteur de granularité (même technique que AxisSidebar). */
+  /**
+   * Indicateur coulissant du sélecteur de granularité (même technique que AxisSidebar).
+   * Mesuré par rectangles ramenés à l'échelle locale de la barre (insensible aux transformations
+   * d'animation d'entrée du panneau) et remesuré quand la taille change :
+   * à l'ouverture depuis un autre espace, le panneau est encore en cours d'apparition au
+   * premier passage, d'où un indicateur trop large jusqu'au prochain changement de mode.
+   */
   useEffect(() => {
-    if (!segmentedRef.current) return;
-    const activeBtn = segmentRefs.current.get(selectionMode);
-    if (!activeBtn) return;
-
-    const barRect = segmentedRef.current.getBoundingClientRect();
-    const btnRect = activeBtn.getBoundingClientRect();
-    setIndicatorStyle({
-      width: btnRect.width,
-      height: btnRect.height,
-      left: btnRect.left - barRect.left,
-      top: btnRect.top - barRect.top,
-      opacity: 1,
-    });
+    const bar = segmentedRef.current;
+    if (!bar) return;
+    const measure = () => {
+      const activeBtn = segmentRefs.current.get(selectionMode);
+      if (!activeBtn) return;
+      // Les boutons sont enveloppés (CustomTooltip) : leur offsetParent n'est pas la barre, donc
+      // offsetLeft/offsetTop ne conviennent pas. On prend les rectangles écran et on les ramène à
+      // l'échelle locale de la barre (rapport offsetWidth / largeur écran), ce qui neutralise la
+      // transformation d'animation d'entrée du panneau.
+      const barRect = bar.getBoundingClientRect();
+      const btnRect = activeBtn.getBoundingClientRect();
+      if (barRect.width === 0 || barRect.height === 0) return;
+      const sx = bar.offsetWidth / barRect.width;
+      const sy = bar.offsetHeight / barRect.height;
+      setIndicatorStyle({
+        width: btnRect.width * sx,
+        height: btnRect.height * sy,
+        left: (btnRect.left - barRect.left) * sx,
+        top: (btnRect.top - barRect.top) * sy,
+        opacity: 1,
+      });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(bar);
+    segmentRefs.current.forEach((btn) => observer.observe(btn));
+    return () => observer.disconnect();
   }, [selectionMode]);
 
   /** L'arbre est la source de vérité : toute mutation déclenche un replay côté viewport. */
@@ -329,6 +360,19 @@ export const ModelingSidebar: React.FC<ModelingSidebarProps> = ({ morph }) => {
     window.dispatchEvent(new CustomEvent('apex-selection-mode-changed', { detail: { mode } }));
   };
 
+  // L'outil Extrusion choisit des faces : le sélecteur passe sur « Face » (mode précédent mémorisé,
+  // rendu à la fin de l'outil).
+  const modeBeforeExtrudeRef = useRef<SelectionMode | null>(null);
+  const enterExtrudeSelectionMode = () => {
+    if (modeBeforeExtrudeRef.current === null) modeBeforeExtrudeRef.current = selectionMode;
+    handleSelectionMode('face');
+  };
+  const leaveExtrudeSelectionMode = () => {
+    const previous = modeBeforeExtrudeRef.current;
+    modeBeforeExtrudeRef.current = null;
+    if (previous) handleSelectionMode(previous);
+  };
+
   const targetModel = models.find((m) => m.name === selectedModel) ?? null;
 
   // Le choix du plan d'esquisse se fait de façon asynchrone dans le viewport (l'utilisateur
@@ -337,7 +381,7 @@ export const ModelingSidebar: React.FC<ModelingSidebarProps> = ({ morph }) => {
   // l'inscription du listener — d'où ces refs tenues à jour à chaque rendu.
   const targetModelRef = useRef<ModelNode | null>(targetModel);
   useEffect(() => { targetModelRef.current = targetModel; }, [targetModel]);
-  const sketchEntityRef = useRef<SketchEntityKind>(sketchEntity);
+  const sketchEntityRef = useRef<SketchEntityKind | null>(sketchEntity);
   useEffect(() => { sketchEntityRef.current = sketchEntity; }, [sketchEntity]);
 
   /** Reçoit le plan choisi dans le viewport et crée seulement alors la feature esquisse. */
@@ -345,12 +389,25 @@ export const ModelingSidebar: React.FC<ModelingSidebarProps> = ({ morph }) => {
     const handlePlaneSelected = (e: CustomEvent<SketchPlaneRef>) => {
       const planeRef = e.detail;
       const model = targetModelRef.current;
+      // Nouveau plan : plus aucune forme active, l'utilisateur en choisit une.
+      setSketchEntity(null);
+      sketchEntityRef.current = null;
+      setSketchPlaneChosen(true);
+      sketchIdRef.current = null;
 
       if (!model) {
-        // Pas de corps existant : l'esquisse reste « flottante » jusqu'à l'extrusion, qui
-        // en créera un — rien à stocker dans l'arborescence pour l'instant.
+        // Pas de corps existant : l'esquisse reste « flottante » jusqu'à l'extrusion, qui en créera
+        // un. Elle est gardée à part (pas dans l'arborescence) avec ses formes, pour que l'outil
+        // Extrusion puisse la prendre pour profil.
+        const floatingId = nextId('sketch');
+        const floatingName = `${FEATURE_LABELS.sketch} 1`;
+        floatingSketchRef.current = { id: floatingId, name: floatingName, planeRef, entities: [] };
+        setFloatingSketchName(floatingName);
+        sketchIdRef.current = floatingId;
         window.dispatchEvent(
-          new CustomEvent('apex-sketch-tool', { detail: { entity: sketchEntityRef.current, sketchId: null, planeRef } }),
+          new CustomEvent('apex-sketch-tool', {
+            detail: { entity: sketchEntityRef.current, sketchId: floatingId, planeRef },
+          }),
         );
         return;
       }
@@ -360,6 +417,7 @@ export const ModelingSidebar: React.FC<ModelingSidebarProps> = ({ morph }) => {
       const name = `${FEATURE_LABELS.sketch} ${index}`;
       const feature: Feature = { id, name, kind: 'sketch', planeRef, entities: [] };
 
+      sketchIdRef.current = id;
       setModels((prev) => prev.map((m) => (m.id === model.id ? { ...m, features: [...m.features, feature] } : m)));
       setSelectedFeatureId(id);
       setExpanded((prev) => ({ ...prev, [model.id]: true }));
@@ -369,36 +427,147 @@ export const ModelingSidebar: React.FC<ModelingSidebarProps> = ({ morph }) => {
       );
     };
 
+    // Forme tracée dans le viewport : rangée dans les entités de l'esquisse courante.
+    const handleEntityAdded = (e: CustomEvent<{ entity: SketchEntity }>) => {
+      const sketchId = sketchIdRef.current;
+      if (!sketchId) return;
+      const floating = floatingSketchRef.current;
+      if (floating && floating.id === sketchId) {
+        floating.entities = [...floating.entities, e.detail.entity];
+        return;
+      }
+      setModels((prev) => prev.map((m) => ({
+        ...m,
+        features: m.features.map((f) => (
+          f.id === sketchId && f.kind === 'sketch' ? { ...f, entities: [...f.entities, e.detail.entity] } : f
+        )),
+      })));
+    };
+
     window.addEventListener('apex-sketch-plane-selected', handlePlaneSelected as EventListener);
-    return () => window.removeEventListener('apex-sketch-plane-selected', handlePlaneSelected as EventListener);
+    window.addEventListener('apex-sketch-entity-added', handleEntityAdded as EventListener);
+    return () => {
+      window.removeEventListener('apex-sketch-plane-selected', handlePlaneSelected as EventListener);
+      window.removeEventListener('apex-sketch-entity-added', handleEntityAdded as EventListener);
+    };
   }, []);
+
+  /** OK du panneau Extrusion : crée la feature avec les réglages du panneau, puis ferme l'outil. */
+  const handleExtrudeConfirm = (params: ExtrudeParams) => {
+    const sketch = targetModel?.features.filter((f) => f.kind === 'sketch').slice(-1)[0];
+    const floating = floatingSketchRef.current;
+    const makeFeature = (sketchId: string, index: number, faceRef?: ExtrudeFeature['faceRef']): Feature => ({
+      id: nextId('extrude'), name: `${FEATURE_LABELS.extrude} ${index}`, kind: 'extrude', sketchId,
+      distance: params.distance, symmetric: params.direction === 'symmetric',
+      bodyType: params.bodyType, startFrom: params.startFrom, operation: params.operation,
+      ...(faceRef ? { faceRef } : {}),
+    });
+
+    if (params.face && params.face.kind === 'mesh') {
+      // Face plane d'un modèle : extrusion directe, sans esquisse, portée par le corps du modèle.
+      const faceRef = { origin: params.face.origin, normal: params.face.normal, modelName: params.face.modelName ?? undefined };
+      const owner = models.find((m) => m.name === params.face!.modelName) ?? targetModel;
+      if (owner) {
+        const feature = makeFeature('', owner.features.filter((f) => f.kind === 'extrude').length + 1, faceRef);
+        setModels((prev) => prev.map((m) => (m.id === owner.id ? { ...m, features: [...m.features, feature] } : m)));
+        setSelectedFeatureId(feature.id);
+        setExpanded((prev) => ({ ...prev, [owner.id]: true }));
+        showSuccess(`${feature.name} ajoutée à ${owner.name}.`);
+      } else {
+        const bodyName = params.face.modelName ?? `Corps ${models.length + 1}`;
+        const feature = makeFeature('', 1, faceRef);
+        const body: ModelNode = { id: nextId('body'), name: bodyName, children: [], features: [feature] };
+        setModels((prev) => [...prev, body]);
+        setSelectedModel(bodyName);
+        setSelectedFeatureId(feature.id);
+        setExpanded((prev) => ({ ...prev, [body.id]: true }));
+        showSuccess(`${feature.name} créée dans ${bodyName}.`);
+      }
+    } else if (targetModel && sketch) {
+      const feature = makeFeature(sketch.id, targetModel.features.filter((f) => f.kind === 'extrude').length + 1);
+      setModels((prev) =>
+        prev.map((m) => (m.id === targetModel.id ? { ...m, features: [...m.features, feature] } : m)),
+      );
+      setSelectedFeatureId(feature.id);
+      setExpanded((prev) => ({ ...prev, [targetModel.id]: true }));
+      showSuccess(`${feature.name} ajoutée à ${targetModel.name}.`);
+    } else if (floating) {
+      // Esquisse flottante : l'extrusion crée le corps qui la porte.
+      const bodyName = `Corps ${models.length + 1}`;
+      const body: ModelNode = {
+        id: nextId('body'), name: bodyName, children: [],
+        features: [
+          { id: floating.id, name: floating.name, kind: 'sketch', planeRef: floating.planeRef, entities: floating.entities },
+          makeFeature(floating.id, 1),
+        ],
+      };
+      setModels((prev) => [...prev, body]);
+      setSelectedModel(bodyName);
+      setSelectedFeatureId(body.features[1].id);
+      setExpanded((prev) => ({ ...prev, [body.id]: true }));
+      floatingSketchRef.current = null;
+      setFloatingSketchName(null);
+      sketchIdRef.current = null;
+      showSuccess(`${body.features[1].name} créée dans ${bodyName}.`);
+    } else {
+      showError('Aucune esquisse à extruder.');
+      return;
+    }
+    // Le corps extrudé (aperçu en temps réel) reste dans la scène : annoncé AVANT la fin de l'outil.
+    window.dispatchEvent(new CustomEvent('apex-extrude-commit'));
+    setActiveTool(null);
+    window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'select' } }));
+    leaveExtrudeSelectionMode();
+  };
+
+  const handleExtrudeCancel = () => {
+    setActiveTool(null);
+    window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'select' } }));
+    leaveExtrudeSelectionMode();
+  };
 
   const handleToolClick = (kind: FeatureKind) => {
     // Re-cliquer sur l'outil actif le désactive (même convention que la Sidebar principale).
     if (activeTool === kind) {
       setActiveTool(null);
       window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'select' } }));
-      if (kind === 'sketch') window.dispatchEvent(new CustomEvent('apex-sketch-plane-pick-cancel'));
+      if (kind === 'extrude') leaveExtrudeSelectionMode();
+      if (kind === 'sketch') {
+        setSketchEntity(null);
+        setSketchPlaneChosen(false);
+        window.dispatchEvent(new CustomEvent('apex-sketch-plane-pick-cancel'));
+      }
       return;
     }
 
-    if (!targetModel && kind !== 'sketch') {
+    // L'extrusion est toujours sélectionnable : son panneau indique s'il manque une esquisse.
+    if (!targetModel && kind !== 'sketch' && kind !== 'extrude') {
       showError('Sélectionnez un corps dans l\'arborescence.');
       return;
     }
 
     const sketchId = targetModel?.features.filter((f) => f.kind === 'sketch').slice(-1)[0]?.id ?? null;
-    if ((kind === 'extrude' || kind === 'revolve') && !sketchId) {
+    if (kind === 'revolve' && !sketchId) {
       showError('Créez d\'abord une esquisse à extruder.');
       return;
     }
 
+    if (activeTool === 'extrude') leaveExtrudeSelectionMode();
     setActiveTool(kind);
     window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: kind } }));
+
+    // Extrusion : le panneau latéral droit (ExtrudePanel) règle puis crée la feature (OK) ; on
+    // choisit la face à tirer dans la vue, d'où le passage automatique du sélecteur sur « Face ».
+    if (kind === 'extrude') {
+      enterExtrudeSelectionMode();
+      return;
+    }
 
     if (kind === 'sketch') {
       // Le plan se choisit dans le viewport (plaque d'axe ou face d'un corps) : la feature
       // n'est créée qu'à la réception de `apex-sketch-plane-selected` (effet dédié plus haut).
+      setSketchEntity(null);
+      setSketchPlaneChosen(false);
       window.dispatchEvent(new CustomEvent('apex-sketch-plane-pick-start'));
       return;
     }
@@ -411,9 +580,6 @@ export const ModelingSidebar: React.FC<ModelingSidebarProps> = ({ morph }) => {
 
     let feature: Feature;
     switch (kind) {
-      case 'extrude':
-        feature = { id, name, kind, sketchId: sketchId!, distance: 10, symmetric: false };
-        break;
       case 'revolve':
         feature = { id, name, kind, sketchId: sketchId!, axis: { x: 0, y: 1, z: 0 }, angle: 360 };
         break;
@@ -436,11 +602,41 @@ export const ModelingSidebar: React.FC<ModelingSidebarProps> = ({ morph }) => {
     showSuccess(`${name} ajoutée à ${targetModel.name}.`);
   };
 
+  // Esquisse active : cf. la barre d'outils (icônes en cascade) et la largeur de la pilule (Sidebar).
+  const sketchModeActive = activeTool === 'sketch';
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('apex-modeling-sketch-active', { detail: { active: sketchModeActive } }));
+    return () => {
+      window.dispatchEvent(new CustomEvent('apex-modeling-sketch-active', { detail: { active: false } }));
+    };
+  }, [sketchModeActive]);
+
+  /** Termine l'esquisse : plus de forme active, le plan est abandonné, l'orbite est rendue. */
+  const handleFinishSketch = () => {
+    setActiveTool(null);
+    setSketchEntity(null);
+    setSketchPlaneChosen(false);
+    sketchIdRef.current = null;
+    window.dispatchEvent(new CustomEvent('apex-sketch-tool', { detail: { entity: null, sketchId: null } }));
+    // Rend la vue d'avant l'outil Esquisse (doit partir AVANT le pick-cancel, qui efface l'instantané).
+    window.dispatchEvent(new CustomEvent('apex-sketch-finished'));
+    // Même signal que le retrait de l'outil : déverrouille l'orbite et désactive le tracé.
+    window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'select' } }));
+    window.dispatchEvent(new CustomEvent('apex-sketch-plane-pick-cancel'));
+    showSuccess('Esquisse terminée.');
+  };
+
   const handleSketchEntity = (kind: SketchEntityKind) => {
-    setSketchEntity(kind);
-    const sketchId =
-      targetModel?.features.find((f) => f.id === selectedFeatureId && f.kind === 'sketch')?.id ?? null;
-    window.dispatchEvent(new CustomEvent('apex-sketch-tool', { detail: { entity: kind, sketchId } }));
+    if (!sketchPlaneChosen) {
+      showError('Choisissez d\'abord un plan ou une face plane.');
+      return;
+    }
+    // Re-cliquer sur la forme active la désactive.
+    const next = sketchEntity === kind ? null : kind;
+    setSketchEntity(next);
+    window.dispatchEvent(
+      new CustomEvent('apex-sketch-tool', { detail: { entity: next, sketchId: sketchIdRef.current } }),
+    );
   };
 
   const updateFeature = (modelId: string, featureId: string, patch: Partial<Feature>) => {
@@ -524,6 +720,7 @@ export const ModelingSidebar: React.FC<ModelingSidebarProps> = ({ morph }) => {
         <div
           ref={panelRef}
           data-scroll-edge
+          data-apex-tooltip="Panneau Modélisation : liste des corps de la scène et mode de sélection (corps, face, arête ou sommet)."
           className={clsx(styles.panel, { [styles.morphing]: !!stage })}
         >
           {/* Jamais visible pendant une déformation : apparaît en cascade (header, Sélection,
@@ -825,21 +1022,83 @@ export const ModelingSidebar: React.FC<ModelingSidebarProps> = ({ morph }) => {
           pas un composant séparé qui apparaît par-dessus) — ici on ne possède que la
           logique (activeTool, handleToolClick, création de features), pas le conteneur. */}
       {toolbarSlot && createPortal(
-        <>
-          {TOOLS.map(({ kind, icon: Icon, description }) => (
-            <CustomTooltip key={kind} content={FEATURE_LABELS[kind]} description={description}>
-              <button
-                className={clsx(styles.barButton, { [styles.active]: activeTool === kind })}
-                onClick={() => handleToolClick(kind)}
-                aria-label={FEATURE_LABELS[kind]}
-              >
-                <Icon className="w-5 h-5" />
-              </button>
-            </CustomTooltip>
-          ))}
-        </>,
+        // Infobulle de la barre elle-même (fond), les boutons gardant la leur. L'enveloppe remplit
+        // le conteneur porté, avec la même disposition que lui (cf. .modelingSlot dans Sidebar).
+        <CustomTooltip
+          container
+          content="Outils de modélisation"
+          description="Outils permettant la création et l'édition de représentations tridimensionnelles."
+          wrapperStyle={{
+            position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center', gap: 0, padding: 6,
+          }}
+        >
+          {/* Esquisse active : les autres icônes et la barre de séparation disparaissent en cascade
+              (sortie échelonnée de gauche à droite), la barre se raccourcit autour du seul bouton
+              Esquisse (cf. `apex-modeling-sketch-active` dans Sidebar.tsx) et reste centrée. */}
+          <AnimatePresence initial={false}>
+            {TOOLS.flatMap(({ kind, icon: Icon, description }, index) => {
+              if (sketchModeActive && kind !== 'sketch') return [];
+              // Chaque élément se replie en largeur (et en marge) en même temps qu'il s'efface : le
+              // bouton Esquisse, centré, glisse alors sans à-coup au lieu de sauter à chaque
+              // démontage. L'espacement est porté par le padding de l'élément, pas par un `gap`.
+              // `overflow: hidden` ne sert qu'au repli : une fois l'élément déployé il redevient visible,
+              // sinon le halo (box-shadow) du bouton actif serait rogné en rectangle par l'enveloppe.
+              const folded = { opacity: 0, scale: 0.6, width: 0, paddingLeft: 0, paddingRight: 0, overflow: 'hidden' };
+              const shown = { opacity: 1, scale: 1, width: 'auto', paddingLeft: 2, paddingRight: 2 };
+              // Apparition : après l'élargissement de la barre (ENTER_AFTER_S), en cascade et plus
+              // lentement que la sortie, pour qu'elle se lise sans à-coup.
+              const ENTER_AFTER_S = 0.22;
+              const fade = (delay: number) => ({
+                initial: folded,
+                animate: {
+                  ...shown,
+                  transition: { duration: 0.42, delay: ENTER_AFTER_S + delay, ease: [0.16, 1, 0.3, 1] as const },
+                  transitionEnd: { overflow: 'visible' },
+                },
+                exit: { ...folded, transition: { duration: 0.3, delay, ease: [0.4, 0, 0.2, 1] as const } },
+              });
+              const items = [
+                <motion.div key={kind} style={{ display: 'flex' }} {...fade(kind === 'sketch' ? 0 : index * 0.05)}>
+                  <CustomTooltip content={FEATURE_LABELS[kind]} description={description}>
+                    <button
+                      className={clsx(styles.barButton, { [styles.active]: activeTool === kind })}
+                      onClick={() => handleToolClick(kind)}
+                      aria-label={FEATURE_LABELS[kind]}
+                    >
+                      <Icon className="w-5 h-5" />
+                    </button>
+                  </CustomTooltip>
+                </motion.div>,
+              ];
+              // Petite barre : l'outil Esquisse (qui ouvre sa propre boîte à outils) est à part des
+              // opérations sur les corps.
+              if (kind === 'sketch' && !sketchModeActive) {
+                items.push(
+                  <motion.div key="sketch-separator" style={{ display: 'flex' }} {...fade(0.05)}>
+                    <div className={styles.toolSeparator} aria-hidden />
+                  </motion.div>,
+                );
+              }
+              return items;
+            })}
+          </AnimatePresence>
+        </CustomTooltip>,
         toolbarSlot,
       )}
+
+      {/* ---------- Panneau latéral droit de l'outil Extrusion ---------- */}
+      <AnimatePresence>
+        {activeTool === 'extrude' && (
+          <ExtrudePanel
+            key="extrude-panel"
+            sketchName={
+              targetModel?.features.filter((f) => f.kind === 'sketch').slice(-1)[0]?.name ?? floatingSketchName
+            }
+            onConfirm={handleExtrudeConfirm}
+            onCancel={handleExtrudeCancel}
+          />
+        )}
+      </AnimatePresence>
 
       {/* ---------- Petite barre des formes d'esquisse, juste sous la barre principale ---------- */}
       <AnimatePresence initial={false}>
@@ -852,22 +1111,49 @@ export const ModelingSidebar: React.FC<ModelingSidebarProps> = ({ morph }) => {
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
           >
+            {/* Groupe centré : la barre d'outils reste au milieu de l'écran, le bouton « Terminer
+                l'esquisse » est posé sur son côté (positionné hors du flux, à droite de la barre). */}
+            <div className={styles.sketchBarGroup}>
+            <CustomTooltip
+              inline
+              container
+              content="Boîte à outils Esquisse"
+              description="Suite d'outils permettant la définition des contours d'une conception tridimensionnelle."
+            >
             <div className={styles.sketchBarInner}>
               {SKETCH_ENTITIES.map(({ kind, icon: Icon }) => (
                 <CustomTooltip
                   key={kind}
                   content={SKETCH_ENTITY_LABELS[kind]}
-                  description="Sommets connectables aux autres formes de l'esquisse."
+                  description={kind === 'rectangle' ? 'Tracer un rectangle sur la grille (aimantée).' : 'Arrive bientôt.'}
                 >
                   <button
                     className={clsx(styles.barButton, { [styles.active]: sketchEntity === kind })}
                     onClick={() => handleSketchEntity(kind)}
+                    disabled={kind !== 'rectangle'}
                     aria-label={SKETCH_ENTITY_LABELS[kind]}
                   >
                     <Icon className="w-5 h-5" />
                   </button>
                 </CustomTooltip>
               ))}
+            </div>
+            </CustomTooltip>
+            <CustomTooltip
+              inline
+              wrapperStyle={{ position: 'absolute', left: '100%', top: 0, marginLeft: 8 }}
+              content="Terminer l'esquisse"
+              description="Valide l'esquisse en cours et quitte l'outil Esquisse ; l'orbite de la vue est de nouveau possible."
+            >
+              <button
+                type="button"
+                className={styles.finishSketchButton}
+                onClick={handleFinishSketch}
+                aria-label="Terminer l'esquisse"
+              >
+                <FinishSketchIcon className="h-7 w-14" />
+              </button>
+            </CustomTooltip>
             </div>
           </motion.div>
         )}

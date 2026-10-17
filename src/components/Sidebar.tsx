@@ -24,6 +24,7 @@ import { playUiSound, type UiSoundName } from '@/utils/uiSound';
 import { GCODE_FILE_EXT } from '@/hooks/use-gcode-preview';
 import { showSuccess } from '@/utils/toast';
 import { APP_TAGLINE_DEV, APP_TAGLINE_PREVIEW, isDevModeEnabled, subscribeDevMode } from '@/utils/devModePrefs';
+import { getStartPage } from '@/utils/startPagePrefs';
 
 // Doit correspondre à ViewCube.module.scss (`.container`) : la colonne d'outils du mode
 // Prévisualisation vient se coller au même bord droit, juste sous le gizmo.
@@ -94,6 +95,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // (dépend de la hauteur du bandeau d'onglets du haut).
   const [previewY, setPreviewY] = useState(0);
   const bottomToolbarRef = useRef<HTMLDivElement>(null);
+  // Géométrie de repos courante, relue par les écouteurs montés une seule fois.
+  const targetGeometryRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const topToolbarRef = useRef<HTMLDivElement>(null);
@@ -108,9 +111,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   /** L'onglet « Modélisation » porte la valeur 'settings'. */
   const isModeling = activeTab === 'settings';
+  // Outil Esquisse actif (annoncé par ModelingSidebar) : la barre CAD ne garde que son bouton.
+  const [modelingSketchActive, setModelingSketchActive] = useState(false);
+  // Sens du redimensionnement de la barre CAD (Esquisse actif / terminé) : change le séquencement.
+  const [sketchReshape, setSketchReshape] = useState<'in' | 'out' | null>(null);
   /** L'onglet « Paramètres » porte la valeur 'params' : le viewport et ses outils n'ont plus
    * de sens dans cet espace, cf. le fondu-glissement sur `.bottomToolbar` plus bas. */
   const isParams = activeTab === 'params' || activeTab === 'home';
+
+  useEffect(() => {
+    const onSketchActive = (e: Event) => {
+      const active = !!(e as CustomEvent<{ active: boolean }>).detail?.active;
+      // Le redimensionnement part de la largeur RÉELLEMENT affichée (sinon il repartirait de la
+      // dernière géométrie d'une transition d'espace, d'où un saut).
+      const el = bottomToolbarRef.current;
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        setFromGeometry({
+          x: targetGeometryRef.current.x,
+          y: targetGeometryRef.current.y,
+          width: rect.width,
+          height: rect.height,
+          borderRadius: parseFloat(getComputedStyle(el).borderTopLeftRadius) || 14,
+        });
+      }
+      setSketchReshape(active ? 'in' : 'out');
+      setModelingSketchActive(active);
+    };
+    window.addEventListener('apex-modeling-sketch-active', onSketchActive);
+    return () => window.removeEventListener('apex-modeling-sketch-active', onSketchActive);
+  }, []);
 
   // Gabarit cible du conteneur commun pour chaque mode — voir le commentaire au-dessus de
   // `.bottomToolbar` dans le JSX pour la logique d'animation qui s'en sert. En mode
@@ -118,10 +148,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // ViewCube (voir l'effet qui calcule `previewX`/`previewY` plus haut) plutôt qu'un
   // décalage fixe indépendant de la largeur de la fenêtre.
   const targetGeometry = isModeling
-    ? { x: 0, y: 0, width: 260, height: 50, borderRadius: 14 } // barre CAD (6 boutons de 38px)
+    ? { x: 0, y: 0, width: modelingSketchActive ? 50 : 274, height: 50, borderRadius: 14 } // barre CAD (6 boutons de 38px + séparateur) ; Esquisse seul : 1 bouton
     : isPreviewActive
       ? { x: previewX, y: previewY, width: PREVIEW_TOOLBAR_WIDTH, height: 340, borderRadius: 20 } // colonne de calques
       : { x: 0, y: 0, width: boxWidth ?? 332, height: 44, borderRadius: 22 }; // barre slicer
+
+  targetGeometryRef.current = { x: targetGeometry.x, y: targetGeometry.y };
 
   const handleUploadClick = () => {
     fileInputRef.current?.click();
@@ -171,6 +203,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         height: rect.height,
         borderRadius: computedRadius,
       });
+      setSketchReshape(null); // transition d'espace : séquencement normal de la barre
     }
     window.dispatchEvent(new CustomEvent('apex-space-transition', {
       detail: {
@@ -199,12 +232,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
       // que sa forme ne commence à se déformer (à `onCovered`, cf. ModelingSidebar).
       window.dispatchEvent(new CustomEvent('apex-leaving-modeling'));
     }
+    const loadingModeling = tabName === 'settings' && !isModeling;
     playSpaceTransition(tabName, () => {
       setActiveTool('select');
       onTabChange(tabName);
       setIsPreviewActive(false);
       window.dispatchEvent(new CustomEvent('apex-preview-toggled', { detail: { active: false } }));
     });
+    // Modélisation : le rideau reste jusqu'à ce que la scène soit réellement prête (Viewport3D
+    // relâche `apex-gcode-loading` après `apex-mode-changed`), pas pour une durée fixe. Garde-fou
+    // à 8 s si le signal n'arrive jamais.
+    if (loadingModeling) {
+      window.dispatchEvent(new CustomEvent('apex-gcode-loading', { detail: { active: true, label: 'Modélisation' } }));
+      window.setTimeout(
+        () => window.dispatchEvent(new CustomEvent('apex-gcode-loading', { detail: { active: false } })),
+        8000,
+      );
+    }
   };
 
   const TOOL_LABELS: Record<'select' | 'move' | 'rotate' | 'scale' | 'texture' | 'layers', string> = {
@@ -281,6 +325,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
       });
     }
   };
+
+  // Page de démarrage (Paramètres) : l'application s'ouvre sur l'Accueil (sans 3D, c'est lui que le
+  // splash attend), puis, l'Accueil prêt, rejoint l'espace choisi une seule fois, par le même geste
+  // que le clic sur son onglet (rideau compris) — toute la mécanique de transition reste donc celle
+  // de l'utilisation normale. Modélisation n'existe qu'avec la valeur « dev ».
+  useEffect(() => {
+    const page = getStartPage();
+    if (page === 'home') return;
+    let timer: number | undefined;
+    const go = () => {
+      timer = window.setTimeout(() => {
+        if (page === 'prepare') handleTopTabClick('box');
+        else if (page === 'preview') enterPreview();
+        else if (page === 'modeling' && isDevModeEnabled()) handleTopTabClick('settings');
+      }, 1200);
+    };
+    window.addEventListener('apex-home-ready', go, { once: true });
+    return () => {
+      window.removeEventListener('apex-home-ready', go);
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- une seule fois, au montage
+  }, []);
 
   // Dépôt d'un fichier G-code n'importe où dans la fenêtre pendant qu'on est en Préparation (hors
   // Prévisualisation, hors Modélisation) : bascule automatiquement vers l'espace Prévisualisation,
@@ -445,6 +512,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Top Toolbar (Navigation & Main Views) */}
       <div
         ref={topToolbarRef}
+        data-apex-tooltip="Barre d'onglets des espaces de travail d'Apex : cliquez un onglet pour changer d'espace."
         className={clsx(styles.toolbar, styles.topToolbar)}
       >
         <div className={styles.activeIndicator} style={indicatorStyle}>
@@ -582,11 +650,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
           opacity: 1,
           marginTop: 0
         }}
-        transition={{
-          duration: CONTAINER_RESHAPE_DURATION,
-          times: [0, 0.45, 1],
-          ease: [0.25, 1, 0.5, 1]
-        }}
+        transition={
+          // Esquisse actif : les icônes se replient d'abord (~0,3 s), puis la barre se raccourcit ;
+          // à la fin de l'esquisse, la barre s'élargit tout de suite et les icônes reviennent.
+          sketchReshape === 'in'
+            ? { duration: 0.8, times: [0, 0.35, 1], ease: [0.25, 1, 0.5, 1] }
+            : sketchReshape === 'out'
+              ? { duration: 0.5, times: [0, 0.02, 1], ease: [0.25, 1, 0.5, 1] }
+              : { duration: CONTAINER_RESHAPE_DURATION, times: [0, 0.45, 1], ease: [0.25, 1, 0.5, 1] }
+        }
         style={{ originX: 0.5, originY: 0.5, pointerEvents: 'auto' }}
       >
         <motion.div custom={0} variants={iconVariants} animate={isPreviewActive || isModeling ? "hidden" : "visible"} initial="visible" className="flex items-center">
