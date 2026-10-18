@@ -4,6 +4,9 @@ const fs = require('node:fs');
 const { spawn } = require('node:child_process');
 const { convertGCode } = require('./python-runner.cjs');
 const backdrop = require('./backdrop.cjs');
+const { detectLowGpuPower } = require('./gpu-tier.cjs');
+const prefsStore = require('./prefs-store.cjs');
+const shutdown = require('./shutdown.cjs');
 const { scanProfiles, readProfile } = require('./profiles.cjs');
 
 const isDev = process.env.ELECTRON_START_URL !== undefined;
@@ -124,7 +127,11 @@ function createWindow() {
       nodeIntegration: false,
       preload: path.join(__dirname, 'preload.cjs'),
       // Interface demandée au lancement (`--ui=classic` ou APEX_UI=classic), relayée au preload.
-      additionalArguments: launchUiArgument(),
+      additionalArguments: [
+        ...launchUiArgument(),
+        ...(process.env.low_gpu_pwr === '1' ? ['--apex-low-gpu=1'] : []),
+        `--apex-os=${shutdown.osDisplayName()}`,
+      ],
     },
   });
 
@@ -170,6 +177,8 @@ function createWindow() {
   // à l'écran pour toujours.
   const failsafe = setTimeout(reveal, SPLASH_TIMEOUT_MS);
   win.webContents.on('did-fail-load', reveal);
+  // Fermeture : jamais directe, le rideau de fermeture joue d'abord (electron/shutdown.cjs).
+  win.on('close', (event) => shutdown.onWindowClose(event, win));
   win.on('closed', () => {
     clearTimeout(failsafe);
     ipcMain.removeListener('apex:app-ready', onReady);
@@ -298,8 +307,11 @@ function registerUninstallTask() {
   ]);
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  prefsStore.register();
+  shutdown.register({ stopEditProcess: () => { try { editProcess?.kill(); } catch { /* déjà arrêté */ } editProcess = null; } });
   registerUninstallTask();
+  await detectLowGpuPower();  // renseigne low_gpu_pwr avant le splash (verre liquide désactivé si GPU < RTX 3080)
   createWindow();
 
   app.on('activate', () => {

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { usePortalRoot } from '@/components/GpuWarningFrame';
 import { useIsPresent } from 'framer-motion';
 import clsx from 'clsx';
 import styles from './ExternalScrollArea.module.scss';
@@ -21,6 +22,7 @@ interface ExternalScrollAreaProps {
  * droit du conteneur. Il n'apparaît que si le contenu dépasse.
  */
 export const ExternalScrollArea: React.FC<ExternalScrollAreaProps> = ({ children, className, contentClassName }) => {
+  const portalRoot = usePortalRoot();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [thumb, setThumb] = useState<{ top: number; height: number } | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -131,7 +133,7 @@ export const ExternalScrollArea: React.FC<ExternalScrollAreaProps> = ({ children
       <div ref={scrollRef} className={styles.scroll} onScroll={update}>
         <div className={contentClassName}>{children}</div>
       </div>
-      {edge ? thumbEl && createPortal(thumbEl, document.body) : thumbEl}
+      {edge ? thumbEl && createPortal(thumbEl, portalRoot) : thumbEl}
     </div>
   );
 };

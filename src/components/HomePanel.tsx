@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { usePortalRoot } from './GpuWarningFrame';
 import { motion } from 'framer-motion';
 import { CreditsPanel } from './CreditsPanel';
 import { TopoBackground } from './TopoBackground';
@@ -16,6 +17,7 @@ const AELOX_URL = 'https://aeloxhardware.com';
 
 export const HomePanel: React.FC = () => {
   const devMode = useDevMode();
+  const portalRoot = usePortalRoot();
   const [licenseOpen, setLicenseOpen] = useState(false);
   const identityRef = useRef<HTMLDivElement>(null);
   const promiseRef = useRef<HTMLDivElement>(null);
@@ -99,7 +101,7 @@ export const HomePanel: React.FC = () => {
               </div>
             </div>
           </div>,
-          document.body,
+          portalRoot,
         )}
     </div>
     </>

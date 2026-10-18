@@ -5,6 +5,14 @@ const fs = require('node:fs');
 const os = require('node:os');
 const { spawn } = require('node:child_process');
 
+// Interpréteurs en cours d'exécution : arrêtés à la fermeture de l'application (electron/shutdown.cjs).
+const running = new Set();
+const runningCount = () => running.size;
+function stopAll() {
+  for (const child of running) { try { child.kill(); } catch { /* déjà terminé */ } }
+  running.clear();
+}
+
 const CONVERSION_MODES = new Set(['polar', 'dynamic']);
 
 /** Interpréteurs essayés dans l'ordre : Python embarqué s'il existe, puis Python du système. */
@@ -27,6 +35,8 @@ function runPython(candidates, scriptArgs, onStderrLine) {
       }
       const { command, args } = candidates[index];
       const child = spawn(command, [...args, ...scriptArgs], { shell: false, windowsHide: true });
+      running.add(child);
+      child.once('close', () => running.delete(child));
       let stdout = '';
       let stderrRest = '';
       const errors = [];
@@ -96,4 +106,4 @@ async function convertGCode(request, { script, embeddedPython, onProgress }) {
   }
 }
 
-module.exports = { convertGCode };
+module.exports = { convertGCode, runningCount, stopAll };

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { usePortalRoot } from '@/components/GpuWarningFrame';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Download, Play, Square, X } from 'lucide-react';
 import { SOUND_LIBRARY, type LibrarySound } from '@/utils/soundLibrary';
@@ -34,6 +35,7 @@ interface SoundLibraryProps {
  * aussi la barre d'onglets.
  */
 export const SoundLibrary: React.FC<SoundLibraryProps> = ({ open, onClose }) => {
+  const portalRoot = usePortalRoot();
   const [playingId, setPlayingId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -130,6 +132,6 @@ export const SoundLibrary: React.FC<SoundLibraryProps> = ({ open, onClose }) => 
         </motion.div>
       )}
     </AnimatePresence>,
-    document.body,
+    portalRoot,
   );
 };

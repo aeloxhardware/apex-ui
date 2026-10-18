@@ -28,6 +28,8 @@ function loadAddon() {
  * (GlassPanelBackdrop) ; `blur` : « Blur Radius » du Liquid Glass Studio (px CSS, sigma = rayon/3), appliqué partout (« Blur Edge » coché). `onReady()` est appelé une fois, quand le premier
  * verre est à l'écran. Renvoie vrai si lancé. */
 function follow(win, { corner = 20, tint = 0, warp = 4, blur = 10, taskbar = false, hold = false } = {}, onReady) {
+  // GPU plus faible qu'une RTX 3080 (gpu-tier.cjs) : pas de réfraction temps réel, la fenêtre garde son fond de repli.
+  if (process.env.low_gpu_pwr === '1') return false;
   const native = loadAddon();
   if (!native) return false;
   // Exclusion de la capture de la fenêtre Electron (le verre natif s'exclut lui-même).
@@ -64,4 +66,9 @@ function release() {
   addon?.release?.();
 }
 
-module.exports = { follow, release, systemGlass };
+/** Arrête le verre natif (fenêtres de verre, capture du bureau) : fermeture de l'application. */
+function stop() {
+  try { addon?.stop?.(); } catch { /* déjà arrêté */ }
+}
+
+module.exports = { follow, release, stop, systemGlass };

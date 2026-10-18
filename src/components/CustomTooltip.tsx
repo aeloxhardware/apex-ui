@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { usePortalRoot } from '@/components/GpuWarningFrame';
 import styles from './Tooltip.module.scss';
 
 interface CustomTooltipProps {
@@ -11,6 +12,7 @@ interface CustomTooltipProps {
 }
 
 export const CustomTooltip: React.FC<CustomTooltipProps> = ({ content, description, children, inline = false }) => {
+  const portalRoot = usePortalRoot();
   const [visible, setVisible] = useState(false);
   const [coords, setCoords] = useState<{ top: number; left: number; transform: string }>({ top: 0, left: 0, transform: '' });
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -79,7 +81,7 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({ content, descripti
         >
           {content}
         </div>,
-        document.body
+        portalRoot
       )}
     </div>
   );

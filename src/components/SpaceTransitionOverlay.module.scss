@@ -40,6 +40,9 @@
   pointer-events: none;
 }
 
+// Rideau de fermeture de l'application : au-dessus de TOUT (panneaux de verre, infobulles, modales : z-index ≥ 1000).
+.onTop { z-index: 100000; }
+
 .textBlock {
   position: relative;
   display: flex;
@@ -70,6 +73,18 @@
   font-size: 15px;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.85);
+}
+
+// Messages successifs de la fermeture, à la place de « APEX » + nom de l'espace.
+.shutdownMessage {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 600;
+  font-size: clamp(15px, 1.6vw, 22px);
+  letter-spacing: 0.06em;
+  line-height: 1.5;
+  max-width: 82vw;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 0 12px rgba(255, 255, 255, 0.45);
 }
 
 .scanline {

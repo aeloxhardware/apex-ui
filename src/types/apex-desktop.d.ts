@@ -43,6 +43,15 @@ declare global {
   interface ApexDesktopBridge {
     /** Interface imposée au lancement (`--ui=` / APEX_UI) : « liquid » ou « classic », sinon null. */
     launchUi?: string | null;
+    /** GPU moins puissant qu'une RTX 3080 (variable low_gpu_pwr=1) : animations coûteuses remplacées par du statique. */
+    lowGpuPower?: boolean;
+    /** Nom de l'OS (« Windows 11 », « macOS », « Linux ») pour les messages de fermeture. */
+    osName?: string | null;
+    /** La fermeture a été demandée (croix, Alt+F4, quitter) : jouer le rideau de fermeture puis `shutdownFinish()`. */
+    onCloseRequested?(callback: () => void): () => void;
+    /** Opération du processus principal : 'purge' | 'tasks' | 'pipeline' | 'authority' | 'session'. */
+    shutdownStep?(name: string): Promise<unknown>;
+    shutdownFinish?(): void;
     /** L'interface est prête : ferme l'écran de démarrage et affiche la fenêtre principale. */
     appReady(): void;
     /** Étape affichée sur l'écran de démarrage tant que l'interface n'est pas prête. */

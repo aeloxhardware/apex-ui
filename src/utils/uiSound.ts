@@ -94,6 +94,14 @@ function getAudioContext(): AudioContext | null {
   return audioContext;
 }
 
+/** Fermeture de l'application : libère le contexte audio et les sons décodés (RAM). */
+export function closeUiAudio() {
+  for (const name of Object.keys(buffers) as UiSoundName[]) delete buffers[name];
+  buffersLoading = null;
+  void audioContext?.close().catch(() => undefined);
+  audioContext = null;
+}
+
 function loadBuffers(context: AudioContext) {
   buffersLoading ??= Promise.all(
     (Object.entries(SOUND_FILES) as [UiSoundName, string][]).map(async ([name, src]) => {

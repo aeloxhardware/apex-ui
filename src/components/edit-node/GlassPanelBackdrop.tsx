@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { usePortalRoot } from '@/components/GpuWarningFrame';
 import { DEFAULT_GLASS, LiquidGlassRenderer } from './liquidGlass';
 import { isFlatUi } from '@/utils/interfaceMode';
 import { drawVeilTiles, veilNow, veilState } from '@/utils/veilTimeline';
@@ -72,6 +73,7 @@ export function GlassPanelBackdrop({
   /** Séparation des couleurs au bord (franges colorées) ; 0 = distorsion de forme seule. */
   dispersion?: number;
 }) {
+  const portalRoot = usePortalRoot();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const flatRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -173,6 +175,6 @@ export function GlassPanelBackdrop({
       ref={canvasRef}
       style={{ position: 'fixed', pointerEvents: 'none', zIndex: 999 }}
     />,
-    document.body,
+    portalRoot,
   );
 }

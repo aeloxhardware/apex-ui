@@ -3778,7 +3778,36 @@ export const Viewport3D = () => {
     // Premier rendu complet (shaders compilés) : l'application peut sortir de son écran de démarrage.
     scene.executeWhenReady(() => window.dispatchEvent(new Event('apex-viewport-ready')));
 
+    // Fermeture de l'application (src/utils/shutdownSequence.ts) : « close » ferme l'accès au viewport (plus de rendu,
+    // plus de gizmo, canevas masqué) ; « purge » libère la scène, le pipeline et le moteur (RAM et vRAM). Le nettoyage
+    // du démontage ci-dessous reste valable : il ne repasse pas sur ce qui est déjà libéré (`disposed`).
+    let disposed = false;
+    const onShutdown3d = (e: Event) => {
+      const phase = (e as CustomEvent<{ phase?: string }>).detail?.phase;
+      if (phase === 'close') {
+        engine.stopRenderLoop();
+        gizmoManager.attachToMesh(null);
+        canvas.style.display = 'none';
+      } else if (phase === 'purge' && !disposed) {
+        disposed = true;
+        engine.stopRenderLoop();
+        resizeObserver.disconnect();
+        window.removeEventListener('resize', handleResize);
+        cancelAnimationFrame(resizeFrame);
+        renderPipeline?.dispose();
+        gizmoManager.dispose();
+        scene.dispose();
+        engine.dispose();
+        engineRef.current = null;
+        sceneRef.current = null;
+        gizmoManagerRef.current = null;
+        hlRef.current = null;
+      }
+    };
+    window.addEventListener('apex-shutdown-3d', onShutdown3d);
+
     return () => {
+      window.removeEventListener('apex-shutdown-3d', onShutdown3d);
       window.removeEventListener('apex-render-pause', onRenderPause);
       window.removeEventListener('resize', handleResize);
       cancelAnimationFrame(resizeFrame);
@@ -3821,6 +3850,7 @@ export const Viewport3D = () => {
       canvas.removeEventListener("pointerup", onPanUp);
       canvas.removeEventListener("pointercancel", onPanUp);
       unsubscribeShading();
+      if (disposed) return;
       renderPipeline?.dispose();
       gizmoManager.dispose();
       scene.dispose();

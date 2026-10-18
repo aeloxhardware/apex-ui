@@ -78,6 +78,14 @@ export const TopoBackground: React.FC = () => {
     };
     resize();
     window.addEventListener('resize', resize);
+    // GPU faible (low_gpu_pwr) : relief figé, une seule image (redessinée au redimensionnement), aucune boucle.
+    if (window.apexDesktop?.lowGpuPower) {
+      window.dispatchEvent(new Event('apex-home-ready'));
+      return () => {
+        window.removeEventListener('resize', resize);
+        gl.getExtension('WEBGL_lose_context')?.loseContext();
+      };
+    }
     let announced = false;
     const frame = (now: number) => {
       render(now);

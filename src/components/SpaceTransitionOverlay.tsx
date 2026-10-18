@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useLayoutEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './SpaceTransitionOverlay.module.scss';
+import { ShutdownLoaders } from './ShutdownLoaders';
 import VeilWorker from '@/workers/veil.worker?worker&inline';
 import { BLUR_MS, TILE_ANIM_MS, TILE_COLS, TILE_ROWS, TILE_STEP_MS, veilNow, veilState, type VeilClock } from '@/utils/veilTimeline';
 
@@ -113,6 +114,9 @@ export const SpaceTransitionOverlay: React.FC = () => {
   const runningRef = useRef(false);
   const fadingRef = useRef(false);
   const [holding, setHolding] = useState(false);
+  // Fermeture de l'application (src/utils/shutdownSequence.ts) : rideau au-dessus de tout, messages successifs à la place du texte habituel.
+  const [shutdown, setShutdown] = useState(false);
+  const [shutdownMsg, setShutdownMsg] = useState('');
 
   // Canevas du voile : confié au Worker une fois pour toutes, redimensionné avec la fenêtre.
   useEffect(() => {
@@ -214,9 +218,35 @@ export const SpaceTransitionOverlay: React.FC = () => {
       }
     };
 
+    // Fermeture : même installation du rideau (flou, tuiles), puis il reste en place jusqu'à la sortie de l'application.
+    const handleShutdownBegin = () => {
+      clearTimeouts();
+      pauseRender(false);
+      waitingRef.current = false;
+      fadingRef.current = false;
+      runningRef.current = true;
+      setShutdown(true);
+      setLabel('Fermeture');
+      setPhase('blur');
+      startVeil('in');
+      timeoutsRef.current.push(
+        window.setTimeout(() => setPhase('paint'), BLUR_MS),
+        window.setTimeout(() => {
+          pauseRender(true);
+          setPhase('text');
+          window.dispatchEvent(new Event('apex-shutdown-curtain-ready'));
+        }, BLUR_MS + PAINT_MS),
+      );
+    };
+    const handleShutdownMessage = (e: Event) => setShutdownMsg(String((e as CustomEvent<{ text?: string }>).detail?.text ?? ''));
+
     window.addEventListener('apex-space-transition', handleTransition);
     window.addEventListener('apex-gcode-loading', handleLoading);
+    window.addEventListener('apex-shutdown-begin', handleShutdownBegin);
+    window.addEventListener('apex-shutdown-message', handleShutdownMessage);
     return () => {
+      window.removeEventListener('apex-shutdown-begin', handleShutdownBegin);
+      window.removeEventListener('apex-shutdown-message', handleShutdownMessage);
       window.removeEventListener('apex-space-transition', handleTransition);
       window.removeEventListener('apex-gcode-loading', handleLoading);
       clearTimeouts();
@@ -233,16 +263,16 @@ export const SpaceTransitionOverlay: React.FC = () => {
           est lu par GlassPanelBackdrop. */}
       <div
         data-veil-blur
-        className={`${styles.blurLayer} ${!label ? styles.blurOff : fadingOut ? styles.blurOut : styles.blurIn}`}
+        className={`${styles.blurLayer} ${shutdown ? styles.onTop : ''} ${!label ? styles.blurOff : fadingOut ? styles.blurOut : styles.blurIn}`}
         style={{ animationDuration: `${fadingOut ? FADEOUT_MS : BLUR_MS}ms` }}
       />
       {/* Tuiles (étapes 2 et 4) : peintes par un Worker dans ce canevas, voir veil.worker.ts. */}
-      <canvas ref={veilCanvasRef} className={styles.veilCanvas} />
+      <canvas ref={veilCanvasRef} className={`${styles.veilCanvas} ${shutdown ? styles.onTop : ''}`} />
     <AnimatePresence>
       {label && (
         // data-veil-root : posé tant que le rideau est affiché. Le verre des panneaux, qui réfracte le canevas
         // 3D et non le DOM, redessine le voile lui-même (veilState) pour ne pas montrer la scène cachée.
-        <div className={styles.overlay} data-veil-root>
+        <div className={`${styles.overlay} ${shutdown ? styles.onTop : ''}`} data-veil-root>
 
           <AnimatePresence>
             {painted && (
@@ -253,24 +283,33 @@ export const SpaceTransitionOverlay: React.FC = () => {
                 exit={{ opacity: 0, scale: 1.08, letterSpacing: '0.5em' }}
                 transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
               >
-                <span className={styles.brand}>APEX</span>
-                <span
-                  ref={spaceNameRef}
-                  className={styles.spaceName}
-                  style={{ letterSpacing: `${spaceNameLetterSpacing}em` }}
-                >
-                  {label}
-                </span>
+                {shutdown ? (
+                  <>
+                    <ShutdownLoaders />
+                    <span className={styles.shutdownMessage}>{shutdownMsg}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className={styles.brand}>APEX</span>
+                    <span
+                      ref={spaceNameRef}
+                      className={styles.spaceName}
+                      style={{ letterSpacing: `${spaceNameLetterSpacing}em` }}
+                    >
+                      {label}
+                    </span>
+                  </>
+                )}
                 {!fadingOut && (
                   <motion.span
-                    key={holding ? 'loading' : 'once'}
+                    key={holding || shutdown ? 'loading' : 'once'}
                     className={styles.scanline}
                     initial={{ scaleX: 0, opacity: 0.9 }}
                     animate={{ scaleX: 1, opacity: 0 }}
                     transition={{
                       duration: 0.5,
                       ease: 'easeOut',
-                      repeat: holding ? Infinity : getScanlineRepeat(label) - 1,
+                      repeat: holding || shutdown ? Infinity : getScanlineRepeat(label) - 1,
                       repeatDelay: (SCANLINE_CYCLE_MS - 500) / 1000,
                     }}
                   />

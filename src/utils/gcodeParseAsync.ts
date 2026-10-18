@@ -18,6 +18,9 @@ const failAll = (message: string) => {
   worker = null;
 };
 
+/** Fermeture de l'application : annule toute analyse en cours et arrête le Worker. */
+export const cancelAllParsing = () => failAll('Application en cours de fermeture.');
+
 function getWorker(): Worker | null {
   if (worker) return worker;
   try {

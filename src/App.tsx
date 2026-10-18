@@ -5,6 +5,8 @@ import React, { Suspense, lazy } from 'react';
 import { HashRouter as Router, Routes, Route } from 'react-router-dom';
 import { isFlatUi } from '@/utils/interfaceMode';
 import { useUiSounds } from '@/hooks/use-ui-sounds';
+import { GpuWarningFrame } from '@/components/GpuWarningFrame';
+import { ShutdownSequence } from '@/components/ShutdownSequence';
 
 // Deux interfaces SÉPARÉES, lues une fois au lancement (utils/interfaceMode.ts) : chargées à la demande,
 // l'interface classique ne charge donc jamais Index (panneaux de verre, rideaux, framer-motion…), ni l'inverse.
@@ -34,9 +36,12 @@ function LiquidApp() {
 
 function App() {
   return (
-    <Suspense fallback={null}>
-      {isFlatUi() ? <ClassicApp /> : <LiquidApp />}
-    </Suspense>
+    <GpuWarningFrame>
+      <Suspense fallback={null}>
+        {isFlatUi() ? <ClassicApp /> : <LiquidApp />}
+      </Suspense>
+      <ShutdownSequence />
+    </GpuWarningFrame>
   );
 }
 
