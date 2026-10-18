@@ -190,6 +190,7 @@ export const ModelStatusBox: React.FC<ModelStatusBoxProps> = ({ startsInPreview 
           <motion.div
             ref={toolbarRef}
             data-scroll-edge
+            data-apex-tooltip="Liste des modèles posés sur le plateau : cliquez un modèle pour le sélectionner, dépliez-le pour voir ses éléments."
             className={styles.toolbar}
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}

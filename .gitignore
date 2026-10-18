@@ -50,7 +50,10 @@ bin/
 obj/
 
 # Project-specific generated folders
-installer/
+installer/payload/
+installer/release*/
+installer/*.log
+installer/*.old-backup
 icons-main/
 
 # Matériel de recherche non nécessaire au slicer (exemples de G-code de slicers tiers…)

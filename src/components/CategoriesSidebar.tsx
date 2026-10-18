@@ -669,6 +669,7 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
           {(!previewActive || !previewPanelsBorn || previewMorphPhase === 'reverse') && (
             <motion.div
               ref={categoriesToolbarRef}
+              data-apex-tooltip="Catégories de réglages de découpe (qualité, solidité, vitesse…) : cliquez une icône pour ouvrir ses paramètres."
               className={clsx(styles.categoriesToolbar, {
                 [styles.morphing]: morphPhase !== null || previewMorphPhase !== null,
               })}
@@ -799,6 +800,7 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
         <React.Fragment key="preview-panels">
           <div
             data-scroll-edge
+            data-apex-tooltip="Panneau de l'espace Prévisualisation : onglets Coloration, Édition et Fonction pour analyser et modifier le G-code affiché."
             className={clsx(styles.previewPanelUpper, {
               [styles.morphing]: previewMorphPhase === 'reverse' || tabMorph === 'absorb' || tabMorph === 'release',
               [styles.previewPanelUpperExpanded]: editionLayout,
@@ -825,6 +827,7 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
             <motion.div
               key={`lower-${lowerKey}`}
               ref={lowerRef}
+              data-apex-tooltip="Panneau d'informations du G-code affiché : légende et réglages d'affichage du tracé."
               className={clsx(styles.previewPanelLower, {
                 [styles.morphing]: previewMorphPhase === 'reverse' || tabMorph === 'absorb',
               })}

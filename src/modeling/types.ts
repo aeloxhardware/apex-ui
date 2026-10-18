@@ -79,6 +79,12 @@ export interface ExtrudeFeature extends FeatureBase {
   distance: number;
   /** Extrude de part et d'autre du plan d'esquisse. */
   symmetric: boolean;
+  /** Réglages du panneau Extrusion (le kernel ne s'en sert pas encore : seule « Nouveau corps » existe). */
+  /** Face plane d'un modèle extrudée directement (sans esquisse) : `sketchId` est alors vide. */
+  faceRef?: { origin: Vec3; normal: Vec3; modelName?: string };
+  bodyType?: 'solid' | 'surface';
+  startFrom?: 'profile' | 'offset';
+  operation?: 'new-body' | 'join' | 'cut' | 'intersect';
 }
 
 export interface RevolveFeature extends FeatureBase {

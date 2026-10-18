@@ -29,7 +29,10 @@ export const FileSidebar: React.FC<FileSidebarProps> = ({
 
   return (
     <div className={styles.container} data-apex-chrome-panel>
-      <div className={styles.toolbar}>
+      <div
+        className={styles.toolbar}
+        data-apex-tooltip="Barre de fichiers : ouvrir ou enregistrer un projet, et régler le son de l'interface."
+      >
         <CustomTooltip content="Ouvrir un Projet" description="Chargez un projet 3D enregistré précédemment avec ses configurations complètes.">
           <button
             className={clsx(styles.button)}

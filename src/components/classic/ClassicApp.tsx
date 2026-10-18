@@ -9,6 +9,7 @@ import { GCODE_ACCEPT, GCODE_SPEED_OPTIONS, useGCodePreview } from '@/hooks/use-
 import { APP_TAGLINE_DEV, APP_TAGLINE_PREVIEW, setDevModeEnabled, useDevMode } from '@/utils/devModePrefs';
 import { isEditJournalEnabled, setEditJournalEnabled, subscribeEditJournal } from '@/utils/editJournalPrefs';
 import { getLaunchInterfaceMode, relaunchApp, setStoredInterfaceMode } from '@/utils/interfaceMode';
+import { getStartPage } from '@/utils/startPagePrefs';
 import { setPlateShaded, usePlateShaded } from '@/utils/plateShadingPrefs';
 import { removeNotification, subscribeToNotifications, type NotificationItem } from '@/utils/notificationStore';
 import { FlatUi } from './FlatUi';
@@ -69,7 +70,11 @@ const Check: React.FC<{ checked: boolean; onChange: (v: boolean) => void; childr
 
 const ClassicApp: React.FC = () => {
   const devMode = useDevMode();
-  const [tab, setTab] = useState<Tab>('home');
+  // Page de démarrage (Paramètres) ; l'effet plus bas ramène à l'Accueil un espace indisponible.
+  const [tab, setTab] = useState<Tab>(() => {
+    const page = getStartPage();
+    return page === 'prepare' ? 'prep' : page === 'home' ? 'home' : page;
+  });
   const [tool, setTool] = useState('select');
   const [messages, setMessages] = useState<NotificationItem[]>([]);
   const [model, setModel] = useState<{ name: string; dimensions?: { x: number; y: number; z: number } } | null>(null);

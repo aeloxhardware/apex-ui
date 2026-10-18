@@ -50,7 +50,7 @@ export const AxisSidebar: React.FC = () => {
   }, []);
 
   // Bascule automatique sur le type de G-code chargé en Prévisualisation : cartésien → 3 axes,
-  // polaire Apex → 4 axes.
+  // polaire Apex → 5 axes.
   useEffect(() => {
     const onGCodeLoaded = (e: Event) => {
       const kind = (e as CustomEvent<{ parsed: ParsedGCode }>).detail?.parsed?.kind;
@@ -58,7 +58,7 @@ export const AxisSidebar: React.FC = () => {
       const mode: AxisMode = kind === 'cartesian' ? '3-axes' : '5-axes';
       if (mode === axisModeRef.current) return;
       setAxisMode(mode);
-      showSuccess(`G-code ${mode === '3-axes' ? '3 axes' : '4 axes'} détecté : mode ${mode === '3-axes' ? '3 AXES' : '4 AXES'} activé.`);
+      showSuccess(`G-code ${mode === '3-axes' ? '3 axes' : '5 axes'} détecté : mode ${mode === '3-axes' ? '3 AXES' : '5 AXES'} activé.`);
       window.dispatchEvent(new CustomEvent('apex-axis-changed', { detail: { mode } }));
     };
     window.addEventListener('apex-gcode-loaded', onGCodeLoaded);
@@ -103,7 +103,11 @@ export const AxisSidebar: React.FC = () => {
       >
         <span className={styles.perspectiveKnob} />
       </button>
-      <div ref={toolbarRef} className={styles.toolbar}>
+      <div
+        ref={toolbarRef}
+        className={styles.toolbar}
+        data-apex-tooltip="Mode d'impression : 3 axes (cartésien standard) ou 5 axes (tête inclinable et plateau rotatif)."
+      >
         <div className={styles.activeIndicator} style={indicatorStyle} />
 
         <CustomTooltip content="Mode 3 Axes" description="Impression 3D cartésienne / delta standard (X, Y, Z).">
@@ -126,7 +130,7 @@ export const AxisSidebar: React.FC = () => {
             })}
             onClick={() => handleSelect('5-axes')}
           >
-            4 AXES
+            5 AXES
           </button>
         </CustomTooltip>
       </div>

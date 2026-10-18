@@ -9,9 +9,19 @@ interface CustomTooltipProps {
   children: React.ReactNode;
   /** Enveloppe en ligne (au fil du texte) au lieu d'un bloc pleine largeur ; la bulle se centre alors sur l'enfant. */
   inline?: boolean;
+  /**
+   * Infobulle d'un CONTENEUR (barre d'outils) dont les boutons ont la leur : elle ne s'affiche que
+   * sur le fond du conteneur, jamais par-dessus un bouton (qui garde son propre texte, dans la
+   * bulle comme dans le bandeau du bas).
+   */
+  container?: boolean;
+  /** Style de l'enveloppe, pour un conteneur qui doit remplir son parent (barre d'outils portée). */
+  wrapperStyle?: React.CSSProperties;
 }
 
-export const CustomTooltip: React.FC<CustomTooltipProps> = ({ content, description, children, inline = false }) => {
+export const CustomTooltip: React.FC<CustomTooltipProps> = ({
+  content, description, children, inline = false, container = false, wrapperStyle,
+}) => {
   const portalRoot = usePortalRoot();
   const [visible, setVisible] = useState(false);
   const [coords, setCoords] = useState<{ top: number; left: number; transform: string }>({ top: 0, left: 0, transform: '' });
@@ -39,6 +49,22 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({ content, descripti
     );
   };
 
+  // Conteneur : `mouseover` (qui remonte depuis les enfants) plutôt que `mouseenter`, pour distinguer
+  // le fond de la barre d'un de ses boutons.
+  const handleMouseOver = (e: React.MouseEvent) => {
+    const button = (e.target as HTMLElement).closest?.('button');
+    if (button && wrapperRef.current?.contains(button)) {
+      if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
+      setVisible(false);
+      return;
+    }
+    if (visible || timeoutRef.current) {
+      window.dispatchEvent(new CustomEvent('apex-set-tooltip', { detail: { title: content, desc: description } }));
+      return;
+    }
+    handleMouseEnter();
+  };
+
   const handleMouseLeave = () => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
@@ -63,10 +89,11 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({ content, descripti
   return (
     <div
       ref={wrapperRef}
-      onMouseEnter={handleMouseEnter}
+      onMouseEnter={container ? undefined : handleMouseEnter}
+      onMouseOver={container ? handleMouseOver : undefined}
       onMouseLeave={handleMouseLeave}
       onMouseDown={handleMouseDown}
-      style={inline ? { width: 'auto' } : undefined}
+      style={inline || wrapperStyle ? { ...(inline ? { width: 'auto' } : null), ...wrapperStyle } : undefined}
       className={`${styles.tooltipWrapper} ${inline ? 'inline-flex' : 'w-full flex'}`}
     >
       {children}

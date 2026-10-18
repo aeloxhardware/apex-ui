@@ -336,6 +336,7 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
             className={styles.fusionTitleContainer}
             style={{ width: COLUMN_WIDTH + (Math.max(slotCount, 1) - 1) * (COLUMN_WIDTH + COLUMN_GAP) }}
             data-apex-chrome-panel
+            data-apex-tooltip="Catalogue des profils d'imprimante : parcourez les fabricants et choisissez votre machine."
             initial={{ opacity: 0, scale: 0.95, x: -10, y: -20 }}
             animate={breadcrumbCollapsing
               ? { opacity: 0, y: 20, transition: { opacity: { duration: 0.2, ease: 'linear' }, y: { duration: 0.2, ease: 'easeInOut' } } }
