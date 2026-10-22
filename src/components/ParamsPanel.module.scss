@@ -60,37 +60,9 @@
   margin: 0 0 12px;
 }
 
+// Curseur : ApexSlider (ApexSlider.module.scss), seul le recul entre les réglages est ici.
 .sliderRow {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.75);
   margin-bottom: 12px;
-}
-
-.slider {
-  appearance: none;
-  width: 200px;
-  height: 4px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.14);
-  cursor: pointer;
-
-  &::-webkit-slider-thumb {
-    appearance: none;
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: #00f0ff;
-    box-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
-  }
-}
-
-.sliderValue {
-  min-width: 40px;
-  font-variant-numeric: tabular-nums;
-  color: #00f0ff;
 }
 
 // Même vocabulaire visuel que GCodeSpeedSelector.module.scss (.checkboxRow/.checkbox) : fond

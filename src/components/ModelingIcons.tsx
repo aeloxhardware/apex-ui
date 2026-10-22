@@ -71,6 +71,25 @@ export const ExtrudeIcon: React.FC<ModelingIconProps> = ({ className, ...props }
   </svg>
 );
 
+/** Briques (outil Texture) : le BrickWall de lucide, mais en UN SEUL tracé. Les boutons ont une couleur à 85 %
+ * d'opacité : avec plusieurs éléments, la transparence se cumulait là où les traits se recouvrent (points
+ * plus clairs aux jonctions) ; un seul tracé est peint d'un bloc, sans cumul. */
+export const BricksIcon: React.FC<ModelingIconProps> = ({ className, ...props }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    {...props}
+  >
+    <path d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM3 9h18M3 15h18M8 3v6M16 3v6M12 9v6M8 15v6M16 15v6" />
+  </svg>
+);
+
 /** « Terminer l'esquisse » : le pictogramme de référence en DEUX morceaux — à gauche un plan en contour
  * épais arrondi au-dessus d'un plan plein (séparés par un filet vide), à droite un cube dans lequel entre
  * une flèche. Les morceaux sont rapprochés : la flèche, longue et large, naît SOUS les plans (un filet

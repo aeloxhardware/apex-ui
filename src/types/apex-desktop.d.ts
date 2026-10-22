@@ -52,6 +52,8 @@ declare global {
     /** Opération du processus principal : 'purge' | 'tasks' | 'pipeline' | 'authority' | 'session'. */
     shutdownStep?(name: string): Promise<unknown>;
     shutdownFinish?(): void;
+    /** Fermeture immédiate, sans les étapes de nettoyage (bouton « Forcer la fermeture »). */
+    shutdownForce?(): void;
     /** L'interface est prête : ferme l'écran de démarrage et affiche la fenêtre principale. */
     appReady(): void;
     /** Étape affichée sur l'écran de démarrage tant que l'interface n'est pas prête. */

@@ -38,17 +38,6 @@
   display: flex;
   align-items: center;
   gap: 8px;
-
-  input[type='range'] {
-    flex: 1;
-    min-width: 0;
-  }
-}
-
-.zoomValue {
-  min-width: 44px;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
 }
 
 .comingSoon {

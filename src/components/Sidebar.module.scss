@@ -71,15 +71,20 @@
   justify-content: center;
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.85);
+  // Couleur opaque + transparence sur l'icône entière (une couleur translucide cumule son opacité
+  // là où les traits d'une icône se recouvrent : points plus clairs aux jonctions).
+  color: white;
   cursor: pointer;
   transition: all 0.2s ease;
   outline: none;
   position: relative;
   z-index: 2;
 
+  svg { opacity: 0.85; }
+
   &:hover:not(:disabled) {
-    color: rgba(255, 255, 255, 1);
+    color: white;
+    svg { opacity: 1; }
     background: rgba(255, 255, 255, 0.18);
   }
   

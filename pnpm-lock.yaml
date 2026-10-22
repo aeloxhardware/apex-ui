@@ -101,6 +101,9 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.56.2
         version: 5.74.4(react@19.2.3)
+      '@yogesharc/thinking-orbs':
+        specifier: ^0.1.2
+        version: 0.1.2(react@19.2.3)
       babylonjs:
         specifier: ^9.15.0
         version: 9.15.0
@@ -1711,6 +1714,14 @@ packages:
   '@xmldom/xmldom@0.8.15':
     resolution: {integrity: sha512-/5NV/vDALVFDXgLmfsy9TRCBlKwO2LNBFzpzvb9iIj+jR+eSc6DLYYvVOdivT/jm7MtU6TebYuRmzEOI7w40UA==}
     engines: {node: '>=10.0.0'}
+
+  '@yogesharc/thinking-orbs@0.1.2':
+    resolution: {integrity: sha512-RBUdEBdcIQEx+qO5vxT4OuvCG4zcKetXmSdL8uSKiOWqQx499td7N+LVEGMeYZI59VXxNVI88PzoMcIFzmhWTw==}
+    peerDependencies:
+      react: '>=18'
+    peerDependenciesMeta:
+      react:
+        optional: true
 
   abbrev@4.0.0:
     resolution: {integrity: sha512-a1wflyaL0tHtJSmLSOVybYhy22vRih4eduhhrkcjgrWGnRfrZtovJ2FRjxuTtkkj47O/baf0R86QU5OuYpz8fA==}
@@ -5156,6 +5167,10 @@ snapshots:
       - '@swc/helpers'
 
   '@xmldom/xmldom@0.8.15': {}
+
+  '@yogesharc/thinking-orbs@0.1.2(react@19.2.3)':
+    optionalDependencies:
+      react: 19.2.3
 
   abbrev@4.0.0: {}
 

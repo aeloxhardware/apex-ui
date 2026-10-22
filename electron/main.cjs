@@ -179,6 +179,7 @@ function createWindow() {
   win.webContents.on('did-fail-load', reveal);
   // Fermeture : jamais directe, le rideau de fermeture joue d'abord (electron/shutdown.cjs).
   win.on('close', (event) => shutdown.onWindowClose(event, win));
+  win.webContents.on('before-input-event', shutdown.onInput);
   win.on('closed', () => {
     clearTimeout(failsafe);
     ipcMain.removeListener('apex:app-ready', onReady);

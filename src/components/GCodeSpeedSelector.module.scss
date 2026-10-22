@@ -1,5 +1,6 @@
 // Sélecteur de vitesse : même vocabulaire visuel que .categoryButton (CategoriesSidebar) — fond
-// transparent au repos, léger fond blanc au survol, cyan pour l'option active.
+// transparent au repos, léger fond blanc au survol, cyan pour l'option active. Le curseur lui-même
+// est ApexSlider (ApexSlider.module.scss).
 .root {
   display: flex;
   flex-direction: column;
@@ -8,7 +9,7 @@
 }
 
 // Case à cocher « Afficher la tête d'outil complète », posée juste au-dessus du curseur de
-// vitesse — même famille de libellé (11px, 600) que .label ci-dessous.
+// vitesse — même famille de libellé (11px, 600) que le libellé du curseur.
 .checkboxRow {
   display: flex;
   align-items: center;
@@ -64,92 +65,12 @@
   }
 }
 
-// Enveloppe du curseur + des préréglages (cf. GCodeSpeedSelector.tsx) : un seul groupe pour la
-// cascade d'apparition, avec le même empilement/espacement que .root sinon appliqué directement à
-// .sliderRow et .segments comme enfants directs.
+// Enveloppe du curseur + des préréglages : un seul groupe pour la cascade d'apparition, avec le même
+// empilement/espacement que .root.
 .sliderGroup {
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-
-.sliderRow {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 26px;
-}
-
-.label,
-.value {
-  flex: 0 0 auto;
-  font-size: 11px;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.7);
-  white-space: nowrap;
-}
-
-// Largeur fixe : la piste ne doit pas changer de longueur quand la valeur passe de "0.01×" à "256×".
-.value {
-  width: 40px;
-  text-align: right;
-  color: #00f0ff;
-  font-variant-numeric: tabular-nums;
-}
-
-// Même curseur que celui de GCodePreviewBar (piste scindée autour d'une poignée en verre).
-.track {
-  --handle-gap: 8px;
-  position: relative;
-  flex: 1 1 auto;
-  min-width: 0;
-  height: 100%;
-  cursor: pointer;
-  touch-action: none;
-  outline: none;
-
-  &:focus-visible .trackHandle {
-    border-color: rgba(0, 240, 255, 0.7);
-  }
-}
-
-.trackFill,
-.trackRemainder {
-  position: absolute;
-  top: 50%;
-  height: 3px;
-  border-radius: 2px;
-  transform: translateY(-50%);
-}
-
-.trackFill {
-  left: 0;
-  background: #00f0ff;
-}
-
-.trackRemainder {
-  right: 0;
-  background: rgba(255, 255, 255, 0.12);
-}
-
-.trackHandle {
-  position: absolute;
-  top: 50%;
-  width: 10px;
-  height: 18px;
-  border-radius: 5px;
-  background: rgba(255, 255, 255, 0.18);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  box-shadow: 0 2px 6px 0 rgba(0, 0, 0, 0.4);
-  transform: translate(-50%, -50%);
-  transition: background-color 0.15s ease, border-color 0.15s ease;
-}
-
-.track:hover .trackHandle {
-  background: rgba(255, 255, 255, 0.26);
-  border-color: rgba(255, 255, 255, 0.4);
 }
 
 .segments {

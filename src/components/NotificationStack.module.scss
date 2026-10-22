@@ -43,8 +43,35 @@
 // 0px faute de contenu intrinsèque, et le peek resterait invisible malgré le décalage/l'opacité.
 // La carte de face, elle, garde sa hauteur naturelle (contenu variable selon la longueur du
 // message, jusqu'à plusieurs lignes).
+// Conteneur de position d'une carte de la pile (cf. NotificationStack.tsx) : sans taille, il ancre la
+// carte à son coin bas-droit, et c'est lui qui reçoit le décalage de son cran.
+.slot {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 0;
+  height: 0;
+}
+
+// Cartes de fond : chaque carte se décale de (+12 px, −16 px) (cf. PEEK_OFFSET_X/Y dans le .tsx) et
+// est recouverte par la carte juste devant. Seules restent visibles une bande de 16 px en haut et une
+// bande de 12 px à droite : c'est la forme en L découpée ci-dessous. Chaque zone du fond ne reçoit
+// ainsi qu'une seule teinte (sinon les fonds semi-transparents des cartes qui se chevauchent
+// s'additionnent et assombrissent le fond). Sans ombre : elle serait découpée avec la carte.
+$peek-step-x: 12px;
+$peek-step-y: 16px;
+
 .peek {
   height: 52px;
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% 100%,
+    calc(100% - #{$peek-step-x}) 100%,
+    calc(100% - #{$peek-step-x}) #{$peek-step-y},
+    0 #{$peek-step-y}
+  );
+  box-shadow: none;
 }
 
 .peekFill {

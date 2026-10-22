@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { usePortalRoot } from './GpuWarningFrame';
 import { motion } from 'framer-motion';
 import { CreditsPanel } from './CreditsPanel';
-import { TopoBackground } from './TopoBackground';
+import Lightfall from './Lightfall';
 import { GlassPanelBackdrop } from './edit-node/GlassPanelBackdrop';
 import { APP_TAGLINE_DEV, APP_TAGLINE_PREVIEW, useDevMode } from '@/utils/devModePrefs';
 import styles from './HomePanel.module.scss';
@@ -14,6 +14,15 @@ import styles from './HomePanel.module.scss';
  */
 const LICENSE_URL = 'https://www.gnu.org/licenses/agpl-3.0.html';
 const AELOX_URL = 'https://aeloxhardware.com';
+
+const notifyHomeReady = () => window.dispatchEvent(new Event('apex-home-ready'));
+
+/** Fond de l'Accueil (remplace TopoBackground, plus coûteux en calcul). Assez léger pour rester animé même sur GPU faible. */
+const HomeLightfall: React.FC = () => (
+  <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', background: '#05070b' }}>
+    <Lightfall dpr={1} onReady={notifyHomeReady} />
+  </div>
+);
 
 export const HomePanel: React.FC = () => {
   const devMode = useDevMode();
@@ -31,7 +40,7 @@ export const HomePanel: React.FC = () => {
 
   return (
     <>
-      <TopoBackground />
+      <HomeLightfall />
       <GlassPanelBackdrop targetRef={identityRef} corner={20} warp={1} blurPx={0.55} distortion={3} whiteRim />
       <GlassPanelBackdrop targetRef={promiseRef} corner={20} warp={1} blurPx={0.55} distortion={3} whiteRim />
     <div className={styles.container}>

@@ -1,5 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
+import { ApexSlider } from './ApexSlider';
 import {
   isColorByDeferred,
   setColorByDeferred,
@@ -104,17 +105,16 @@ export const ParamsPanel: React.FC = () => {
         <section className={styles.section}>
           <h3 className={styles.sectionTitle}>Affichage</h3>
           <div className={styles.sliderRow}>
-            <span>Échelle de l'interface</span>
-            <input
-              type="range"
-              className={styles.slider}
+            <ApexSlider
+              label="Échelle de l'interface"
+              value={uiScale}
+              onChange={setUiScale}
               min={UI_SCALE_MIN}
               max={UI_SCALE_MAX}
               step={UI_SCALE_STEP}
-              value={uiScale}
-              onChange={(e) => setUiScale(parseFloat(e.target.value))}
+              defaultValue={1}
+              format={(v) => `${Math.round(v * 100)} %`}
             />
-            <span className={styles.sliderValue}>{Math.round(uiScale * 100)} %</span>
           </div>
           <label
             className={styles.checkboxRow}

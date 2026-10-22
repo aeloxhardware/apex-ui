@@ -15,6 +15,7 @@ attribute vec3 prevPoint;
 attribute vec3 nextPoint;
 attribute float side;
 uniform mat4 worldViewProjection;
+uniform mat4 world;
 uniform vec2 resolution;
 uniform float halfWidth;
 varying float vSide;
@@ -29,7 +30,10 @@ vec2 safeDir(vec2 d, vec2 fallback) {
 // moins d'un pixel donnerait du bruit numérique (d'où des épaisseurs qui varient) : on projette
 // la droite sur une longueur proportionnelle à la profondeur, donc toujours de plusieurs pixels.
 vec2 screenDir(vec3 pos, vec3 d, float w, vec2 half_res, vec2 fallback) {
-  float L = w * 0.3;
+  // \`d\` est en repère local : si le maillage est mis à l'échelle (axes de la grille), la longueur
+  // monde parcourue serait multipliée d'autant et le point projeté passerait derrière la caméra
+  // pour un trait pointant vers elle. On divise donc par l'échelle le long de \`d\`.
+  float L = w * 0.3 / max(length((world * vec4(d, 0.0)).xyz), 1e-12);
   vec4 a = worldViewProjection * vec4(pos + d * L, 1.0);
   vec4 b = worldViewProjection * vec4(pos - d * L, 1.0);
   if (a.w < 1e-4 || b.w < 1e-4) return fallback;
@@ -148,7 +152,7 @@ export function createScreenLines(
     { vertex: 'screenLine', fragment: 'screenLine' },
     {
       attributes: ['position', 'prevPoint', 'nextPoint', 'side'],
-      uniforms: ['worldViewProjection', 'resolution', 'halfWidth', 'color', 'alpha'],
+      uniforms: ['worldViewProjection', 'world', 'resolution', 'halfWidth', 'color', 'alpha'],
       needAlphaBlending: true,
     },
   );

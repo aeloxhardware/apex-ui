@@ -2,9 +2,117 @@
 
 Historique de toutes les versions du logiciel Apex (numéro de version), et non des Releases GitHub. Seul lien avec la publication : le compteur Builds (voir `CLAUDE.md`). Format et règles de numérotation : section « Versioning » de `CLAUDE.md`.
 
-**Version actuelle : `alpha-0.2.1.4.1.2.3.221`**
+**Version actuelle : `alpha-0.2.1.4.3.11.1.221`**
 
 `<préversion>-<public>.<global>.<majeur>.<moyen>.<mineur>.<add-ins>.<correctif>.<builds>`
+
+## alpha-0.2.1.4.3.11.1.221 — 2026-10-21
+
+- Banc de l'Assistant : le cœur du rond n'est plus un shader mais la sphère de réflexion (état `reasoning`) de Thinking Orbs de yogesharc (`@yogesharc/thinking-orbs` 0.1.2, MIT, **nouvelle dépendance** : `package.json`, `pnpm-lock.yaml`), à 40 % du diamètre, dans la couleur du texte (`#334155`). Le rond est flou : flou du verre à 6 px (1 auparavant). Le shader maison (`PhosphorShader.tsx`, dérivé de Phosphor 30 de xordev) est supprimé. Les crédits (Thinking Orbs, Liquid Glass Studio) sont à compléter avant publication : Roadmap de `CLAUDE.md`. Niveau Add-ins incrémenté.
+
+## alpha-0.2.1.4.3.10.1.221 — 2026-10-21
+
+- Banc de l'Assistant, cœur du rond : mécanique entièrement remplacée (user : « un déplacement de la matière, plus une rotation »). Le lancer de rayons autour d'une sphère en rotation du shader Phosphor 30 est abandonné au profit d'un champ de matière (bruit 3D en fbm, déformation de domaine à deux niveaux, relief tiré des dérivées d'écran) qui coule et se replie sur lui-même, sur fond transparent (alpha prémultiplié, bord fondu dans le shader). Temps à vitesse variable, départ aléatoire à chaque ouverture. Seule la formule de palette de Phosphor est conservée (citation et vérification de licence toujours à la Roadmap). Le masque CSS du cœur est retiré. L'entrée 4.3.9.1 ci-dessous décrit l'étape précédente, qui rendait le cœur quasi invisible sur fond clair. Niveau Add-ins incrémenté.
+## alpha-0.2.1.4.3.9.1.221 — 2026-10-21
+
+- Banc de l'Assistant, shader du cœur : plus de fond noir (opacité selon la luminosité, teinte conservée, bords en fondu) et mouvement organique : temps à vitesse variable (sinus de périodes sans rapport), axes qui dérivent à leur propre rythme, rayon qui respire, état de départ aléatoire à chaque ouverture, au lieu de la rotation régulière « boule qui roule ». Niveau Add-ins incrémenté.
+
+## alpha-0.2.1.4.3.8.1.221 — 2026-10-21
+
+- Banc de l'Assistant : le shader « Phosphor 30 » (xordev, 21st.dev) occupe le centre du rond (60 % du diamètre, `PhosphorShader.tsx`), posé sur le verre et suivant le rond dans ses déplacements. Sa citation et la vérification de sa licence sont inscrites à la Roadmap de `CLAUDE.md`. Niveau Add-ins incrémenté.
+
+## alpha-0.2.1.4.3.7.1.221 — 2026-10-20
+
+- Banc de l'Assistant : le rond de verre suit le pointeur par un ressort et s'étire selon sa vitesse (idée de Liquid Glass Studio, `springSizeFactor`), via `GlassPull` ; le fond est de nouveau net. Réglages du verre = valeurs par défaut de Liquid Glass Studio (`src/Controls.tsx`) converties dans les unités d'Apex : épaisseur 20 px, flou 1, ombre 0,15 / 25 px / 10 px, ressort react-spring par défaut (170 / 26). Détail et parties non reprises (forme, teinte, fusion, distance de réfraction) en tête de `AssistantLab.tsx`. Niveau Add-ins incrémenté. **Remplace le flou à 6 px de la version précédente.**
+
+## alpha-0.2.1.4.3.6.1.221 — 2026-10-20
+
+- Banc de l'Assistant : le fond vu à travers le rond de verre est flouté (`GLASS_BLUR_PX` = 6 px CSS, contre 0,55 par défaut du verre ; le verre standard d'Apex est à 4). Niveau Add-ins incrémenté, Correctif remis à 1.
+
+## alpha-0.2.1.4.3.5.2.221 — 2026-10-20
+
+- Banc de l'Assistant : fond noir sur une vraie carte graphique. Les shaders du verre se compilent en parallèle, donc `LiquidGlassRenderer` n'est pas « prêt » à la création et `setBackground` ignorait silencieusement le damier. Le banc envoie maintenant le fond au verre dans sa boucle, dès qu'il est prêt et après chaque redimensionnement, et signale un échec de compilation à l'écran. Constaté : `NodeLab` appelle `setBackground` de la même façon (au moment du montage), il est probablement touché aussi ; `liquidGlass.ts` n'a pas été modifié. Vérifié par capture sur une GTX 1050 Ti (Direct3D 11). Niveau Correctif incrémenté.
+
+## alpha-0.2.1.4.3.5.1.221 — 2026-10-20
+
+- Banc de l'Assistant (`pnpm dev:lab-assistant`) : un grand rond de verre « Liquid Glass » au centre (diamètre : 55 % du plus petit côté de la page, entre 240 et 520 px), qui réfracte le damier blanc et gris. Même rendu WebGL que le nœud d'édition (`edit-node/liquidGlass.ts`) : le damier est désormais dessiné dans un canevas 2D (le damier CSS reste en repli sans WebGL). Niveau Add-ins incrémenté.
+
+## alpha-0.2.1.4.3.4.1.221 — 2026-10-20
+
+- Banc d'essai isolé de l'Assistant vocal : `pnpm dev:lab-assistant` (port 8091, `vite.lab-assistant.config.ts`, page `src/lab/assistant/`), comme celui des nœuds d'édition. Pour l'instant seulement le fond, un damier blanc et gris. Contrat avec le backend de l'Assistant : `research/assistant/COM.md`. Niveau Add-ins incrémenté, Correctif remis à 1.
+
+## alpha-0.2.1.4.3.3.4.221 — 2026-10-20
+
+- Notifications (pile) : le bouton « Tout fermer » (croix de la barre qui apparaît au survol) fait disparaître toutes les cartes en cascade (fondu + glissement), de la carte de face vers le fond, avec 90 ms entre deux cartes (`CASCADE_STEP_S`). La pile reste montée 900 ms une fois vide (`LINGER_MS`) : sans cela, le démontage du conteneur coupait net la dernière carte et toute cascade. Niveau Correctif incrémenté.
+
+## alpha-0.2.1.4.3.3.3.221 — 2026-10-20
+
+- Notifications (pile) : inertie du défilement jugée trop vive. Vitesse de pointe réduite (plafond 80 → 30 crans/s, impulsion de cran de molette 1 → 0,3, vitesse du pavé tactile ×0,4) et glisse plus longue (1,2 s à 3,2 s selon la pointe du geste, au lieu de 1 à 3 s) : 8 crans rapprochés parcourent environ 29 cartes en ~2 s, contre 19 avant. Niveau Correctif incrémenté.
+
+## alpha-0.2.1.4.3.3.2.221 — 2026-10-20
+
+- Modélisation : les corps créés par extrusion (couvercle, parois, fond) ont désormais leurs faces et leurs arêtes sélectionnables et surlignées au survol, comme celles d'un modèle importé (`isSolid`). Leurs maillages portent maintenant des normales (nécessaires au choix d'une face). Niveau Correctif incrémenté.
+
+## alpha-0.2.1.4.3.3.1.221 — 2026-10-20
+
+- Modélisation : sélection d'arête. Au survol, l'arête visible la plus proche du pointeur (tolérance 7 px, `EDGE_PICK_PX`) est tracée ; le clic la choisit (second clic = désélection). Une arête = chaîne d'arêtes vives (> 25° entre faces voisines, bords libres) prolongée tant qu'elle tourne de moins de 35° : un côté droit ou un cercle tessellé est une seule arête ; profils d'esquisse : côtés des rectangles. L'arête proche l'emporte sur la face qu'elle borde ; plus loin, la face reste sélectionnable. Les arêtes masquées par une surface ne sont pas choisies.
+- Touche E (espace Modélisation) : lance l'Extrusion comme un clic sur l'outil ; une face déjà choisie est reprise par l'outil. Sans effet en saisie de texte, avec modificateur, en esquisse, ou outil déjà actif. Niveau Mineur incrémenté.
+
+## alpha-0.2.1.4.2.3.1.221 — 2026-10-20
+
+- Modélisation : sélection de face hors outil Extrusion. Avec l'outil de sélection, le survol d'une face plane (corps, profil d'esquisse, tout objet de la scène) la surligne et le clic la choisit comme avec l'Extrusion (second clic = désélection), sans flèche et sans ouvrir le panneau Extrusion. Un clic sur une face ne sélectionne plus le corps en plus ; hors face, la sélection habituelle reste. Niveau Mineur incrémenté, Correctif remis à 1 (Add-ins conservé : valeur de remise à zéro non définie, cf. « Versioning »).
+
+## alpha-0.2.1.4.1.3.2.221 — 2026-10-20
+
+- Modélisation : le sélecteur « Sélection » (Corps / Face / Arête / Sommet) est entièrement grisé pour l'instant (`SELECTION_LOCKED` dans `ModelingSidebar.tsx`), sans surbrillance du mode actif. Niveau Correctif incrémenté.
+
+## alpha-0.2.1.4.1.3.1.221 — 2026-10-20
+
+- Bandeau orange d'avertissement GPU : il porte maintenant son texte dans le bandeau du bas (attribut `data-apex-tooltip`, sans bulle de souris), dans les deux interfaces. Niveau Add-ins incrémenté, Correctif remis à 1.
+
+## alpha-0.2.1.4.1.2.14.221 — 2026-10-20
+
+- Notifications (pile) : molette à crans, deuxième passe. (1) Reconnaissance d'un cran faite en pixels physiques (`deltaY × devicePixelRatio`) : avec une mise à l'échelle Windows, un cran arrivait en deltaY non entier et était pris pour un défilement lisse. (2) Chaque cran rapproché ajoute une impulsion proportionnelle à sa cadence à l'élan acquis (au lieu de prendre le maximum) : la vélocité s'accumule et la pile est vraiment « lancée ». Niveau Correctif incrémenté.
+
+## alpha-0.2.1.4.1.2.13.221 — 2026-10-20
+
+- Notifications (pile) : effet « lancer » du défilement. Les crans de molette de souris rapprochés (< 260 ms, même sens) n'étaient jamais pris en compte par l'inertie (une carte par cran, rien d'autre) : leur cadence donne désormais une vélocité qui s'emballe et glisse 1 à 3 s (`NOTCH_STREAM_GAP_MS`, `NOTCH_TO_VELOCITY`). Un cran isolé reste une carte exacte. Pour le pavé tactile / molette lisse : vélocité par px/s doublée (`SPEED_TO_VELOCITY` 0,009 → 0,02, `FIRST_EVENT_TO_VELOCITY` 0,03 → 0,06), plafond porté à 80 crans/s. Niveau Correctif incrémenté.
+
+## alpha-0.2.1.4.1.2.12.221 — 2026-10-20
+
+- Notifications (pile) : l'inertie était insuffisante. Le freinage est maintenant calibré sur une durée de glisse : de 1 s (geste lent) à 3 s (geste au plafond de vélocité) après le dernier évènement, selon la vitesse de pointe du geste (`GLIDE_MIN_S`, `GLIDE_MAX_S`). Remplace `INERTIA_GAIN` et le freinage exponentiel + linéaire fixe. Niveau Correctif incrémenté.
+
+## alpha-0.2.1.4.1.2.11.221 — 2026-10-20
+
+- Notifications (pile) : inertie du défilement renforcée. Tant que le geste continue dans le même sens, la vélocité s'emballe (`ACCEL_GAIN`), et le freinage est divisé selon la vitesse maximale atteinte pendant le geste (`INERTIA_GAIN`) : plus on défile vite, plus la pile prend de la vitesse et glisse longtemps. Plafond de vélocité porté de 34 à 48 crans/s. Niveau Correctif incrémenté.
+
+## alpha-0.2.1.4.1.2.10.221 — 2026-10-19
+
+- Notifications (pile) : toutes les cartes se déplacent vers leur nouveau cran (ressort de la pile). La carte de premier plan garde son fondu + glissement de sortie ; la carte d'arrière-plan qui apparaît fait un fondu + glissement de 20 px, sans trajectoire propre. Niveau Correctif incrémenté.
+
+## alpha-0.2.1.4.1.2.9.221 — 2026-10-19
+
+- Notifications (pile) : décalage des cartes de fond et glissement des fondus portés à 20 px, dans l'axe de la flèche de référence (haut-droite pour la pile, bas-gauche pour la sortie et l'entrée). Chaque carte est séparée en un conteneur de position (cran, changé sans animation) et la carte qui porte le fondu et le glissement de 20 px relatif à son cran. Découpe en L des cartes de fond recalculée pour ce décalage (`NotificationStack.module.scss`). Niveau Correctif incrémenté.
+
+## alpha-0.2.1.4.1.2.8.221 — 2026-10-19
+
+- Notifications (pile) : animation remplacée. La carte de face sort par un fondu + glissement ; la carte qui entre dans la pile visible (arrière-plan) apparaît par un fondu + glissement. Les autres cartes changent de cran sans animation (plus de déplacement dans la pile). Fermer une notification utilise le même fondu + glissement. Niveau Correctif incrémenté.
+
+## alpha-0.2.1.4.1.2.7.221 — 2026-10-19
+
+- Notifications (pile) : les cartes de fond retrouvent leur teinte, mais seulement sur leurs deux bandes visibles (14 px en haut et à droite, découpe en L, `.peek` dans `NotificationStack.module.scss`) : elles ne s'additionnent plus entre elles ni à la carte de face, et le fond ne s'assombrit plus. Corrige la version précédente, qui avait retiré toute teinte aux cartes de fond. Niveau Correctif incrémenté.
+
+## alpha-0.2.1.4.1.2.6.221 — 2026-10-19
+
+- Notifications (pile) : tentative de correction (cartes de fond sans teinte, flou ni ombre), remplacée par `alpha-0.2.1.4.1.2.7.221`.
+
+## alpha-0.2.1.4.1.2.5.221 — 2026-10-18
+
+- Viewport 3D (Prévisualisation) : vue déformée après des zooms (carrés en losanges, plateau ovale, orbite qui ralentit, angle incohérent avec le ViewCube). Deux correctifs prudents, la cause exacte n'ayant pas été reproduite : (1) les vues du ViewCube remettent à zéro le décalage de lentille du panoramique, comme les autres vues prédéfinies ; (2) hors Modélisation, le zoom vers le curseur ne peut plus emmener la cible à plus de 8 × le rayon du plateau (horizontal) ni plus bas que −130 mm. Niveau Correctif incrémenté.
+
+## alpha-0.2.1.4.1.2.4.221 — 2026-10-18
+
+- Esquisse (outil Rectangle) : distance d'aimantation du curseur aux traits fins de la grille réduite de 14 à 7 px (`SKETCH_SNAP_RADIUS_PX`). Niveau Correctif incrémenté.
 
 ## alpha-0.2.1.4.1.2.3.221 — 2026-10-18
 

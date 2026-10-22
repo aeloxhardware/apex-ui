@@ -12,13 +12,13 @@ import {
   Code,
   Maximize2,
   Eye,
-  Palette,
   Layers,
-  Settings
+  Settings,
 } from 'lucide-react';
 import { LOGO_PAD_X, LOGO_PAD_Y, PILL_CLIP, TRIANGLE_CLIP } from '@/utils/indicatorShapes';
 import styles from './Sidebar.module.scss';
 import { CustomTooltip } from './CustomTooltip';
+import { BricksIcon } from './ModelingIcons';
 import { PREVIEW_TABS, getPreviewTab, setPreviewTab, usePreviewTab } from './PreviewUpperTabs';
 import { playUiSound, type UiSoundName } from '@/utils/uiSound';
 import { GCODE_FILE_EXT } from '@/hooks/use-gcode-preview';
@@ -721,7 +721,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               })}
               onClick={() => handleToolClick('texture')}
             >
-              <Palette size={16} />
+              <BricksIcon width={16} height={16} />
             </button>
           </CustomTooltip>
         </motion.div>

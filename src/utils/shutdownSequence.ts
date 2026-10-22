@@ -18,9 +18,6 @@ const frames = (n: number) => new Promise<void>((resolve) => {
 });
 const mainStep = (name: string) => window.apexDesktop?.shutdownStep?.(name) ?? Promise.resolve(null);
 
-/** Durée minimale d'affichage d'un message, pour qu'il reste lisible même si son opération est instantanée. */
-const MIN_STEP_MS = 650;
-const LAST_STEP_MS = 1000;
 const CURTAIN_WAIT_MS = 4500;
 
 /** Nom de l'OS pour les messages : fourni par le processus principal, sinon déduit du navigateur. */
@@ -35,7 +32,12 @@ export function osName(): string {
 
 // 1. Plus aucune commande utilisateur : entrées bloquées (capture, avant tout le reste de l'interface), sons libérés.
 let inputsBlocked = false;
-const swallow = (e: Event) => { e.stopImmediatePropagation(); e.preventDefault(); };
+const swallow = (e: Event) => {
+  // Le bouton « Forcer la fermeture » reste utilisable.
+  if (e.target instanceof Element && e.target.closest('[data-apex-force-close]')) return;
+  e.stopImmediatePropagation();
+  e.preventDefault();
+};
 const BLOCKED_EVENTS = ['keydown', 'keyup', 'pointerdown', 'pointerup', 'click', 'dblclick', 'wheel', 'contextmenu', 'dragover', 'drop'];
 function unloadControls() {
   if (!inputsBlocked) {
@@ -86,6 +88,7 @@ let running = false;
 export async function runShutdownSequence(flat: boolean, showMessage: (text: string) => void) {
   if (running) return;
   running = true;
+  emit('apex-shutdown-started');
   try {
     if (flat) {
       showMessage('');
@@ -99,9 +102,8 @@ export async function runShutdownSequence(flat: boolean, showMessage: (text: str
     for (let i = 0; i < steps.length; i++) {
       const { text, run } = steps[i];
       if (flat) showMessage(text); else emit('apex-shutdown-message', { text });
-      const started = performance.now();
+      // Un message ne reste affiché que le temps de son opération : aucune attente ajoutée.
       try { await run(); } catch (error) { console.warn(`[apex] fermeture, « ${text} » :`, error); }
-      await sleep(Math.max(0, (i === steps.length - 1 ? LAST_STEP_MS : MIN_STEP_MS) - (performance.now() - started)));
     }
   } finally {
     // Quoi qu'il arrive, l'application se ferme : le processus principal détruit les fenêtres et quitte.

@@ -83,9 +83,13 @@ const SKETCH_ENTITIES: { kind: SketchEntityKind; icon: React.ElementType }[] = [
   { kind: 'curve', icon: Waves },
 ];
 
+// Provisoire (demande de l'utilisateur, 2026-10-20) : tout le sélecteur est grisé pour l'instant.
+// Repasser à false pour le réactiver (Corps et Face redeviennent utilisables).
+const SELECTION_LOCKED = true;
+
 const SELECTION_MODES: { mode: SelectionMode; label: string; enabled: boolean }[] = [
-  { mode: 'body', label: 'Corps', enabled: true },
-  { mode: 'face', label: 'Face', enabled: true },
+  { mode: 'body', label: 'Corps', enabled: !SELECTION_LOCKED },
+  { mode: 'face', label: 'Face', enabled: !SELECTION_LOCKED },
   { mode: 'edge', label: 'Arête', enabled: false },
   { mode: 'vertex', label: 'Sommet', enabled: false },
 ];
@@ -340,7 +344,7 @@ export const ModelingSidebar: React.FC<ModelingSidebarProps> = ({ morph }) => {
         height: btnRect.height * sy,
         left: (btnRect.left - barRect.left) * sx,
         top: (btnRect.top - barRect.top) * sy,
-        opacity: 1,
+        opacity: SELECTION_LOCKED ? 0 : 1,
       });
     };
     measure();
@@ -611,6 +615,22 @@ export const ModelingSidebar: React.FC<ModelingSidebarProps> = ({ morph }) => {
     };
   }, [sketchModeActive]);
 
+  // Touche E : lance l'Extrusion (comme un clic sur l'outil). Une face déjà choisie dans la vue est
+  // reprise par l'outil (cf. `carriedFace` dans Viewport3D). Sans effet pendant la saisie de texte,
+  // avec un modificateur, en pleine esquisse, ou si l'Extrusion est déjà active.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== 'e' || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+      if (morph || contentLeaving || activeTool === 'sketch' || activeTool === 'extrude') return;
+      e.preventDefault();
+      handleToolClick('extrude');
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
   /** Termine l'esquisse : plus de forme active, le plan est abandonné, l'orbite est rendue. */
   const handleFinishSketch = () => {
     setActiveTool(null);
@@ -748,7 +768,7 @@ export const ModelingSidebar: React.FC<ModelingSidebarProps> = ({ morph }) => {
               >
                 <button
                   ref={(el) => { if (el) segmentRefs.current.set(mode, el); }}
-                  className={clsx(styles.segmentButton, { [styles.active]: selectionMode === mode })}
+                  className={clsx(styles.segmentButton, { [styles.active]: !SELECTION_LOCKED && selectionMode === mode })}
                   onClick={() => handleSelectionMode(mode)}
                   disabled={!enabled}
                 >

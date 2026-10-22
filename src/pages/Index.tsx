@@ -34,6 +34,7 @@ import { Box } from 'lucide-react';
 import { showSuccess } from '@/utils/toast';
 import { AlphaWatermark } from '@/components/AlphaWatermark';
 import { useDevMode } from '@/utils/devModePrefs';
+import { setModelingSpace } from '@/utils/modelingSpace';
 
 interface ModelStatus {
   name: string;
@@ -99,6 +100,17 @@ const Index = () => {
 
   /** L'onglet « Modélisation » de la Sidebar porte la valeur 'settings'. */
   const isModeling = activeTab === 'settings';
+  // Au changement d'onglet (rideau refermé) : bascule automatique de la perspective en translation.
+  useEffect(() => { setModelingSpace(isModeling); }, [isModeling]);
+  // Espace courant, lu par le menu contextuel du viewport (cf. Viewport3D, SPACE_MENU_ITEMS).
+  useEffect(() => {
+    const space = activeTab === 'home' ? 'home'
+      : activeTab === 'settings' ? 'modeling'
+      : activeTab === 'developer' ? 'dev'
+      : isPreviewActive ? 'preview'
+      : 'preparation';
+    window.dispatchEvent(new CustomEvent('apex-space-changed', { detail: { space } }));
+  }, [activeTab, isPreviewActive]);
   // Espace Paramètres : le Viewport3D (et tout le reste du chrome sauf la barre d'onglets
   // Sidebar et la barre fichier/son FileSidebar) est entièrement démonté, pas seulement masqué —
   // aucune scène Babylon.js ne doit tourner en fond pendant que cet espace est affiché.

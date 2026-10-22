@@ -404,19 +404,25 @@ $panel-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
   background: transparent;
   border: none;
   border-radius: 10px;
-  color: rgba(255, 255, 255, 0.65);
+  // Couleur opaque + transparence sur l'icône entière : avec une couleur translucide, les traits qui se
+  // recouvrent (jonctions) cumulaient leur opacité et formaient des points plus clairs.
+  color: white;
   cursor: pointer;
   transition: all 0.2s ease;
   outline: none;
   flex-shrink: 0;
 
+  svg { opacity: 0.65; transition: opacity 0.2s ease; }
+
   &:hover:not(:disabled) {
     color: white;
     background: rgba(255, 255, 255, 0.08);
+    svg { opacity: 1; }
   }
 
   &.active {
     color: $accent;
+    svg { opacity: 1; }
     background: rgba(0, 240, 255, 0.16);
     box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
   }

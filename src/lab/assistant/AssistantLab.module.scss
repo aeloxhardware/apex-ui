@@ -1,0 +1,69 @@
+:global(html),
+:global(body),
+:global(#root) {
+  margin: 0;
+  height: 100%;
+}
+
+$tile: 24px;
+$light: #ffffff;
+$dark: #d4d4d8;
+
+// Damier blanc et gris, comme le fond de transparence d'un éditeur d'images : deux carreaux gris
+// en diagonale par motif de 2 × $tile, sur fond blanc.
+.lab {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  background-color: $light;
+  background-image:
+    linear-gradient(45deg, $dark 25%, transparent 25%, transparent 75%, $dark 75%),
+    linear-gradient(45deg, $dark 25%, transparent 25%, transparent 75%, $dark 75%);
+  background-size: ($tile * 2) ($tile * 2);
+  background-position: 0 0, $tile $tile;
+  font: 600 11px system-ui, sans-serif;
+  color: rgba(0, 0, 0, 0.6);
+}
+
+// Le canevas du verre couvre la page et redessine lui-même le damier (il le réfracte) ; le damier
+// CSS du .lab ne reste visible que si WebGL est indisponible.
+.glass {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+// Grand rond centré : invisible lui-même, il ne fait que porter la taille de la lentille.
+.orb {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%); // remplacé image par image par le ressort (AssistantLab.tsx)
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+// Cœur du rond, centré. La sphère se dessine dans la couleur du texte (`color`).
+.core {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #334155;
+}
+
+.pull {
+  position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.status {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+}

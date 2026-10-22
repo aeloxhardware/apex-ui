@@ -42,10 +42,34 @@ function ask(win) {
   win.webContents.send('apex:close-requested');
 }
 
+// Fermeture forcée : à partir du 3e clic sur la croix, ou Alt+F4 une fois le rideau lancé, on sort sans rien nettoyer
+// (seuls les processus enfants sont tués, ce qui est instantané et évite de les laisser orphelins).
+const FORCE_CLICKS = 3;
+const ALT_WINDOW_MS = 1500;
+let closeRequests = 0;
+let lastAltAt = 0;
+
+function forceFinish() {
+  try { pythonRunner.stopAll(); } catch { /* déjà arrêtés */ }
+  try { hooks.stopEditProcess(); } catch { /* déjà arrêté */ }
+  finish();
+}
+
+/** À brancher sur `win.webContents.on('before-input-event')` : repère Alt+F4 (la fermeture arrive ensuite par `close`). */
+function onInput(_event, input) {
+  if (input.type === 'keyDown' && input.alt) lastAltAt = Date.now();
+}
+
 /** À brancher sur `win.on('close')` de la fenêtre principale. */
 function onWindowClose(event, win) {
   if (state === 'done') return;
   event.preventDefault();
+  if (state === 'asked') {
+    closeRequests++;
+    if (closeRequests >= FORCE_CLICKS || Date.now() - lastAltAt < ALT_WINDOW_MS) forceFinish();
+    return;
+  }
+  closeRequests = 1;
   ask(win);
 }
 
@@ -108,6 +132,7 @@ function register(options) {
     try { return await step(); } catch (error) { console.warn(`[apex] fermeture, étape « ${name} » :`, error.message); return null; }
   });
   ipcMain.on('apex:shutdown-finish', finish);
+  ipcMain.on('apex:shutdown-force', forceFinish);
   // Quitter autrement que par la croix (menu, macOS Cmd+Q, arrêt système) : même rideau.
   app.on('before-quit', (event) => {
     if (state === 'done') return;
@@ -117,4 +142,4 @@ function register(options) {
   });
 }
 
-module.exports = { register, onWindowClose, osDisplayName };
+module.exports = { register, onWindowClose, onInput, osDisplayName };

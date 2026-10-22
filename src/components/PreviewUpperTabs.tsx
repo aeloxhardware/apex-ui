@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Palette, Pencil, Sparkles } from 'lucide-react';
 import styles from './PreviewUpperTabs.module.scss';
+import { ApexSlider } from './ApexSlider';
 import { EditionPanel } from './edit-node/EditionPanel';
 import { HeadAxisValues } from './edit-node/HeadAxisValues';
 import {
@@ -45,10 +46,6 @@ const ZOOM_TOOLTIP = {
   desc: "Automatique : le pas de zoom s'ajuste à la distance du point visé sous le curseur, en douceur (il diminue en approchant, mais moins vite que la distance, sans jamais ralentir d'un coup). Le curseur règle la vitesse dans tous les cas ; sans l'automatisme, le pas est fixe.",
 };
 
-// Vitesse en échelle logarithmique : le milieu du curseur = ×1.
-const speedToSlider = (speed: number) => Math.log(speed / PREVIEW_ZOOM_SPEED_MIN) / Math.log(PREVIEW_ZOOM_SPEED_MAX / PREVIEW_ZOOM_SPEED_MIN);
-const sliderToSpeed = (t: number) => PREVIEW_ZOOM_SPEED_MIN * Math.pow(PREVIEW_ZOOM_SPEED_MAX / PREVIEW_ZOOM_SPEED_MIN, t);
-
 const ZoomPanel: React.FC = () => {
   const [prefs, setPrefs] = useState(getPreviewZoomPrefs);
   useEffect(() => subscribePreviewZoomPrefs(setPrefs), []);
@@ -63,18 +60,16 @@ const ZoomPanel: React.FC = () => {
         <input type="checkbox" checked={prefs.auto} onChange={(e) => setPreviewZoomPrefs({ auto: e.target.checked })} />
         <span>Ajustement automatique au curseur</span>
       </label>
-      <div className={styles.zoomRow}>
-        <span>Vitesse</span>
-        <input
-          type="range"
-          min={0}
-          max={1}
-          step={0.01}
-          value={speedToSlider(prefs.speed)}
-          onChange={(e) => setPreviewZoomPrefs({ speed: sliderToSpeed(parseFloat(e.target.value)) })}
-        />
-        <span className={styles.zoomValue}>×{prefs.speed.toFixed(2)}</span>
-      </div>
+      <ApexSlider
+        label="Vitesse"
+        value={prefs.speed}
+        onChange={(speed) => setPreviewZoomPrefs({ speed })}
+        min={PREVIEW_ZOOM_SPEED_MIN}
+        max={PREVIEW_ZOOM_SPEED_MAX}
+        scale="log"
+        defaultValue={1}
+        format={(v) => `×${v.toFixed(2)}`}
+      />
     </div>
   );
 };

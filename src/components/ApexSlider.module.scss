@@ -1,0 +1,80 @@
+// Curseur unique d'Apex (cf. ApexSlider.tsx), issu du curseur de vitesse de Prévisualisation :
+// piste scindée autour d'une poignée en verre, valeur en cyan.
+
+.root {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 26px;
+  width: 100%;
+}
+
+.label,
+.value {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+}
+
+// Largeur fixe : la piste ne doit pas changer de longueur quand la valeur change de largeur.
+.value {
+  width: 40px;
+  text-align: right;
+  color: #00f0ff;
+  font-variant-numeric: tabular-nums;
+}
+
+.track {
+  --handle-gap: 8px;
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  cursor: pointer;
+  touch-action: none;
+  outline: none;
+
+  &:focus-visible .trackHandle {
+    box-shadow: 0 0 0 1px rgba(0, 240, 255, 0.7), 0 4px 10px 0 rgba(0, 0, 0, 0.5);
+  }
+}
+
+.trackFill,
+.trackRemainder {
+  position: absolute;
+  top: 50%;
+  height: 3px;
+  border-radius: 2px;
+  transform: translateY(-50%);
+}
+
+.trackFill {
+  left: 0;
+  background: #00f0ff;
+}
+
+.trackRemainder {
+  right: 0;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.trackHandle {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 18px;
+  border-radius: 5px;
+  // Pas de contour ni de relief : fond plat et simple ombre portée.
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  box-shadow: 0 2px 6px 0 rgba(0, 0, 0, 0.4);
+  transform: translate(-50%, -50%);
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.track:hover .trackHandle {
+  background: rgba(255, 255, 255, 0.26);
+}

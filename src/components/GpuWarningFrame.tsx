@@ -13,6 +13,9 @@ const MESSAGE_LIQUID =
 const MESSAGE_CLASSIC =
   "Votre processeur de calcul graphique est susceptible de ne pas répondre aux exigences minimales d'Apex. Le traitement logiciel est susceptible de prendre plus de temps, de conduire à des absences de réponse du logiciel, voire de ne jamais aboutir.";
 
+const MESSAGE_TOOLTIP =
+  "Mais que veux-tu que je te dise de plus, mon gars? Ton PC ne peut pas, il ne peut pas! Achète juste un meilleur GPU! Sauf si tu n'es pas Elon Musk, avec les prix du marché ;)";
+
 const PortalRootContext = createContext<HTMLElement | null>(null);
 
 /**
@@ -32,6 +35,7 @@ export const GpuWarningFrame: React.FC<{ children: React.ReactNode }> = ({ child
       </div>
       <div
         role="alert"
+        data-apex-tooltip={MESSAGE_TOOLTIP}
         style={{
           flex: '0 0 auto',
           padding: '8px 16px',

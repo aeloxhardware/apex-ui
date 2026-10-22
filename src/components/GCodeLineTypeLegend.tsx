@@ -86,6 +86,11 @@ const VERTICAL_GRADIENT_CSS = `linear-gradient(0deg, ${COLORMAP_STOPS_HEX.join('
  * externe — cf. useExternalScrollThumb) : groupé, trop d'options (type de ligne + une douzaine de
  * modes continus) pour un bouton segmenté à plat.
  */
+const COLOR_BY_TRIGGER_TOOLTIP = {
+  title: 'Colorer le tracé par',
+  desc: 'Choisissez le critère de coloration du tracé : type de ligne (par défaut), ou une grandeur continue (vitesse, extrusion, température…).',
+};
+
 const GCodeColorBySelector: React.FC<{ colorBy: ColorByMode; setColorBy: (mode: ColorByMode) => void }> = ({
   colorBy,
   setColorBy,
@@ -98,7 +103,12 @@ const GCodeColorBySelector: React.FC<{ colorBy: ColorByMode; setColorBy: (mode: 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button type="button" className={styles.colorByTrigger}>
+        <button
+          type="button"
+          className={styles.colorByTrigger}
+          onMouseEnter={() => window.dispatchEvent(new CustomEvent('apex-set-tooltip', { detail: COLOR_BY_TRIGGER_TOOLTIP }))}
+          onMouseLeave={() => window.dispatchEvent(new CustomEvent('apex-reset-tooltip'))}
+        >
           <span>{activeLabel}</span>
           <svg className={styles.colorByChevron} width="8" height="5" viewBox="0 0 8 5" fill="none" aria-hidden>
             <path d="M1 1L4 4L7 1" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />

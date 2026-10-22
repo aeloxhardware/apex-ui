@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import styles from './AxisSidebar.module.scss';
 import { CustomTooltip } from './CustomTooltip';
 import { showSuccess } from '@/utils/toast';
-import { readPanPerspective, setPanPerspective } from '@/utils/panPerspectivePrefs';
+import { PAN_PERSPECTIVE_EVENT, readPanPerspective, setPanPerspective } from '@/utils/panPerspectivePrefs';
 import { hideBottomTip, showBottomTip } from './edit-node/bottomTooltip';
 import type { ParsedGCode } from './gcodeLayer';
 
@@ -19,11 +19,14 @@ export const AxisSidebar: React.FC = () => {
   // Perspective en translation (Viewport3D) : bas = désactivée (l'image glisse, même angle de vue),
   // haut = activée (la caméra se déplace).
   const [panPerspective, setPanPerspectiveState] = useState(readPanPerspective);
-  const togglePanPerspective = () => {
-    const next = !panPerspective;
-    setPanPerspectiveState(next);
-    setPanPerspective(next);
-  };
+  // Suit aussi les bascules automatiques (Modélisation : désactivée, autres espaces : activée,
+  // cf. modelingSpace.ts) ; l'utilisateur garde la main à tout moment.
+  useEffect(() => {
+    const onChange = (e: Event) => setPanPerspectiveState(!!(e as CustomEvent<{ enabled: boolean }>).detail?.enabled);
+    window.addEventListener(PAN_PERSPECTIVE_EVENT, onChange);
+    return () => window.removeEventListener(PAN_PERSPECTIVE_EVENT, onChange);
+  }, []);
+  const togglePanPerspective = () => setPanPerspective(!panPerspective);
   // Infobulle de bas d'écran gérée ici (pas CustomTooltip, qui la remet à son message par défaut
   // au clic) : elle suit l'état de l'interrupteur tant que la souris est dessus.
   const switchTip = {

@@ -18,35 +18,34 @@ const MAX_PEEK = 3; // carte de face + jusqu'à 3 cartes qui dépassent derrièr
 // contours visibles plutôt qu'un fondu progressif) — décalage franc, léger rétrécissement, et une
 // opacité qui reste élevée pour que chaque carte du fond reste bien lisible comme "une carte de
 // plus", pas une simple ombre derrière la première.
-const PEEK_OFFSET_X = 14;
-const PEEK_OFFSET_Y = -14;
+// Décalage par carte : 20 px le long de l'axe de la pile (haut-droite, environ 37° par rapport à
+// l'horizontale : cos 0,6 / sin 0,8), soit 12 px en x et 16 px en y.
+const PEEK_OFFSET_X = 12;
+const PEEK_OFFSET_Y = -16;
 const SCALE_STEP = 0.04;
 const OPACITY_STEP = 0.1;
 
-// Course de sortie/entrée d'une carte qui quitte ou rejoint le premier plan (molette) : au-delà du
-// coin d'ancrage, vers le bas-droite — jamais un simple fondu sur place.
-const EXIT_PUSH_X = 60;
-const EXIT_PUSH_Y = 40;
+// Glissement de sortie / d'entrée d'une carte (fondu + glissement) : 20 px, dans le sens opposé à la
+// pile (vers le bas-gauche, sur le même axe). Une carte qui sort glisse vers ce point ; une carte qui
+// entre part de ce point et rejoint son cran.
+const EXIT_PUSH_X = -PEEK_OFFSET_X;
+const EXIT_PUSH_Y = -PEEK_OFFSET_Y;
 
-// Carte qui change de place entre la face et le fond (celle qui « voyage ») : trajet en trois points
-// (départ → au-delà du coin d'ancrage → arrivée), joué à l'identique dans les deux sens — au
-// défilement avant, la carte de face part vers le fond ; en sens inverse, c'est la même trajectoire
-// parcourue à l'envers, la carte du fond remontant vers la face. L'ordre d'empilement bascule à
-// mi-course (TRAVEL_Z_FLIP_S) pour que la carte passe derrière/devant au bon moment.
-// Court et vif : le retour derrière la pile ne doit laisser aucune latence perceptible. L'ordre
-// d'empilement bascule pile au passage du point extrême (40 % de la durée).
-const TRAVEL_S = 0.32;
-const TRAVEL = { duration: TRAVEL_S, ease: [0.3, 0.7, 0.4, 1] as [number, number, number, number], times: [0, 0.4, 1] };
-const TRAVEL_Z_FLIP_S = TRAVEL_S * 0.4;
-// Niveau d'empilement de la carte qui revient derrière la pile : STRICTEMENT sous toutes les autres
-// (les cartes au-delà de MAX_PEEK partagent le même cran 100 - MAX_PEEK, d'où le −1).
-const Z_BEHIND_ALL = 100 - MAX_PEEK - 1;
+// Seules les cartes qui entrent dans la pile visible ou en sortent sont animées : fondu + glissement
+// sur le trajet de sortie (EXIT_PUSH), dans les deux sens. Les autres cartes changent de cran sans
+// animation : aucun déplacement dans la pile.
+const FADE = { duration: 0.28, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] };
+const SNAP = { duration: 0 };
+// « Tout fermer » : retard de sortie entre deux cartes consécutives de la pile (face d'abord).
+const CASCADE_STEP_S = 0.09;
+// Durée de maintien de la pile montée une fois vide : cascade complète (MAX_PEEK retards + fondu).
+const LINGER_MS = 900;
+// Déplacement des cartes vers leur nouveau cran dans la pile (toutes les cartes se déplacent).
+const MOVE_SPRING = { type: 'spring', stiffness: 420, damping: 38, mass: 0.7 } as const;
 
 // Ressort de la pile attrapée : compression rapide à la prise, puis relâchement très rebondissant.
 const GRAB_SPRING = { type: 'spring', stiffness: 700, damping: 26, mass: 0.6 } as const;
 const RELEASE_SPRING = { type: 'spring', stiffness: 520, damping: 9, mass: 0.7 } as const;
-
-const SPRING = { type: 'spring', stiffness: 420, damping: 38, mass: 0.7 } as const;
 
 // Deux modes selon le type de geste détecté :
 // - cran de souris (deltaY franc et entier, évènement isolé) : exactement une carte par cran ;
@@ -56,16 +55,22 @@ const NOTCH_MIN_DELTA = 40; // en dessous, le deltaY est considéré comme un sc
 const SMOOTH_STREAM_GAP_MS = 120; // un évènement proche du précédent prolonge le mode continu
 // L'élan dépend de la VITESSE du geste (px/s, deltaY / temps entre deux évènements), pas de la
 // seule amplitude : un flick vif lance la pile bien plus loin qu'un défilement lent.
-const SPEED_TO_VELOCITY = 0.009; // crans/s de vélocité par px/s de vitesse de scroll
-const FIRST_EVENT_TO_VELOCITY = 0.03; // 1er évènement d'un geste (pas encore de vitesse mesurable)
+const SPEED_TO_VELOCITY = 0.008; // crans/s de vélocité par px/s de vitesse de scroll
+const FIRST_EVENT_TO_VELOCITY = 0.025; // 1er évènement d'un geste (pas encore de vitesse mesurable)
 const GESTURE_GAP_MS = 120; // au-delà, l'évènement ouvre un nouveau geste
-const MAX_VELOCITY = 34; // crans/s plafond
-// Freinage : exponentiel (une pile lancée vite glisse longtemps, en ralentissant progressivement)
-// plus un terme linéaire qui l'arrête franchement au lieu de la laisser traîner.
-const FRICTION_EXP_PER_SEC = 1.7;
-const FRICTION_LINEAR_PER_SEC = 0.9;
+const MAX_VELOCITY = 30; // crans/s plafond
+const NOTCH_STREAM_GAP_MS = 260; // crans de molette plus rapprochés : ils lancent la pile
+const NOTCH_TO_VELOCITY = 0.3; // impulsion (crans/s) ajoutée par un cran de molette, par cran/s de cadence
+// Plus on défile vite, plus la pile prend de la vitesse ET d'inertie :
+// - ACCEL_GAIN : tant que le geste continue dans le même sens, chaque évènement ajoute à la vélocité
+//   une part de sa propre vitesse (elle monte au lieu de simplement suivre le geste) ;
+// - durée de glisse après le dernier évènement : GLIDE_MIN_S pour un geste lent, GLIDE_MAX_S pour un
+//   geste au plafond de vélocité (interpolée selon la pointe du geste).
+const ACCEL_GAIN = 0.3;
+const GLIDE_MIN_S = 1.2;
+const GLIDE_MAX_S = 3.2;
 const STEP_THRESHOLD = 1; // accumulation nécessaire pour avancer d'un cran
-const MIN_VELOCITY = 0.05; // en dessous, on arrête la boucle d'inertie
+const MIN_VELOCITY = 0.4; // en dessous (moins d'un cran toutes les 2,5 s), on arrête la boucle d'inertie
 
 // Boutons d'en-tête (survol de la pile) : même fondu-montée que les panneaux de Prévisualisation
 // (fondu + glissement de 6 px, easing « standard » Material).
@@ -151,6 +156,9 @@ export const NotificationStack: React.FC = () => {
   // Inertie du mode continu : vélocité signée en crans/s, consommée frame par frame.
   const velocityRef = useRef(0);
   const stepAccumulatorRef = useRef(0);
+  // Vélocité maximale atteinte pendant le geste en cours (|crans/s|) : règle l'inertie.
+  const peakVelocityRef = useRef(0);
+  const lastNotchDirRef = useRef(0);
   const rafRef = useRef<number | null>(null);
   const lastFrameTimeRef = useRef(0);
   const lastWheelTimeRef = useRef(0);
@@ -176,18 +184,39 @@ export const NotificationStack: React.FC = () => {
     frontObserverRef.current = ro;
   }, []);
 
-  // Carte qui voyage entre face et fond au dernier cran (cf. TRAVEL) ; remise à zéro quand la liste
-  // change (ajout/fermeture), pour ne pas rejouer un trajet périmé.
-  const travelIdRef = useRef<string | null>(null);
-  const travelForwardRef = useRef(true);
-  const lastCountRef = useRef(0);
+  // Carte qui quitte le premier plan : elle garde son contenu pendant son fondu de sortie.
+  const [outgoingId, setOutgoingId] = useState<string | null>(null);
+  const storeFrontIdRef = useRef<string | null>(null);
+  const hadItemsRef = useRef(false);
+  const lingerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [lingering, setLingering] = useState(false);
 
   useEffect(() => subscribeToNotifications((its, front) => {
-    if (its.length !== lastCountRef.current) travelIdRef.current = null;
-    lastCountRef.current = its.length;
+    const prev = storeFrontIdRef.current;
+    if (prev && prev !== front && its.some((n) => n.id === prev)) setOutgoingId(prev);
+    storeFrontIdRef.current = front;
+    // Pile qui se vide : elle reste montée le temps des fondus de sortie (sinon la dernière carte,
+    // ou toute la cascade de « tout fermer », serait coupée net par le démontage du conteneur).
+    if (its.length === 0 && hadItemsRef.current) {
+      setLingering(true);
+      if (lingerTimerRef.current) clearTimeout(lingerTimerRef.current);
+      lingerTimerRef.current = setTimeout(() => setLingering(false), LINGER_MS);
+    }
+    hadItemsRef.current = its.length > 0;
     setItems(its);
     setFrontIdState(front);
   }), []);
+  useEffect(() => () => { if (lingerTimerRef.current) clearTimeout(lingerTimerRef.current); }, []);
+
+  // « Tout fermer » : les cartes sont retirées d'un coup, mais chacune sort avec un retard croissant
+  // de la face vers le fond (cascade fondu + glissement). Le retard est posé dans la prop `exit` au
+  // rendu qui précède le retrait ; la pile n'est vidée qu'une fois ce rendu validé.
+  const [clearing, setClearing] = useState(false);
+  useEffect(() => {
+    if (!clearing) return;
+    clearNotifications();
+    setClearing(false);
+  }, [clearing]);
 
   // Ordre de cycle STABLE : toujours l'ordre de poussée (push order), jamais reconstruit autour de
   // la carte actuellement au premier plan — c'est ce qui garantit qu'avancer d'un cran à la molette
@@ -205,14 +234,42 @@ export const NotificationStack: React.FC = () => {
   idsRef.current = ids;
   frontIndexRef.current = frontIndex;
 
+  // Au rendu précédent : visibilité de chaque carte, et dernier cran où elle était visible. Sert à
+  // repérer les cartes qui entrent dans la pile visible ou en sortent (les seules animées), et à les
+  // laisser sur leur dernier cran pendant leur fondu de sortie.
+  const visibleRef = useRef<Map<string, boolean>>(new Map());
+  const lastSlotRef = useRef<Map<string, number>>(new Map());
+  // Cartes en cours de fondu (entrée ou sortie) : leur animation continue même si le rendu change.
+  const [fading, setFading] = useState<ReadonlySet<string>>(new Set());
+  useEffect(() => {
+    const started: string[] = [];
+    const nowVisible = new Map<string, boolean>();
+    items.forEach((n, idx) => {
+      let rawSlot = idx - frontIndex;
+      if (rawSlot < 0) rawSlot += ids.length;
+      const visible = rawSlot <= MAX_PEEK;
+      const was = visibleRef.current.get(n.id);
+      if (was !== undefined && was !== visible) started.push(n.id);
+      nowVisible.set(n.id, visible);
+      if (visible) lastSlotRef.current.set(n.id, Math.min(rawSlot, MAX_PEEK));
+    });
+    visibleRef.current = nowVisible;
+    if (started.length) setFading((prev) => new Set([...prev, ...started]));
+  });
+  const settleFade = useCallback((id: string) => {
+    setFading((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }, []);
+
   const advance = useCallback((steps: number) => {
     const currentIds = idsRef.current;
     const n = currentIds.length;
     if (n < 2 || steps === 0) return;
     const nextIndex = (((frontIndexRef.current + steps) % n) + n) % n;
-    // Avant : la carte de face part vers le fond. Arrière : la carte qui devient face en vient.
-    travelForwardRef.current = steps > 0;
-    travelIdRef.current = steps > 0 ? currentIds[frontIndexRef.current] : currentIds[nextIndex];
     frontIndexRef.current = nextIndex; // lu avant que le re-render React n'ait eu lieu
     setFrontNotification(currentIds[nextIndex]);
   }, []);
@@ -224,6 +281,7 @@ export const NotificationStack: React.FC = () => {
     if (idsRef.current.length < 2 || Math.abs(velocityRef.current) < MIN_VELOCITY) {
       velocityRef.current = 0;
       stepAccumulatorRef.current = 0;
+      peakVelocityRef.current = 0;
       rafRef.current = null;
       return;
     }
@@ -240,8 +298,12 @@ export const NotificationStack: React.FC = () => {
     advance(steps);
 
     const v = velocityRef.current;
-    const decayed = Math.abs(v) * Math.exp(-FRICTION_EXP_PER_SEC * dt) - FRICTION_LINEAR_PER_SEC * dt;
-    velocityRef.current = Math.sign(v) * Math.max(0, decayed);
+    // Décroissance exponentielle calibrée sur la durée de glisse : la vélocité de pointe du geste
+    // retombe à MIN_VELOCITY en exactement GLIDE_MIN_S … GLIDE_MAX_S secondes (selon cette pointe).
+    const peak = Math.max(peakVelocityRef.current, MIN_VELOCITY * 2);
+    const glideS = GLIDE_MIN_S + (GLIDE_MAX_S - GLIDE_MIN_S) * Math.min(1, peak / MAX_VELOCITY);
+    const rate = Math.log(peak / MIN_VELOCITY) / glideS;
+    velocityRef.current = Math.sign(v) * Math.abs(v) * Math.exp(-rate * dt);
 
     rafRef.current = requestAnimationFrame(stepInertia);
   }, [advance]);
@@ -263,14 +325,38 @@ export const NotificationStack: React.FC = () => {
 
       // Mode continu : deltaY faible/non entier, ou flux déjà engagé en continu (un flick de pavé
       // tactile peut produire de gros deltaY, mais toujours à la suite de petits).
-      const isDiscrete = e.deltaMode !== 0 || (Number.isInteger(e.deltaY) && Math.abs(e.deltaY) >= NOTCH_MIN_DELTA);
+      // Avec une mise à l'échelle Windows (125 %, 150 %…) un cran de 100 px arrive en deltaY non
+      // entier (80, 66,67…) : on teste l'entier en pixels physiques (deltaY × devicePixelRatio).
+      const physical = e.deltaY * window.devicePixelRatio;
+      const isWholeStep = Number.isInteger(e.deltaY) || Math.abs(physical - Math.round(physical)) < 0.02;
+      const isDiscrete = e.deltaMode !== 0 || (isWholeStep && Math.abs(e.deltaY) >= NOTCH_MIN_DELTA);
       smoothModeRef.current = !isDiscrete || (smoothModeRef.current && inStream && Math.abs(e.deltaY) < NOTCH_MIN_DELTA * 3);
 
       if (!smoothModeRef.current) {
-        // Cran de souris : une carte, et on coupe toute inertie résiduelle.
-        velocityRef.current = 0;
-        stepAccumulatorRef.current = 0;
-        advance(e.deltaY > 0 ? 1 : -1);
+        // Cran de souris : toujours une carte par cran. Un cran isolé (ou un changement de sens)
+        // coupe l'inertie ; des crans rapprochés dans le même sens « lancent » la pile — la cadence
+        // des crans donne la vélocité, qui s'emballe tant que la molette continue.
+        const notchDir = e.deltaY > 0 ? 1 : -1;
+        const dtNotch = now - prevWheelTime;
+        const v0 = velocityRef.current;
+        advance(notchDir);
+        if (dtNotch < NOTCH_STREAM_GAP_MS && (v0 === 0 ? lastNotchDirRef.current === notchDir : Math.sign(v0) === notchDir)) {
+          const rate = 1000 / Math.max(dtNotch, 16); // crans/s
+          // Chaque cran est une impulsion proportionnelle à la cadence, ajoutée à l'élan acquis :
+          // la vélocité s'accumule (quadratique en cadence) au lieu de seulement suivre la molette.
+          const next = Math.abs(v0) * 0.97 + rate * NOTCH_TO_VELOCITY;
+          velocityRef.current = notchDir * Math.min(MAX_VELOCITY, next);
+          peakVelocityRef.current = Math.max(peakVelocityRef.current, Math.abs(velocityRef.current));
+          if (rafRef.current === null) {
+            lastFrameTimeRef.current = 0;
+            rafRef.current = requestAnimationFrame(stepInertia);
+          }
+        } else {
+          velocityRef.current = 0;
+          stepAccumulatorRef.current = 0;
+          peakVelocityRef.current = 0;
+        }
+        lastNotchDirRef.current = notchDir;
         return;
       }
 
@@ -284,9 +370,17 @@ export const NotificationStack: React.FC = () => {
       const v = velocityRef.current;
       // Même sens : la vélocité suit la vitesse du geste (lissée, et jamais réduite par un
       // évènement plus lent tant que l'élan acquis est plus grand) ; sens opposé : écrase.
-      velocityRef.current = v === 0 || Math.sign(v) === dir
-        ? dir * Math.min(MAX_VELOCITY, Math.max(Math.abs(v) * 0.85, Math.abs(v) * 0.5 + Math.abs(kick) * 0.5, Math.abs(kick) * 0.7))
-        : kick;
+      const sameDir = v === 0 || Math.sign(v) === dir;
+      if (sameDir) {
+        const base = Math.max(Math.abs(v) * 0.85, Math.abs(v) * 0.5 + Math.abs(kick) * 0.5, Math.abs(kick) * 0.7);
+        // Geste qui se poursuit : la vélocité s'emballe en plus de suivre la vitesse du geste.
+        const boost = inStream ? Math.abs(kick) * ACCEL_GAIN : 0;
+        velocityRef.current = dir * Math.min(MAX_VELOCITY, base + boost);
+      } else {
+        velocityRef.current = kick;
+        peakVelocityRef.current = 0; // changement de sens : nouveau geste
+      }
+      peakVelocityRef.current = Math.max(peakVelocityRef.current, Math.abs(velocityRef.current));
       if (rafRef.current === null) {
         lastFrameTimeRef.current = 0;
         rafRef.current = requestAnimationFrame(stepInertia);
@@ -304,6 +398,7 @@ export const NotificationStack: React.FC = () => {
 
   const handleGrab = useCallback(() => {
     velocityRef.current = 0;
+    peakVelocityRef.current = 0;
     stepAccumulatorRef.current = 0;
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current);
@@ -329,7 +424,7 @@ export const NotificationStack: React.FC = () => {
   }, []);
   useEffect(() => () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current); }, []);
 
-  if (ids.length === 0) return null;
+  if (ids.length === 0 && !lingering) return null;
 
   return (
     <motion.div
@@ -350,46 +445,80 @@ export const NotificationStack: React.FC = () => {
           // visible, et sauterait donc directement en hors-champ au lieu de glisser JUSQU'AU FOND
           // DE LA PILE VISIBLE (MAX_PEEK) — c'est ce plafond qui fait qu'elle "revient tout
           // derrière" (dernier cran affiché), pas juste un cran derrière la nouvelle face.
+          // Cran relatif de cette carte par rapport au premier plan, dans le cycle stable (0 = face,
+          // positif = vers le fond). Au-delà de MAX_PEEK la carte reste montée mais hors de la pile
+          // visible (invisible, sans pointeur) jusqu'à y revenir.
           let rawSlot = idx - frontIndex;
           if (rawSlot < 0) rawSlot += ids.length;
+          const visibleNow = rawSlot <= MAX_PEEK;
           const slot = Math.min(rawSlot, MAX_PEEK);
-
           const isFront = slot === 0;
-          const target = stackTarget(slot);
-          const travels = travelIdRef.current === item.id;
-          // Carte qui retourne au fond : tout derrière, y compris les cartes déjà au dernier cran.
-          const z = travels && travelForwardRef.current ? Z_BEHIND_ALL : 100 - slot;
+
+          // Entrée / sortie de la pile visible : fondu + glissement de 20 px. Une carte qui sort reste
+          // sur son dernier cran pendant son fondu ; une carte qui entre part de 20 px en retrait de son
+          // cran. Les autres cartes changent de cran sans animation.
+          const wasVisible = visibleRef.current.get(item.id);
+          const changed = wasVisible !== undefined && wasVisible !== visibleNow;
+          const animating = changed || fading.has(item.id);
+          const leaving = changed && !visibleNow;
+          const outerSlot = visibleNow
+            ? slot
+            : animating ? (lastSlotRef.current.get(item.id) ?? MAX_PEEK) : MAX_PEEK;
+          const outerTarget = stackTarget(outerSlot);
+          const showContent = isFront || item.id === outgoingId;
 
           return (
+            // Conteneur de position (cran dans la pile, changé sans animation) ; la carte à l'intérieur
+            // porte seule le fondu et le glissement, relatifs à son cran.
             <motion.div
               key={item.id}
-              ref={isFront ? frontCardRef : undefined}
-              className={clsx(styles.card, isFront ? styles.front : styles.peek)}
-              data-variant={item.variant}
+              className={styles.slot}
               initial={false}
-              animate={travels
-                ? { ...target, x: [null, EXIT_PUSH_X, target.x], y: [null, EXIT_PUSH_Y, target.y], zIndex: z }
-                : { ...target, zIndex: z }}
-              exit={{ opacity: 0, x: EXIT_PUSH_X, y: EXIT_PUSH_Y, scale: 0.85 }}
-              transition={travels
-                ? { ...TRAVEL, zIndex: { duration: 0, delay: TRAVEL_Z_FLIP_S } }
-                : { ...SPRING, zIndex: { duration: 0 } }}
+              animate={outerTarget}
+              transition={MOVE_SPRING}
+              exit={{
+                x: outerTarget.x + EXIT_PUSH_X,
+                y: outerTarget.y + EXIT_PUSH_Y,
+                opacity: 0,
+                transition: clearing
+                  ? visibleNow ? { ...FADE, delay: slot * CASCADE_STEP_S } : SNAP
+                  : FADE,
+              }}
+              style={{
+                // La carte qui sort reste au-dessus pendant son fondu, pas sous la nouvelle face.
+                zIndex: leaving ? 101 : visibleNow ? 100 - slot : 0,
+                pointerEvents: visibleNow || animating ? 'auto' : 'none',
+              }}
             >
-              {isFront && (
-                <>
-                  <span className={styles.icon}>{VARIANT_ICONS[item.variant]}</span>
-                  <FrontMessage key={item.id} message={item.message} />
-                  <button
-                    type="button"
-                    className={styles.close}
-                    aria-label="Fermer"
-                    onClick={() => removeNotification(item.id)}
-                  >
-                    <X size={14} />
-                  </button>
-                </>
-              )}
-              {!isFront && <div className={styles.peekFill} />}
+              <motion.div
+                ref={isFront ? frontCardRef : undefined}
+                className={clsx(styles.card, !showContent && styles.peek)}
+                data-variant={item.variant}
+                initial={false}
+                animate={visibleNow ? { x: 0, y: 0, opacity: 1 } : { x: EXIT_PUSH_X, y: EXIT_PUSH_Y, opacity: 0 }}
+                transition={animating ? FADE : SNAP}
+                style={{ pointerEvents: visibleNow || animating ? 'auto' : 'none' }}
+                onAnimationComplete={() => {
+                  settleFade(item.id);
+                  if (item.id === outgoingId) setOutgoingId(null);
+                }}
+              >
+                {showContent && (
+                  <>
+                    <span className={styles.icon}>{VARIANT_ICONS[item.variant]}</span>
+                    <FrontMessage key={item.id} message={item.message} />
+                    <button
+                      type="button"
+                      className={styles.close}
+                      aria-label="Fermer"
+                      onClick={() => removeNotification(item.id)}
+                    >
+                      <X size={14} />
+                    </button>
+                  </>
+                )}
+                {!showContent && <div className={styles.peekFill} />}
+              </motion.div>
             </motion.div>
           );
         })}
@@ -424,7 +553,7 @@ export const NotificationStack: React.FC = () => {
               aria-label="Fermer toutes les notifications"
               onMouseEnter={() => setTooltip('Tout fermer', 'Ferme toutes les notifications.')}
               onMouseLeave={resetTooltip}
-              onClick={() => { resetTooltip(); setHovered(false); clearNotifications(); }}
+              onClick={() => { resetTooltip(); setHovered(false); setClearing(true); }}
             >
               <X size={14} />
             </button>

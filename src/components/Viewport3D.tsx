@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState, useLayoutEffect } from 'react';
+import React, { useEffect, useRef, useState, useLayoutEffect } from 'react';
 import * as BABYLON from 'babylonjs';
 import { installFlatBabylon } from '@/utils/flatBabylon';
 import { FLAT_MAX_FPS, isFlatUi } from '@/utils/interfaceMode';
@@ -10,9 +10,11 @@ import { isPlateShaded, subscribePlateShaded } from '@/utils/plateShadingPrefs';
 installFlatBabylon(BABYLON);
 import 'babylonjs-loaders';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { createPortal } from 'react-dom';
 import { Upload, BoxSelect, LayoutGrid, Trash2 } from 'lucide-react';
 import { showSuccess, showWarning, showError } from '@/utils/toast';
 import styles from './Viewport3D.module.scss';
+import { ApexSlider } from './ApexSlider';
 import { createGCodeLayer, GCODE_MESH_PREFIX, type ParsedGCode, type ColorByMode } from './gcodeLayer';
 import { createGCodeEditController, type GCodeEditController } from './edit-node/gcodeEditController';
 import GCodeEditOverlay from './edit-node/GCodeEditOverlay';
@@ -23,10 +25,79 @@ import { PAN_PERSPECTIVE_EVENT, readPanPerspective } from '@/utils/panPerspectiv
 import { previewZoomStepFactor } from '@/utils/previewZoomPrefs';
 
 const DEFAULT_BLUR_LEVEL = 40;
+// Info-bulles de bas d'écran des éléments du menu contextuel (cf. CLAUDE.md : chaque élément porte
+// son texte). Un élément dont la commande n'existe pas encore le dit dans sa description.
+const showTooltip = (tip: { title: string; desc: string }) =>
+  window.dispatchEvent(new CustomEvent('apex-set-tooltip', { detail: tip }));
+const hideTooltip = () => window.dispatchEvent(new CustomEvent('apex-reset-tooltip'));
+const menuTooltip = (tip: { title: string; desc: string }) => ({
+  onMouseEnter: () => showTooltip(tip),
+  onMouseLeave: hideTooltip,
+});
+const SELECT_ALL_TOOLTIP = { title: 'Tout sélectionner', desc: 'Sélectionne tous les modèles du plateau.' };
+const DELETE_ALL_TOOLTIP = { title: 'Tout supprimer', desc: 'Supprime tous les modèles du plateau.' };
+// Outils pas encore disponibles : grisés et inactifs, seule l'info-bulle « Bientôt disponible ».
+const SOON_TOOLTIP = { title: 'Bientôt disponible', desc: 'Bientôt disponible' };
+const ORGANIZE_TOOLTIP = SOON_TOOLTIP;
+
+// Menu contextuel par espace. Préparation a son propre menu (JSX dédié, dans le rendu) ; les autres
+// espaces listent ici des idées de fonctions, non raccordées : elles sont grisées et renvoient
+// « Bientôt disponible ». `plateBlur` : le réglage de flou sous le plateau y a sa place.
+export type ContextMenuSpace = 'home' | 'preparation' | 'preview' | 'modeling' | 'dev';
+const SPACE_MENU_ITEMS: Record<Exclude<ContextMenuSpace, 'preparation'>, { labels: string[]; plateBlur: boolean }> = {
+  home: {
+    plateBlur: false,
+    labels: [
+      'Nouveau projet', 'Ouvrir un projet récent', 'Ouvrir un G-code', 'Modèles d\'exemple',
+      'Tutoriels de démarrage', 'Épingler un projet', 'Historique des projets', 'Ouvrir le dossier de travail',
+      'Vérifier les mises à jour', 'Signaler un problème',
+    ],
+  },
+  preview: {
+    plateBlur: true,
+    labels: [
+      'Lecture / pause', 'Pas à pas précédent', 'Pas à pas suivant', 'Isoler la couche courante',
+      'Masquer les déplacements à vide', 'Mesurer une distance', 'Coloration par vitesse',
+      'Exporter une capture d\'écran', 'Afficher les temps d\'impression', 'Revenir au début du tracé',
+    ],
+  },
+  modeling: {
+    plateBlur: true,
+    labels: [
+      'Ajouter une sphère', 'Ajouter un cylindre', 'Ajouter un cône', 'Ajouter un tore',
+      'Esquisse sur le plateau', 'Extruder la sélection', 'Symétrie', 'Union booléenne',
+      'Soustraction booléenne', 'Congé / chanfrein',
+    ],
+  },
+  dev: {
+    plateBlur: false,
+    labels: [
+      'Afficher les logs de la console', 'Afficher les FPS', 'Inspecter la scène Babylon', 'Vider le cache des modèles',
+      'Exporter l\'état de la scène', 'Afficher les normales', 'Afficher les collisions', 'Mesurer le rendu',
+      'Simuler une erreur', 'Réinitialiser les préférences',
+    ],
+  },
+};
+const PRIMITIVE_TOOLTIP = { title: 'Ajouter une primitive', desc: 'Ajoute une forme simple, à dessiner directement sur le plateau.' };
+const BOX_TOOLTIP = { title: 'Boîte', desc: 'Dessinez un pavé sur le plateau, puis donnez-lui sa hauteur.' };
+const PYRAMID_TOOLTIP = { title: 'Pyramide 4 côtés', desc: 'Dessinez une base sur le plateau, puis donnez-lui sa hauteur : la pyramide se pose sur le plateau.' };
+const MODELS_TOOLTIP = SOON_TOOLTIP;
+
+const BLUR_TOOLTIP = {
+  title: 'Niveau de flou sous le plateau',
+  desc: "Intensité du flou de la capture sous le plateau. Double-cliquez sur le curseur pour revenir à la valeur par défaut.",
+};
 
 export const Viewport3D = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  // Espace courant, pour choisir le menu contextuel (événement `apex-space-changed`, émis par Index).
+  const [contextSpace, setContextSpace] = useState<ContextMenuSpace>('preparation');
+  useEffect(() => {
+    const onSpaceChanged = (e: Event) => setContextSpace((e as CustomEvent<{ space: ContextMenuSpace }>).detail.space);
+    window.addEventListener('apex-space-changed', onSpaceChanged);
+    return () => window.removeEventListener('apex-space-changed', onSpaceChanged);
+  }, []);
   // Le clic droit qui ouvre le menu déclenche ensuite, sur ce même clic, l'événement DOM natif
   // `contextmenu` : au moment où celui-ci se déclenche, le rideau de fermeture (qui couvre tout
   // l'écran) est déjà monté sous le curseur et en reçoit la cible — sans ce garde-fou, son
@@ -261,6 +332,8 @@ export const Viewport3D = () => {
     // Au-delà, le point visé est quasi à l'horizon : on zoome alors vers la cible, sans quoi un
     // cran projetterait la caméra à des kilomètres.
     const ZOOM_MAX_ANCHOR_DISTANCE_RADII = 20;
+    const TARGET_LIMIT_XZ_MM = 8 * RADIUS;  // bornes de la cible (hors Modélisation)
+    const TARGET_LIMIT_Y_MM = HEIGHT;
     let pendingZoomLog = 0;
     let pendingZoomMm = 0;
     const zoomAnchor = new BABYLON.Vector3();
@@ -335,6 +408,13 @@ export const Viewport3D = () => {
       // Homothétie de centre `zoomAnchor` : cible et caméra (via le rayon) se rapprochent de lui
       // du même facteur, orientation inchangée — le point visé reste donc fixe à l'écran.
       const newTarget = zoomAnchor.add(camera.target.subtract(zoomAnchor).scale(factor));
+      // Hors Modélisation la cible reste près du volume d'impression : zoomer vers le curseur sur un point proche de l'horizon
+      // l'emportait à des milliers de mm (orbite autour d'un point vide, vue déformée, orbite qui « ralentit »).
+      if (!modelingActive) {
+        newTarget.x = Math.min(Math.max(newTarget.x, -TARGET_LIMIT_XZ_MM), TARGET_LIMIT_XZ_MM);
+        newTarget.z = Math.min(Math.max(newTarget.z, -TARGET_LIMIT_XZ_MM), TARGET_LIMIT_XZ_MM);
+        newTarget.y = Math.min(Math.max(newTarget.y, -TARGET_LIMIT_Y_MM), TARGET_LIMIT_XZ_MM);
+      }
       camera.target.copyFrom(newTarget);
       camera.radius = targetR;
     });
@@ -520,6 +600,9 @@ export const Viewport3D = () => {
       const customEvent = e as CustomEvent<{ alpha: number; beta: number }>;
       let { alpha, beta } = customEvent.detail;
       if (!camera) return;
+      // Comme les autres vues prédéfinies : le décalage de lentille du panoramique est remis à zéro, sinon la vue « de face »
+      // reste oblique (perspective déformée, angle incohérent avec le gizmo).
+      resetLensShift();
 
       // Hors esquisse, en Modélisation : cliquer une FACE du ViewCube (pas une arête ni un coin)
       // aligne la grille sur ce plan et oriente la vue pour que ses axes suivent ceux de l'écran.
@@ -1048,7 +1131,7 @@ export const Viewport3D = () => {
 
     // Grille d'esquisse du mode modélisation : masquée tant qu'on est en mode slicer, elle
     // remplace le volume d'impression pour donner un repère de travail neutre au modéliseur.
-    const GRID_WIDTH_AXIS = 6; // ~3 px — épaisseur des deux axes colorés (cf. plus bas)
+    const GRID_WIDTH_AXIS = 2; // px écran — épaisseur des axes colorés, proche des traits de la grille
 
     const makeGridLines = (
       name: string,
@@ -1057,15 +1140,22 @@ export const Viewport3D = () => {
       width: number,
       alpha: number,
     ): BABYLON.Mesh => {
-      const mesh = BABYLON.CreateGreasedLine(
-        name,
-        { points: lines },
-        { color, width, sizeAttenuation: true },
-        scene,
-      ) as BABYLON.Mesh;
-      mesh.isPickable = false;
+      // Trait plat d'épaisseur constante en pixels (comme les autres lignes de la grille), et non
+      // un ruban 3D à atténuation de taille, qui paraissait énorme et volumétrique de près.
+      // Le shader écarte un sommet situé derrière la caméra : un segment de 2 points (long de
+      // milliers de mm une fois mis à l'échelle) disparaîtrait en entier. On le découpe donc en
+      // tronçons courts, dont seuls ceux qui franchissent le plan de la caméra sont perdus.
+      const SEGMENTS = 400;
+      const subdivided = lines.map((pts) => {
+        const out: BABYLON.Vector3[] = [];
+        for (let i = 0; i < pts.length - 1; i++) {
+          for (let k = 0; k < SEGMENTS; k++) out.push(BABYLON.Vector3.Lerp(pts[i], pts[i + 1], k / SEGMENTS));
+        }
+        out.push(pts[pts.length - 1].clone());
+        return out;
+      });
+      const mesh = createScreenLines(scene, name, subdivided, color, width, alpha, { zOffset: -4 });
       mesh.setEnabled(false);
-      if (mesh.material) mesh.material.alpha = alpha;
       return mesh;
     };
 
@@ -1156,6 +1246,8 @@ export const Viewport3D = () => {
       // et taille monde d'un pixel au niveau de la cible : fixent la grille de TOUT l'écran.
       uniform float uStep;
       uniform float uTargetWpp;
+      // Origine du repère de la grille, dans les coordonnées (relatives à l'ancre) de vGridPos.
+      uniform vec2 uAxisOrigin;
 
       // Distance (en pixels) au trait le plus proche d'un quadrillage de pas spacing, à partir
       // d'une position ET d'une dérivée déjà calculées (un seul fwidth(), sur une grandeur
@@ -1187,6 +1279,11 @@ export const Viewport3D = () => {
         float aMinor = minorMask * minorVis * uMinorAlpha;
         float alpha = max(aMajor, aMinor);
         vec3 color = aMajor >= aMinor ? uMajorColor : uMinorColor;
+
+        // Pixels sous les deux axes colorés (origine du repère de la grille) : les axes les
+        // recouvrent, inutile d'y dessiner les traits gris.
+        vec2 axisPx = abs(vGridPos - uAxisOrigin) / max(worldDeriv, vec2(1e-12));
+        if (min(axisPx.x, axisPx.y) < 2.0) discard;
 
         if (alpha < 0.004) discard;
         gl_FragColor = vec4(color, alpha);
@@ -1221,7 +1318,7 @@ export const Viewport3D = () => {
         attributes: ["position"],
         uniforms: [
           "worldViewProjection", "uMinorColor", "uMajorColor", "uMinorAlpha", "uMajorAlpha", "uStep", "uTargetWpp",
-          "uScale", "uOffset",
+          "uScale", "uOffset", "uAxisOrigin",
         ],
       },
     );
@@ -1531,6 +1628,7 @@ export const Viewport3D = () => {
       modelingGridMat.setVector2(
         "uOffset", new BABYLON.Vector2(centerX - gridAnchorX, centerZ - gridAnchorZ),
       );
+      modelingGridMat.setVector2("uAxisOrigin", new BABYLON.Vector2(-gridAnchorX, -gridAnchorZ));
     };
 
     const applyGridAxisVisibility = () => {
@@ -2157,6 +2255,38 @@ export const Viewport3D = () => {
     groundPickPlaneMat.backFaceCulling = false;
     groundPickPlane.material = groundPickPlaneMat;
 
+    // Les primitives ne se tracent que sur le plateau : le point visé est ramené à la surface du
+    // plateau (PLATE_SURFACE_Y, jamais le niveau du sol) et contenu dans le disque. Avec un coin
+    // d'ancrage, le coin mobile est rapproché de l'ancrage jusqu'à ce que le rectangle entier
+    // (ses quatre coins) tienne sur le plateau.
+    const pickPlatePoint = (anchor: BABYLON.Vector3 | null): { hit: boolean; pickedPoint: BABYLON.Vector3 | null } => {
+      const pick = scene.pick(scene.pointerX, scene.pointerY, (mesh) => mesh === groundPickPlane);
+      if (!pick?.hit || !pick.pickedPoint) return { hit: false, pickedPoint: null };
+      const target = new BABYLON.Vector3(pick.pickedPoint.x, PLATE_SURFACE_Y, pick.pickedPoint.z);
+      const fits = (corner: BABYLON.Vector3) =>
+        [
+          corner,
+          new BABYLON.Vector3(anchor!.x, PLATE_SURFACE_Y, corner.z),
+          new BABYLON.Vector3(corner.x, PLATE_SURFACE_Y, anchor!.z),
+        ].every((c) => Math.hypot(c.x, c.z) <= RADIUS);
+
+      let point = target;
+      if (!anchor) {
+        const r = Math.hypot(target.x, target.z);
+        if (r > RADIUS) point = new BABYLON.Vector3(target.x * RADIUS / r, PLATE_SURFACE_Y, target.z * RADIUS / r);
+      } else if (!fits(target)) {
+        let lo = 0;
+        let hi = 1;
+        for (let i = 0; i < 24; i++) {
+          const mid = (lo + hi) / 2;
+          if (fits(BABYLON.Vector3.Lerp(anchor, target, mid))) lo = mid;
+          else hi = mid;
+        }
+        point = BABYLON.Vector3.Lerp(anchor, target, lo);
+      }
+      return { hit: true, pickedPoint: point };
+    };
+
     const disposeBoxPreview = () => {
       boxPreviewOutline?.dispose(false, true);
       boxPreviewOutline = null;
@@ -2375,8 +2505,8 @@ export const Viewport3D = () => {
       if (boxPhase === 'drawing-base') {
         // Cette phase a besoin du point d'intersection avec le plateau : elle reste donc
         // dépendante du pick sur `groundPickPlane`, qui a une étendue finie mais couvre
-        // largement le volume d'impression — suffisant pour tracer la base au sol.
-        const pick = scene.pick(scene.pointerX, scene.pointerY, (mesh) => mesh === groundPickPlane);
+        // Point visé ramené sur le plateau (cf. pickPlatePoint).
+        const pick = pickPlatePoint(boxBaseStart);
         if (!pick?.hit || !pick.pickedPoint) return;
 
         // Interaction en deux clics façon Fusion 360 (clic-relâche à un coin, clic-relâche
@@ -2387,8 +2517,8 @@ export const Viewport3D = () => {
         // survol entre les deux prévisualise le rectangle.
         if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERMOVE) {
           const corner = boxBaseStart ?? pick.pickedPoint;
-          const min = new BABYLON.Vector3(Math.min(corner.x, pick.pickedPoint.x), 0, Math.min(corner.z, pick.pickedPoint.z));
-          const max = new BABYLON.Vector3(Math.max(corner.x, pick.pickedPoint.x), 0.01, Math.max(corner.z, pick.pickedPoint.z));
+          const min = new BABYLON.Vector3(Math.min(corner.x, pick.pickedPoint.x), PLATE_SURFACE_Y, Math.min(corner.z, pick.pickedPoint.z));
+          const max = new BABYLON.Vector3(Math.max(corner.x, pick.pickedPoint.x), PLATE_SURFACE_Y + 0.01, Math.max(corner.z, pick.pickedPoint.z));
           boxPreviewOutline = buildBoxOutline(min, max, boxPreviewOutline);
         } else if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERUP) {
           if (!boxBaseStart) {
@@ -2415,26 +2545,26 @@ export const Viewport3D = () => {
         // angle de caméra rasant est un geste normal — un pick manqué gelait alors la
         // hauteur. La hauteur ne dépend donc que de la position écran du curseur, projetée
         // depuis un point de référence fixe au sol, sans jamais retester d'intersection.
-        const min = new BABYLON.Vector3(Math.min(boxBaseStart.x, boxBaseCorner.x), 0, Math.min(boxBaseStart.z, boxBaseCorner.z));
-        const max = new BABYLON.Vector3(Math.max(boxBaseStart.x, boxBaseCorner.x), 0, Math.max(boxBaseStart.z, boxBaseCorner.z));
+        const min = new BABYLON.Vector3(Math.min(boxBaseStart.x, boxBaseCorner.x), PLATE_SURFACE_Y, Math.min(boxBaseStart.z, boxBaseCorner.z));
+        const max = new BABYLON.Vector3(Math.max(boxBaseStart.x, boxBaseCorner.x), PLATE_SURFACE_Y, Math.max(boxBaseStart.z, boxBaseCorner.z));
 
         if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERMOVE) {
           const originScreen = BABYLON.Vector3.Project(
-            new BABYLON.Vector3((min.x + max.x) / 2, 0, (min.z + max.z) / 2),
+            new BABYLON.Vector3((min.x + max.x) / 2, min.y, (min.z + max.z) / 2),
             BABYLON.Matrix.Identity(), scene.getTransformMatrix(),
             camera.viewport.toGlobal(engine.getRenderWidth(), engine.getRenderHeight()),
           );
           const pixelsPerMm = 3;
           const rawHeight = Math.max(0, (originScreen.y - scene.pointerY) / pixelsPerMm);
           boxExtrudeHeight = Math.min(HEIGHT, rawHeight);
-          const extrudedMax = new BABYLON.Vector3(max.x, boxExtrudeHeight, max.z);
+          const extrudedMax = new BABYLON.Vector3(max.x, PLATE_SURFACE_Y + boxExtrudeHeight, max.z);
           boxPreviewOutline = buildBoxOutline(min, extrudedMax, boxPreviewOutline);
         } else if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERDOWN) {
           if (boxExtrudeHeight < 1) return; // évite un pavé nul sur double-clic accidentel
           boxPhase = 'filling';
           groundPickPlane.isPickable = false;
           disposeBoxPreview();
-          runVoxelFillAnimation(min, new BABYLON.Vector3(max.x, boxExtrudeHeight, max.z));
+          runVoxelFillAnimation(min, new BABYLON.Vector3(max.x, PLATE_SURFACE_Y + boxExtrudeHeight, max.z));
         }
       }
     });
@@ -2494,7 +2624,7 @@ export const Viewport3D = () => {
       for (let i = 0; i < ringCount; i++) {
         const t = ringCount === 1 ? 0 : i / (ringCount - 1);
         const scale = 1 - t; // 1 = pleine base, 0 = point central (le sommet)
-        const y = height * t;
+        const y = min.y + height * t;
         const x0 = cx + (min.x - cx) * scale;
         const x1 = cx + (max.x - cx) * scale;
         const z0 = cz + (min.z - cz) * scale;
@@ -2543,7 +2673,7 @@ export const Viewport3D = () => {
         const scale = 1 - t;
         const w = (max.x - min.x) * scale;
         const d = (max.z - min.z) * scale;
-        const y = height * t;
+        const y = min.y + height * t;
         return { w, d, y };
       }).forEach((ring, i) => {
         setTimeout(() => {
@@ -2674,13 +2804,13 @@ export const Viewport3D = () => {
       if (pyramidPhase === 'idle') return;
 
       if (pyramidPhase === 'drawing-base') {
-        const pick = scene.pick(scene.pointerX, scene.pointerY, (mesh) => mesh === groundPickPlane);
+        const pick = pickPlatePoint(pyramidBaseStart);
         if (!pick?.hit || !pick.pickedPoint) return;
 
         if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERMOVE) {
           const corner = pyramidBaseStart ?? pick.pickedPoint;
-          const min = new BABYLON.Vector3(Math.min(corner.x, pick.pickedPoint.x), 0, Math.min(corner.z, pick.pickedPoint.z));
-          const max = new BABYLON.Vector3(Math.max(corner.x, pick.pickedPoint.x), 0, Math.max(corner.z, pick.pickedPoint.z));
+          const min = new BABYLON.Vector3(Math.min(corner.x, pick.pickedPoint.x), PLATE_SURFACE_Y, Math.min(corner.z, pick.pickedPoint.z));
+          const max = new BABYLON.Vector3(Math.max(corner.x, pick.pickedPoint.x), PLATE_SURFACE_Y, Math.max(corner.z, pick.pickedPoint.z));
           pyramidPreviewRings = buildPyramidPreview(min, max, 0, pyramidPreviewRings);
         } else if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERUP) {
           if (!pyramidBaseStart) {
@@ -2699,14 +2829,14 @@ export const Viewport3D = () => {
       }
 
       if (pyramidPhase === 'extruding' && pyramidBaseStart && pyramidBaseCorner) {
-        const min = new BABYLON.Vector3(Math.min(pyramidBaseStart.x, pyramidBaseCorner.x), 0, Math.min(pyramidBaseStart.z, pyramidBaseCorner.z));
-        const max = new BABYLON.Vector3(Math.max(pyramidBaseStart.x, pyramidBaseCorner.x), 0, Math.max(pyramidBaseStart.z, pyramidBaseCorner.z));
+        const min = new BABYLON.Vector3(Math.min(pyramidBaseStart.x, pyramidBaseCorner.x), PLATE_SURFACE_Y, Math.min(pyramidBaseStart.z, pyramidBaseCorner.z));
+        const max = new BABYLON.Vector3(Math.max(pyramidBaseStart.x, pyramidBaseCorner.x), PLATE_SURFACE_Y, Math.max(pyramidBaseStart.z, pyramidBaseCorner.z));
 
         if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERMOVE) {
           // Même dérivation écran→hauteur que Boîte, indépendante du pick au sol pour ne
           // pas geler quand le curseur sort de l'étendue finie du plan de pick.
           const originScreen = BABYLON.Vector3.Project(
-            new BABYLON.Vector3((min.x + max.x) / 2, 0, (min.z + max.z) / 2),
+            new BABYLON.Vector3((min.x + max.x) / 2, min.y, (min.z + max.z) / 2),
             BABYLON.Matrix.Identity(), scene.getTransformMatrix(),
             camera.viewport.toGlobal(engine.getRenderWidth(), engine.getRenderHeight()),
           );
@@ -3299,6 +3429,10 @@ export const Viewport3D = () => {
     // Oriente la caméra bien en face du plan choisi — même animation (20 frames sur les
     // canaux alpha/beta de l'ArcRotateCamera) que `handleCustomView` un peu plus haut.
     const orientCameraToPlane = (alpha: number, beta: number) => {
+      // Comme les vues prédéfinies du ViewCube : sans remise à zéro du décalage d'image (pan), la
+      // vue reste oblique après le clic. L'azimut prend le chemin le plus court.
+      resetLensShift();
+      alpha = camera.alpha + Math.atan2(Math.sin(alpha - camera.alpha), Math.cos(alpha - camera.alpha));
       const animAlpha = new BABYLON.Animation(
         "sketchPlaneCamAlpha", "alpha", 60, BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT,
       );
@@ -3397,7 +3531,7 @@ export const Viewport3D = () => {
     // le repère de la grille (aligné sur le plan d'esquisse) ; ses points sont envoyés à l'arbre
     // des features (`apex-sketch-entity-added`) en coordonnées locales du plan (x, z de la grille).
     // ---------------------------------------------------------------------------------
-    const SKETCH_SNAP_RADIUS_PX = 14;
+    const SKETCH_SNAP_RADIUS_PX = 7;
     const SKETCH_DRAG_FINISH_PX = 6;
     let sketchRectActive = false;
     let sketchRectStart: { x: number; z: number } | null = null;
@@ -3712,6 +3846,13 @@ export const Viewport3D = () => {
     let selectionModeNow = 'body';
     let extrudeToolActive = false;
     const isExtrudeFaceMode = () => extrudeToolActive && selectionModeNow === 'face';
+    // Sélection de face hors outil Extrusion (demande de l'utilisateur, 2026-10-20) : en Modélisation,
+    // outil de sélection courant, le survol d'une face plane la surligne et le clic la choisit comme
+    // avec l'outil Extrusion, mais sans flèche ni ouverture du panneau Extrusion.
+    let modelingNow = false;
+    let currentToolNow = 'select';
+    const isFaceBrowseMode = () => modelingNow && currentToolNow === 'select' && !sketchRectActive;
+    const isFacePickMode = () => isExtrudeFaceMode() || isFaceBrowseMode();
     interface ExtrudeFace {
       kind: 'sketch' | 'mesh';
       origin: BABYLON.Vector3;
@@ -3901,6 +4042,10 @@ export const Viewport3D = () => {
       }
       vd.positions = shifted;
       vd.indices = Array.from({ length: shifted.length / 3 }, (_, i) => i);
+      // Normales : `PickingInfo.getNormal` en a besoin pour choisir une face des corps extrudés.
+      const normals: number[] = [];
+      BABYLON.VertexData.ComputeNormals(shifted, vd.indices, normals);
+      vd.normals = normals;
       vd.applyToMesh(mesh);
       mesh.material = material;
       mesh.isPickable = false;
@@ -3915,10 +4060,207 @@ export const Viewport3D = () => {
     let extrudeHoverKey = '';
     const extrudeHoverMaterial = extrudeFaceMaterial.clone('extrudeHoverMat');
     extrudeHoverMaterial.alpha = 0.2;
+    let browseEdgeHover: BABYLON.Mesh | null = null;
+    let browseEdgeHoverKey = '';
+    let browseEdge: { key: string; mesh: BABYLON.Mesh } | null = null;
+    const clearEdgeHover = () => {
+      browseEdgeHover?.dispose();
+      browseEdgeHover = null;
+      browseEdgeHoverKey = '';
+    };
+    const clearBrowseEdge = () => {
+      browseEdge?.mesh.dispose();
+      browseEdge = null;
+    };
     const clearExtrudeHover = () => {
       extrudeHover?.dispose();
       extrudeHover = null;
       extrudeHoverKey = '';
+      clearEdgeHover();
+    };
+
+    // --- Arêtes (sélection hors outil Extrusion, 2026-10-20) -------------------------------------
+    // Arête = chaîne d'arêtes de triangles « vives » (angle entre faces voisines > 25°, bord libre ou
+    // jonction non variété), prolongée tant que la chaîne ne tourne pas de plus de 35° et qu'aucun
+    // autre trait n'y aboutit : un côté droit ou un cercle tessellé est UNE arête. Pour les profils
+    // d'esquisse : les côtés des rectangles. Le choix se fait dans l'espace écran (tolérance
+    // EDGE_PICK_PX) sur les arêtes visibles (rien ne les masque entre la caméra et elles).
+    const EDGE_PICK_PX = 7;
+    const EDGE_FEATURE_COS = Math.cos((25 * Math.PI) / 180);
+    const EDGE_CHAIN_COS = Math.cos((35 * Math.PI) / 180);
+    interface EdgeCandidate { key: string; points: BABYLON.Vector3[] }
+    interface MeshEdgeCache { matrix: number[]; local: number[][]; world: BABYLON.Vector3[][] }
+    const meshEdgeCache = new WeakMap<BABYLON.AbstractMesh, MeshEdgeCache>();
+
+    const extractFeatureChains = (mesh: BABYLON.AbstractMesh): number[][] => {
+      const positions = mesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+      const indices = mesh.getIndices();
+      if (!positions || !indices || indices.length === 0 || indices.length > 450000) return [];
+      const q = Math.max(1e-6, (mesh.getBoundingInfo().boundingSphere.radius || 1) * 1e-5);
+      // Soudure des sommets confondus (les maillages à faces indépendantes dupliquent leurs sommets).
+      const welded = new Map<string, number>();
+      const remap = new Int32Array(positions.length / 3);
+      const coords: number[] = [];
+      for (let i = 0; i < remap.length; i += 1) {
+        const x = positions[i * 3]; const y = positions[i * 3 + 1]; const z = positions[i * 3 + 2];
+        const k = `${Math.round(x / q)},${Math.round(y / q)},${Math.round(z / q)}`;
+        let id = welded.get(k);
+        if (id === undefined) { id = coords.length / 3; welded.set(k, id); coords.push(x, y, z); }
+        remap[i] = id;
+      }
+      const count = coords.length / 3;
+      interface TriEdge { a: number; b: number; n: [number, number, number]; n2: [number, number, number] | null; faces: number }
+      const edges = new Map<number, TriEdge>();
+      const addEdge = (u: number, v: number, n: [number, number, number]) => {
+        const a = Math.min(u, v); const b = Math.max(u, v);
+        const key = a * count + b;
+        const e = edges.get(key);
+        if (!e) edges.set(key, { a, b, n, n2: null, faces: 1 });
+        else { e.faces += 1; if (!e.n2) e.n2 = n; }
+      };
+      for (let t = 0; t + 2 < indices.length; t += 3) {
+        const i0 = remap[indices[t]]; const i1 = remap[indices[t + 1]]; const i2 = remap[indices[t + 2]];
+        if (i0 === i1 || i1 === i2 || i0 === i2) continue;
+        const ux = coords[i1 * 3] - coords[i0 * 3]; const uy = coords[i1 * 3 + 1] - coords[i0 * 3 + 1]; const uz = coords[i1 * 3 + 2] - coords[i0 * 3 + 2];
+        const vx = coords[i2 * 3] - coords[i0 * 3]; const vy = coords[i2 * 3 + 1] - coords[i0 * 3 + 1]; const vz = coords[i2 * 3 + 2] - coords[i0 * 3 + 2];
+        let nx = uy * vz - uz * vy; let ny = uz * vx - ux * vz; let nz = ux * vy - uy * vx;
+        const len = Math.hypot(nx, ny, nz);
+        if (len < 1e-18) continue;
+        nx /= len; ny /= len; nz /= len;
+        const n: [number, number, number] = [nx, ny, nz];
+        addEdge(i0, i1, n); addEdge(i1, i2, n); addEdge(i2, i0, n);
+      }
+      const feature: TriEdge[] = [];
+      edges.forEach((e) => {
+        const sharp = e.faces !== 2 || !e.n2
+          || Math.abs(e.n[0] * e.n2[0] + e.n[1] * e.n2[1] + e.n[2] * e.n2[2]) < EDGE_FEATURE_COS;
+        if (sharp) feature.push(e);
+      });
+      const adjacency = new Map<number, number[]>();
+      feature.forEach((e, i) => {
+        [e.a, e.b].forEach((v) => { const l = adjacency.get(v); if (l) l.push(i); else adjacency.set(v, [i]); });
+      });
+      const dirOf = (u: number, v: number): [number, number, number] => {
+        const dx = coords[v * 3] - coords[u * 3]; const dy = coords[v * 3 + 1] - coords[u * 3 + 1]; const dz = coords[v * 3 + 2] - coords[u * 3 + 2];
+        const l = Math.hypot(dx, dy, dz) || 1;
+        return [dx / l, dy / l, dz / l];
+      };
+      const used = new Uint8Array(feature.length);
+      const chains: number[][] = [];
+      for (let s = 0; s < feature.length; s += 1) {
+        if (used[s]) continue;
+        used[s] = 1;
+        const pts = [feature[s].a, feature[s].b];
+        const extend = (forward: boolean) => {
+          for (;;) {
+            const tip = forward ? pts[pts.length - 1] : pts[0];
+            const prev = forward ? pts[pts.length - 2] : pts[1];
+            const start = forward ? pts[0] : pts[pts.length - 1];
+            const list = adjacency.get(tip);
+            if (!list || list.length !== 2) return;
+            const next = list.find((i) => !used[i]);
+            if (next === undefined) return;
+            const e = feature[next];
+            const other = e.a === tip ? e.b : e.a;
+            const d1 = dirOf(prev, tip); const d2 = dirOf(tip, other);
+            if (d1[0] * d2[0] + d1[1] * d2[1] + d1[2] * d2[2] < EDGE_CHAIN_COS) return;
+            used[next] = 1;
+            if (forward) pts.push(other); else pts.unshift(other);
+            if (other === start) return;
+          }
+        };
+        extend(true);
+        extend(false);
+        chains.push(pts.flatMap((v) => [coords[v * 3], coords[v * 3 + 1], coords[v * 3 + 2]]));
+      }
+      return chains;
+    };
+
+    const meshEdgesInWorld = (mesh: BABYLON.AbstractMesh): BABYLON.Vector3[][] => {
+      const matrix = mesh.getWorldMatrix();
+      let cache = meshEdgeCache.get(mesh);
+      if (!cache) {
+        cache = { matrix: [], local: extractFeatureChains(mesh), world: [] };
+        meshEdgeCache.set(mesh, cache);
+      }
+      const m = matrix.m;
+      if (cache.matrix.length !== 16 || cache.matrix.some((v, i) => v !== m[i])) {
+        cache.matrix = Array.from(m);
+        cache.world = cache.local.map((flat) => {
+          const out: BABYLON.Vector3[] = [];
+          for (let i = 0; i < flat.length; i += 3) {
+            out.push(BABYLON.Vector3.TransformCoordinates(new BABYLON.Vector3(flat[i], flat[i + 1], flat[i + 2]), matrix));
+          }
+          return out;
+        });
+      }
+      return cache.world;
+    };
+
+    const collectEdgeCandidates = (): EdgeCandidate[] => {
+      const out: EdgeCandidate[] = [];
+      scene.meshes.forEach((m) => {
+        if (!m.isEnabled() || !m.isVisible || m.getTotalVertices() === 0 || !isSolid(m)) return;
+        meshEdgesInWorld(m).forEach((points, i) => out.push({ key: `m:${m.uniqueId}:${i}`, points }));
+      });
+      sketchFaceGroups.forEach((group, gi) => {
+        group.rects.forEach((r) => {
+          const c = [[r.x1, r.z1], [r.x2, r.z1], [r.x2, r.z2], [r.x1, r.z2]]
+            .map(([x, z]) => BABYLON.Vector3.TransformCoordinates(new BABYLON.Vector3(x, 0, z), group.matrix));
+          for (let s = 0; s < 4; s += 1) out.push({ key: `s:${gi}:${r.id}:${s}`, points: [c[s], c[(s + 1) % 4]] });
+        });
+      });
+      return out;
+    };
+
+    /** Arête visible la plus proche du pointeur, à moins de EDGE_PICK_PX pixels (sinon null). */
+    const edgeAt = (clientX: number, clientY: number): EdgeCandidate | null => {
+      const { px, py } = extrudePointerRay(clientX, clientY);
+      const rect = canvas.getBoundingClientRect();
+      const tol = EDGE_PICK_PX * (engine.getRenderWidth() / Math.max(rect.width, 1));
+      const view = camera.getViewMatrix();
+      const viewProjection = view.multiply(camera.getProjectionMatrix());
+      const viewport = camera.viewport.toGlobal(engine.getRenderWidth(), engine.getRenderHeight());
+      const hits: { cand: EdgeCandidate; d: number; point: BABYLON.Vector3 }[] = [];
+      collectEdgeCandidates().forEach((cand) => {
+        const screen = cand.points.map((p) => (
+          BABYLON.Vector3.TransformCoordinates(p, view).z > camera.minZ
+            ? BABYLON.Vector3.Project(p, BABYLON.Matrix.IdentityReadOnly, viewProjection, viewport)
+            : null
+        ));
+        let best = tol; let bestAt = -1; let bestT = 0;
+        for (let i = 0; i + 1 < screen.length; i += 1) {
+          const a = screen[i]; const b = screen[i + 1];
+          if (!a || !b) continue;
+          const dx = b.x - a.x; const dy = b.y - a.y;
+          const l2 = dx * dx + dy * dy;
+          const t = l2 < 1e-9 ? 0 : Math.max(0, Math.min(1, ((px - a.x) * dx + (py - a.y) * dy) / l2));
+          const d = Math.hypot(px - (a.x + t * dx), py - (a.y + t * dy));
+          if (d < best) { best = d; bestAt = i; bestT = t; }
+        }
+        if (bestAt >= 0) {
+          hits.push({ cand, d: best, point: BABYLON.Vector3.Lerp(cand.points[bestAt], cand.points[bestAt + 1], bestT) });
+        }
+      });
+      hits.sort((h1, h2) => h1.d - h2.d);
+      for (const hit of hits.slice(0, 6)) {
+        // Visible : aucune surface plus proche de la caméra sur le rayon qui mène au point de l'arête.
+        const toPoint = hit.point.subtract(camera.position);
+        const dist = toPoint.length();
+        const ray = new BABYLON.Ray(camera.position.clone(), toPoint.scale(1 / Math.max(dist, 1e-9)), 1e6);
+        const blocker = scene.pickWithRay(ray, (m) => (
+          m.isPickable && m.isEnabled() && (sketchFaceMeshes.includes(m as BABYLON.Mesh) || isSolid(m))
+        ));
+        if (blocker?.hit && blocker.distance < dist - Math.max(0.05, dist * 0.01)) continue;
+        return hit.cand;
+      }
+      return null;
+    };
+
+    const makeEdgeLine = (name: string, cand: EdgeCandidate, width: number, alpha: number) => {
+      const line = createScreenLines(scene, name, [cand.points], EXTRUDE_COLOR, width, alpha);
+      line.isPickable = false;
+      return line;
     };
 
     // --- Corps extrudé, en temps réel : couvercle supérieur (la face déplacée), parois le long du bord de
@@ -3930,6 +4272,9 @@ export const Viewport3D = () => {
     let extrudeWalls: BABYLON.Mesh | null = null;
     let extrudeEdges: BABYLON.Mesh | null = null;
     const extrudedBodies: BABYLON.Mesh[] = []; // corps validés (OK) : restent dans la scène
+    /** Maillage plein dont on peut choisir faces et arêtes : modèle importé ou face d'un corps extrudé. */
+    const isSolid = (m: BABYLON.AbstractMesh) =>
+      !!isUnderModel(m) || (extrudedBodies.includes(m as BABYLON.Mesh) && m.name !== 'extrudeBodyEdges');
     const extrudeBodyMaterial = new BABYLON.StandardMaterial('extrudeBodyMat', scene);
     extrudeBodyMaterial.diffuseColor = new BABYLON.Color3(0.72, 0.75, 0.8);
     extrudeBodyMaterial.emissiveColor = new BABYLON.Color3(0.32, 0.34, 0.38);
@@ -4019,6 +4364,8 @@ export const Viewport3D = () => {
           ? [0, 1, 2, 0, 2, 3].flatMap((i) => [extrudeSketchCorners![i].x, extrudeSketchCorners![i].y, extrudeSketchCorners![i].z])
           : []), BABYLON.Vector3.Zero(), extrudeBodyMaterial);
       const kept = [extrudeGhost, extrudeWalls, extrudeEdges, bottom];
+      // Couvercle, parois et fond : faces et arêtes sélectionnables comme celles d'un modèle (isSolid).
+      [extrudeGhost, extrudeWalls, bottom].forEach((m) => { m.isPickable = true; });
       extrudeGhost.setEnabled(true);
       extrudedBodies.push(...kept);
       sketchDrawnMeshes.push(...kept);
@@ -4050,6 +4397,7 @@ export const Viewport3D = () => {
       extrudeSketchCorners = null;
       extrudeRegion = null;
       clearExtrudeHover();
+      clearBrowseEdge();
       disposeExtrudeBody();
       extrudeBoundary = [];
       extrudeCornerPoints = [];
@@ -4065,6 +4413,8 @@ export const Viewport3D = () => {
       extrudeOverlay = makeTriangleSoup('extrudeFaceOverlay', positions, lift, extrudeFaceMaterial);
       extrudeGhost = makeTriangleSoup('extrudeFaceGhost', positions, lift, extrudeBodyMaterial);
       extrudeGhost.setEnabled(false);
+      // Hors outil Extrusion : la face est seulement surlignée (ni flèche, ni panneau).
+      if (!isExtrudeFaceMode()) return;
       computeExtrudeBoundary(positions);
 
       // Flèche : tige + pointe le long de +Y local, puis alignée sur la normale. Taille écran constante
@@ -4142,7 +4492,7 @@ export const Viewport3D = () => {
     };
 
     const onExtrudeDown = (e: PointerEvent) => {
-      if (!isExtrudeFaceMode() || e.button !== 0) return;
+      if (!isFacePickMode() || e.button !== 0) return;
       const { px, py } = extrudePointerRay(e.clientX, e.clientY);
       // 1. La flèche ?
       if (extrudeFace && extrudeArrowMeshes.length > 0) {
@@ -4156,9 +4506,20 @@ export const Viewport3D = () => {
           return;
         }
       }
+      // 1 bis. Hors Extrusion : une arête proche du pointeur l'emporte sur la face qu'elle borde.
+      if (isFaceBrowseMode()) {
+        const edge = edgeAt(e.clientX, e.clientY);
+        if (edge) {
+          if (browseEdge?.key === edge.key) { clearBrowseEdge(); return; }
+          clearExtrudeFace();
+          clearExtrudeHover();
+          browseEdge = { key: edge.key, mesh: makeEdgeLine('browseEdgeSelected', edge, 3.2, 1) };
+          return;
+        }
+      }
       // 2. Une face : profil d'esquisse (région), sinon face plane d'un modèle.
       const pick = scene.pick(px, py, (m) => (
-        m.isPickable && m.isEnabled() && (sketchFaceMeshes.includes(m as BABYLON.Mesh) || !!isUnderModel(m))
+        m.isPickable && m.isEnabled() && (sketchFaceMeshes.includes(m as BABYLON.Mesh) || isSolid(m))
       ));
       if (!pick?.hit || !pick.pickedMesh) {
         clearExtrudeFace();
@@ -4213,7 +4574,7 @@ export const Viewport3D = () => {
     const updateExtrudeHover = () => {
       extrudeHoverPending = false;
       const e = extrudeHoverLast;
-      if (!e || !isExtrudeFaceMode() || extrudeDrag) { clearExtrudeHover(); return; }
+      if (!e || !isFacePickMode() || extrudeDrag) { clearExtrudeHover(); return; }
       const { px, py } = extrudePointerRay(e.clientX, e.clientY);
       // Sur la flèche : pas de surbrillance de face, curseur « main ».
       if (extrudeArrowMeshes.length > 0) {
@@ -4221,8 +4582,26 @@ export const Viewport3D = () => {
         canvas.style.cursor = hoverArrow?.hit ? 'grab' : '';
         if (hoverArrow?.hit) { clearExtrudeHover(); return; }
       }
+      if (isFaceBrowseMode()) {
+        const edge = edgeAt(e.clientX, e.clientY);
+        if (edge) {
+          canvas.style.cursor = 'pointer';
+          if (browseEdge?.key === edge.key) { clearExtrudeHover(); return; }
+          if (edge.key !== browseEdgeHoverKey) {
+            clearExtrudeHover();
+            browseEdgeHoverKey = edge.key;
+            browseEdgeHover = makeEdgeLine('browseEdgeHover', edge, 3, 0.55);
+          }
+          extrudeHover?.dispose();
+          extrudeHover = null;
+          extrudeHoverKey = '';
+          return;
+        }
+        canvas.style.cursor = '';
+        clearEdgeHover();
+      }
       const pick = scene.pick(px, py, (m) => (
-        m.isPickable && m.isEnabled() && (sketchFaceMeshes.includes(m as BABYLON.Mesh) || !!isUnderModel(m))
+        m.isPickable && m.isEnabled() && (sketchFaceMeshes.includes(m as BABYLON.Mesh) || isSolid(m))
       ));
       if (!pick?.hit || !pick.pickedMesh) { clearExtrudeHover(); return; }
       const cellInfo = (pick.pickedMesh.metadata as { sketchCell?: { group: number; key: string } } | null)?.sketchCell;
@@ -4271,7 +4650,7 @@ export const Viewport3D = () => {
         setExtrudeDistance(Math.round(raw * 100) / 100, true);
         return;
       }
-      if (!isExtrudeFaceMode()) return;
+      if (!isFacePickMode()) return;
       // Survol : un seul calcul par image.
       extrudeHoverLast = e;
       if (!extrudeHoverPending) {
@@ -4295,6 +4674,16 @@ export const Viewport3D = () => {
     const onSelectionModeEvent = (e: Event) => {
       selectionModeNow = (e as CustomEvent<{ mode: string }>).detail?.mode ?? 'body';
       if (selectionModeNow !== 'face') clearExtrudeFace();
+      const carried = carriedFace;
+      if (carried && selectionModeNow === 'face' && extrudeToolActive) {
+        carriedFace = null;
+        // Laisse au panneau Extrusion le temps de s'abonner à `apex-extrude-face` avant de lui annoncer la face.
+        window.setTimeout(() => {
+          if (!isExtrudeFaceMode() || extrudeFace) return;
+          selectExtrudeFace(carried.face, carried.region, carried.corners);
+          extrudeRegion = carried.regionInfo;
+        }, 150);
+      }
     };
     const onExtrudeToolEvent = (e: Event) => {
       extrudeToolActive = (e as CustomEvent<{ tool: string }>).detail?.tool === 'extrude';
@@ -4304,6 +4693,27 @@ export const Viewport3D = () => {
       const value = (e as CustomEvent<{ distance: number }>).detail?.distance;
       if (extrudeFace && Number.isFinite(value)) setExtrudeDistance(value, false);
     };
+    // Suivi de l'espace et de l'outil pour la sélection de face hors Extrusion ; quitter ce mode
+    // (autre outil, autre espace) efface la face choisie et son survol.
+    const onFaceBrowseContext = (e: Event) => {
+      const detail = (e as CustomEvent<{ mode?: string; tool?: string }>).detail;
+      if (e.type === 'apex-mode-changed') modelingNow = detail?.mode === 'modeling';
+      else {
+        const wasBrowsing = isFaceBrowseMode();
+        currentToolNow = detail?.tool ?? 'select';
+        // Touche E (ou clic sur l'outil) avec une face choisie : l'Extrusion la reprend (cf. onSelectionModeEvent).
+        carriedFace = wasBrowsing && currentToolNow === 'extrude' && extrudeFace
+          ? { face: extrudeFace, region: extrudeRegionPositions, corners: extrudeSketchCorners, regionInfo: extrudeRegion }
+          : null;
+      }
+      if (!isFacePickMode()) { clearExtrudeFace(); canvas.style.cursor = ''; }
+    };
+    let carriedFace: {
+      face: ExtrudeFace; region: number[] | null; corners: BABYLON.Vector3[] | null;
+      regionInfo: { group: number; keys: Set<string> } | null;
+    } | null = null;
+    window.addEventListener('apex-mode-changed', onFaceBrowseContext);
+    window.addEventListener('apex-tool-changed', onFaceBrowseContext);
     window.addEventListener('apex-selection-mode-changed', onSelectionModeEvent);
     window.addEventListener('apex-tool-changed', onExtrudeToolEvent);
     window.addEventListener('apex-extrude-set-distance', onExtrudeSetDistance);
@@ -4358,6 +4768,23 @@ export const Viewport3D = () => {
     const pointerObserver = scene.onPointerObservable.add((pointerInfo) => {
       if (sketchRectActive) return; // outil Rectangle : le clic trace, il ne sélectionne pas
       if (isExtrudeFaceMode()) return; // outil Extrusion en mode Face : le clic choisit une face
+      // Modélisation (sélection de face hors Extrusion) : un clic sur une face plane la choisit
+      // (onExtrudeDown) et ne sélectionne pas en plus le corps ; ailleurs, la sélection habituelle.
+      if (
+        isFaceBrowseMode()
+        && (pointerInfo.type === BABYLON.PointerEventTypes.POINTERDOWN
+          || pointerInfo.type === BABYLON.PointerEventTypes.POINTERUP
+          || pointerInfo.type === BABYLON.PointerEventTypes.POINTERTAP)
+      ) {
+        const downEvent = pointerInfo.event as PointerEvent;
+        const { px, py } = extrudePointerRay(downEvent.clientX, downEvent.clientY);
+        const facePick = scene.pick(px, py, (m) => (
+          m.isPickable && m.isEnabled() && (sketchFaceMeshes.includes(m as BABYLON.Mesh) || isSolid(m))
+        ));
+        if (facePick?.hit) return;
+        const clientEvent = pointerInfo.event as PointerEvent;
+        if (edgeAt(clientEvent.clientX, clientEvent.clientY)) return;
+      }
       const excluded: BABYLON.AbstractMesh[] = [glassDisc, outline, topOutline, backdrop, groundPickPlane, ...modelingGrid];
       // Repères de mise en scène (axes d'origine, éléments du plan d'esquisse) : jamais
       // sélectionnables ni ce qui alimente l'infobulle au survol.
@@ -5018,6 +5445,8 @@ export const Viewport3D = () => {
       canvas.removeEventListener('pointermove', onExtrudeMove);
       canvas.removeEventListener('pointerup', onExtrudeUp);
       canvas.removeEventListener('pointercancel', onExtrudeUp);
+      window.removeEventListener('apex-mode-changed', onFaceBrowseContext);
+      window.removeEventListener('apex-tool-changed', onFaceBrowseContext);
       window.removeEventListener('apex-selection-mode-changed', onSelectionModeEvent);
       window.removeEventListener('apex-tool-changed', onExtrudeToolEvent);
       window.removeEventListener('apex-extrude-set-distance', onExtrudeSetDistance);
@@ -5074,6 +5503,9 @@ export const Viewport3D = () => {
   // Sous-menu "Ajouter une primitive" : ouvert au survol de son entrée, fermé dès qu'on
   // quitte la zone (entrée + panneau), pas au clic — comme un menu contextuel classique.
   const [primitiveSubmenuOpen, setPrimitiveSubmenuOpen] = useState(false);
+  // Entrée « Ajouter une primitive » : le sous-menu est porté dans le body (portail) pour être hors
+  // du backdrop-filter du menu, qui l'empêcherait de flouter son fond ; sa position suit cette entrée.
+  const primitiveItemRef = useRef<HTMLDivElement>(null);
   const primitiveHoverTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const openPrimitiveSubmenu = () => {
     if (primitiveHoverTimeout.current) clearTimeout(primitiveHoverTimeout.current);
@@ -5303,10 +5735,31 @@ export const Viewport3D = () => {
         </div>
       )}
 
-      {contextMenu && (
+      {/* Menu porté dans le body : au-dessus de tous les panneaux (liquid glass compris), hors de
+          leurs contextes d'empilement et de leurs backdrop-filter. */}
+      {contextMenu && createPortal(
         <>
+          {/* Apparition du menu : fondu + léger glissement, puis les entrées en cascade. */}
+          <style>{`
+            @keyframes apex-ctx-menu-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+            @keyframes apex-ctx-item-in { from { opacity: 0; transform: translateX(-3px); } to { opacity: 1; transform: none; } }
+            .apex-ctx-menu { animation: apex-ctx-menu-in 100ms ease-out both; }
+            .apex-ctx-menu > * { animation: apex-ctx-item-in 120ms ease-out both; }
+            .apex-ctx-menu > *:nth-child(1) { animation-delay: 30ms; }
+            .apex-ctx-menu > *:nth-child(2) { animation-delay: 50ms; }
+            .apex-ctx-menu > *:nth-child(3) { animation-delay: 70ms; }
+            .apex-ctx-menu > *:nth-child(4) { animation-delay: 90ms; }
+            .apex-ctx-menu > *:nth-child(5) { animation-delay: 110ms; }
+            .apex-ctx-menu > *:nth-child(6) { animation-delay: 130ms; }
+            .apex-ctx-menu > *:nth-child(7) { animation-delay: 150ms; }
+            .apex-ctx-menu > *:nth-child(8) { animation-delay: 170ms; }
+            .apex-ctx-menu > *:nth-child(9) { animation-delay: 190ms; }
+            @media (prefers-reduced-motion: reduce) {
+              .apex-ctx-menu, .apex-ctx-menu > * { animation: none; }
+            }
+          `}</style>
           <div
-            style={{ position: 'fixed', inset: 0, zIndex: 999 }}
+            style={{ position: 'fixed', inset: 0, zIndex: 9999 }}
             onClick={() => setContextMenu(null)}
             onContextMenu={(e) => {
               e.preventDefault();
@@ -5316,38 +5769,46 @@ export const Viewport3D = () => {
                 suppressNextBackdropContextMenuRef.current = false;
                 return;
               }
-              setContextMenu(null);
+              // Nouveau clic droit pendant que le menu est ouvert : il se referme et se rouvre
+              // directement au nouveau point (le rideau capte ce clic, Babylon ne le voit pas).
+              setContextMenu({ x: e.clientX, y: e.clientY });
             }}
           />
           <div
+            key={`${contextMenu.x}_${contextMenu.y}`}
             ref={menuRef}
+            className="apex-ctx-menu"
             style={{
-              position: 'fixed', top: (menuPos ?? contextMenu).y, left: (menuPos ?? contextMenu).x, zIndex: 1000,
+              position: 'fixed', top: (menuPos ?? contextMenu).y, left: (menuPos ?? contextMenu).x, zIndex: 10000,
               visibility: menuPos ? 'visible' : 'hidden',
               minWidth: 220, padding: 6, borderRadius: 14,
               background: 'rgba(20,22,30,0.55)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
-              boxShadow: '0 12px 40px 0 rgba(0,0,0,0.35), 0 4px 16px 0 rgba(0,0,0,0.25)',
-              border: '1px solid rgba(255,255,255,0.08)',
+              boxShadow: '0 12px 40px 0 rgba(0,0,0,0.45), 0 4px 16px 0 rgba(0,0,0,0.35)',
+              border: 'none',
             }}
           >
-            <div style={menuItemStyle} onClick={() => runAction(() => window.dispatchEvent(new CustomEvent('apex-select-all-models')))}>Tout sélectionner</div>
-            <div style={menuItemStyle} onClick={() => runAction(() => window.dispatchEvent(new CustomEvent('apex-delete-all-models')))}>Tout Supprimer</div>
-            <div style={menuItemStyle} onClick={() => runAction(() => showSuccess('Bientôt disponible'))}>Organiser</div>
-            <div style={menuItemStyle} onClick={() => runAction(() => showSuccess('Bientôt disponible'))}>Rotation automatique</div>
+            {contextSpace === 'preparation' && (<>
+            <div style={menuItemStyle} onClick={() => runAction(() => window.dispatchEvent(new CustomEvent('apex-select-all-models')))} {...menuTooltip(SELECT_ALL_TOOLTIP)}>Tout sélectionner</div>
+            <div style={menuItemStyle} onClick={() => runAction(() => window.dispatchEvent(new CustomEvent('apex-delete-all-models')))} {...menuTooltip(DELETE_ALL_TOOLTIP)}>Tout Supprimer</div>
+            <div style={{ ...menuItemStyle, color: 'rgba(255,255,255,0.35)', cursor: 'default' }} {...menuTooltip(ORGANIZE_TOOLTIP)}>Organiser</div>
             <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '6px 4px' }} />
             <div
+              ref={primitiveItemRef}
               style={{ ...menuItemStyle, position: 'relative' }}
-              onMouseEnter={openPrimitiveSubmenu}
-              onMouseLeave={closePrimitiveSubmenuDelayed}
+              onMouseEnter={() => { openPrimitiveSubmenu(); showTooltip(PRIMITIVE_TOOLTIP); }}
+              onMouseLeave={() => { closePrimitiveSubmenuDelayed(); hideTooltip(); }}
             >
               <span>Ajouter une primitive</span><span style={{ opacity: 0.6 }}>›</span>
 
-              {primitiveSubmenuOpen && (
+              {primitiveSubmenuOpen && primitiveItemRef.current && createPortal(
                 <div
                   onMouseEnter={openPrimitiveSubmenu}
                   onMouseLeave={closePrimitiveSubmenuDelayed}
                   style={{
-                    position: 'absolute', top: -6, left: '100%', zIndex: 1001,
+                    position: 'fixed',
+                    top: primitiveItemRef.current.getBoundingClientRect().top - 6,
+                    left: primitiveItemRef.current.getBoundingClientRect().right,
+                    zIndex: 10001,
                     // Marge d'écartement visuelle (8px) portée par un padding plutôt qu'un
                     // offset de `left`, pour que la zone de survol reste continue entre
                     // l'entrée du menu et le sous-menu — sinon le hover se perd dans l'écart.
@@ -5358,58 +5819,62 @@ export const Viewport3D = () => {
                     style={{
                       minWidth: 160, padding: 6, borderRadius: 14,
                       background: 'rgba(20,22,30,0.55)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
-                      boxShadow: '0 12px 40px 0 rgba(0,0,0,0.35), 0 4px 16px 0 rgba(0,0,0,0.25)',
-                      border: '1px solid rgba(255,255,255,0.08)',
+                      boxShadow: '0 12px 40px 0 rgba(0,0,0,0.45), 0 4px 16px 0 rgba(0,0,0,0.35)',
+                      border: 'none',
                     }}
                   >
                     <div
                       style={menuItemStyle}
-                      onClick={() => runAction(() => window.dispatchEvent(new CustomEvent('apex-primitive-box-start')))}
+                      onClick={() => runAction(() => window.dispatchEvent(new CustomEvent('apex-primitive-box-start')))} {...menuTooltip(BOX_TOOLTIP)}
                     >
                       Boîte
                     </div>
                     <div
                       style={menuItemStyle}
-                      onClick={() => runAction(() => window.dispatchEvent(new CustomEvent('apex-primitive-pyramid-start')))}
+                      onClick={() => runAction(() => window.dispatchEvent(new CustomEvent('apex-primitive-pyramid-start')))} {...menuTooltip(PYRAMID_TOOLTIP)}
                     >
                       Pyramide 4 côtés
                     </div>
                   </div>
-                </div>
+                </div>,
+                document.body,
               )}
             </div>
-            <div style={menuItemStyle} onClick={() => runAction(() => showSuccess('Bientôt disponible'))}>
+            <div style={{ ...menuItemStyle, color: 'rgba(255,255,255,0.35)', cursor: 'default' }} {...menuTooltip(MODELS_TOOLTIP)}>
               <span>Ajouter des modèles pratiques</span><span style={{ opacity: 0.6 }}>›</span>
             </div>
             <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '6px 4px' }} />
+            </>)}
+            {contextSpace !== 'preparation' && (<>
+              {SPACE_MENU_ITEMS[contextSpace].labels.map((label) => (
+                <div key={label} style={{ ...menuItemStyle, color: 'rgba(255,255,255,0.35)', cursor: 'default' }} {...menuTooltip(SOON_TOOLTIP)}>
+                  {label}
+                </div>
+              ))}
+              <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '6px 4px' }} />
+            </>)}
+            {(contextSpace === 'preparation' || SPACE_MENU_ITEMS[contextSpace].plateBlur) && (
             <div style={{ padding: '8px 14px 4px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)' }}>Niveau de flou sous le plateau</span>
-                <span
-                  onClick={() => {
-                    setBlurLevel(DEFAULT_BLUR_LEVEL);
-                    window.dispatchEvent(new CustomEvent('apex-set-blur-level', { detail: { level: DEFAULT_BLUR_LEVEL } }));
-                  }}
-                  style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', cursor: 'pointer', userSelect: 'none' }}
-                >
-                  reset
-                </span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={120}
+              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', marginBottom: 6 }}>Niveau de flou sous le plateau</div>
+              <ApexSlider
+                tooltip={BLUR_TOOLTIP}
                 value={blurLevel}
-                onChange={(e) => {
-                  const level = Number(e.target.value);
+                onChange={(level) => {
                   setBlurLevel(level);
                   window.dispatchEvent(new CustomEvent('apex-set-blur-level', { detail: { level } }));
                 }}
-                style={{ width: '100%' }}
+                min={0}
+                max={120}
+                step={1}
+                defaultValue={DEFAULT_BLUR_LEVEL}
+                format={(v) => `${Math.round(v)}`}
+                ariaLabel="Niveau de flou sous le plateau"
               />
             </div>
+            )}
           </div>
-        </>
+        </>,
+        document.body,
       )}
     </div>
   );

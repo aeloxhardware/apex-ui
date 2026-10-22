@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('apexDesktop', {
   },
   shutdownStep: (name) => ipcRenderer.invoke('apex:shutdown-step', String(name)),
   shutdownFinish: () => ipcRenderer.send('apex:shutdown-finish'),
+  shutdownForce: () => ipcRenderer.send('apex:shutdown-force'),
   // Échelle de l'interface (Paramètres) : zoom natif, le canvas et le pointeur restent justes.
   setZoomFactor: (factor) => webFrame.setZoomFactor(factor),
   // Mode dev (Paramètres) : désactivé, le process principal bloque les raccourcis du navigateur.
