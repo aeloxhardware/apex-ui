@@ -14,6 +14,9 @@ de la cinématique pour l'aperçu, `image`), `motherboard`, `motors` et `drivers
 `default_nozzle_profile` (`diameter_mm`, `profile_id` : voir la roadmap, profils de buse),
 `auto_leveling.tool`.
 
+`toolhead_model` : identifiant du modèle 3D de la tête (`src/assets/models/<identifiant>.glb`), lié au profil et non
+choisi dans le code d'affichage ; ce fichier est le modèle commun avec le moteur (C6).
+
 - **3 axes** : `nonplanar.max_angle_deg`, `nonplanar.max_distance_mm`.
 - **4/5 axes** : `kinematics`, `pivot_distance_mm` (par axe rotatif de tête, ex. `{"B": 46}`) et `rotary_axes[]`
   (`axis`, `role`, `range_deg`, `max_speed_deg_s`, `max_acceleration_deg_s2`, `mass_kg`, `size_mm`) pour

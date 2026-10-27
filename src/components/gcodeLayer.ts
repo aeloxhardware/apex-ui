@@ -1,6 +1,7 @@
 import * as BABYLON from 'babylonjs';
 import 'babylonjs-loaders';
-import headModelUrl from '@/assets/models/aetheris-4.glb?url';
+import { DEFAULT_PRINTER_PROFILE } from '@/utils/machineProfile';
+import { toolheadModelUrl } from '@/utils/toolheadModels';
 import {
   LINE_TYPES,
   DEFAULT_LINE_VISIBILITY,
@@ -584,6 +585,8 @@ const HEAD_MODEL_YAW = Math.PI / 2;
  * par nom dès leur arrivée (capture du flou, sélection de modèles) et doit ignorer ceux du calque.
  */
 async function loadHeadModel(scene: BABYLON.Scene, headNode: BABYLON.TransformNode, isDisposed: () => boolean) {
+  const headModelUrl = toolheadModelUrl(DEFAULT_PRINTER_PROFILE);
+  if (!headModelUrl) return { loaded: false as const };
   const container = await BABYLON.SceneLoader.LoadAssetContainerAsync('', headModelUrl, scene, null, '.glb');
   if (isDisposed()) {
     container.dispose();

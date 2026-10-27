@@ -20,6 +20,8 @@ export interface ProfileApexBlock {
   rotary_axes?: ProfileRotaryAxis[];
   pivot_distance_mm?: Record<string, unknown>;
   plate_radius_mm?: unknown;
+  /** Identifiant du modèle 3D de la tête (`src/assets/models/<id>.glb`). */
+  toolhead_model?: unknown;
   layer_height_limits_mm?: { min?: unknown; max?: unknown };
 }
 
@@ -32,6 +34,7 @@ export interface MachineFacts {
   pivotMm: number | null;
   layerMinMm: number | null;
   layerMaxMm: number | null;
+  toolheadModel: string | null;
 }
 
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
@@ -57,6 +60,7 @@ export function machineFacts(profile: unknown): MachineFacts {
     pivotMm: num(apex.pivot_distance_mm?.B),
     layerMinMm: num(apex.layer_height_limits_mm?.min),
     layerMaxMm: num(apex.layer_height_limits_mm?.max),
+    toolheadModel: typeof apex.toolhead_model === 'string' && apex.toolhead_model ? apex.toolhead_model : null,
   };
 }
 

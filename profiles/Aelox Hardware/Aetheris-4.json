@@ -40,6 +40,7 @@
             "image": null
         },
         "plate_radius_mm": 150,
+        "toolhead_model": "aetheris-4",
         "layer_height_limits_mm": {
             "min": 0.06,
             "max": 0.3
