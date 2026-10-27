@@ -7,6 +7,7 @@ import {
   subscribeColorByDeferred,
 } from '@/utils/gcodeColorByPrefs';
 import { isDevModeEnabled, setDevModeEnabled, subscribeDevMode } from '@/utils/devModePrefs';
+import { ENGINE_ADVANCED_DEFAULTS, resetEngineAdvancedPrefs, setEngineAdvancedPrefs, useEngineAdvancedPrefs } from '@/utils/engineAdvancedPrefs';
 import { isEditJournalEnabled, setEditJournalEnabled, subscribeEditJournal } from '@/utils/editJournalPrefs';
 import {
   UI_SCALE_MAX,
@@ -50,6 +51,7 @@ export const ParamsPanel: React.FC = () => {
   useEffect(() => subscribeColorByDeferred(setColorByDeferredState), []);
   const [devMode, setDevModeState] = useState(isDevModeEnabled);
   useEffect(() => subscribeDevMode(setDevModeState), []);
+  const engineAdvanced = useEngineAdvancedPrefs();
   const [editJournal, setEditJournalState] = useState(isEditJournalEnabled);
   useEffect(() => subscribeEditJournal(setEditJournalState), []);
 
@@ -209,6 +211,40 @@ export const ParamsPanel: React.FC = () => {
             <span>Mode dev (onglet Dev et raccourcis du navigateur : Ctrl+R, F5, F12…)</span>
           </label>
         </section>
+
+        {devMode && (
+          <section className={styles.section}>
+            <h3 className={styles.sectionTitle}>Réglages avancés de l'algorithme (développeur)</h3>
+            <label className={styles.checkboxRow}>
+              <input
+                type="checkbox"
+                className={styles.checkbox}
+                checked={engineAdvanced.allowMultiMesh}
+                onChange={(e) => setEngineAdvancedPrefs({ allowMultiMesh: e.target.checked })}
+              />
+              <span>Accepter plusieurs pièces sur le plateau (allow_multi_mesh)</span>
+            </label>
+            <label className={styles.numberRow}>
+              <span>Temps de diffusion de la chaleur, × arête médiane² (heat_method_time_factor)</span>
+              <input
+                type="number"
+                min={1}
+                step={100}
+                className={styles.numberInput}
+                value={engineAdvanced.heatMethodTimeFactor}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  if (Number.isFinite(v) && v > 0) setEngineAdvancedPrefs({ heatMethodTimeFactor: v });
+                }}
+              />
+            </label>
+            <p className={styles.subtitle}>
+              Envoyés au moteur à chaque tranchage (défauts : pièces multiples {ENGINE_ADVANCED_DEFAULTS.allowMultiMesh ? 'acceptées' : 'refusées'},
+              diffusion {ENGINE_ADVANCED_DEFAULTS.heatMethodTimeFactor}).{' '}
+              <button type="button" className={styles.linkButton} onClick={resetEngineAdvancedPrefs}>Rétablir</button>
+            </p>
+          </section>
+        )}
 
         {canUninstall && (
           <section className={styles.section}>

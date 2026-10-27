@@ -14,6 +14,7 @@ import { ModelHoverTooltip } from '@/components/ModelHoverTooltip';
 import { TextureEditorModal } from '@/components/TextureEditorModal';
 import { SliceModal } from '@/components/SliceModal';
 import { SlicingProgressModal } from '@/components/SlicingProgressModal';
+import { sliceController } from '@/utils/sliceController';
 import { ViewCube } from '@/components/ViewCube';
 import { Viewport3D } from '@/components/Viewport3D';
 import { SpaceTransitionOverlay } from '@/components/SpaceTransitionOverlay';
@@ -207,12 +208,14 @@ const Index = () => {
     window.dispatchEvent(new CustomEvent('apex-slice-all-models'));
     setIsSliceModalOpen(false);
     setIsSlicingProgressOpen(true);
-    showSuccess('Découpage du plateau démarré...');
+    void sliceController.start();
   };
 
   const handleSlicingFinished = () => {
     setIsSlicingProgressOpen(false);
-    showSuccess("Slicing plate completed successfully!");
+    const file = sliceController.getState().gcodeFile;
+    sliceController.reset();
+    if (file) window.dispatchEvent(new CustomEvent('apex-open-sliced-gcode', { detail: { file } }));
   };
 
   const handleOpenModel = () => {

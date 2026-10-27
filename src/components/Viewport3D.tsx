@@ -1,5 +1,6 @@
 "use client";
 
+import { buildPlateStl, type PlatePart } from '@/utils/plateStl';
 import React, { useEffect, useRef, useState, useLayoutEffect } from 'react';
 import * as BABYLON from 'babylonjs';
 import { installFlatBabylon } from '@/utils/flatBabylon';
@@ -5278,6 +5279,37 @@ export const Viewport3D = () => {
       }));
     };
 
+    // Plateau exporté en STL pour le moteur (cf. utils/plateStl.ts) : géométrie en repère monde.
+    const onExportPlateStl = (e: Event) => {
+      const resolve = (e as CustomEvent<{ resolve: (stl: Uint8Array | null) => void }>).detail?.resolve;
+      if (!resolve) return;
+      try {
+        const parts: PlatePart[] = [];
+        modelsRef.current.forEach((root) => {
+          if (root.isDisposed()) return;
+          for (const mesh of [root, ...root.getChildMeshes(false)]) {
+            if (!mesh.isVisible || mesh.getTotalVertices() === 0) continue;
+            const world = mesh.computeWorldMatrix(true);
+            const local = mesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+            const indices = mesh.getIndices();
+            if (!local || !indices) continue;
+            const positions = new Float32Array(local.length);
+            const v = new BABYLON.Vector3();
+            for (let i = 0; i < local.length; i += 3) {
+              BABYLON.Vector3.TransformCoordinatesFromFloatsToRef(local[i], local[i + 1], local[i + 2], world, v);
+              positions[i] = v.x; positions[i + 1] = v.y; positions[i + 2] = v.z;
+            }
+            parts.push({ positions, indices, mirrored: world.determinant() < 0 });
+          }
+        });
+        resolve(buildPlateStl(parts));
+      } catch (err) {
+        console.error('Export du plateau en STL échoué :', err);
+        resolve(null);
+      }
+    };
+    window.addEventListener('apex-export-plate-stl', onExportPlateStl);
+
     window.addEventListener('apex-request-slice-models', onRequestSliceModels);
     window.addEventListener('apex-slice-all-models', onSliceAllModels);
 
@@ -5415,6 +5447,7 @@ export const Viewport3D = () => {
       window.removeEventListener('apex-select-all-models', onSelectAll);
       window.removeEventListener('apex-request-slice-models', onRequestSliceModels);
       window.removeEventListener('apex-slice-all-models', onSliceAllModels);
+      window.removeEventListener('apex-export-plate-stl', onExportPlateStl);
       window.removeEventListener('apex-delete-all-models', onDeleteAll);
       window.removeEventListener('apex-set-blur-level', onSetBlurLevel);
       window.removeEventListener('apex-select-model', onSelectModel);

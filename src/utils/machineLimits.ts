@@ -1,13 +1,13 @@
 import type { EditMachineLimits } from '@/utils/editKernelClient';
+import { DEFAULT_PRINTER_PROFILE, machineFacts } from '@/utils/machineProfile';
 
 /**
  * Limites de la machine pour la validation de l'édition (limites de B, collisions de la tête).
  *
- * Aucun profil d'imprimante n'est lisible par l'interface aujourd'hui : on part de la machine actuelle
- * (slicer_engine/main.py::_default_machine_profile, fichier RRF actif config.g — B de 0 à 185°,
- * M203 B100000 = 1667 °/s, M201 B1300 = 1300 °/s², plateau de 300 mm) et l'utilisateur peut les
- * régler dans l'onglet Édition ; le réglage est conservé. Quand un profil d'imprimante existera dans
- * l'interface, c'est ici qu'il se branchera.
+ * Les valeurs par défaut viennent du profil d'imprimante (profiles/, via machineProfile.ts) : B, vitesse
+ * et accélération de B, rayon du plateau. Le même profil alimente le `machine_profile` envoyé au moteur.
+ * L'utilisateur peut les régler dans l'onglet Édition ; le réglage est conservé. Les marges de collision
+ * et tolérances ci-dessous sont des réglages de l'édition, pas des données de la machine.
  */
 export interface MachineLimits {
   bMinDeg: number;
@@ -21,12 +21,14 @@ export interface MachineLimits {
   bodyToleranceMm: number;
 }
 
+const FACTS = machineFacts(DEFAULT_PRINTER_PROFILE);
+
 export const DEFAULT_MACHINE_LIMITS: MachineLimits = {
-  bMinDeg: 0,
-  bMaxDeg: 185,
-  bSpeedDegS: 1666.7,
-  bAccelDegS2: 1300,
-  plateRadiusMm: 150,
+  bMinDeg: FACTS.bRangeDeg?.[0] ?? 0,
+  bMaxDeg: FACTS.bRangeDeg?.[1] ?? 185,
+  bSpeedDegS: FACTS.bSpeedDegS ?? 1666.7,
+  bAccelDegS2: FACTS.bAccelDegS2 ?? 1300,
+  plateRadiusMm: FACTS.plateRadiusMm ?? 150,
   collisionMarginMm: 1,
   nozzleToleranceMm: 0.18,
   bodyToleranceMm: 0.7,

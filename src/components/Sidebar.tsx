@@ -349,6 +349,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- une seule fois, au montage
   }, []);
 
+  // G-code produit par le moteur : ouvert dans l'espace Prévisualisation (comme un fichier déposé).
+  useEffect(() => {
+    const onOpen = (e: Event) => {
+      const file = (e as CustomEvent<{ file: File }>).detail?.file;
+      if (!file) return;
+      if (isPreviewActive) window.dispatchEvent(new CustomEvent('apex-entering-preview-with-file', { detail: { file } }));
+      else if (!isModeling) enterPreview(file);
+    };
+    window.addEventListener('apex-open-sliced-gcode', onOpen);
+    return () => window.removeEventListener('apex-open-sliced-gcode', onOpen);
+  });
+
   // Dépôt d'un fichier G-code n'importe où dans la fenêtre pendant qu'on est en Préparation (hors
   // Prévisualisation, hors Modélisation) : bascule automatiquement vers l'espace Prévisualisation,
   // avec la même animation que le clic sur son icône, puis charge le fichier une fois l'écran

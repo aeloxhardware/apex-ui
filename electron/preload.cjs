@@ -33,6 +33,15 @@ contextBridge.exposeInMainWorld('apexDesktop', {
     ipcRenderer.on('apex:convert-progress', listener);
     return () => ipcRenderer.removeListener('apex:convert-progress', listener);
   },
+  // Tranchage par le moteur (contrat C2/C3) : progression = lignes JSON du moteur, relayées telles quelles.
+  sliceSteps: () => ipcRenderer.invoke('apex:slice-steps'),
+  slice: (request) => ipcRenderer.invoke('apex:slice', request),
+  cancelSlice: () => ipcRenderer.invoke('apex:slice-cancel'),
+  onSliceProgress: (callback) => {
+    const listener = (_event, engineEvent) => callback(engineEvent);
+    ipcRenderer.on('apex:slice-progress', listener);
+    return () => ipcRenderer.removeListener('apex:slice-progress', listener);
+  },
   saveGCode: (request) => ipcRenderer.invoke('apex:save-gcode', request),
   writeGCode: (request) => ipcRenderer.invoke('apex:write-gcode', request),
   // Chemin réel d'un fichier déposé ou choisi (modification en place d'un G-code édité).

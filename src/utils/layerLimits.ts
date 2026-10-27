@@ -1,8 +1,9 @@
 /**
- * Épaisseurs de couche admises pour l'édition par nœuds (profil d'imprimante : pas encore lisible par
- * l'interface, comme machineLimits.ts). Le maximum suit en général 75 % du diamètre de buse ; la
+ * Épaisseurs de couche admises pour l'édition par nœuds (par défaut, celles du profil d'imprimante,
+ * comme machineLimits.ts). Le maximum suit en général 75 % du diamètre de buse ; la
  * largeur variable laisse une couche descendre sous le minimum en élargissant son cordon.
  */
+import { DEFAULT_PRINTER_PROFILE, machineFacts } from '@/utils/machineProfile';
 export interface LayerLimits {
   minMm: number;
   maxMm: number;
@@ -10,7 +11,8 @@ export interface LayerLimits {
   widthFactor: number;
 }
 
-export const DEFAULT_LAYER_LIMITS: LayerLimits = { minMm: 0.06, maxMm: 0.3, widthFactor: 1 };
+const FACTS = machineFacts(DEFAULT_PRINTER_PROFILE);
+export const DEFAULT_LAYER_LIMITS: LayerLimits = { minMm: FACTS.layerMinMm ?? 0.06, maxMm: FACTS.layerMaxMm ?? 0.3, widthFactor: 1 };
 
 const STORAGE_KEY = 'apex-edit-layer-limits';
 

@@ -18,33 +18,27 @@ interface SliceSidebarProps {
 export const SliceSidebar: React.FC<SliceSidebarProps> = ({ onSlice, previewExport }) => {
   const [hasModels, setHasModels] = useState(false);
 
+  // SLICE tranche tous les modèles du plateau, pas la sélection : le bouton suit la liste réelle des
+  // modèles (réponse de Viewport3D à `apex-request-slice-models`), jamais la sélection.
   useEffect(() => {
-    const handleMeshSelected = (e: CustomEvent<{ name: string | null }>) => {
-      if (e.detail?.name) {
-        setHasModels(true);
-      } else {
-        setHasModels(false);
-      }
+    const refresh = () => window.dispatchEvent(new CustomEvent('apex-request-slice-models'));
+    const handleModelList = (e: CustomEvent<{ names?: string[] }>) => {
+      setHasModels((e.detail?.names?.length ?? 0) > 0);
     };
-
-    const handleMeshDeleted = (e: CustomEvent<{ name?: string }>) => {
-      // If needed we can track remaining meshes, but for now if mesh deleted or plate cleared
-      if (!e.detail?.name) {
-        setHasModels(false);
-      }
-    };
-
+    // Une suppression est traitée par Viewport3D après l'événement : on relit la liste juste après.
+    const handleMeshDeleted = () => { window.setTimeout(refresh, 100); };
     const handleImportModel = () => {
       setHasModels(true);
     };
 
-    window.addEventListener('apex-mesh-selected', handleMeshSelected as EventListener);
-    window.addEventListener('apex-mesh-deleted', handleMeshDeleted as EventListener);
+    window.addEventListener('apex-slice-models', handleModelList as EventListener);
+    window.addEventListener('apex-mesh-deleted', handleMeshDeleted);
     window.addEventListener('apex-import-model', handleImportModel as EventListener);
+    refresh();
 
     return () => {
-      window.removeEventListener('apex-mesh-selected', handleMeshSelected as EventListener);
-      window.removeEventListener('apex-mesh-deleted', handleMeshDeleted as EventListener);
+      window.removeEventListener('apex-slice-models', handleModelList as EventListener);
+      window.removeEventListener('apex-mesh-deleted', handleMeshDeleted);
       window.removeEventListener('apex-import-model', handleImportModel as EventListener);
     };
   }, []);

@@ -1,7 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useSyncExternalStore } from 'react';
 import styles from './SlicingProgressModal.module.scss';
-import { Play, X } from 'lucide-react';
-import { SLICING_STEPS } from './slicingSteps';
+import { Check, Loader2, Play, X } from 'lucide-react';
+import { sliceController } from '@/utils/sliceController';
 
 interface SlicingProgressModalProps {
   isOpen: boolean;
@@ -9,49 +9,28 @@ interface SlicingProgressModalProps {
   onFinished: () => void;
 }
 
-// Duree d'affichage de chaque etape.
-const STEP_DURATION_MS = 1200;
-
+// L'avancement vient uniquement des lignes de progression du moteur (cf. utils/sliceController.ts) :
+// aucune minuterie ici.
 export const SlicingProgressModal: React.FC<SlicingProgressModalProps> = ({ isOpen, onClose, onFinished }) => {
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [isDone, setIsDone] = useState(false);
+  const slice = useSyncExternalStore(sliceController.subscribe, sliceController.getState);
+  const steps = slice.steps;
+  const isDone = slice.phase === 'done';
+  const isFailed = slice.phase === 'failed' || slice.phase === 'cancelled';
 
-  const advancedRef = useRef(false);
-
-  const advanceToNextStep = () => {
-    if (advancedRef.current) return;
-    advancedRef.current = true;
-
-    setCurrentStepIndex((prev) => {
-      const next = prev + 1;
-      if (next >= SLICING_STEPS.length) {
-        setIsDone(true);
-        return prev;
-      }
-      return next;
-    });
+  const handleClose = () => {
+    if (slice.phase === 'running') void sliceController.cancel();
+    else sliceController.reset();
+    onClose();
   };
-
-  // Reinitialise le pipeline a chaque ouverture de la boite de dialogue.
-  useEffect(() => {
-    if (!isOpen) return;
-    setCurrentStepIndex(0);
-    setIsDone(false);
-  }, [isOpen]);
-
-  // Passe a l'etape suivante apres un delai fixe.
-  useEffect(() => {
-    if (!isOpen || isDone) return;
-    advancedRef.current = false;
-    const t = setTimeout(advanceToNextStep, STEP_DURATION_MS);
-    return () => clearTimeout(t);
-  }, [isOpen, currentStepIndex, isDone]);
 
   if (!isOpen) return null;
 
-  const progressPercent = isDone
-    ? 100
-    : Math.round(((currentStepIndex) / SLICING_STEPS.length) * 100);
+  // État de chaque étape et avancement de sa barre : uniquement ce que le moteur a annoncé.
+  const stepStatus = (index: number): 'done' | 'running' | 'pending' => {
+    if (isDone || index < slice.stepIndex) return 'done';
+    if (index === slice.stepIndex && slice.phase === 'running') return 'running';
+    return 'pending';
+  };
 
   return (
     <div className={styles.backdrop}>
@@ -62,30 +41,58 @@ export const SlicingProgressModal: React.FC<SlicingProgressModalProps> = ({ isOp
               <Play size={16} className="fill-current text-[#00f0ff]" />
               <span>Découpe des modèles en cours</span>
             </div>
-            <button className={styles.closeBtn} onClick={onClose}>
+            <button className={styles.closeBtn} onClick={handleClose}>
               <X size={16} />
             </button>
           </div>
         </div>
 
         <div className={styles.modalCard} style={{ width: '440px', padding: '18px 20px', gap: '14px' }}>
-          <div className={styles.progressBarTrack}>
-            <div
-              className={styles.progressBarFill}
-              style={{ width: `${progressPercent}%` }}
-            />
+          {steps.length === 0 && !isFailed && (
+            <div className={styles.stepRow}>
+              <span className={styles.stepLabel}>Démarrage du moteur…</span>
+            </div>
+          )}
+          <div className={styles.stepList}>
+            {steps.map((step, index) => {
+              const status = stepStatus(index);
+              const fraction = status === 'done' ? 1 : status === 'running' ? slice.fraction : 0;
+              return (
+                <div
+                  key={step.slug}
+                  className={`${styles.stepItem} ${status === 'pending' ? styles.stepPending : ''}`}
+                >
+                  <span
+                    className={`${styles.stepIcon} ${
+                      status === 'done' ? styles.iconDone : status === 'running' ? styles.iconRunning : styles.iconPending
+                    }`}
+                  >
+                    {status === 'done' && <Check size={13} strokeWidth={3.5} />}
+                    {status === 'running' && <Loader2 size={20} />}
+                  </span>
+                  <div className={styles.stepBody}>
+                    <span className={styles.stepName}>{step.label}</span>
+                    <div className={styles.stepBarTrack}>
+                      <div
+                        className={`${styles.stepBarFill} ${status === 'done' ? styles.stepBarDone : ''}`}
+                        style={{ width: `${Math.round(fraction * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-
-          <div className={styles.stepRow}>
-            <span className={styles.stepIndex}>
-              {isDone ? SLICING_STEPS.length : currentStepIndex + 1} / {SLICING_STEPS.length}
-            </span>
-            <span className={styles.stepLabel}>
-              {isDone
-                ? "Prévisualisation prête"
-                : SLICING_STEPS[currentStepIndex].label}
-            </span>
-          </div>
+          {isFailed && (
+            <div className={styles.stepRow}>
+              <span className={styles.stepLabel}>{slice.message}</span>
+            </div>
+          )}
+          {isDone && slice.warnings.length > 0 && (
+            <div className={styles.stepRow}>
+              <span className={styles.stepLabel}>{slice.warnings.join(' · ')}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -95,8 +102,8 @@ export const SlicingProgressModal: React.FC<SlicingProgressModalProps> = ({ isOp
             Voir le résultat
           </button>
         ) : (
-          <button className={styles.cancelBtn} onClick={onClose}>
-            Annuler
+          <button className={styles.cancelBtn} onClick={handleClose}>
+            {isFailed ? 'Fermer' : 'Annuler'}
           </button>
         )}
       </div>

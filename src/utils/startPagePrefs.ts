@@ -16,10 +16,9 @@ export const START_PAGES: { id: StartPage; label: string }[] = [
 ];
 
 const STORAGE_KEY = 'apex-start-page';
-// TEMPORAIRE (développement, demande de l'utilisateur 2026-10-13) : sans réglage mémorisé,
-// l'application s'ouvre sur Modélisation. À remettre à 'home' avant toute version publique ;
-// sans la valeur « dev », Modélisation n'existe pas et l'Accueil est utilisé de toute façon.
-const DEFAULT_START_PAGE: StartPage = 'modeling';
+// Sans réglage mémorisé, l'application s'ouvre sur l'Accueil (décision de l'utilisateur, 2026-10-27 ;
+// l'ouverture sur Modélisation, temporaire depuis le 2026-10-13, est retirée).
+const DEFAULT_START_PAGE: StartPage = 'home';
 
 function readStored(): StartPage {
   try {

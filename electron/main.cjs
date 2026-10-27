@@ -3,6 +3,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { spawn } = require('node:child_process');
 const { convertGCode } = require('./python-runner.cjs');
+const engineRunner = require('./engine-runner.cjs');
 const backdrop = require('./backdrop.cjs');
 const { detectLowGpuPower } = require('./gpu-tier.cjs');
 const prefsStore = require('./prefs-store.cjs');
@@ -49,7 +50,8 @@ function createSplash() {
   // Verre lancé dès maintenant, pendant que la page charge : périphérique GPU et capture du bureau sont prêts
   // quand la fenêtre s'affiche (le premier verre est dessiné à son apparition).
   splash.setOpacity(0);
-  const glass = backdrop.follow(splash, {}, () => revealSplash(true));
+  // `force` : le verre de l'écran de démarrage est toujours actif, même sur un GPU jugé faible (décision de l'utilisateur, 2026-10-27).
+  const glass = backdrop.follow(splash, { force: true }, () => revealSplash(true));
   const systemGlass = !glass && backdrop.systemGlass(splash);  // macOS : vibrance native
   // Pas d'encre adaptative sur le splash : texte blanc fixe sur un verre fumé légèrement sombre.
   splash.once('ready-to-show', () => {
@@ -228,6 +230,28 @@ ipcMain.handle('apex:convert-gcode', (event, request) =>
       if (!event.sender.isDestroyed()) event.sender.send('apex:convert-progress', percent);
     },
   }));
+
+// Tranchage par le moteur (contrat C2/C3) : sous-processus, voir electron/engine-runner.cjs. L'exécutable
+// natif du moteur sera livré dans les ressources (resources/engine/apex-engine.exe) ; en développement,
+// `python main.py` du dépôt voisin `slicer_engine`.
+const packagedEngineExe = () =>
+  app.isPackaged ? path.join(process.resourcesPath, 'engine', `apex-engine${process.platform === 'win32' ? '.exe' : ''}`) : null;
+ipcMain.handle('apex:slice-steps', () => engineRunner.listSteps(packagedEngineExe()));
+ipcMain.handle('apex:slice', (event, request) => {
+  // La page qui a demandé le tranchage se recharge ou se ferme : personne ne l'attend plus, on l'arrête
+  // (sinon il bloque le suivant : un seul tranchage à la fois).
+  const stop = (details) => { if (!details || (details.isMainFrame && !details.isSameDocument)) engineRunner.cancelSlice(); };
+  event.sender.on('did-start-navigation', stop);
+  event.sender.once('destroyed', () => stop());
+  return engineRunner.runSlice(request, {
+    packagedExe: packagedEngineExe(),
+    onEvent: (engineEvent) => {
+      if (!event.sender.isDestroyed()) event.sender.send('apex:slice-progress', engineEvent);
+    },
+  }).finally(() => { if (!event.sender.isDestroyed()) event.sender.removeListener('did-start-navigation', stop); });
+});
+ipcMain.handle('apex:slice-cancel', () => engineRunner.cancelSlice());
+app.on('before-quit', () => { engineRunner.cancelSlice(); });
 
 // Profils d'imprimantes : dossier `profiles/` du dépôt, copié dans les ressources à l'empaquetage.
 const profilesRoot = () =>

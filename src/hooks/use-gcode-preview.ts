@@ -344,8 +344,10 @@ export function useGCodePreview(active: boolean) {
     setConversion(IDLE_CONVERSION);
     setOffPlateHighlight(false);
 
-    // Un C qui accumule les tours est normal dans un fichier converti (le plateau suit la pièce).
-    if (parsed.kind === 'polar' && !parsed.conversion && parsed.maxC - parsed.minC > SUSPICIOUS_C_RANGE_DEG) {
+    // Un C qui accumule les tours est normal dans un fichier converti (le plateau suit la pièce) et dans
+    // un fichier du moteur (Y déroulé, contrat C4 : marqueur `; apex_sliced = 1`).
+    if (parsed.kind === 'polar' && !parsed.conversion && !isLocallySliced(text!)
+      && parsed.maxC - parsed.minC > SUSPICIOUS_C_RANGE_DEG) {
       showWarning(`L'angle C dérive sur ${(parsed.maxC - parsed.minC).toFixed(0)}° : ce fichier vient probablement d'une version boguée du générateur.`);
     } else {
       showSuccess(`G-code chargé : ${parsed.moves.length} mouvements.`);

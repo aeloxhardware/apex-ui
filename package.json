@@ -9,14 +9,17 @@
     "dev": "vite",
     "dev:lab-node": "vite --config vite.lab.config.ts",
     "dev:lab-assistant": "vite --config vite.lab-assistant.config.ts",
-    "build": "vite build",
+    "schema:sync": "node scripts/sync-engine-schema.cjs",
+    "schema:check": "node scripts/sync-engine-schema.cjs --check",
+    "schema:verify": "node scripts/sync-engine-schema.cjs --verify",
+    "build": "node scripts/sync-engine-schema.cjs --verify && vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
     "electron:dev": "concurrently -k -n VITE,ELECTRON -c blue,magenta \"vite\" \"wait-on http://localhost:8080 && cross-env ELECTRON_START_URL=http://localhost:8080 node scripts/run-electron.cjs\"",
     "python:fetch": "node scripts/fetch-python-embed.cjs",
-    "electron:build": "vite build && node scripts/fetch-python-embed.cjs && electron-builder",
-    "electron:build:dir": "vite build && node scripts/fetch-python-embed.cjs && electron-builder --dir"
+    "electron:build": "node scripts/sync-engine-schema.cjs --verify && vite build && node scripts/fetch-python-embed.cjs && electron-builder",
+    "electron:build:dir": "node scripts/sync-engine-schema.cjs --verify && vite build && node scripts/fetch-python-embed.cjs && electron-builder --dir"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

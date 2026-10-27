@@ -49,6 +49,29 @@ declare global {
     image: string | null;
   }
 
+  interface ApexSliceRequest {
+    contract: number;
+    stl: Uint8Array;
+    /** Champs partiels : le moteur complète avec ses défauts (types générés depuis le schéma, C1). */
+    params?: import('@/generated/params.schema').PipelineParams;
+    gcode_params?: import('@/generated/params.schema').GcodeParams;
+    name?: string;
+  }
+
+  type ApexSliceEvent =
+    | { type: 'step'; slug: string; fraction: number }
+    | { type: 'log'; level: string; code?: string; message: string };
+
+  interface ApexSliceResult {
+    /** 'ok' | 'invalid_request' | 'model_refused' | 'surface_inconsistent' | 'export_refused' | 'error' | 'cancelled' */
+    status: string;
+    message?: string;
+    gcode?: string;
+    placement_offset_z?: number | null;
+    warnings?: { code: string; count?: number }[];
+    [key: string]: unknown;
+  }
+
   interface ApexDesktopBridge {
     /** Interface imposée au lancement (`--ui=` / APEX_UI) : « liquid » ou « classic », sinon null. */
     launchUi?: string | null;
@@ -70,6 +93,14 @@ declare global {
     convertGCode(request: ApexConvertRequest): Promise<{ text: string; summary: ApexConvertSummary | null }>;
     /** Abonnement à la progression (0–100) ; renvoie la fonction de désabonnement. */
     onConvertProgress(callback: (percent: number) => void): () => void;
+    /** Étapes du tranchage, telles que le moteur les publie (`main.py steps`, contrat C3). */
+    sliceSteps?(): Promise<{ contract: number; steps: { slug: string; label: string }[] }>;
+    /** Tranche un maillage STL par le moteur (sous-processus). Le résultat `status` vaut 'ok' ou un refus typé. */
+    slice?(request: ApexSliceRequest): Promise<{ result: ApexSliceResult; gcodeText: string | null }>;
+    /** Arrête le tranchage en cours (et ses sous-processus). */
+    cancelSlice?(): Promise<boolean>;
+    /** Lignes de progression du moteur ({type:'step',slug,fraction} ou {type:'log',…}). */
+    onSliceProgress?(callback: (event: ApexSliceEvent) => void): () => void;
     saveGCode(request: { name: string; text: string }): Promise<{ saved: boolean; path?: string }>;
     /** Écrit (atomiquement) un G-code à un chemin connu : modification en place. */
     setDevMode?(enabled: boolean): void;

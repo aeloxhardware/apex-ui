@@ -26,9 +26,7 @@ export const SliceModal: React.FC<SliceModalProps> = ({ isOpen, onClose, onConfi
     };
 
     const handleMeshSelected = (e: CustomEvent<{ name: string | null; names?: string[]; subMeshes?: { id: string; name: string; color: string }[] }>) => {
-      const selectedModelNames = e.detail?.names ?? (e.detail?.name ? [e.detail.name] : []);
-      setModelCount(selectedModelNames.length);
-
+      // Le nombre de modèles tranchés est celui du plateau (`apex-slice-models`), pas la sélection.
       if (e.detail?.name) {
         setTriangleCount(Math.floor(Math.random() * 60000) + 25000);
       }

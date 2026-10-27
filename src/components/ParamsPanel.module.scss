@@ -183,3 +183,39 @@
   &.active { color: #00f0ff; }
   &:disabled { opacity: 0.32; cursor: not-allowed; }
 }
+
+.numberRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 12px 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.numberInput {
+  flex: 0 0 auto;
+  width: 96px;
+  padding: 5px 8px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  text-align: right;
+
+  &:focus {
+    outline: 1px solid rgba(34, 211, 238, 0.7);
+  }
+}
+
+.linkButton {
+  padding: 0;
+  border: none;
+  background: none;
+  color: #22d3ee;
+  font-size: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}

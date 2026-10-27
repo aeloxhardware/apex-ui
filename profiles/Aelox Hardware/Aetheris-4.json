@@ -39,6 +39,11 @@
             "type": "polar",
             "image": null
         },
+        "plate_radius_mm": 150,
+        "layer_height_limits_mm": {
+            "min": 0.06,
+            "max": 0.3
+        },
         "pivot_distance_mm": {
             "B": 46
         },
@@ -58,7 +63,10 @@
             {
                 "axis": "C",
                 "role": "bed_rotation",
-                "range_deg": "Inconnu",
+                "range_deg": [
+                    0,
+                    360
+                ],
                 "max_speed_deg_s": "Inconnu",
                 "max_acceleration_deg_s2": "Inconnu",
                 "mass_kg": "Inconnu",
