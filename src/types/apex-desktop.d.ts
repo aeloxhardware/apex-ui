@@ -22,6 +22,15 @@ declare global {
     maxErrorMm: number;
     bMin: number;
     bMax: number;
+    /** Convertisseur natif seulement. */
+    maxTipRadiusMm?: number;
+    maxPivotRadiusMm?: number;
+    beyondPlateMoves?: number;
+    collisionChecked?: boolean;
+    posesTested?: number;
+    collisionsBefore?: number;
+    collisionsAfter?: number;
+    reorientedMoves?: number;
   }
 
   interface ApexProfileFolder {

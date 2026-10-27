@@ -215,6 +215,12 @@ ipcMain.handle('apex:convert-gcode', (event, request) =>
     script: app.isPackaged
       ? path.join(process.resourcesPath, 'python-scripts', 'gcode_to_polar.py')
       : path.join(__dirname, '..', 'python', 'gcode_to_polar.py'),
+    nativeExe: app.isPackaged
+      ? path.join(process.resourcesPath, 'native', `apex_gcode_to_polar${process.platform === 'win32' ? '.exe' : ''}`)
+      : path.join(__dirname, '..', 'native', 'build', `apex_gcode_to_polar${process.platform === 'win32' ? '.exe' : ''}`),
+    headSamples: app.isPackaged
+      ? path.join(process.resourcesPath, 'native', 'head-samples.bin')
+      : path.join(__dirname, '..', 'native', 'data', 'head-samples.bin'),
     embeddedPython: app.isPackaged
       ? path.join(process.resourcesPath, 'python', 'python.exe')
       : path.join(__dirname, '..', 'build', 'python-embed', 'python.exe'),

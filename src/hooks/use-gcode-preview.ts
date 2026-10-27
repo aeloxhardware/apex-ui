@@ -387,7 +387,17 @@ export function useGCodePreview(active: boolean) {
       const detail = summary
         ? ` (écart max ${summary.maxErrorMm.toFixed(3).replace('.', ',')} mm${mode === 'dynamic' ? `, B de ${summary.bMin.toFixed(0)}° à ${summary.bMax.toFixed(0)}°` : ''}${summary.droppedMoves ? `, ${summary.droppedMoves} mouvements hors plateau supprimés` : ''})`
         : '';
-      showSuccess(`G-code converti en polaire${mode === 'dynamic' ? ' à angle dynamique' : ''}${detail}.`);
+      // Convertisseur natif : avertissements que le script Python ne produisait pas.
+      const notes: string[] = [];
+      if (summary?.collisionChecked) {
+        notes.push(summary.collisionsAfter
+          ? `${summary.collisionsAfter} pose(s) de tête encore en collision sur ${summary.posesTested} testées`
+          : `aucune collision de la tête sur ${summary.posesTested} poses testées${summary.collisionsBefore ? ` (${summary.collisionsBefore} évitées)` : ''}`);
+      }
+      if (summary?.beyondPlateMoves) {
+        notes.push(`${summary.beyondPlateMoves} mouvements au-delà du plateau (rayon max ${summary.maxTipRadiusMm?.toFixed(1)} mm)`);
+      }
+      showSuccess(`G-code converti en polaire${mode === 'dynamic' ? ' à angle dynamique' : ''}${detail}.${notes.length ? ` ${notes.join(' ; ')}.` : ''}`);
     } catch (err) {
       // Échec : les traits hors-plateau du fichier source restent affichés s'ils l'étaient (rien
       // n'a changé côté tracé), mais arrêtent de clignoter — le clignotement ne signifie qu'une

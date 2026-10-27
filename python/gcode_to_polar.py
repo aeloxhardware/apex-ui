@@ -13,7 +13,7 @@ La pointe de buse est à `pivot` mm sous le pivot, le long de l'axe de la tête 
 Deux modes :
   - polar   : B = 0 partout (tête droite) ;
   - dynamic : B incliné selon la normale locale de la couche (G-codes non plans), dans le plan
-              radial (seule direction possible pour la tête), borné à ±b-limit.
+              radial (seule direction possible pour la tête), borné à [b-min, b-limit] (B ≥ 0 : la tête ne penche que vers +R).
 
 Le firmware interpole linéairement en (R, C, Z, B) : une droite cartésienne deviendrait une
 spirale. Chaque segment est donc subdivisé jusqu'à ce que la buse reste à moins de `tol` mm de la
@@ -274,7 +274,7 @@ def assign_layers_by_z(moves):
 # Passe 2 : inclinaison optimale de la tête (angle dynamique)
 # --------------------------------------------------------------------------------------------
 
-def compute_tilts(moves, b_limit, pivot, progress):
+def compute_tilts(moves, b_limit, pivot, progress, b_min=0.0):
     """B (degrés) à la fin de chaque mouvement, d'après la normale de la couche au point déposé."""
     n = len(moves)
     targets = [None] * n
@@ -361,7 +361,7 @@ def compute_tilts(moves, b_limit, pivot, progress):
         nx, ny, nz = normal_at(moves.layer[k], x, y)
         n_r = (nx * x + ny * y) / r
         b = math.degrees(math.atan2(n_r, nz))
-        targets[k] = max(-b_limit, min(b_limit, b))
+        targets[k] = max(b_min, min(b_limit, b))
 
     # Trajets à vide : cible du prochain dépôt (la tête s'y prépare pendant le trajet).
     upcoming = 0.0
@@ -489,13 +489,13 @@ class Emitter:
         return f" F{fmt(feed, 1)}"
 
 
-def convert(text, mode, center_x, center_y, pivot, b_limit, tol, source, drop_radius=0.0):
+def convert(text, mode, center_x, center_y, pivot, b_limit, tol, source, drop_radius=0.0, b_min=0.0):
     progress = Progress()
     lines = text.split("\n")
     items, moves = read_gcode(lines, center_x, center_y, progress)
     n = len(moves)
     if mode == "dynamic":
-        tilts = compute_tilts(moves, b_limit, pivot, progress)
+        tilts = compute_tilts(moves, b_limit, pivot, progress, b_min)
     else:
         tilts = [0.0] * n
     progress.report(45)
@@ -572,12 +572,14 @@ def main():
     parser.add_argument("--source", default="")
     parser.add_argument("--drop-outside-radius", type=float, default=0.0,
                         help="supprime les mouvements dont la buse finit au-delà de ce rayon (mm) ; 0 : aucun")
+    parser.add_argument("--b-min", type=float, default=0.0,
+                        help="B minimal (degrés) : la tête ne penche que vers +R sur la machine, B ≥ 0")
     args = parser.parse_args()
 
     with open(args.input, encoding="utf-8", errors="replace") as f:
         text = f.read()
     output, summary = convert(text, args.mode, args.center_x, args.center_y, args.pivot,
-                              args.b_limit, args.tol, args.source, args.drop_outside_radius)
+                              args.b_limit, args.tol, args.source, args.drop_outside_radius, args.b_min)
     with open(args.output, "w", encoding="utf-8", newline="\n") as f:
         f.write(output)
     sys.stdout.write(json.dumps(summary) + "\n")

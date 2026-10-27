@@ -34,6 +34,8 @@ function apexConvertDevServer(): Plugin {
             const result = await convertGCode(JSON.parse(Buffer.concat(chunks).toString("utf8")), {
               script: path.resolve(__dirname, "python/gcode_to_polar.py"),
               embeddedPython: path.resolve(__dirname, "build/python-embed/python.exe"),
+              nativeExe: path.resolve(__dirname, "native/build/apex_gcode_to_polar" + (process.platform === "win32" ? ".exe" : "")),
+              headSamples: path.resolve(__dirname, "native/data/head-samples.bin"),
               onProgress: (percent: number) => res.write(`PROGRESS ${percent}\n`),
             });
             res.end(`RESULT\n${JSON.stringify(result)}`);

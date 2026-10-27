@@ -118,6 +118,10 @@
         "to": "profiles"
       },
       {
+        "from": "native/data/head-samples.bin",
+        "to": "native/head-samples.bin"
+      },
+      {
         "from": "python",
         "to": "python-scripts",
         "filter": [
@@ -141,6 +145,10 @@
         {
           "from": "native/build/apex_edit.node",
           "to": "native/apex_edit.node"
+        },
+        {
+          "from": "native/build/apex_gcode_to_polar.exe",
+          "to": "native/apex_gcode_to_polar.exe"
         },
         {
           "from": "native/build/apex_backdrop.node",

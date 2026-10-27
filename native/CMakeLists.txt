@@ -33,6 +33,13 @@ target_link_libraries(apex_edit_core PUBLIC Threads::Threads)
 set_target_properties(apex_edit_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 apex_edit_flags(apex_edit_core)
 
+# Convertisseur G-code cartesien -> polaire Apex (portage de python/gcode_to_polar.py + evitement des
+# collisions de la tete), executable autonome sans dependance Electron.
+add_executable(apex_gcode_to_polar src/polar_main.cpp src/polar_convert.cpp src/past_material.cpp)
+target_include_directories(apex_gcode_to_polar PRIVATE src)
+target_link_libraries(apex_gcode_to_polar PRIVATE Threads::Threads)
+apex_edit_flags(apex_gcode_to_polar)
+
 if(ELECTRON_HEADERS)
   add_library(apex_edit SHARED src/addon.cpp src/win_delay_load_hook.cpp)
   set_target_properties(apex_edit PROPERTIES
@@ -93,6 +100,12 @@ add_executable(apex_edit_tests tests/test_edit_kernel.cpp)
 target_link_libraries(apex_edit_tests PRIVATE apex_edit_core)
 apex_edit_flags(apex_edit_tests)
 add_test(NAME apex_edit_tests COMMAND apex_edit_tests)
+
+add_executable(apex_polar_tests tests/test_polar_convert.cpp src/polar_convert.cpp src/past_material.cpp)
+target_include_directories(apex_polar_tests PRIVATE src)
+target_link_libraries(apex_polar_tests PRIVATE Threads::Threads)
+apex_edit_flags(apex_polar_tests)
+add_test(NAME apex_polar_tests COMMAND apex_polar_tests)
 
 add_executable(apex_edit_bench tests/bench_kernel.cpp)
 target_link_libraries(apex_edit_bench PRIVATE apex_edit_core)
