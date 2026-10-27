@@ -546,6 +546,7 @@ MachineLimits parse_limits(napi_env env, napi_value value) {
   l.b_accel_deg_s2 = get_number(env, value, "bAccelDegS2", l.b_accel_deg_s2);
   l.plate_radius_mm = get_number(env, value, "plateRadiusMm", l.plate_radius_mm);
   l.collision_margin_mm = get_number(env, value, "collisionMarginMm", l.collision_margin_mm);
+  l.part_margin_mm = get_number(env, value, "partMarginMm", l.part_margin_mm);
   l.bead_radius_mm = get_number(env, value, "beadRadiusMm", l.bead_radius_mm);
   l.contact_clearance_mm = get_number(env, value, "contactClearanceMm", l.contact_clearance_mm);
   l.max_poses = static_cast<size_t>(get_number(env, value, "maxPoses", static_cast<double>(l.max_poses)));

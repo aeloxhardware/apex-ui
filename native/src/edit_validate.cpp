@@ -284,7 +284,7 @@ const Validation& EditKernel::validate(const MachineLimits& limits, bool collisi
     }
     out.poses_tested = tested.size();
 
-    const double reach = limits.collision_margin_mm + limits.bead_radius_mm;
+    const double reach = limits.part_margin_mm + limits.bead_radius_mm;   // matiere ; le plateau garde collision_margin_mm
     // Echantillons au-dela de la zone de garde autour de la pointe.
     std::vector<uint32_t> usable;
     for (size_t s = 0; s < samples; ++s) {

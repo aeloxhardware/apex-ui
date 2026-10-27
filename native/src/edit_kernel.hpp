@@ -209,7 +209,11 @@ struct MachineLimits {
   double b_speed_deg_s = 1666.7;       // vitesse angulaire maximale de B
   double b_accel_deg_s2 = 1300.0;      // acceleration angulaire maximale de B
   double plate_radius_mm = 150.0;      // plateau : disque de rayon donne, surface a z = 0
-  double collision_margin_mm = 1.0;    // marge de securite tete / matiere et tete / plateau
+  double collision_margin_mm = 1.0;    // marge de securite tete / plateau
+  // Marge tete / matiere deja deposee, mesuree a la surface du cordon. NEGATIVE = recouvrement tolere : le
+  // modele de tete est exact, effleurer ou mordre un peu la couche n'est pas un choc (moteur :
+  // CollisionSimParams.printed_part_margin, mesure sur deux G-code : contacts a marge 0 jusqu'a 0,18 mm).
+  double part_margin_mm = -0.15;
   double bead_radius_mm = 0.2;         // rayon d'un cordon (moitie du diametre de buse)
   double contact_clearance_mm = 3.0;   // echantillons de la tete a moins de ca de la pointe : ignores
   size_t max_poses = 1500;             // poses de tete testees au plus (echantillonnage regulier)

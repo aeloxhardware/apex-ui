@@ -170,7 +170,7 @@ const scenarios = {
       const k = window.__apexEdit.debugKernel();
       const out = {};
       for (const margin of [0.1, 1, 5, 15, 40]) {
-        const v = await k.validate({ limits: { collisionMarginMm: margin, maxPoses: 4000 }, collisions: true });
+        const v = await k.validate({ limits: { collisionMarginMm: margin, partMarginMm: margin, maxPoses: 4000 }, collisions: true });
         out[margin] = { part: v.headPart, plate: v.headPlate, poses: v.posesTested, checked: v.collisionChecked };
       }
       return JSON.stringify(out);

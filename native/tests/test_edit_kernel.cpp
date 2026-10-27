@@ -1252,9 +1252,10 @@ void test_validation_collisions() {
   const uint32_t low = path.push_tip(60.0, 0.0, 0.2, 90.0, true);
   EditKernel kernel;
   load(kernel, path, default_params());
-  // Tete = ligne de points le long de l'axe, de 5 a 100 mm de la pointe.
+  // Tete = ligne de points le long de l'axe, de 5 a 20 mm de la pointe, tous les 0,1 mm : la marge sur la
+  // matiere etant fine (portee 0,05 mm), un cordon n'est vu que par un echantillon qui le touche.
   std::vector<float> head;
-  for (int s = 1; s <= 20; ++s) { head.push_back(0.0f); head.push_back(5.0f * s); head.push_back(0.0f); }
+  for (int s = 50; s <= 200; ++s) { head.push_back(0.0f); head.push_back(0.1f * s); head.push_back(0.0f); }
   MachineLimits limits;
   Validation v = kernel.validate(limits, true);
   CHECK(!v.collision_checked);                      // pas de modele de tete : saute
@@ -1289,6 +1290,28 @@ void test_validation_collisions() {
   const Validation& live = free.validate(limits, true);
   CHECK(live.collision_checked);
   CHECK(live.indices.size() == free.affected().size());
+}
+
+// Recouvrement tolere : un echantillon de tete a 0,1 mm d'un cordon (dans son rayon de 0,2 mm) n'est pas un
+// choc avec la marge par defaut (-0,15 mm sur la surface), mais l'est avec une marge de 0 mm.
+void test_validation_part_overlap_tolerance() {
+  Path path;
+  for (int k = 0; k <= 30; ++k) path.push_tip(40.0 + 0.1 * k, 0.0, 5.3, 0.0, k > 0);   // cordon depose en premier
+  path.push_tip(40.0, 0.0, 6.0, 0.0, false);
+  std::vector<uint32_t> floor_points;
+  for (int k = 0; k <= 30; ++k) floor_points.push_back(path.push_tip(40.0 + 0.1 * k, 0.0, 0.2, 0.0, k > 0));
+  EditKernel kernel;
+  load(kernel, path, default_params());
+  // Un seul echantillon, a 5 mm au-dessus de la pointe : a 0,1 mm sous le cordon.
+  const float head[3] = {0.0f, 5.0f, 0.0f};
+  kernel.set_head_samples(head, 1);
+  MachineLimits limits;                            // part_margin_mm = -0,15 : portee 0,05 mm
+  CHECK(limits.part_margin_mm < 0.0);
+  Validation v = kernel.validate(limits, true);
+  CHECK((flags_of(v, floor_points[15]) & kViolationHeadPart) == 0);
+  limits.part_margin_mm = 0.0;                     // portee 0,2 mm : le cordon est touche
+  v = kernel.validate(limits, true);
+  CHECK((flags_of(v, floor_points[15]) & kViolationHeadPart) != 0);
 }
 
 // Lissage de B : la pointe ne bouge pas (seul B change), la poignee garde son B exact.
@@ -1620,6 +1643,7 @@ int main() {
       {"validation : limites de B", test_validation_b},
       {"validation : ecart tete / normale", test_validation_normals},
       {"validation : collisions", test_validation_collisions},
+      {"validation : recouvrement tolere", test_validation_part_overlap_tolerance},
       {"lissage de B", test_smooth_b},
       {"rognage", test_trimming},
       {"rognage : matiere traversee", test_trimming_sweep},

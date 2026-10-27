@@ -163,6 +163,8 @@ export interface EditMachineLimits {
   bAccelDegS2?: number;
   plateRadiusMm?: number;
   collisionMarginMm?: number;
+  /** Marge tete / matiere deposee (mm, negative = recouvrement tolere). */
+  partMarginMm?: number;
   beadRadiusMm?: number;
   contactClearanceMm?: number;
   maxPoses?: number;
