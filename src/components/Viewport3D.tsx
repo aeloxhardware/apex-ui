@@ -15,6 +15,7 @@ import { Upload, BoxSelect, LayoutGrid, Trash2 } from 'lucide-react';
 import { showSuccess, showWarning, showError } from '@/utils/toast';
 import styles from './Viewport3D.module.scss';
 import { ApexSlider } from './ApexSlider';
+import { createAirContourCallout } from './airContourCallout';
 import { createGCodeLayer, GCODE_MESH_PREFIX, type ParsedGCode, type ColorByMode } from './gcodeLayer';
 import { createGCodeEditController, type GCodeEditController } from './edit-node/gcodeEditController';
 import GCodeEditOverlay from './edit-node/GCodeEditOverlay';
@@ -2052,6 +2053,9 @@ export const Viewport3D = () => {
       scene, engine, camera, canvas, layer: gcodeLayer, isPreviewActive: () => gcodePreviewActive,
     });
     setEditController(editController);
+    const airCallout = createAirContourCallout({
+      scene, engine, camera, canvas, layer: gcodeLayer, isPreviewActive: () => gcodePreviewActive,
+    });
     if (import.meta.env.DEV) (window as unknown as { __apexEdit?: GCodeEditController }).__apexEdit = editController;
     const onGCodePreviewToggled = (e: Event) => {
       const active = !!(e as CustomEvent<{ active: boolean }>).detail?.active;
@@ -2060,6 +2064,7 @@ export const Viewport3D = () => {
       gcodeLayer.setEnabled(active);
       modelsRef.current.forEach((m) => { if (!m.isDisposed()) m.setEnabled(!active); });
       editController.refresh();
+      airCallout.setPreviewActive();
     };
     const onGCodeLoaded = (e: Event) => {
       const detail = (e as CustomEvent<{ parsed: ParsedGCode; handled?: boolean; onBuilt?: () => void }>).detail;
@@ -2070,6 +2075,7 @@ export const Viewport3D = () => {
       void gcodeLayer.load(detail.parsed).finally(() => {
         detail.onBuilt?.();
         editController.refresh();
+        airCallout.setParsed(detail.parsed);
       });
     };
     const onGCodeTime = (e: Event) => {
@@ -2078,7 +2084,7 @@ export const Viewport3D = () => {
     };
     const onGCodeLineVisibility = (e: Event) => {
       const visibility = (e as CustomEvent<{ visibility: LineTypeVisibility }>).detail?.visibility;
-      if (visibility) gcodeLayer.setLineTypeVisibility(visibility);
+      if (visibility) { gcodeLayer.setLineTypeVisibility(visibility); airCallout.setLineVisibility(visibility); }
     };
     const onGCodeHighlightOffPlate = (e: Event) => {
       const detail = (e as CustomEvent<{ show: boolean; blinking?: boolean }>).detail;
@@ -2218,6 +2224,7 @@ export const Viewport3D = () => {
       window.removeEventListener('apex-gcode-render-precision', onGCodeRenderPrecision);
       editController.dispose();
       setEditController(null);
+      airCallout.dispose();
       gcodeLayer.dispose();
     };
 

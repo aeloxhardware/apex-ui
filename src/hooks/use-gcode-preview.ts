@@ -20,6 +20,8 @@ import type { GCodeGenerator } from '@/components/gcodeGenerator';
 import { isConversionAvailable, runConversion } from '@/utils/gcodeConversion';
 import { parseGCodeAsync } from '@/utils/gcodeParseAsync';
 import { isLocallySliced, writeEditedGCode } from '@/utils/gcodeWriter';
+import { removeAirContours } from '@/utils/gcodeAirRemoval';
+import { AIR_CONTOURS_REMOVE_EVENT } from '@/components/airContourCallout';
 import { readApexHeader, writeApexHeader, type ApexHeaderPayload } from '@/utils/apexHeader';
 import { isEditJournalEnabled } from '@/utils/editJournalPrefs';
 import {
@@ -516,6 +518,30 @@ export function useGCodePreview(active: boolean) {
       window.removeEventListener(EDIT_SAVE_EVENT, onSave);
       window.removeEventListener(EDIT_REQUEST_STATE_EVENT, onRequestState);
     };
+  }, []);
+
+  /** Retire les contours dans l'air du G-code affiché et affiche le résultat (le fichier d'origine
+   * n'est pas touché : copie à l'export). */
+  const removeAirContoursFromCurrent = async () => {
+    const current = currentRef.current;
+    const parsed = parsedRef.current;
+    if (!current || !parsed) return;
+    const result = removeAirContours(current.text, parsed);
+    if ('error' in result) { showError(`Suppression impossible : ${result.error}`); return; }
+    const path = current.path;
+    const next = await loadText(result.text, current.name);
+    if (!next) return;
+    if (currentRef.current) currentRef.current.path = path;
+    publishEditFileInfo();
+    sourceRef.current = next.kind === 'cartesian' ? { text: result.text, name: current.name, parsed: next } : null;
+    showSuccess(`${result.contours} contour${result.contours > 1 ? 's' : ''} en l'air supprimé${result.contours > 1 ? 's' : ''} (${result.removedMm.toFixed(0)} mm de matière) : exportez une copie pour l'enregistrer.`);
+  };
+  const removeAirContoursRef = useRef(removeAirContoursFromCurrent);
+  removeAirContoursRef.current = removeAirContoursFromCurrent;
+  useEffect(() => {
+    const onRemove = () => { void removeAirContoursRef.current(); };
+    window.addEventListener(AIR_CONTOURS_REMOVE_EVENT, onRemove);
+    return () => window.removeEventListener(AIR_CONTOURS_REMOVE_EVENT, onRemove);
   }, []);
 
   // Fichier reçu de Sidebar.tsx (dépôt en Préparation, cf. `enterPreview`) une fois la bascule
