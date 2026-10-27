@@ -210,13 +210,21 @@ struct MachineLimits {
   double b_accel_deg_s2 = 1300.0;      // acceleration angulaire maximale de B
   double plate_radius_mm = 150.0;      // plateau : disque de rayon donne, surface a z = 0
   double collision_margin_mm = 1.0;    // marge de securite tete / plateau
-  // Marge tete / matiere deja deposee, mesuree a la surface du cordon. NEGATIVE = recouvrement tolere : le
-  // modele de tete est exact, effleurer ou mordre un peu la couche n'est pas un choc (moteur :
-  // CollisionSimParams.printed_part_margin, mesure sur deux G-code : contacts a marge 0 jusqu'a 0,18 mm).
-  double part_margin_mm = -0.15;
+  // Tete / matiere deja deposee : le modele de tete est exact, effleurer ou mordre un peu la couche n'est pas un
+  // choc (mesure sur deux G-code : contacts a marge 0 jusqu'a 0,18 mm).
+  // Deux tolerances de recouvrement avec la matiere deja deposee (decision de l'utilisateur, 2026-10-27) :
+  //  - zone de la buse (echantillons a moins de nozzle_zone_mm de la pointe) : on tolere 0,18 mm, la marge
+  //    nominale etant 0 (surface du cordon) ;
+  //  - reste de la tete : on tolere 0,7 mm sur la marge de securite nominale (collision_margin_mm = 1 mm),
+  //    donc la tete garde 0,3 mm de la surface des cordons.
+  double nozzle_tolerance_mm = 0.18;
+  double body_tolerance_mm = 0.7;
+  double nozzle_zone_mm = 10.0;
   double bead_radius_mm = 0.2;         // rayon d'un cordon (moitie du diametre de buse)
   double contact_clearance_mm = 3.0;   // echantillons de la tete a moins de ca de la pointe : ignores
-  size_t max_poses = 1500;             // poses de tete testees au plus (echantillonnage regulier)
+  double pose_spacing_mm = 2.0;        // une pose de tete tous les 2 mm de trajet (comme l'etape 9 du moteur)
+  double densify_step_mm = 0.25;       // pas de densification des cordons (comme le moteur)
+  size_t max_poses = 400000;           // poses de tete testees au plus (echantillonnage regulier)
 };
 
 enum ViolationBit : uint8_t {

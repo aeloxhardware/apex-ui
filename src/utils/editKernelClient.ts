@@ -163,10 +163,14 @@ export interface EditMachineLimits {
   bAccelDegS2?: number;
   plateRadiusMm?: number;
   collisionMarginMm?: number;
-  /** Marge tete / matiere deposee (mm, negative = recouvrement tolere). */
-  partMarginMm?: number;
+  /** Recouvrement tolere avec la matiere deposee : zone de la buse (mm) et reste de la tete (mm). */
+  nozzleToleranceMm?: number;
+  bodyToleranceMm?: number;
+  nozzleZoneMm?: number;
   beadRadiusMm?: number;
   contactClearanceMm?: number;
+  poseSpacingMm?: number;
+  densifyStepMm?: number;
   maxPoses?: number;
 }
 

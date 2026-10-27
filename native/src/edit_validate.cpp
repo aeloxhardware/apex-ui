@@ -5,8 +5,8 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
-#include <unordered_map>
 
+#include "apex/past_material.hpp"
 #include "edit_kernel.hpp"
 #include "parallel.hpp"
 
@@ -34,34 +34,6 @@ double point_segment_distance(const Vec3& p, const Vec3& a, const Vec3& b) {
   t = std::clamp(t, 0.0, 1.0);
   return vnorm(vsub(p, vadd(a, vscale(t, ab))));
 }
-
-// Grille de hachage des points de matiere deplaces (la grille du noyau decrit l'etat valide).
-struct HashGrid {
-  double cell = 2.0;
-  std::unordered_map<uint64_t, std::vector<uint32_t>> cells;
-  static uint64_t key(int64_t x, int64_t y, int64_t z) {
-    constexpr int64_t kBias = 1 << 20;
-    return (static_cast<uint64_t>(x + kBias) & 0x1FFFFF) | ((static_cast<uint64_t>(y + kBias) & 0x1FFFFF) << 21) |
-           ((static_cast<uint64_t>(z + kBias) & 0x1FFFFF) << 42);
-  }
-  int64_t coord(double v) const { return static_cast<int64_t>(std::floor(v / cell)); }
-  void add(uint32_t index, const Vec3& p) { cells[key(coord(p.x), coord(p.y), coord(p.z))].push_back(index); }
-  template <class Fn>
-  void query(const Vec3& p, double radius, Fn&& fn) const {
-    if (cells.empty()) return;
-    const int64_t x0 = coord(p.x - radius), x1 = coord(p.x + radius);
-    const int64_t y0 = coord(p.y - radius), y1 = coord(p.y + radius);
-    const int64_t z0 = coord(p.z - radius), z1 = coord(p.z + radius);
-    for (int64_t z = z0; z <= z1; ++z)
-      for (int64_t y = y0; y <= y1; ++y)
-        for (int64_t x = x0; x <= x1; ++x) {
-          const auto it = cells.find(key(x, y, z));
-          if (it == cells.end()) continue;
-          for (const uint32_t j : it->second) fn(j);
-        }
-  }
-};
-
 
 // Normale de la couche portante au point `tip` : plan moyen des supports (le plus petit vecteur
 // propre de leur covariance), tournee vers le point. Supports alignes (un seul cordon) : la direction
@@ -268,43 +240,102 @@ const Validation& EditKernel::validate(const MachineLimits& limits, bool collisi
   });
 
   // --- Collisions -------------------------------------------------------------------------------
+  // Meme algorithme de verification de trajectoire que l'etape 9 rapide du moteur : la matiere deposee est
+  // densifiee le long des cordons dans un arbre k-d dont chaque point porte l'indice du point qui le depose ;
+  // une pose ne voit que la matiere ANTERIEURE (owner < i), a moins de part_margin + rayon de cordon de l'un
+  // de ses echantillons de tete. Poses prises tous les pose_spacing_mm de trajet.
   const size_t samples = head_.size() / 3;
   if (collisions && samples > 0) {
     out.collision_checked = true;
+
+    // Poses : une tous les pose_spacing_mm de trajet extrude ou non, sur les points juges.
     std::vector<size_t> tested;  // rangs dans idx des poses testees
-    for (size_t k = 0; k < count; ++k) {
-      if (pass_[idx[k]] >= 0) tested.push_back(k);
-    }
-    const size_t cap = std::max<size_t>(1, limits.max_poses);
-    if (tested.size() > cap) {
-      std::vector<size_t> thinned;
-      thinned.reserve(cap);
-      for (size_t t = 0; t < cap; ++t) thinned.push_back(tested[t * tested.size() / cap]);
-      tested.swap(thinned);
+    {
+      double since = std::numeric_limits<double>::infinity();
+      uint32_t last = kNoIndex;
+      for (size_t k = 0; k < count; ++k) {
+        const uint32_t q = idx[k];
+        if (pass_[q] < 0) continue;
+        const Vec3 tip = tip_of(q);
+        if (last != kNoIndex && q == last + 1) since += vnorm(vsub(tip, tip_of(last)));
+        else if (last != kNoIndex) since = std::numeric_limits<double>::infinity();
+        last = q;
+        if (since >= limits.pose_spacing_mm) {
+          tested.push_back(k);
+          since = 0.0;
+        }
+      }
+      const size_t cap = std::max<size_t>(1, limits.max_poses);
+      if (tested.size() > cap) {
+        std::vector<size_t> thinned;
+        thinned.reserve(cap);
+        for (size_t t = 0; t < cap; ++t) thinned.push_back(tested[t * tested.size() / cap]);
+        tested.swap(thinned);
+      }
     }
     out.poses_tested = tested.size();
 
-    const double reach = limits.part_margin_mm + limits.bead_radius_mm;   // matiere ; le plateau garde collision_margin_mm
+    // Portees (marge nominale - tolerance + rayon de cordon). Buse : 0 - 0,18 + 0,2 ; reste de la tete :
+    // 1 - 0,7 + 0,2. Le plateau garde collision_margin_mm.
+    const double reach_nozzle = -limits.nozzle_tolerance_mm + limits.bead_radius_mm;
+    const double reach_body = limits.collision_margin_mm - limits.body_tolerance_mm + limits.bead_radius_mm;
+    const double reach = std::max(reach_nozzle, reach_body);
     // Echantillons au-dela de la zone de garde autour de la pointe.
     std::vector<uint32_t> usable;
+    std::vector<uint8_t> is_nozzle;   // parallele a usable : 1 = zone de la buse
+    double head_radius = 0.0;
     for (size_t s = 0; s < samples; ++s) {
       const double x = head_[3 * s], y = head_[3 * s + 1], z = head_[3 * s + 2];
-      if (std::sqrt(x * x + y * y + z * z) >= limits.contact_clearance_mm) usable.push_back(static_cast<uint32_t>(s));
+      const double norm = std::sqrt(x * x + y * y + z * z);
+      head_radius = std::max(head_radius, norm);
+      if (norm >= limits.contact_clearance_mm) {
+        usable.push_back(static_cast<uint32_t>(s));
+        is_nozzle.push_back(norm <= limits.nozzle_zone_mm ? 1 : 0);
+      }
     }
     if (usable.empty()) {
-      for (size_t s = 0; s < samples; ++s) usable.push_back(static_cast<uint32_t>(s));
-    }
-
-    // Matiere deplacee : hachage des points touches (la grille du noyau les place a leur ancien lieu).
-    HashGrid moved;
-    moved.cell = std::max(2.0, reach);
-    if (live) {
-      for (size_t s = 0; s < affected_.size(); ++s) {
-        if (pass_[affected_[s]] >= 0) moved.add(affected_[s], dtip_[s]);
+      for (size_t s = 0; s < samples; ++s) {
+        usable.push_back(static_cast<uint32_t>(s));
+        is_nozzle.push_back(0);
       }
     }
 
+    // Matiere : cordons densifies (positions COURANTES, deformees pendant un glissement), limites a la boite
+    // de la tete autour des poses testees pour ne pas indexer tout le fichier a chaque image.
+    std::vector<double> dense_points;
+    std::vector<int64_t> dense_owners;
+    if (!tested.empty()) {
+      Vec3 lo_box{1e300, 1e300, 1e300}, hi_box{-1e300, -1e300, -1e300};
+      for (const size_t k : tested) {
+        const Vec3 t = tip_of(idx[k]);
+        lo_box = {std::min(lo_box.x, t.x), std::min(lo_box.y, t.y), std::min(lo_box.z, t.z)};
+        hi_box = {std::max(hi_box.x, t.x), std::max(hi_box.y, t.y), std::max(hi_box.z, t.z)};
+      }
+      const double pad = head_radius + reach + 1.0;
+      uint32_t last_pose = idx[tested.back()];
+      const double step = std::max(1e-3, limits.densify_step_mm);
+      for (uint32_t j = 1; j <= last_pose && j < n; ++j) {
+        if (pass_[j] < 0 || pass_[j - 1] < 0 || !extruding_[j]) continue;
+        const Vec3 a = tip_of(j - 1), b = tip_of(j);
+        if (std::max(a.x, b.x) < lo_box.x - pad || std::min(a.x, b.x) > hi_box.x + pad ||
+            std::max(a.y, b.y) < lo_box.y - pad || std::min(a.y, b.y) > hi_box.y + pad ||
+            std::max(a.z, b.z) < lo_box.z - pad || std::min(a.z, b.z) > hi_box.z + pad) continue;
+        const double len = vnorm(vsub(b, a));
+        const int parts = std::max(1, static_cast<int>(std::ceil(len / step)));
+        for (int u = 0; u <= parts; ++u) {
+          const double t = static_cast<double>(u) / parts;
+          dense_points.push_back(a.x + t * (b.x - a.x));
+          dense_points.push_back(a.y + t * (b.y - a.y));
+          dense_points.push_back(a.z + t * (b.z - a.z));
+          dense_owners.push_back(j);
+        }
+      }
+    }
+    const apex::PastMaterialIndex matter(dense_points.data(), dense_owners.data(),
+                                         static_cast<int64_t>(dense_owners.size()));
+
     parallel_for(tested.size(), threads_, 16, [&](size_t a, size_t e) {
+      std::vector<double> nozzle_points(3 * usable.size()), body_points(3 * usable.size());
       for (size_t t = a; t < e; ++t) {
         const size_t k = tested[t];
         const uint32_t i = idx[k];
@@ -317,42 +348,25 @@ const Validation& EditKernel::validate(const MachineLimits& limits, bool collisi
         if (exl < 1e-9) continue;
         ex = vscale(1.0 / exl, ex);
         uint8_t f = 0;
-        for (const uint32_t s : usable) {
+        size_t mn = 0, mb = 0;
+        for (size_t u = 0; u < usable.size(); ++u) {
+          const uint32_t s = usable[u];
           const Vec3 p = vadd(tip, vadd(vadd(vscale(head_[3 * s], ex), vscale(head_[3 * s + 1], ax)), vscale(head_[3 * s + 2], tang)));
+          double* dst = is_nozzle[u] ? &nozzle_points[3 * mn++] : &body_points[3 * mb++];
+          dst[0] = p.x; dst[1] = p.y; dst[2] = p.z;
           if (p.z < limits.collision_margin_mm && std::hypot(p.x, p.y) <= limits.plate_radius_mm + limits.collision_margin_mm) {
             f |= kViolationHeadPlate;
           }
-          if (!(f & kViolationHeadPart)) {
-            auto test = [&](uint32_t j) {
-              if (f & kViolationHeadPart) return;
-              if (j >= i || pass_[j] < 0) return;
-              if (live && slot_[j] >= 0) return;  // remplace par sa position deformee (hachage)
-              const Vec3 q = tip_[j];
-              if (std::abs(q.x - p.x) > reach || std::abs(q.y - p.y) > reach || std::abs(q.z - p.z) > reach) return;
-              double d = vnorm(vsub(p, q));
-              if (extruding_[j] && j > 0) {
-                const Vec3 prev = (live && slot_[j - 1] >= 0) ? dtip_[static_cast<size_t>(slot_[j - 1])] : tip_[j - 1];
-                d = std::min(d, point_segment_distance(p, prev, q));
-              }
-              if (d < reach) f |= kViolationHeadPart;
-            };
-            for_each_in_box(vsub(p, {reach, reach, reach}), vadd(p, {reach, reach, reach}), test);
-            if (live && !(f & kViolationHeadPart)) {
-              moved.query(p, reach, [&](uint32_t j) {
-                if (f & kViolationHeadPart) return;
-                if (j >= i) return;
-                const size_t sj = static_cast<size_t>(slot_[j]);
-                const Vec3 q = dtip_[sj];
-                double d = vnorm(vsub(p, q));
-                if (extruding_[j] && j > 0) {
-                  const Vec3 prev = slot_[j - 1] >= 0 ? dtip_[static_cast<size_t>(slot_[j - 1])] : tip_[j - 1];
-                  d = std::min(d, point_segment_distance(p, prev, q));
-                }
-                if (d < reach) f |= kViolationHeadPart;
-              });
-            }
+        }
+        if (matter.size() > 0) {
+          if (reach_nozzle > 0.0 && mn > 0 &&
+              matter.min_past_distance(nozzle_points.data(), static_cast<int64_t>(mn), static_cast<int64_t>(i), reach_nozzle) < reach_nozzle) {
+            f |= kViolationHeadPart;
           }
-          if ((f & kViolationHeadPlate) && (f & kViolationHeadPart)) break;
+          if (!(f & kViolationHeadPart) && reach_body > 0.0 && mb > 0 &&
+              matter.min_past_distance(body_points.data(), static_cast<int64_t>(mb), static_cast<int64_t>(i), reach_body) < reach_body) {
+            f |= kViolationHeadPart;
+          }
         }
         out.flags[k] |= f;
       }

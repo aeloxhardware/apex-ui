@@ -27,7 +27,7 @@ function(apex_edit_flags target)
   endif()
 endfunction()
 
-add_library(apex_edit_core STATIC src/edit_kernel.cpp src/edit_validate.cpp)
+add_library(apex_edit_core STATIC src/edit_kernel.cpp src/edit_validate.cpp src/past_material.cpp)
 target_include_directories(apex_edit_core PUBLIC src)
 target_link_libraries(apex_edit_core PUBLIC Threads::Threads)
 set_target_properties(apex_edit_core PROPERTIES POSITION_INDEPENDENT_CODE ON)

@@ -16,8 +16,9 @@ export interface MachineLimits {
   bAccelDegS2: number;
   plateRadiusMm: number;
   collisionMarginMm: number;
-  /** Marge tête / matière déjà déposée, à la surface du cordon. Négative : la pointe peut effleurer ou mordre un peu la couche. */
-  partMarginMm: number;
+  /** Recouvrement toléré avec la matière déjà déposée : buse (mm) puis reste de la tête (mm, sur la marge de sécurité). */
+  nozzleToleranceMm: number;
+  bodyToleranceMm: number;
 }
 
 export const DEFAULT_MACHINE_LIMITS: MachineLimits = {
@@ -27,7 +28,8 @@ export const DEFAULT_MACHINE_LIMITS: MachineLimits = {
   bAccelDegS2: 1300,
   plateRadiusMm: 150,
   collisionMarginMm: 1,
-  partMarginMm: -0.15,
+  nozzleToleranceMm: 0.18,
+  bodyToleranceMm: 0.7,
 };
 
 const STORAGE_KEY = 'apex-edit-machine-limits';
@@ -41,8 +43,8 @@ export function loadMachineLimits(): MachineLimits {
     for (const key of Object.keys(out) as (keyof MachineLimits)[]) {
       const v = parsed[key];
       if (typeof v === 'number' && Number.isFinite(v) && v >= 0) out[key] = v;
-      // B minimal et marge sur la matière peuvent être négatifs.
-      if ((key === 'bMinDeg' || key === 'partMarginMm') && typeof v === 'number' && Number.isFinite(v)) out[key] = v;
+      // B minimal peut être négatif (axe de tête réglé autrement).
+      if ((key === 'bMinDeg') && typeof v === 'number' && Number.isFinite(v)) out[key] = v;
     }
     return out;
   } catch {
