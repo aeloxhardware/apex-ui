@@ -5,6 +5,7 @@ import {
   type LineTypeId,
   type LineTypeVisibility,
 } from './gcodeLineTypes';
+import { findAirContours } from './gcodeAirContours';
 import { detectGeneratorSignature, guessGeneratorFromFeature, type GCodeGenerator } from './gcodeGenerator';
 import type { ApexHeaderPayload, ApexJournal } from '@/utils/apexHeader';
 
@@ -123,6 +124,9 @@ export interface ParsedGCode {
   /** Cartésien : dépôts qui finissent hors du plateau de l'Apex (PLATE_RADIUS_MM autour du centre)
    * — indices croissants — et nombre de traits (suites continues) qu'ils forment. */
   offPlate: { moves: Uint32Array; traits: number };
+  /** Cartésien, PrusaSlicer à couches non planaires : contours imprimés dans l'air (type `airContour`),
+   * en paires [premier, dernier] d'indices de mouvement croissants. Vide ailleurs. */
+  airContours: Uint32Array;
 
   // --- Données par mouvement pour la coloration « colorer par » (cf. gcodeColormap.ts) ---
   // Tableaux parallèles à `moves`/`times` (index 0 inutilisé, comme `times[0] = 0`), remplis une
@@ -433,6 +437,7 @@ export function parseGCode(text: string): ParsedGCode {
   let printer: string | null = null;
   let signature: string | null = null;
   let featureStyleGuess: string | null = null;
+  let nonplanarFeatures = false;
   let iceSLLayers = false;
   let conversion: ConversionMode | null = null;
   // États modaux pour la coloration « colorer par » (cf. ParsedGCode) : consigne commandée, pas
@@ -471,6 +476,7 @@ export function parseGCode(text: string): ParsedGCode {
     const feat = FEATURE_RE.exec(comment);
     if (feat && !comment.includes('=')) {
       feature = resolveLineType(feat[1]);
+      if (feature === 'nonplanarSolidInfill' || feature === 'nonplanarTopSurface') nonplanarFeatures = true;
       featureStyleGuess ??= guessGeneratorFromFeature(feat[1], !/^\s*(?:TYPE|FEATURE)\s*:/i.test(comment));
       return;
     }
@@ -838,6 +844,25 @@ export function parseGCode(text: string): ParsedGCode {
     layerMaxSpeedMmS[k] = layerMaxSpeedByIndex.get(layerIndices[k]) ?? 0;
   }
 
+  // Contours émis dans l'air par le PrusaSlicer à couches non planaires : requalifiés (rouge) avant les
+  // statistiques, et leurs coutures retirées (une par tronçon : elles masqueraient le tracé).
+  const airRanges: number[] = [];
+  if (kind === 'cartesian' && nonplanarFeatures) {
+    for (const run of findAirContours(moves)) {
+      airRanges.push(run.start, run.end);
+      for (let k = run.start; k <= run.end; k++) {
+        if (moves[k].extruding && (moves[k].type === 'outerWall' || moves[k].type === 'innerWall')) moves[k].type = 'airContour';
+      }
+    }
+    if (airRanges.length) {
+      const inAir = (k: number) => {
+        for (let r = 0; r < airRanges.length; r += 2) if (k >= airRanges[r] - 1 && k <= airRanges[r + 1]) return true;
+        return false;
+      };
+      for (let i = seamAt.length - 1; i >= 0; i--) if (inAir(seamAt[i])) seamAt.splice(i, 1);
+    }
+  }
+
   const lineStats = emptyStats();
   for (let k = 1; k < moves.length; k++) {
     const stat = lineStats[moves[k].type];
@@ -871,6 +896,8 @@ export function parseGCode(text: string): ParsedGCode {
   else if (kind === 'polar') generator = { name: 'Générateur Apex 4 axes', inferred: true };
   else if (featureStyleGuess) generator = { name: featureStyleGuess, inferred: true };
   else if (iceSLLayers) generator = { name: 'IceSL', inferred: true };
+  // PrusaSlicer modifié (couches non planaires) : ses marqueurs `;TYPE:Nonplanar …` n'existent pas dans l'original.
+  if (generator && nonplanarFeatures && /PrusaSlicer/i.test(generator.name)) generator.name += ' (Non-planar fork)';
 
   const layerHeightMm = Float32Array.from(layerHeights);
   const layerIndex = Uint32Array.from(layerIndices);
@@ -948,6 +975,7 @@ export function parseGCode(text: string): ParsedGCode {
     bedCenter: usedCenter,
     conversion,
     offPlate: { moves: Uint32Array.from(offPlateMoves), traits: offPlateTraits },
+    airContours: Uint32Array.from(airRanges),
     markers: {
       retraction: Uint32Array.from(retractionAt),
       unretraction: Uint32Array.from(unretractionAt),

@@ -2,9 +2,14 @@
 
 Historique de toutes les versions du logiciel Apex (numéro de version), et non des Releases GitHub. Seul lien avec la publication : le compteur Builds (voir `CLAUDE.md`). Format et règles de numérotation : section « Versioning » de `CLAUDE.md`.
 
-**Version actuelle : `alpha-0.2.1.4.3.11.1.221`**
+**Version actuelle : `alpha-0.2.1.4.4.1.1.221`**
 
 `<préversion>-<public>.<global>.<majeur>.<moyen>.<mineur>.<add-ins>.<correctif>.<builds>`
+
+## alpha-0.2.1.4.4.1.1.221 — 2026-10-27
+
+- Prévisualisation, PrusaSlicer à couches non planaires : les types `;TYPE:Nonplanar solid infill` (violet) et `;TYPE:Nonplanar top solid infill` (marron) sont reconnus au lieu de tomber dans « Personnalisé » ; le générateur affiché devient « PrusaSlicer … (Non-planar fork) ».
+- **Contours en l'air** (défaut connu de ce fork, risque de collision) : détection géométrique dans l'ordre de dépôt (`gcodeAirContours.ts`, parois sans matière dessous, tronçons rattachés, montée verticale comprise), nouveau type de ligne rouge « Contour en l'air » (`#FF0000`), coutures de ces tronçons retirées. Infobulle ancrée dans la vue 3D (`airContourCallout.ts` : flou, ombre portée, filtre rouge pulsant à 1 Hz, traits vers les contours, bouton) et suppression (`utils/gcodeAirRemoval.ts` : extrudeur relatif seulement ; le premier dépôt qui suit devient un déplacement ; fichier d'origine intact, copie à l'export). Niveau Mineur incrémenté, Add-ins et Correctif remis à 1 (convention à confirmer : cf. « Not yet defined » de `CLAUDE.md`). Le `VERSION` du dépôt partagé `aeloxhardware/apex` n'a pas été mis à jour depuis cette session.
 
 ## alpha-0.2.1.4.3.11.1.221 — 2026-10-21
 

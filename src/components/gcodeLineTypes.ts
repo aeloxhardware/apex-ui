@@ -12,9 +12,12 @@ export type LineTypeId =
   | 'internalSolidInfill'
   | 'topSurface'
   | 'bottomSurface'
+  | 'nonplanarSolidInfill'
+  | 'nonplanarTopSurface'
   | 'bridge'
   | 'internalBridge'
   | 'gapFill'
+  | 'airContour'
   | 'custom'
   | 'travel'
   | 'retraction'
@@ -53,12 +56,18 @@ export const LINE_TYPES: LineTypeInfo[] = [
     description: 'Dernières couches pleines visibles sur le dessus de la pièce.' },
   { id: 'bottomSurface', label: 'Surface inférieure', color: '#6659C7', kind: 'extrusion', visibleByDefault: true,
     description: 'Premières couches pleines, en contact avec le plateau.' },
+  { id: 'nonplanarSolidInfill', label: 'Remplissage plein non planaire', color: '#A100FF', kind: 'extrusion', visibleByDefault: true,
+    description: 'Couches pleines dont la hauteur Z varie le long du trajet (couches non planaires de PrusaSlicer modifié).' },
+  { id: 'nonplanarTopSurface', label: 'Surface supérieure non planaire', color: '#8B5A2B', kind: 'extrusion', visibleByDefault: true,
+    description: 'Dernière couche pleine visible dont la hauteur Z suit la surface courbe de la pièce (couches non planaires).' },
   { id: 'bridge', label: 'Pont', color: '#4D66A1', kind: 'extrusion', visibleByDefault: true,
     description: 'Lignes tendues dans le vide entre deux appuis, sur une face visible.' },
   { id: 'internalBridge', label: 'Pont interne', color: '#4D80BA', kind: 'extrusion', visibleByDefault: true,
     description: "Ponts tendus au-dessus du remplissage, à l'intérieur de la pièce." },
   { id: 'gapFill', label: 'Espace de remplissage', color: '#FFFFFF', kind: 'extrusion', visibleByDefault: true,
     description: 'Fines lignes qui comblent les interstices trop étroits pour une paroi complète.' },
+  { id: 'airContour', label: "Contour en l'air", color: '#FF0000', kind: 'extrusion', visibleByDefault: true,
+    description: "Parois imprimées sans aucune matière dessous (défaut du PrusaSlicer à couches non planaires) : la tête les parcourt au-dessus de la pièce et risque de la percuter." },
   { id: 'custom', label: 'Personnalisé', color: '#5ED194', kind: 'extrusion', visibleByDefault: true,
     description: 'G-code personnalisé (purge, début et fin) et extrusions sans type reconnu (jupe, bordure, supports…).' },
   { id: 'travel', label: 'Déplacement', color: '#3A4A9C', kind: 'move', visibleByDefault: false,
@@ -96,6 +105,7 @@ const ALIASES: Record<string, LineTypeId> = {
   internalsolidinfill: 'internalSolidInfill', solidinfill: 'internalSolidInfill', solidlayer: 'internalSolidInfill',
   topsurface: 'topSurface', topsolidinfill: 'topSurface', skin: 'topSurface', ironing: 'topSurface',
   bottomsurface: 'bottomSurface', bottomsolidinfill: 'bottomSurface',
+  nonplanarsolidinfill: 'nonplanarSolidInfill', nonplanartopsolidinfill: 'nonplanarTopSurface',
   bridge: 'bridge', bridgeinfill: 'bridge', externalbridge: 'bridge',
   internalbridge: 'internalBridge', internalbridgeinfill: 'internalBridge',
   gapinfill: 'gapFill', gapfill: 'gapFill',
