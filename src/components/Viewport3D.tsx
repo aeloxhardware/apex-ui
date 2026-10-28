@@ -1020,11 +1020,64 @@ export const Viewport3D = () => {
     blurRT.addPostProcess(blurH);
     blurRT.addPostProcess(blurV);
 
+    // Trajectoire et tête de l'AUTRE côté du plateau que la caméra : le disque opaque les cache, et la capture
+    // `blurRT` ne contient pas le G-code (du côté de la caméra elle n'ajouterait qu'un halo autour du tracé). Capture
+    // à part, coupée au plan du plateau : vue du dessus seule la partie enfouie (Z < 0) y entre, vue du dessous seule la
+    // partie posée sur le plateau ; floutée comme le reste, puis composée sur le verre par le shader du disque
+    // (couleur prémultipliée : le flou d'un fond transparent donne la couverture en alpha).
+    const gcodeBlurRT = new BABYLON.RenderTargetTexture("gcodeBlurRT", { width: rtWidth, height: rtHeight }, scene, { generateMipMaps: false });
+    gcodeBlurRT.activeCamera = camera;
+    gcodeBlurRT.ignoreCameraViewport = true;
+    gcodeBlurRT.clearColor = new BABYLON.Color4(0, 0, 0, 0);
+    gcodeBlurRT.updateSamplingMode(BABYLON.Texture.BILINEAR_SAMPLINGMODE);
+    gcodeBlurRT.refreshRate = 0;
+    scene.customRenderTargets.push(gcodeBlurRT);
+    const gcodeBlurH = new BABYLON.BlurPostProcess("gcodeBlurH", new BABYLON.Vector2(1, 0), DEFAULT_BLUR_LEVEL, 1, null, BABYLON.Texture.BILINEAR_SAMPLINGMODE, engine, false);
+    const gcodeBlurV = new BABYLON.BlurPostProcess("gcodeBlurV", new BABYLON.Vector2(0, 1), DEFAULT_BLUR_LEVEL, 1, null, BABYLON.Texture.BILINEAR_SAMPLINGMODE, engine, false);
+    gcodeBlurRT.addPostProcess(gcodeBlurH);
+    gcodeBlurRT.addPostProcess(gcodeBlurV);
+    // Z = 0 du G-code : gcodeAnchor, juste au-dessus du disque (cf. plus bas). Un plan de coupe retire les points où
+    // plan·p > 0 : le premier ne garde que ce qui est sous le plateau, le second que ce qui est au-dessus.
+    const gcodePlateY = PLATE_SURFACE_Y + 0.05;
+    const gcodeKeepBelow = new BABYLON.Plane(0, 1, 0, -gcodePlateY);
+    const gcodeKeepAbove = new BABYLON.Plane(0, -1, 0, gcodePlateY);
+    gcodeBlurRT.onBeforeRenderObservable.add(() => {
+      const fromAbove = camera.globalPosition.y >= gcodePlateY;
+      scene.clipPlane = fromAbove ? gcodeKeepBelow : gcodeKeepAbove;
+      // Vu du dessous, le tracé posé sur le plateau est éclairé par le haut : ses faces visibles sont sombres, on les relève.
+      glassDiscMat.setFloat("gcodeGain", fromAbove ? 1 : 2.2);
+    });
+    gcodeBlurRT.onAfterRenderObservable.add(() => { scene.clipPlane = null; });
+    const capturedInGcodeBlur = (m: BABYLON.AbstractMesh) =>
+      m.name.startsWith(GCODE_MESH_PREFIX) && !m.name.includes('OffPlate') && !m.name.includes('PickHighlight');
+    gcodeBlurRT.renderList = scene.meshes.filter(capturedInGcodeBlur);
+    scene.onNewMeshAddedObservable.add((m) => {
+      if (capturedInGcodeBlur(m) && gcodeBlurRT.renderList) gcodeBlurRT.renderList.push(m);
+    });
+    scene.onMeshRemovedObservable.add((m) => {
+      const list = gcodeBlurRT.renderList;
+      const i = list ? list.indexOf(m) : -1;
+      if (list && i >= 0) list.splice(i, 1);
+    });
+    // Rendue à chaque image seulement quand un G-code est affiché (et que le plateau est en verre) ; à l'extinction,
+    // une dernière capture, vide, efface l'image précédente.
+    let gcodeBlurOn = false;
+    scene.onBeforeRenderObservable.add(() => {
+      const root = scene.getTransformNodeByName(`${GCODE_MESH_PREFIX}Root`);
+      const on = !!root && root.isEnabled() && !(flat && !isPlateShaded());
+      if (on === gcodeBlurOn) return;
+      gcodeBlurOn = on;
+      gcodeBlurRT.refreshRate = on ? 1 : 0;
+      if (!on) gcodeBlurRT.resetRefreshCounter();
+    });
+
     const onSetBlurLevel = (e: Event) => {
       const level = (e as CustomEvent<{ level: number }>).detail?.level;
       if (typeof level === 'number') {
         blurH.kernel = level;
         blurV.kernel = level;
+        gcodeBlurH.kernel = level;
+        gcodeBlurV.kernel = level;
       }
     };
     window.addEventListener('apex-set-blur-level', onSetBlurLevel);
@@ -1044,19 +1097,26 @@ export const Viewport3D = () => {
       precision highp float;
       varying vec4 vClip;
       uniform sampler2D blurTex;
+      uniform sampler2D gcodeTex;
+      uniform float gcodeGain;
       void main(void) {
         vec2 ndc = vClip.xy / vClip.w;
         vec2 uv = ndc * 0.5 + 0.5;
         vec3 color = texture2D(blurTex, uv).rgb;
+        // Trajectoire et tête enfouies sous le plateau (capture floutée, couleur prémultipliée).
+        vec4 buried = texture2D(gcodeTex, uv);
+        color = color * (1.0 - buried.a) + min(buried.rgb * gcodeGain, vec3(1.0));
         gl_FragColor = vec4(color, 1.0);
       }
     `;
     const glassDiscMat = new BABYLON.ShaderMaterial("glassDiscMat", scene, { vertex: "glassDisc", fragment: "glassDisc" }, {
       attributes: ["position"],
-      uniforms: ["worldViewProjection"],
-      samplers: ["blurTex"],
+      uniforms: ["worldViewProjection", "gcodeGain"],
+      samplers: ["blurTex", "gcodeTex"],
     });
+    glassDiscMat.setFloat("gcodeGain", 1);
     glassDiscMat.setTexture("blurTex", blurRT);
+    glassDiscMat.setTexture("gcodeTex", gcodeBlurRT);
     glassDiscMat.backFaceCulling = false;
 
     const glassDisc = BABYLON.MeshBuilder.CreateDisc("glassDisc", { radius: RADIUS, tessellation: 360 }, scene);

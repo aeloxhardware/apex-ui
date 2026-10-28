@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Sidebar } from '@/components/Sidebar';
 import { FileSidebar } from '@/components/FileSidebar';
 import { SliceSidebar } from '@/components/SliceSidebar';
+import { EngineSettingsPanel } from '@/components/EngineSettingsPanel';
 import { CategoriesSidebar } from '@/components/CategoriesSidebar';
 import { PrinterConfigSidebar } from '@/components/PrinterConfigSidebar';
 import { AxisSidebar } from '@/components/AxisSidebar';
@@ -391,6 +392,9 @@ const Index = () => {
                     selectedFilament={selectedFilament}
                     onSelectFilament={setSelectedFilament}
                   />
+
+                  {/* Espace Préparation seulement : réglages propres au slicer non-planaire (valeurs envoyées au moteur). */}
+                  {activeTab === '3d-view' && !isPreviewActive && <EngineSettingsPanel />}
 
                   <SliceSidebar
                     onSlice={handleSlice}

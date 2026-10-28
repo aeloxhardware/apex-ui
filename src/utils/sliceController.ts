@@ -3,7 +3,8 @@
 // (RULES §5.3) : jamais de minuterie, jamais de durée estimée. Les étapes affichées sont celles que le
 // moteur publie (`main.py steps`), pas une liste écrite ici.
 import { APEX_CONTRACT_VERSION } from '@/utils/engineContract';
-import { getEngineAdvancedPrefs } from '@/utils/engineAdvancedPrefs';
+import { buildEngineOverrides } from '@/utils/engineSettings';
+import { stepLabel } from '@/utils/sliceStepLabels';
 import { DEFAULT_PRINTER_PROFILE, engineMachineProfile, enginePivotToTip } from '@/utils/machineProfile';
 
 export interface SliceStep { slug: string; label: string }
@@ -58,7 +59,7 @@ export const sliceController = {
     let unsubscribe: (() => void) | undefined;
     try {
       const { steps } = await bridge.sliceSteps();
-      set({ steps });
+      set({ steps: steps.map((s) => ({ ...s, label: stepLabel(s.slug, s.label) })) });
 
       const stl = await new Promise<Uint8Array | null>((resolve) => {
         window.dispatchEvent(new CustomEvent('apex-export-plate-stl', { detail: { resolve } }));
@@ -81,17 +82,13 @@ export const sliceController = {
       });
 
       const pivot = enginePivotToTip(DEFAULT_PRINTER_PROFILE);
-      const advanced = getEngineAdvancedPrefs();
+      // Réglages du panneau de Préparation : seulement ce qui diffère du défaut du moteur (plus `allow_multi_mesh`, R-013).
+      const overrides = buildEngineOverrides();
       const { result, gcodeText } = await bridge.slice({
         contract: APEX_CONTRACT_VERSION,
         stl,
-        params: {
-          machine_profile: engineMachineProfile(DEFAULT_PRINTER_PROFILE),
-          field_solver: { heat_method_time_factor: advanced.heatMethodTimeFactor },
-          // Plusieurs pièces posées sur le plateau : un seul maillage, le moteur doit l'accepter (R-013).
-          allow_multi_mesh: advanced.allowMultiMesh,
-        },
-        gcode_params: pivot === null ? {} : { pivot_to_tip: pivot },
+        params: { ...overrides.params, machine_profile: engineMachineProfile(DEFAULT_PRINTER_PROFILE) },
+        gcode_params: { ...overrides.gcodeParams, ...(pivot === null ? {} : { pivot_to_tip: pivot }) },
       });
 
       if (result.status === 'cancelled') {

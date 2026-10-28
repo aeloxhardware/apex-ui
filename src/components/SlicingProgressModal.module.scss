@@ -103,6 +103,20 @@
   gap: 10px;
 }
 
+// « Démarrage du moteur… » : petit indicateur de chargement, même tourniquet cyan que l'étape en cours.
+.startingRow {
+  align-items: center;
+}
+
+.startingSpinner {
+  display: inline-flex;
+  color: #00f0ff;
+
+  svg {
+    animation: stepSpin 0.9s linear infinite;
+  }
+}
+
 .stepIndex {
   font-family: 'Orbitron', sans-serif !important;
   font-size: 11px;

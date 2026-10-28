@@ -49,7 +49,8 @@ export const SlicingProgressModal: React.FC<SlicingProgressModalProps> = ({ isOp
 
         <div className={styles.modalCard} style={{ width: '440px', padding: '18px 20px', gap: '14px' }}>
           {steps.length === 0 && !isFailed && (
-            <div className={styles.stepRow}>
+            <div className={`${styles.stepRow} ${styles.startingRow}`}>
+              <span className={styles.startingSpinner}><Loader2 size={16} /></span>
               <span className={styles.stepLabel}>Démarrage du moteur…</span>
             </div>
           )}

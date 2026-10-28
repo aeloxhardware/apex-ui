@@ -14,6 +14,8 @@ const schemaCopy = path.join(outDir, 'params.schema.json');
 const typesFile = path.join(outDir, 'params.schema.ts');
 const contractFile = path.join(root, 'src', 'utils', 'engineContract.ts');
 
+const registryFile = path.join(root, 'src', 'utils', 'engineSettings.json');
+
 const mode = process.argv.includes('--verify') ? 'verify' : process.argv.includes('--check') ? 'check' : 'sync';
 
 const pascal = (s) => s;
@@ -68,6 +70,40 @@ function generateTypes(schema) {
 const read = (file) => fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
 const fail = (msg) => { console.error(`sync-engine-schema : ${msg}`); process.exit(1); };
 
+/**
+ * Chaque réglage du panneau (engineSettings.json) doit désigner un champ réel du schéma, du bon type, avec le même
+ * défaut et les mêmes valeurs énumérées : un paramètre renommé ou retiré par le moteur fait échouer la construction.
+ */
+function verifyRegistry(schema) {
+  const defs = schema.$defs;
+  const refOf = (node) => (node.$ref ?? (node.anyOf ?? []).find((n) => n.$ref)?.$ref ?? '').split('/').pop();
+  const problems = [];
+  for (const s of JSON.parse(read(registryFile))) {
+    const [root0, ...rest] = s.path.split('.');
+    let def = root0 === 'gcode_params' ? defs.GcodeParams : defs.PipelineParams;
+    let node = null;
+    let pipelineDefault = root0 === 'gcode_params' ? undefined : schema.$defs.PipelineParams.properties;
+    const keys = root0 === 'gcode_params' ? rest : [root0, ...rest];
+    let ok = true;
+    for (const [i, key] of keys.entries()) {
+      node = def.properties[key];
+      if (!node) { problems.push(`${s.path} : « ${key} » absent du schéma`); ok = false; break; }
+      if (i < keys.length - 1) def = defs[refOf(node)];
+    }
+    if (!ok) continue;
+    const types = (node.anyOf ?? [node]).map((n) => n.type).filter(Boolean).sort().join('|');
+    const expected = s.type === 'number|null' ? 'null|number' : s.type;
+    if (types !== expected) problems.push(`${s.path} : type ${types} dans le schéma, ${s.type} dans la liste`);
+    // Le schéma n'énumère pas toujours les valeurs (ex. `mesher`, chaîne libre côté schéma) : on compare quand il le fait.
+    if (s.enum && node.enum && JSON.stringify(node.enum) !== JSON.stringify(s.enum)) problems.push(`${s.path} : valeurs énumérées différentes`);
+    // Défaut : celui du champ, sinon celui de l'objet imbriqué par défaut de PipelineParams (ex. collision.safety_margin).
+    let dflt = node.default;
+    if (dflt === undefined && keys.length === 2 && pipelineDefault) dflt = pipelineDefault[keys[0]]?.default?.[keys[1]];
+    if (dflt !== undefined && dflt !== s.default) problems.push(`${s.path} : défaut ${dflt} dans le schéma, ${s.default} dans la liste`);
+  }
+  if (problems.length) fail(['engineSettings.json en désaccord avec le schéma :', ...problems.map((p) => `  ${p}`)].join(String.fromCharCode(10)));
+}
+
 function declaredContract() {
   const m = /APEX_CONTRACT_VERSION\s*=\s*(\d+)/.exec(read(contractFile));
   if (!m) fail(`APEX_CONTRACT_VERSION introuvable dans ${path.relative(root, contractFile)}`);
@@ -81,6 +117,7 @@ if (mode === 'sync') {
   fs.writeFileSync(schemaCopy, `${JSON.stringify(schema, null, 2)}\n`);
   fs.writeFileSync(typesFile, `${generateTypes(schema)}\n`);
   console.log(`schéma copié (contrat ${schema['x-apex-contract']}), types régénérés dans src/generated/`);
+  verifyRegistry(schema);
   if (schema['x-apex-contract'] !== declaredContract()) {
     fail(`le moteur est au contrat ${schema['x-apex-contract']}, l'interface déclare ${declaredContract()} : mettre à jour src/utils/engineContract.ts après avoir lu CONTRACT_CHANGES.md du moteur`);
   }
@@ -90,6 +127,7 @@ if (mode === 'sync') {
 if (!fs.existsSync(schemaCopy) || !fs.existsSync(typesFile)) fail('src/generated/ absent : lancer `node scripts/sync-engine-schema.cjs`');
 const copy = JSON.parse(read(schemaCopy));
 if (read(typesFile) !== `${generateTypes(copy)}\n`) fail('les types générés ne correspondent pas à la copie du schéma : relancer le script');
+verifyRegistry(copy);
 if (copy['x-apex-contract'] !== declaredContract()) {
   fail(`le schéma copié est au contrat ${copy['x-apex-contract']}, l'interface déclare ${declaredContract()}`);
 }
