@@ -8,6 +8,9 @@ import {
 import { findAirContours } from './gcodeAirContours';
 import { detectGeneratorSignature, guessGeneratorFromFeature, type GCodeGenerator } from './gcodeGenerator';
 import type { ApexHeaderPayload, ApexJournal } from '@/utils/apexHeader';
+import {
+  LEGACY_KINEMATICS, isPreviewSupported, nozzleTipActive, parseKinematicsHeader, setActiveKinematics, type Kinematics,
+} from '@/utils/kinematics';
 
 /**
  * Parseur G-code + calque Babylon de prévisualisation. Deux familles de fichiers :
@@ -183,6 +186,10 @@ export interface ParsedGCode {
   insertedBlocks?: InsertedRange[];
   /** Mouvements dont le dépôt a été rogné par l'édition (rognage) : ils ne déposent plus. */
   trimmedMoves?: Set<number>;
+  /** Cinématique pivot/pointe du fichier : celle de la ligne `; apex_kinematics` (R-007), sinon `LEGACY_KINEMATICS`. */
+  kinematics: Kinematics;
+  /** Vrai si le fichier déclare sa cinématique (sinon `kinematics` est la valeur supposée des anciens fichiers). */
+  kinematicsDeclared: boolean;
   /** Bloc d'en-tête chiffré Apex lu au chargement (utils/apexHeader.ts), null s'il n'y en a pas. */
   apexHeader?: ApexHeaderPayload | null;
   /** Journal des modifications courant (piles d'annulation et de rétablissement du noyau),
@@ -203,9 +210,6 @@ export const MAX_SUBSEGMENT_DEG = 0.5;
  * boguée du générateur (C qui dérive de tour en tour au lieu d'osciller dans une plage étroite). */
 export const SUSPICIOUS_C_RANGE_DEG = 720;
 
-/** Distance entre la pointe de buse et le pivot de l'axe B (mm), le long de l'axe de la tête. */
-export const NOZZLE_PIVOT_MM = 46;
-
 /**
  * Pointe de buse (rayon, hauteur) dans le demi-plan machine, depuis la position du pivot (R, Z)
  * et l'inclinaison B (radians). La tête penche vers +R (cf. `headDir` dans `apply`), donc la
@@ -213,9 +217,7 @@ export const NOZZLE_PIVOT_MM = 46;
  * exactement à Z : seul l'écart dû à l'inclinaison, L·(1 − cos B), s'ajoute en hauteur.
  */
 export function nozzleTip(r: number, z: number, bRad: number, out: { r: number; z: number }) {
-  out.r = r - NOZZLE_PIVOT_MM * Math.sin(bRad);
-  out.z = z + NOZZLE_PIVOT_MM * (1 - Math.cos(bRad));
-  return out;
+  return nozzleTipActive(r, z, bRad, out);
 }
 
 // Points réutilisés par `moveLength` pour éviter une allocation par mouvement (appelé O(n)).
@@ -387,6 +389,13 @@ function planCartesianTimes(
 }
 
 export function parseGCode(text: string): ParsedGCode {
+  // Cinématique AVANT toute durée de mouvement (moveLength lit la pointe). Absente : valeur des anciens fichiers.
+  const declaredKinematics = parseKinematicsHeader(text);
+  if (declaredKinematics && !isPreviewSupported(declaredKinematics)) {
+    throw new Error(`Cinématique du G-code non prise en charge par l'aperçu (b_sign=${declaredKinematics.bSign}, tilt_sign=${declaredKinematics.tiltSign}, z_reference=${declaredKinematics.zReference}) : la pointe serait mal relue.`);
+  }
+  const kinematics = declaredKinematics ?? LEGACY_KINEMATICS;
+  setActiveKinematics(kinematics);
   const moves: GCodeMove[] = [];
   const feeds: number[] = [];
   const eDeltas: number[] = [];
@@ -959,6 +968,8 @@ export function parseGCode(text: string): ParsedGCode {
 
   return {
     kind,
+    kinematics,
+    kinematicsDeclared: declaredKinematics !== null,
     moves,
     times,
     minZ,

@@ -1,4 +1,5 @@
 import type { GCodeMove, InsertedRange, ParsedGCode } from '@/components/gcodeParse';
+import { nozzleTipActive } from '@/utils/kinematics';
 import { EDIT_VALUES_PER_POINT, type EditInsertBlock } from '@/utils/editKernelClient';
 
 /**
@@ -14,8 +15,6 @@ export const INSERTED_LINE = 0xffffffff;
 
 /** Déplacement à vide supposé pour la durée des mouvements insérés (mm/s ; F3600 dans le fichier, cf. gcodeWriter). */
 const TRAVEL_MM_S = 3600 / 60;
-/** Distance entre la pointe de buse et le pivot de B (mm), cf. NOZZLE_PIVOT_MM. */
-const PIVOT_MM = 46;
 
 interface Plan {
   n2: number;
@@ -166,8 +165,9 @@ function applyPlan(parsed: ParsedGCode, plan: Plan, made?: (gap: Plan['gaps'][nu
 /** Longueur (mm) parcourue par la pointe entre deux mouvements polaires (même formule que gcodeParse.moveLength). */
 function polarLength(a: GCodeMove, b: GCodeMove) {
   const rad = Math.PI / 180;
-  const ar = a.x - PIVOT_MM * Math.sin(a.b * rad), az = a.z + PIVOT_MM * (1 - Math.cos(a.b * rad));
-  const br = b.x - PIVOT_MM * Math.sin(b.b * rad), bz = b.z + PIVOT_MM * (1 - Math.cos(b.b * rad));
+  const tipA = nozzleTipActive(a.x, a.z, a.b * rad, { r: 0, z: 0 });
+  const tipB = nozzleTipActive(b.x, b.z, b.b * rad, { r: 0, z: 0 });
+  const ar = tipA.r, az = tipA.z, br = tipB.r, bz = tipB.z;
   const arc = ((Math.abs(ar) + Math.abs(br)) / 2) * (b.y - a.y) * rad;
   return Math.hypot(br - ar, bz - az, arc);
 }

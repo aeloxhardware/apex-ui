@@ -101,6 +101,12 @@ target_link_libraries(apex_edit_tests PRIVATE apex_edit_core)
 apex_edit_flags(apex_edit_tests)
 add_test(NAME apex_edit_tests COMMAND apex_edit_tests)
 
+# Vecteurs de la cinematique pivot/pointe publies par le moteur (R-008) : copie dans src/generated/.
+add_executable(apex_kinematics_vectors_tests tests/test_kinematics_vectors.cpp)
+target_link_libraries(apex_kinematics_vectors_tests PRIVATE apex_edit_core)
+apex_edit_flags(apex_kinematics_vectors_tests)
+add_test(NAME apex_kinematics_vectors_tests COMMAND apex_kinematics_vectors_tests "${CMAKE_CURRENT_SOURCE_DIR}/../src/generated/kinematics_vectors.json")
+
 add_executable(apex_polar_tests tests/test_polar_convert.cpp src/polar_convert.cpp src/past_material.cpp)
 target_include_directories(apex_polar_tests PRIVATE src)
 target_link_libraries(apex_polar_tests PRIVATE Threads::Threads)

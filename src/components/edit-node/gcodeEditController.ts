@@ -1,6 +1,7 @@
 import * as BABYLON from 'babylonjs';
 import type { GCodeLayer } from '../gcodeLayer';
-import { NOZZLE_PIVOT_MM, nozzleTip } from '../gcodeParse';
+import { nozzleTip } from '../gcodeParse';
+import { getActiveKinematics } from '@/utils/kinematics';
 import { LINE_TYPES } from '../gcodeLineTypes';
 import {
   EDIT_FLAG_BOUNDS,
@@ -665,7 +666,7 @@ export function createGCodeEditController(opts: {
       const headSamples = layer.getHeadSamples(3) ?? undefined;
       await busy(editKernel.load(
         { r, c, z, b, e, extruding, times, types, headSamples },
-        { pivotMm: NOZZLE_PIVOT_MM, minLayerMm: layerLimits.minMm, maxLayerMm: layerLimits.maxMm, widthFactor: layerLimits.widthFactor },
+        { pivotMm: getActiveKinematics().pivotToTip, minLayerMm: layerLimits.minMm, maxLayerMm: layerLimits.maxMm, widthFactor: layerLimits.widthFactor },
       ));
       if (seq !== loadSeq) return;
       loadedParsed = parsed;

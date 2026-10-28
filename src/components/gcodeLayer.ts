@@ -18,7 +18,7 @@ import { EDIT_VALUES_PER_POINT } from '@/utils/editKernelClient';
 import {
   type GCodeKind, type GCodeMove, type LineTypeStat, type MarkerTypeId, type ContinuousColorByMode,
   type ColorByMode, type ColorByRange, type ColorByRanges, type ParsedGCode, type ConversionMode,
-  PLATE_RADIUS_MM, SUSPICIOUS_C_RANGE_DEG, NOZZLE_PIVOT_MM, MAX_SUBSEGMENT_DEG, DEG2RAD, nozzleTip, moveLength, parseGCode, timeAtIndex, indexAtTime, stateAt, toolAxisAt,
+  PLATE_RADIUS_MM, SUSPICIOUS_C_RANGE_DEG, MAX_SUBSEGMENT_DEG, DEG2RAD, nozzleTip, moveLength, parseGCode, timeAtIndex, indexAtTime, stateAt, toolAxisAt,
 } from './gcodeParse';
 
 // Le parseur (sans Babylon) vit dans gcodeParse.ts pour pouvoir tourner dans un Web Worker ;

@@ -144,7 +144,7 @@ double spatial_reach(const InfluenceParams& p, const Vec3& offset);
 double anchor_factor(const InfluenceParams& p, const Vec3& point);
 
 struct KernelParams {
-  double pivot_mm = 46.0;                // DOIT etre celui du rendu (NOZZLE_PIVOT_MM)
+  double pivot_mm = 46.0;                // DOIT etre celui du fichier affiche (kinematics.ts, ligne apex_kinematics)
   double min_layer_mm = 0.06;            // epaisseur minimale (profil d'imprimante)
   double max_layer_mm = 0.3;             // epaisseur maximale (profil d'imprimante)
   // Largeur variable : une couche peut descendre jusqu'a min_layer_mm / width_factor, son cordon

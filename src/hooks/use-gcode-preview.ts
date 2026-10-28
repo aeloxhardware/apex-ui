@@ -349,6 +349,9 @@ export function useGCodePreview(active: boolean) {
     if (parsed.kind === 'polar' && !parsed.conversion && !isLocallySliced(text!)
       && parsed.maxC - parsed.minC > SUSPICIOUS_C_RANGE_DEG) {
       showWarning(`L'angle C dérive sur ${(parsed.maxC - parsed.minC).toFixed(0)}° : ce fichier vient probablement d'une version boguée du générateur.`);
+    } else if (parsed.kind === 'polar' && !parsed.kinematicsDeclared && isLocallySliced(text!)) {
+      // Fichier du moteur d'avant la ligne `; apex_kinematics` (R-007) : on ne peut que supposer la longueur d'alors.
+      showWarning(`G-code d'une ancienne version du moteur (sans cinématique déclarée) : longueur pivot-pointe supposée à ${parsed.kinematics.pivotToTip} mm.`);
     } else {
       showSuccess(`G-code chargé : ${parsed.moves.length} mouvements.`);
     }

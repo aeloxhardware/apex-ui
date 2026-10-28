@@ -84,6 +84,8 @@ export function engineMachineProfile(profile: unknown): Record<string, unknown> 
   if (f.bSpeedDegS !== null) out.max_angular_velocity = f.bSpeedDegS * RAD;
   if (f.bAccelDegS2 !== null) out.max_angular_acceleration = f.bAccelDegS2 * RAD;
   if (f.plateRadiusMm !== null) out.platform_radius = f.plateRadiusMm;
+  // Tête de collision de l'étape 9 : un identifiant, jamais un chemin (R-020) ; le moteur le résout dans ses ressources.
+  if (f.toolheadModel !== null) out.toolhead_id = f.toolheadModel;
   return out;
 }
 

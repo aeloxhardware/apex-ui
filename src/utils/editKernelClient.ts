@@ -78,7 +78,7 @@ export interface EditHistoryEntry {
 }
 
 export interface EditKernelParams {
-  /** Doit être celui du rendu (NOZZLE_PIVOT_MM). */
+  /** Doit être celui du rendu : la longueur pivot-pointe déclarée par le fichier (utils/kinematics.ts). */
   pivotMm: number;
   supportRadiusMm?: number;
   supportConeDeg?: number;

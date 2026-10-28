@@ -1,4 +1,5 @@
 import { parseGCode, type ParsedGCode } from '@/components/gcodeParse';
+import { setActiveKinematics } from '@/utils/kinematics';
 import { unpackParsedGCode, type PackedParsedGCode } from '@/utils/gcodeParseTransfer';
 import GCodeParseWorker from '@/workers/gcodeParse.worker?worker&inline';
 
@@ -41,6 +42,13 @@ function getWorker(): Worker | null {
 }
 
 export async function parseGCodeAsync(text: string): Promise<ParsedGCode> {
+  const parsed = await parseGCodeOnWorker(text);
+  // Le worker a sa propre copie du module : la cinématique du fichier est installée ici, côté fenêtre.
+  setActiveKinematics(parsed.kinematics);
+  return parsed;
+}
+
+async function parseGCodeOnWorker(text: string): Promise<ParsedGCode> {
   const w = getWorker();
   if (!w) return parseGCode(text);
   try {

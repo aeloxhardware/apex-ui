@@ -111,6 +111,7 @@ export interface MachineProfile {
   position_coupled_axes?: number[];
   radial_direction?: number[] | null;
   rotation_axes?: RotationAxisSpec[];
+  toolhead_id?: string;
   z_clearance_min?: number;
 }
 
