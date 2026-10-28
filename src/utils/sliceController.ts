@@ -72,7 +72,11 @@ export const sliceController = {
       unsubscribe = bridge.onSliceProgress?.((event) => {
         if (event.type === 'step') {
           const index = state.steps.findIndex((s) => s.slug === event.slug);
-          if (index >= 0) set({ stepIndex: index, fraction: Math.min(1, Math.max(0, event.fraction)) });
+          if (index >= 0) {
+            // Dans une même étape la barre ne recule jamais (R-017) ; une nouvelle étape repart de ce que dit le moteur.
+            const fraction = Math.min(1, Math.max(0, event.fraction));
+            set({ stepIndex: index, fraction: index === state.stepIndex ? Math.max(state.fraction, fraction) : fraction });
+          }
         }
       });
 
