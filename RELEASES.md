@@ -2,9 +2,42 @@
 
 Historique de toutes les versions du logiciel Apex (numéro de version), et non des Releases GitHub. Seul lien avec la publication : le compteur Builds (voir `CLAUDE.md`). Format et règles de numérotation : section « Versioning » de `CLAUDE.md`.
 
-**Version actuelle : `alpha-0.2.3.0.5.5.4.221`**
+**Version actuelle : `alpha-0.2.3.1.3.1.0.221`**
 
 `<préversion>-<public>.<global>.<majeur>.<moyen>.<mineur>.<add-ins>.<correctif>.<builds>`
+
+## alpha-0.2.3.1.3.1.0.221 — 2026-10-31
+
+Rattrapage de versionnage : ces changements figuraient dans le commit `1f6e905` sans entrée propre. Ils sont rangés par thème, du niveau le plus bas au plus haut. Aucun n'a été revu dans l'application pour cet historique (descriptions tirées du code et de ses commentaires). Le `VERSION` du dépôt partagé `apex` n'a pas été mis à jour.
+
+- Bandeau Apex (`TitleBar.tsx`, 32 px) : la barre de titre native est masquée (`titleBarStyle: 'hidden'`), seuls les boutons réduire / agrandir / fermer restent, aux couleurs d'Apex ; lancement agrandi, icône d'Apex pour les fenêtres et la barre des tâches (`electron/icon-256.png`), plus d'ouverture automatique des outils de développement.
+- `AlphaWatermark.tsx` renommé `BetaWatermark.tsx` (filigrane de la préversion sans valeur « dev »).
+- `GlassPanel` : composant unique pour tout panneau flottant en verre (verre en calque à part, animation d'ouverture / fermeture commune). `easing.ts` : la courbe d'accélération d'Apex (`cubic-bezier(0.16, 1, 0.3, 1)`) partagée avec le moteur 3D. `ApexCheckbox` étendu.
+- Catalogue d'imprimantes : un dossier ou une imprimante dont le profil ne vient pas d'OrcaSlicer (`apex.orca_source` nul) est inactif ; le catalogue propre à Apex n'est jamais grisé (`electron/profiles.cjs`).
+- Icônes des motifs de remplissage (`InfillPatternIcon.tsx`, dessinées pour Apex) et liste des motifs d'Orca (`orcaInfillPatterns.ts`, seuls ceux que le moteur réalise).
+- Survol du viewport (`ModelHoverTooltip`) : en Préparation, le modèle sous le curseur et son nombre de triangles ; en Prévisualisation, les valeurs réellement connues du mouvement G-code survolé.
+- Tests : `apexSignature.test.ts`, `plateClip.test.ts`, `slicingMode.test.ts`, `orcaRotateGizmo.test.ts`, etc., et script `pnpm test` (vitest). Add-ins incrémenté.
+
+## alpha-0.2.3.1.3.0.0.221 — 2026-10-31
+
+- Filaments : sélecteur de filament (`FilamentSelector`, carte « Filament » sous l'arborescence des modèles) avec panneau de filtres par marque et par type de matériau, inclusifs ou exclusifs (`FilamentFilterPanel`). Catalogue `public/filaments.json` généré par `scripts/profiles/filaments.cjs` depuis les profils d'OrcaSlicer (AGPL-3.0, crédité) ; choix mémorisé sur la machine (`filamentCatalog.ts`). Texte de la licence AGPL-3.0 ajouté dans `public/`. Mineur incrémenté.
+
+## alpha-0.2.3.1.2.0.0.221 — 2026-10-31
+
+- Préparation, gizmos à la OrcaSlicer : rotation (`orcaRotateGizmo.ts`, port de `GLGizmoRotate` : trois anneaux autour du centre du modèle, graduation de 72 crans, accroche à 45° au centre et 5° près de l'anneau, arc d'angle) et mise à l'échelle (`orcaScaleGizmo.ts`, port de `GLGizmoScale3D` : six poignées de face et quatre poignées d'angle du bas, pas de 0,05 avec Maj, échelle autour du centre de la base, ancrage opposé avec Ctrl). Les gizmos se placent sur l'origine du maillage au lieu de son pivot ; `meshScale.ts` garde fixe un point de la pièce pendant une mise à l'échelle.
+- Disposition automatique à la OrcaSlicer (`orcaArrange.ts`, port partiel : empreinte convexe gonflée, tri par aire, rotations 0/45/90/135°, placement par polygones de non-recouvrement, fonction objectif, recentrage du tas). Écarts connus (plateau circulaire, empreintes convexes, un seul plateau) listés dans la feuille de route de `CLAUDE.md`.
+- Unité de lecture d'un modèle (`modelUnit.ts`, `ScaleUnitPrompt`) : après l'import d'un modèle plausiblement trop petit ou trop grand, l'interface propose de le lire en pouces (×25,4) ou en millimètres ; l'unité courante est accessible au clic droit.
+- Import de modèles par glisser-déposer sur le plateau en Préparation (`utils/importModels.ts`, `Sidebar.tsx`).
+- Crédits : OrcaSlicer (rotation, mise à l'échelle, disposition, rendu, motifs de remplissage) ajouté à `utils/credits.ts`. Mineur incrémenté.
+
+## alpha-0.2.3.1.1.0.0.221 — 2026-10-31
+
+- Réglages du moteur : éditeur Paramètres › Algorithme (avancé) (`EngineSettingsEditor`) et lignes actives dans les menus de catégorie de Préparation (`EngineItemRow`), sur le même magasin (`utils/engineSettings.ts`), schéma généré (`src/generated/params.schema.*`, vérifié par `schema:verify`) et infobulle explicative par réglage (`engineSettingsHelp.json`). Champs numériques `ApexNumberField` (flèches toujours visibles). Le panneau de droite de Préparation (« Réglages Apex », `EngineSettingsPanel`) ne garde que le sélecteur « Mode de tranchage ».
+- Mode de tranchage (`slicingMode.ts`) : Element Aeolis, Element Ardor, Element Arva, Element Aequor ; choix mémorisé par mode d'axes, modes non implémentés inactifs ; seuil de sécurité en triangles qui déclenche la confirmation « Lancer la découpe ». Tranchage Element Aeolis (R-024, R-026) avec réglages de buse (`aeolisNozzle.ts` : angle, longueur) et refus lisible si le maillage n'est pas une surface en hauteur (`sliceController.ts`, `engine-runner.cjs`). Mineur incrémenté.
+
+## alpha-0.2.3.1.0.0.0.221 — 2026-10-31
+
+- Mise à jour automatique à chaque lancement de l'application installée (Windows) : vérifie la dernière release GitHub de `aeloxhardware/apex`, installe sans demander, boîte de dialogue en verre liquide « APEX / MISE À JOUR » avec progression (`electron/update-flow.cjs`, `update.html`). Seuls les fichiers modifiés sont téléchargés (manifeste SHA-256, assets nommés par hash), manifeste signé Ed25519 (clé publique `electron/update-public-key.pem`), fichiers en cours d'exécution renommés en `.old` puis remplacés, retour arrière au moindre échec (`electron/updater.cjs`, testé par `updater.test.ts`). Scripts de publication dans `scripts/update/`, documentation dans `docs/UPDATES.md`, `apexUpdate` dans `package.json`. L'installateur (`installer/`) reçoit des retouches d'interface. Moyen incrémenté.
 
 ## alpha-0.2.3.0.5.5.4.221 — 2026-10-31
 
