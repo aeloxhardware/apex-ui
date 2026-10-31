@@ -97,8 +97,10 @@ export const ExternalScrollArea: React.FC<ExternalScrollAreaProps> = ({ children
       if (t && root) {
         const e = edge.getBoundingClientRect();
         const r = root.getBoundingClientRect();
-        t.style.left = `${e.right + 4}px`;
-        t.style.top = `${r.top + thumbTop}px`;
+        // `position: fixed` se repère sur la zone de l'interface (bandeau ancré au-dessus), pas sur la fenêtre.
+        const o = portalRoot === document.body ? null : portalRoot.getBoundingClientRect();
+        t.style.left = `${e.right + 4 - (o?.left ?? 0)}px`;
+        t.style.top = `${r.top + thumbTop - (o?.top ?? 0)}px`;
         let opacity = 1;
         for (let n: HTMLElement | null = edge; n; n = n.parentElement) {
           opacity *= parseFloat(getComputedStyle(n).opacity);
@@ -110,7 +112,7 @@ export const ExternalScrollArea: React.FC<ExternalScrollAreaProps> = ({ children
     };
     track();
     return () => cancelAnimationFrame(raf);
-  }, [edge, thumb !== null, thumbTop]);
+  }, [edge, thumb !== null, thumbTop, portalRoot]);
 
   // Hors AnimatePresence, `isPresent` reste vrai : rien ne change.
   const isPresent = useIsPresent();

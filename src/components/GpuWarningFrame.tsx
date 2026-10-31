@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState } from 'react';
+import { TitleBar } from '@/components/TitleBar';
 import { isFlatUi } from '@/utils/interfaceMode';
 
 /**
@@ -6,7 +7,8 @@ import { isFlatUi } from '@/utils/interfaceMode';
  * electron/gpu-tier.cjs, relayée par le preload en `apexDesktop.lowGpuPower`). Le bandeau occupe sa propre ligne : il
  * ne se superpose pas à l'interface, qui est enfermée dans la zone restante au-dessus (`contain: layout` en fait le
  * repère de tout ce qui est en position fixe ou absolue ; les hauteurs « plein écran » y valent 100 % de la zone).
- * Sans le drapeau (GPU suffisant, navigateur), les enfants sont rendus tels quels.
+ * Même cadre pour le bandeau Apex ancré de l'application de bureau (TitleBar.tsx), au-dessus de la zone.
+ * Ni l'un ni l'autre (navigateur, GPU suffisant sans fenêtre sans cadre) : les enfants sont rendus tels quels.
  */
 const MESSAGE_LIQUID =
   "Votre processeur de calcul graphique est susceptible de ne pas répondre aux exigences minimales d'Apex. Vous devriez basculer l'interface en mode Classique.";
@@ -27,13 +29,16 @@ export const usePortalRoot = (): HTMLElement => useContext(PortalRootContext) ??
 
 export const GpuWarningFrame: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [zone, setZone] = useState<HTMLElement | null>(null);
-  if (!window.apexDesktop?.lowGpuPower) return <>{children}</>;
+  const customTitleBar = Boolean(window.apexDesktop?.customTitleBar);
+  const lowGpu = Boolean(window.apexDesktop?.lowGpuPower);
+  if (!lowGpu && !customTitleBar) return <>{children}</>;
   return (
     <div style={{ position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column' }}>
+      {customTitleBar && <TitleBar />}
       <div ref={setZone} className="apex-gpu-frame" style={{ flex: '1 1 0', minHeight: 0, position: 'relative', overflow: 'hidden', contain: 'layout' }}>
         <PortalRootContext.Provider value={zone}>{children}</PortalRootContext.Provider>
       </div>
-      <div
+      {lowGpu && <div
         role="alert"
         data-apex-tooltip={MESSAGE_TOOLTIP}
         style={{
@@ -48,7 +53,7 @@ export const GpuWarningFrame: React.FC<{ children: React.ReactNode }> = ({ child
         }}
       >
         {isFlatUi() ? MESSAGE_CLASSIC : MESSAGE_LIQUID}
-      </div>
+      </div>}
     </div>
   );
 };

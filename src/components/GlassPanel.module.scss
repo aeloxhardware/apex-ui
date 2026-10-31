@@ -1,0 +1,49 @@
+// Verre commun des panneaux latéraux et boîtes de dialogue (cf. GlassPanel.tsx). Mêmes valeurs que
+// .fusionMenuContainer / .patternPopup de CategoriesSidebar.
+.panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+  isolation: isolate;
+  z-index: 1003;
+}
+
+.fixed {
+  position: fixed;
+}
+
+// Calque de verre séparé : il porte son opacité ET son backdrop-filter (jamais un parent qui s'estompe).
+.glass {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 15, 26, 0.25);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
+  border-radius: inherit;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.content {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  max-height: 400px;
+  overflow-y: scroll;
+
+  &::-webkit-scrollbar {
+    width: 0;
+    background: transparent;
+  }
+}
+
+.flush {
+  padding: 0;
+  gap: 0;
+  max-height: none;
+  overflow: visible;
+}

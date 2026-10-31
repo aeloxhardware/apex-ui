@@ -66,13 +66,14 @@ const itemVariants = {
  * toujours en tête, les modes continus sont classés par famille pour rester lisibles malgré leur
  * nombre (~13, trop pour un simple bouton segmenté). */
 const COLOR_BY_GROUPS: { label: string; modes: ContinuousColorByMode[] }[] = [
-  { label: 'Cinématique', modes: ['speed', 'accel', 'headAngle', 'segmentLength', 'elapsedTime'] },
+  { label: 'Cinématique', modes: ['speed', 'accel', 'headAngle', 'segmentLength'] },
   { label: 'Extrusion', modes: ['volumetricFlow', 'extrusionRatio', 'lineWidth', 'layerHeight'] },
   { label: 'Vitesse relative', modes: ['layerSpeedRatio'] },
   { label: 'Thermique / refroidissement', modes: ['temperature', 'fanSpeed'] },
 ];
 
 const GRADIENT_CSS = `linear-gradient(90deg, ${COLORMAP_STOPS_HEX.join(', ')})`;
+const SWATCH_STYLE = { '--swatch': GRADIENT_CSS } as React.CSSProperties;
 // Barre de la légende en mode continu : verticale (Min en bas, Max en haut — sens habituel d'une
 // échelle thermique), donc la rampe est retournée par rapport à GRADIENT_CSS (horizontal, gauche à
 // droite = bleu → rouge dans gcodeColormap.ts).
@@ -133,6 +134,16 @@ const GCodeColorBySelector: React.FC<{ colorBy: ColorByMode; setColorBy: (mode: 
                 <span className={styles.itemName}>Type de ligne</span>
               </button>
             </li>
+            <li>
+              <button
+                type="button"
+                className={clsx(styles.itemRow, styles.clickableRow, { [styles.activeItemRow]: colorBy === 'elapsedTime' })}
+                onClick={() => { setColorBy('elapsedTime'); setOpen(false); }}
+              >
+                <span className={styles.itemName}>{COLOR_BY_LABELS.elapsedTime}</span>
+                <span className={styles.colorByItemSwatch} style={SWATCH_STYLE} aria-hidden />
+              </button>
+            </li>
           </ul>
           {COLOR_BY_GROUPS.map((group) => (
             <div key={group.label} className={styles.sectionGroup}>
@@ -146,7 +157,7 @@ const GCodeColorBySelector: React.FC<{ colorBy: ColorByMode; setColorBy: (mode: 
                       onClick={() => { setColorBy(mode); setOpen(false); }}
                     >
                       <span className={styles.itemName}>{COLOR_BY_LABELS[mode]}</span>
-                      <span className={styles.colorByItemSwatch} style={{ background: GRADIENT_CSS }} aria-hidden />
+                      <span className={styles.colorByItemSwatch} style={SWATCH_STYLE} aria-hidden />
                     </button>
                   </li>
                 ))}

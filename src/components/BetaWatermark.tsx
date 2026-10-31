@@ -1,13 +1,13 @@
 import React from 'react';
 
 /**
- * Filigrane « ALPHA » en diagonale sur tout l'écran, affiché quand le mode dev est désactivé
+ * Filigrane « BETA » en diagonale sur tout l'écran, affiché quand le mode dev est désactivé
  * (versions livrées). Transparent aux clics.
  */
 const ROWS = 7;
 const REPEATS = 8;
 
-export const AlphaWatermark: React.FC = () => (
+export const BetaWatermark: React.FC = () => (
   <>
   <div
     aria-hidden
@@ -83,12 +83,42 @@ export const AlphaWatermark: React.FC = () => (
                 userSelect: 'none',
               }}
             >
-              ALPHA
+              BETA
             </span>
           ))}
         </div>
       ))}
     </div>
   </div>
+  </>
+);
+
+/** Bandeaux rouges haut (français) et bas (anglais), affichés quand le mode dev est désactivé. Transparents aux clics. */
+const BANNER_STYLE: React.CSSProperties = {
+  position: 'fixed',
+  left: 0,
+  right: 0,
+  zIndex: 2002,
+  margin: 0,
+  padding: '3px 16px',
+  background: '#c40000',
+  color: '#fff',
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: '0.04em',
+  lineHeight: 1.4,
+  textAlign: 'center',
+  pointerEvents: 'none',
+  userSelect: 'none',
+};
+
+export const BetaBanners: React.FC = () => (
+  <>
+    <p aria-hidden style={{ ...BANNER_STYLE, top: 0 }}>
+      ATTENTION ! VERSION BÊTA. IL EST CONTRE-RECOMMANDÉ D'ESSAYER D'IMPRIMER LES MODÈLES GÉNÉRÉS UNIQUEMENT À DES FINS DE DÉMONSTRATION !
+    </p>
+    <p aria-hidden style={{ ...BANNER_STYLE, bottom: 0 }}>
+      WARNING! BETA VERSION. IT IS STRONGLY DISCOURAGED TO TRY TO PRINT THE GENERATED MODELS, WHICH ARE FOR DEMONSTRATION PURPOSES ONLY!
+    </p>
   </>
 );

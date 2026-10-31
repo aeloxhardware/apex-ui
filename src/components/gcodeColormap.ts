@@ -80,7 +80,7 @@ export const COLOR_BY_LABELS: Record<ContinuousColorByMode, string> = {
   accel: 'Accélération',
   headAngle: 'Inclinaison de la tête',
   segmentLength: 'Longueur de segment',
-  elapsedTime: 'Temps écoulé',
+  elapsedTime: 'Ordonnancement',
   extrusionRatio: "Pression d'extrusion",
   volumetricFlow: 'Débit volumétrique',
   layerSpeedRatio: 'Vitesse / vitesse max de couche',

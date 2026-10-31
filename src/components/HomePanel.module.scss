@@ -95,46 +95,106 @@
   position: fixed;
   inset: 0;
   z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  background: rgba(0, 0, 0, 0.55);
+  // Flou progressif du fond, sans assombrissement.
+  animation: blurIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+@keyframes blurIn {
+  from {
+    backdrop-filter: blur(0px) saturate(1);
+    -webkit-backdrop-filter: blur(0px) saturate(1);
+  }
+  to {
+    backdrop-filter: blur(14px) saturate(1.25);
+    -webkit-backdrop-filter: blur(14px) saturate(1.25);
+  }
+}
+
+// Boîte : GlassPanel (verre commun, ombre portée, sans contour), centrée à l'écran.
 .modal {
-  width: 100%;
-  max-width: 480px;
-  border-radius: 20px;
-  padding: 32px 36px;
-  background: rgba(10, 15, 26, 0.85);
-  backdrop-filter: blur(12px);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  // La largeur suit celle du texte (lignes de 80 caractères), sans vide à droite.
+  width: fit-content;
+  max-width: calc(100vw - 48px);
+  max-height: min(82vh, 780px);
+  z-index: 1003;
+
+  // Calque de verre de GlassPanel : flou 2× celui du fond (14 px → 28 px).
+  > div:first-child {
+    backdrop-filter: blur(28px);
+    -webkit-backdrop-filter: blur(28px);
+  }
+}
+
+.modalBody {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: min(82vh, 780px);
+  padding: 32px 40px 24px;
 }
 
 .modalTitle {
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   color: #f4f4f5;
-  margin: 0 0 12px;
+  margin: 0 0 8px;
+}
+
+.modalSub {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #a1a1aa;
+  margin: 0 0 16px;
+  // Ne dicte pas la largeur de la boîte : elle suit celle du texte de la licence.
+  width: 0;
+  min-width: 100%;
+}
+
+.scrollArea {
+  flex: 1 1 auto;
+  min-height: 200px;
+}
+
+.licenseText {
+  pre {
+    margin: 0;
+    width: 81ch;
+    max-width: 100%;
+    color: #d4d4d8;
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+  }
 }
 
 .modalActions {
   display: flex;
   justify-content: flex-end;
-  margin-top: 24px;
+  margin-top: 20px;
 }
 
-.close {
-  padding: 8px 18px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.08);
-  color: #f4f4f5;
-  font: inherit;
+// Même bouton de validation que les boîtes de dialogue (SliceModal .confirmBtn).
+.closeBtn {
+  background: rgba(0, 240, 255, 0.25);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: none;
+  color: #00f0ff;
+  font-family: 'Orbitron', sans-serif !important;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 12px 28px;
+  border-radius: 12px;
   cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 8px 24px rgba(0, 240, 255, 0.25);
 
   &:hover {
-    background: rgba(255, 255, 255, 0.16);
+    background: rgba(0, 240, 255, 0.35);
+    filter: brightness(1.15);
   }
 }

@@ -1,0 +1,55 @@
+// Carte de proposition d'unité (cf. ScaleUnitPrompt.tsx) : verre sombre, comme le menu contextuel.
+
+.prompt {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 50;
+  width: min(420px, calc(100% - 32px));
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(20, 22, 30, 0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.45), 0 4px 16px 0 rgba(0, 0, 0, 0.35);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.body {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.keep,
+.accept {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  border: none;
+}
+
+.keep {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.accept {
+  background: rgba(0, 240, 255, 0.22);
+  color: #00f0ff;
+}

@@ -10,13 +10,27 @@ const byName = (a, b) => collator.compare(a.name, b.name);
 /** Chemins relatifs toujours en `/`, quel que soit le système. */
 const toRel = (...parts) => parts.filter(Boolean).join('/');
 
+/** Catalogue propre à Apex : jamais grisé, même sans profil OrcaSlicer. */
+const OWN_FOLDERS = new Set(['Aelox Hardware']);
+
+/** Une imprimante est inactive si son profil ne vient pas d'OrcaSlicer (`apex.orca_source` nul). */
+function hasOrcaSource(abs) {
+  try {
+    const j = JSON.parse(fs.readFileSync(abs, 'utf8').replace(/^﻿/, '') || 'null');
+    return !!j?.apex?.orca_source;
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Arbre du dossier : { name, path, folders: [...], printers: [{ name, path }] }.
+ * Arbre du dossier : { name, path, folders: [...], printers: [{ name, path, inactive }], inactive }.
  * `path` d'une imprimante est celui de son .json, relatif à la racine.
  */
 function scanProfiles(root, rel = '') {
   const abs = path.join(root, ...rel.split('/').filter(Boolean));
-  const node = { name: rel ? rel.split('/').pop() : '', path: rel, folders: [], printers: [] };
+  const node = { name: rel ? rel.split('/').pop() : '', path: rel, folders: [], printers: [], inactive: false };
+  const own = OWN_FOLDERS.has(rel.split('/')[0]);
   let entries = [];
   try {
     entries = fs.readdirSync(abs, { withFileTypes: true });
@@ -28,9 +42,12 @@ function scanProfiles(root, rel = '') {
       node.folders.push(scanProfiles(root, toRel(rel, entry.name)));
     } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.json')) {
       const name = entry.name.slice(0, -'.json'.length);
-      node.printers.push({ name, path: toRel(rel, entry.name) });
+      node.printers.push({ name, path: toRel(rel, entry.name), inactive: !own && !hasOrcaSource(path.join(abs, entry.name)) });
     }
   }
+  // Un dossier est inactif quand tout ce qu'il contient l'est (un dossier vide reste actif).
+  node.inactive = node.folders.length + node.printers.length > 0
+    && node.folders.every((f) => f.inactive) && node.printers.every((p) => p.inactive);
   node.folders.sort(byName);
   node.printers.sort(byName);
   return node;

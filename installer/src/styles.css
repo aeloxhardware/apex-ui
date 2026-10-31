@@ -1129,3 +1129,41 @@ h1,
 .brandTitle {
   filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.35));
 }
+
+/* Etape pas encore disponible : cartes grisees (attribut disabled dans index.html) + pastille "Coming soon". */
+.planCard:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  filter: grayscale(0.6);
+}
+
+.planCard:disabled:hover {
+  background: rgba(10, 15, 26, 0.35);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.planCard:disabled[aria-pressed='true'] {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: none;
+}
+
+.planCard:disabled[aria-pressed='true'] .planTitle {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.comingSoon {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 3px 9px;
+  vertical-align: middle;
+  font-family: 'Inter', sans-serif;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #ffb020;
+  background: rgba(255, 176, 32, 0.1);
+  border: 1px solid rgba(255, 176, 32, 0.25);
+  border-radius: 999px;
+}

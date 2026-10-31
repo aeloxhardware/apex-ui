@@ -1,0 +1,122 @@
+.panel {
+  width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  color: #00f0ff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.title { flex: 1; }
+
+// Sélecteur inclusion / exclusion : deux segments, celui du mode actif en cyan.
+.mode {
+  display: flex;
+  padding: 2px;
+  gap: 2px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+.modeButton {
+  padding: 3px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s;
+  &:hover { color: #fff; }
+}
+.modeActive {
+  background: rgba(0, 240, 255, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 0 10px rgba(0, 240, 255, 0.25);
+  color: #00f0ff;
+}
+
+.back {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  &:hover { background: rgba(255, 255, 255, 0.14); color: #fff; }
+}
+
+// Zone défilante à curseur externe : 8 px de marge interne (.body) pour que l'ombre portée des lignes ne soit pas
+// rognée, compensée par une marge négative. Hauteur bornée pour tenir dans le panneau (400 px max).
+.scrollArea {
+  flex: 0 1 auto;
+  max-height: 280px;
+  margin: -8px;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+}
+
+// Même ligne que .item du sélecteur de filament.
+.row, .check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.03);
+  border: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  padding: 8px 10px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.9);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  &:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+}
+
+.row > span:first-child, .checkLabel { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.meta { color: rgba(255, 255, 255, 0.45); font-size: 10px; font-weight: 400; flex-shrink: 0; }
+
+.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  &:hover { background: rgba(255, 255, 255, 0.03); color: rgba(255, 255, 255, 0.9); }
+}
+
+.ok {
+  align-self: flex-end;
+  min-width: 72px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(0, 240, 255, 0.2);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 12px rgba(0, 240, 255, 0.3);
+  color: #00f0ff;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  &:hover { background: rgba(0, 240, 255, 0.32); }
+}

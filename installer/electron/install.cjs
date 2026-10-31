@@ -16,11 +16,11 @@ const MARKER = 'apex-install.json';
 const REG_KEY = 'HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\ApexSlicer';
 
 const STEPS = [
-  'Preparation du dossier de destination',
-  "Copie des fichiers de l'application",
-  'Enregistrement du programme',
-  'Creation des raccourcis',
-  'Finalisation',
+  'Preparing the destination folder',
+  "Copying application files",
+  'Registering the program',
+  'Creating shortcuts',
+  'Finishing up',
 ];
 
 function payloadDir() {
@@ -55,11 +55,11 @@ function run(command, args) {
 
 /** Refuse les destinations dangereuses ; renvoie le chemin normalise. */
 function validateDestination(raw) {
-  if (typeof raw !== 'string' || !raw.trim()) throw new Error("Aucun dossier d'installation indique.");
+  if (typeof raw !== 'string' || !raw.trim()) throw new Error("No installation folder specified.");
   const dest = path.resolve(raw.trim());
-  if (!path.isAbsolute(dest) || path.parse(dest).root === dest) throw new Error("Le dossier d'installation ne peut pas etre la racine d'un disque.");
+  if (!path.isAbsolute(dest) || path.parse(dest).root === dest) throw new Error("The installation folder cannot be the root of a drive.");
   const windir = (process.env.SystemRoot || 'C:\\Windows').toLowerCase();
-  if (dest.toLowerCase().startsWith(windir)) throw new Error("Le dossier d'installation ne peut pas etre dans le dossier Windows.");
+  if (dest.toLowerCase().startsWith(windir)) throw new Error("The installation folder cannot be inside the Windows folder.");
   return dest;
 }
 
@@ -111,12 +111,12 @@ async function runInstall(options, emit) {
     step(0, 0);
     dest = validateDestination(options && options.installPath);
     const zip = path.join(payloadDir(), 'apex-slicer.zip');
-    if (!fs.existsSync(zip)) throw new Error(`Paquet introuvable : ${zip}`);
+    if (!fs.existsSync(zip)) throw new Error(`Package not found: ${zip}`);
     const manifest = JSON.parse(fs.readFileSync(path.join(payloadDir(), 'payload.json'), 'utf8'));
     if (fs.existsSync(dest)) {
       const entries = fs.readdirSync(dest);
       if (entries.length > 0 && !entries.includes(MARKER)) {
-        throw new Error("Le dossier choisi n'est pas vide et ne contient pas une installation d'Apex : choisissez un dossier vide.");
+        throw new Error("The chosen folder is not empty and does not contain an Apex installation: choose an empty folder.");
       }
       // Reinstallation / reparation par-dessus une installation existante : l'application ne doit pas tourner (fichiers verrouilles).
       if (entries.includes(MARKER)) {
@@ -131,9 +131,9 @@ async function runInstall(options, emit) {
     fs.rmSync(path.join(dest, '.apex-write-test'));
     try {
       const stat = fs.statfsSync(dest);
-      if (stat.bavail * stat.bsize < (manifest.bytes || 0) * 1.1) throw new Error("Espace disque insuffisant dans le dossier d'installation.");
+      if (stat.bavail * stat.bsize < (manifest.bytes || 0) * 1.1) throw new Error("Not enough disk space in the installation folder.");
     } catch (error) {
-      if (/insuffisant/.test(error.message)) throw error;  // statfs indisponible : on continue
+      if (/Not enough disk space/.test(error.message)) throw error;  // statfs indisponible : on continue
     }
 
     // 2. Copie
@@ -142,7 +142,7 @@ async function runInstall(options, emit) {
       emit({ index: 1, total, label: STEPS[1], percent: Math.round(((1 + done / all) / total) * 100) });
     });
     const exe = path.join(dest, MAIN_EXE);
-    if (!fs.existsSync(exe)) throw new Error(`Installation incomplete : ${MAIN_EXE} est absent.`);
+    if (!fs.existsSync(exe)) throw new Error(`Incomplete installation: ${MAIN_EXE} is missing.`);
 
     // 3. Enregistrement : marqueur + choix, desinstalleur, « Programmes et fonctionnalites »
     step(2, Math.round((2 / total) * 100));
@@ -171,15 +171,15 @@ async function runInstall(options, emit) {
     if (options.createStartMenuShortcut) {
       created.startMenu = startMenuDir();
       fs.mkdirSync(created.startMenu, { recursive: true });
-      if (!shell.writeShortcutLink(path.join(created.startMenu, `${PRODUCT}.lnk`), 'create', link)) throw new Error('Raccourci du menu Demarrer impossible.');
+      if (!shell.writeShortcutLink(path.join(created.startMenu, `${PRODUCT}.lnk`), 'create', link)) throw new Error('Could not create the Start menu shortcut.');
       // Desinstallation directement depuis le menu Demarrer (sans passer par « Ajouter ou supprimer des programmes »).
       const removal = { target: path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
         args: uninstall.args, cwd: dest, icon: exe, iconIndex: 0, description: `Desinstaller ${PRODUCT}` };
-      if (!shell.writeShortcutLink(path.join(created.startMenu, `Desinstaller ${PRODUCT}.lnk`), 'create', removal)) throw new Error('Raccourci de desinstallation impossible.');
+      if (!shell.writeShortcutLink(path.join(created.startMenu, `Uninstall ${PRODUCT}.lnk`), 'create', removal)) throw new Error('Could not create the uninstall shortcut.');
     }
     if (options.createDesktopShortcut) {
       created.desktop = desktopShortcut();
-      if (!shell.writeShortcutLink(created.desktop, 'create', link)) throw new Error('Raccourci du Bureau impossible.');
+      if (!shell.writeShortcutLink(created.desktop, 'create', link)) throw new Error('Could not create the Desktop shortcut.');
     }
 
     // 5. Finalisation

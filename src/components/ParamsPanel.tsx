@@ -1,6 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ApexSlider } from './ApexSlider';
+import { EngineSettingsEditor } from './EngineSettingsEditor';
 import {
   isColorByDeferred,
   setColorByDeferred,
@@ -208,6 +209,14 @@ export const ParamsPanel: React.FC = () => {
             />
             <span>Mode dev (onglet Dev et raccourcis du navigateur : Ctrl+R, F5, F12…)</span>
           </label>
+        </section>
+
+        <section className={styles.section}>
+          <h3 className={styles.sectionTitle}>Algorithme (avancé)</h3>
+          <p className={clsx(styles.subtitle, styles.sectionNote)}>
+            Réglages du moteur de tranchage, envoyés à chaque tranchage. Survolez un réglage pour savoir à quoi il sert.
+          </p>
+          <EngineSettingsEditor />
         </section>
 
         {canUninstall && (

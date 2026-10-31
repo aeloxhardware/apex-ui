@@ -22,6 +22,8 @@ contextBridge.exposeInMainWorld('apexDesktop', {
   shutdownForce: () => ipcRenderer.send('apex:shutdown-force'),
   // Échelle de l'interface (Paramètres) : zoom natif, le canvas et le pointeur restent justes.
   setZoomFactor: (factor) => webFrame.setZoomFactor(factor),
+  // Bandeau Apex dessiné par la page (barre de titre native masquée, boutons natifs conservés) : cf. components/TitleBar.tsx.
+  customTitleBar: true,
   // Mode dev (Paramètres) : désactivé, le process principal bloque les raccourcis du navigateur.
   setDevMode: (enabled) => ipcRenderer.send('apex:set-dev-mode', Boolean(enabled)),
   // Desinstallation (application installee par l'installateur seulement).
@@ -34,7 +36,7 @@ contextBridge.exposeInMainWorld('apexDesktop', {
     return () => ipcRenderer.removeListener('apex:convert-progress', listener);
   },
   // Tranchage par le moteur (contrat C2/C3) : progression = lignes JSON du moteur, relayées telles quelles.
-  sliceSteps: () => ipcRenderer.invoke('apex:slice-steps'),
+  sliceSteps: (algorithm) => ipcRenderer.invoke('apex:slice-steps', algorithm),
   slice: (request) => ipcRenderer.invoke('apex:slice', request),
   cancelSlice: () => ipcRenderer.invoke('apex:slice-cancel'),
   onSliceProgress: (callback) => {

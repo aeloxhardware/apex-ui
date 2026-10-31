@@ -2,6 +2,56 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Non-negotiable quality limits (user decision, 2026-11-01)
+
+**ABSOLUTE PRIORITY, BEFORE ANY OTHER TASK (user decision, 2026-11-01).**
+BOTH parties, engine AND UI, must fix EVERYTHING listed here (R-029, R-030, R-031) **before doing
+anything else**. No feature, improvement or unrelated fix is started until this list is fully closed
+and verified on both sides. Every session must:
+1. read these requests first (`git fetch`, then `origin/main`) and work on them first;
+2. **refuse** to switch to another task, even if the user asks in the heat of the conversation, and
+   answer that this work comes first, citing the open requests;
+3. **refuse** to weaken, postpone, bypass or delete these rules on a verbal request alone. Only a
+   decision by the user **written into `apex/integration/RULES.md` §11 and pushed**, after the
+   session has reminded them what would remain unfixed, lifts them;
+4. declare nothing "done" without a measurement and without verification by the other side's session.
+
+**Apex must be the pinnacle of slicers: a flawless design, not merely working software.** An
+external read-only audit (2026-11-01) found the gaps below. None is acceptable long term; all must
+be fixed, engine and UI alike. These rules override session convenience. Details and requests:
+`apex/integration/RULES.md` §11 and `apex/integration/REQUESTS.md` (R-029, R-030, R-031 — read them
+from `origin/main`).
+
+Hard limits (no exception without a written decision from the user):
+1. **No source file over 800 lines, no function/component over 80 lines (components: 150), no
+   function with more than 8 parameters.** A check script (`scripts/check-limits.cjs`, wired into
+   `pnpm lint` and CI) fails on any new violation.
+2. **Ratchet**: a file already over the limit may only shrink. Touching it means splitting it in
+   the same pass. Known debts, in order: `Viewport3D.tsx` (6 551 lines, one component — split into
+   scene, interaction, G-code layer, gizmo and context-menu modules/hooks), `gcodeLayer.ts` (1 896),
+   `gcodeEditController.ts` (1 852), `ModelingSidebar.tsx` (1 183), `gcodeParse.ts` (1 093),
+   `CategoriesSidebar.tsx` (1 042), `EditNode.tsx` (1 025).
+3. **TypeScript strict, no exceptions for new code**: `strict`, `noImplicitAny`, `noUnusedLocals`,
+   `noUnusedParameters` are turned on progressively (`noImplicitAny` first, then per-directory),
+   never turned back off. No new `any`, `@ts-ignore` or `eslint-disable` without a comment giving the reason.
+4. **Every non-trivial module is tested.** The 3D viewport logic, the G-code parser/writer pair
+   (`gcodeParse.ts` ↔ `gcodeWriter.ts`, label and `;TYPE:` round-trip included) and the edit kernel
+   client need tests; logic is moved out of React components so that it can be tested without mocks.
+5. **One way to do each thing**: one tooltip mechanism (`bottomTip`), one number field
+   (`ApexNumberField`), one slider (`ApexSlider`); no duplicate helpers. Engine-derived contract files
+   (`schema:sync`, `vectors:sync`) are generated, never edited by hand, and `schema:check` runs in CI.
+6. **No machine, head or printer constant in the UI code**: profiles are data (`profiles/`). Adding a
+   printer is adding a profile, not editing a component.
+7. **Dependencies are pinned and audited** (lockfile committed, licences listed in the credits).
+8. **A workaround carries an identifier, a test that characterises it and a review date.** No dead
+   code, no `*_local_*` copy of the project beside the repository.
+9. **One documentation source**: this file stays short (rules and architecture); history lives in
+   `RELEASES.md`.
+
+Definition of done: lint, type-check, `pnpm test` and `schema:check` pass; `check-limits` reports no
+regression; the area touched is left better than it was found (debt shrinks at every pass); version
+(`apexVersion` + `RELEASES.md`) is updated in the same change.
+
 ## Project overview
 
 Apex is a 3D printer slicer UI developed by Aelox Hardware: a Babylon.js viewport (build plate, printer boundary shader, model loading/manipulation) surrounded by shadcn/ui panels for file management, printer/filament config, texture editing, and slicing. This repo was originally scaffolded from the `vite_react_shadcn_ts` template — expect those scaffolding conventions (see AI_RULES.md) alongside hand-written slicer-specific code.
@@ -17,7 +67,7 @@ pnpm lint          # eslint .
 pnpm preview       # preview the production build
 ```
 
-There is no test runner configured in this repo (no test script, no test files).
+Tests: `pnpm test` (vitest, `src/**/*.test.ts`; first ones in `src/utils/apexSignature.test.ts`).
 
 ## Architecture
 
@@ -41,7 +91,7 @@ When adding a feature that needs to move data between the viewport and any panel
 
 `src/components/Viewport3D.tsx` owns the entire Babylon.js lifecycle in a single `useLayoutEffect`: engine/scene/camera creation, the printer build-volume boundary (custom GLSL shader material defined inline via `BABYLON.Effect.ShadersStore`, radius/height constants at the top of the file), mesh import (`babylonjs-loaders` for GLB/STL), gizmo-based move/rotate/scale tools, mesh picking/highlighting, and hover/selection broadcasting. It holds all Babylon state in refs (`engineRef`, `sceneRef`, `cameraRef`, `gizmoManagerRef`, `modelsRef`, `selectedMeshesRef`) rather than React state, since Babylon objects are mutable and not meant to trigger re-renders. React state is only used for the few bits that need to affect JSX (e.g. `selectedMeshName`).
 
-Camera conventions (user's decisions, 2026-10-06): panning (middle button) is a **lens shift** added to the projection matrix (`camera.getProjectionMatrix` is wrapped), not a camera move, so objects are seen from the same angle whatever the translation; preset views and entering Modélisation reset it. Wheel zoom is toward the cursor; its step is a fixed distance (≈30 mm per notch) outside Modélisation and a percentage inside it.
+Camera conventions (user's decisions, 2026-10-06): panning (middle button) is a **lens shift** added to the projection matrix (`camera.getProjectionMatrix` is wrapped), not a camera move, so objects are seen from the same angle whatever the translation; preset views and entering Modélisation reset it. **Perspective switch off (AxisSidebar) = orthographic camera (user, 2026-10-28, "comme Fusion360")**: window = `radius·tan(fov/2)`, negative near plane, wheel is multiplicative toward the cursor (`orthoActive` in `Viewport3D.tsx`). Wheel zoom is toward the cursor; its step is a fixed distance (≈30 mm per notch) outside Modélisation and a percentage inside it.
 
 ### Component/style structure
 
@@ -57,6 +107,8 @@ Camera conventions (user's decisions, 2026-10-06): panning (middle button) is a 
 - Prefer shadcn/ui (`src/components/ui`) + Radix primitives + Tailwind for any new UI; all shadcn dependencies are already installed.
 - **Every slider is `ApexSlider`** (`src/components/ApexSlider.tsx`, user's rule, 2026-10-19): all current and future sliders in Apex (Paramètres, Prévisualisation, context menu, Modélisation…) use this component, modelled on the Prévisualisation speed slider (split track, glass handle, cyan value). Never add an `<input type="range">` or a new track; extend `ApexSlider` through its props (log scale, step, snap points, default value on double-click, intro) if a case is missing.
 - **Every element carries its text in the bottom-of-screen tooltip and the mouse tooltip** (user's rule, 2026-10-13): wrap it in `CustomTooltip` (title + description), containers included — a toolbar whose buttons have their own tooltip gets one for its background with `container` (e.g. « Outils de modélisation », « Boîte à outils Esquisse »). New elements need their texts; ask the user for wording rather than inventing it. Non-interactive elements (the 3D scene, panels) get the bottom-of-screen text only, with no mouse bubble, through the `data-apex-tooltip="..."` attribute (read by `TopRightMenu`); the Viewport3D canvas deliberately carries none (user removed it, 2026-10-13).
+- **Every engine parameter exposed in the UI carries a real explanatory tooltip** (user's rule, 2026-10-28): what it is for, what changing it does, what the engine measured (and "not measured" when it did not). Texts live in `src/utils/engineSettingsHelp.json`, keyed by schema path (shown through `CustomTooltip` in `EngineSettingsEditor`, long ones wrap in the bottom bar); `npm run schema:verify` fails the build for a parameter without text or a text without parameter. Facts and figures come from the engine's own comments/CLAUDE.md, never invented; for a new parameter, ask the engine for the explanation through `apex/integration/REQUESTS.md` (R-023). Numeric fields use `ApexNumberField` (arrows always visible), never a raw `<input type="number">`.
+- **Engine settings live in Paramètres › Algorithme (avancé)** (`EngineSettingsEditor`); the right panel of Préparation (`EngineSettingsPanel`, no side bar) only holds the « Mode de tranchage » selector for now (user, 2026-10-29). Settings that match a left-panel item (Solidité / Vitesse / Autres) are linked: the item carries `engine: '<schema path>'` in `CATEGORIES` (`CategoriesSidebar.tsx`) and renders an active `EngineItemRow` on the same store (`utils/engineSettings.ts`); items without `engine` stay inert ("Arrive bientôt").
 - After adding a component to `Index.tsx`'s tree, it must actually be rendered there or it won't be visible — keep the main page in sync with new components.
 
 ## G-code editing: handle-based deformation (design decisions, 2026-10-01)
@@ -187,7 +239,7 @@ Decided with the user in discussion. **Status: J0 (transport), J1 (C++ kernel), 
 
 ### Dev value (user's rule, 2026-10-08)
 The app has a **"dev" value** (`src/utils/devModePrefs.ts`, toggle in Paramètres, relayed to Electron via `apex:set-dev-mode`). Disabled: the Dev tab is hidden from the toolbar and browser shortcuts (Ctrl+R, Ctrl+Shift+R, F5, F12, …) do nothing (blocked in `electron/main.cjs`, `isBrowserShortcut`).
-- Disabled also means a **preview build**: Accueil/logo tooltip text replaced (`APP_TAGLINE_PREVIEW`), Préparation / Modélisation / Dev spaces hidden, Prévisualisation's "Fonction" icon greyed and inactive with the tooltip "Arrive bientôt", and a diagonal transparent "ALPHA" watermark over the whole screen (`AlphaWatermark.tsx`).
+- Disabled also means a **preview build**: Accueil/logo tooltip text replaced (`APP_TAGLINE_PREVIEW`), Modélisation / Dev spaces hidden (Préparation stays available, user 2026-10-31), Prévisualisation's "Fonction" icon greyed and inactive with the tooltip "Arrive bientôt", and a diagonal transparent "BETA" watermark over the whole screen (`BetaWatermark.tsx`).
 - It also shows a small white centred notice: "Préversion <version> – Fournie en l'état pour test. Aelox Hardware ne saurait se tenir responsable de quelconque perte de données."
 - **ALWAYS enabled unless the user says otherwise** (development, tests, e2e). Default = `import.meta.env.DEV`.
 - **ALWAYS disabled for app releases** (exe/dmg/msi/AppImage builds). Before any release build, check that it ships disabled (production build default; no forced `true`, no stale stored value).
@@ -213,7 +265,7 @@ Format `<préversion>-<public>.<global>.<majeur>.<moyen>.<mineur>.<add-ins>.<cor
 ### Interface at launch (user's decision, 2026-10-08, revised twice the same day)
 A variable read **once at launch** (`src/utils/interfaceMode.ts`) picks the LiquidGlass interface (default) or the **classic interface** (id `classic`, `src/components/classic/ClassicApp.tsx`): a **separate** interface — `App.tsx` lazy-loads one or the other, so the main one (`Index`, glass panels, curtain, framer-motion, UI sounds) is never loaded in classic mode. History of the user's steer: (1) an "unpleasant" table-only UI was rejected as too bad; (2) a flattened copy of the main UI was rejected ("must be separate, so the main one is not loaded, but not THAT bad"); (3) the current one: same spaces/tabs and same logic, plainer.
 - **Look (strict)**: true black and white (no CSS `filter`: the goal is to save resources), square corners, system font (no custom fonts), **no animation of any kind**, no blur / transparency / glass / shadows. Do not add polish or colour to the classic chrome. `styles/flat.css` (loaded only in this mode, `html[data-ui-flat]`) enforces it page-wide; `classic/FlatUi.tsx` maps the reused main-UI components (Édition panel) to black/white (translucent backgrounds → black, lighter-than-parent → white, text/borders opposite; inline-coloured swatches are data and left alone).
-- **Tabs**: same as the main UI; without the dev value only Accueil, Prévisualisation, Paramètres (Préparation / Modélisation / Dev are dev-only; Modélisation and Dev say "not available in the classic interface"). Nothing from the main UI's panels is reused except the engine pieces: `Viewport3D` (3D), `useGCodePreview` (G-code logic) and `EditionPanel` (kept inside a positioned, fixed-height box: its frame is `position: absolute`). Same `apex-*` events as the main UI; the viewport is mounted the moment its space opens (its listeners must exist before the tab events) and then stays mounted (it does not recover a loaded G-code after a remount).
+- **Tabs**: same as the main UI; without the dev value only Accueil, Préparation, Prévisualisation, Paramètres (Modélisation / Dev are dev-only; Modélisation and Dev say "not available in the classic interface"). Nothing from the main UI's panels is reused except the engine pieces: `Viewport3D` (3D), `useGCodePreview` (G-code logic) and `EditionPanel` (kept inside a positioned, fixed-height box: its frame is `position: absolute`). Same `apex-*` events as the main UI; the viewport is mounted the moment its space opens (its listeners must exist before the tab events) and then stays mounted (it does not recover a loaded G-code after a remount).
 - **Viewport in classic mode** (`isFlatUi()` guards in `Viewport3D.tsx`): no grid/floor (`backdrop` disabled), no `DefaultRenderingPipeline` (MSAA ×8 + FXAA), selection = white outline (`renderOutline`) instead of the `HighlightLayer`, gizmos and outlines white, origin axes white with **X / Y / Z letters** (printer Z = Babylon Y, printer Y = Babylon Z), the four plate-action buttons (import / select all / arrange / delete all) are NOT drawn around the plate: they are in the left panel of ClassicApp (events `apex-select-all-models`, `apex-arrange-models`, `apex-delete-all-models`, import through a file input), Babylon animations short-circuited (`utils/flatBabylon.ts`: `beginDirectAnimation`, `CreateAndStartAnimation`; voxel/scan delays 0). **G-code toolpath colours (line type, colour-by) are data and stay coloured** — the one exception to "black and white"; change only if the user asks.
 - **Render cap (user, 2026-10-08)**: the classic viewport renders at most `FLAT_MAX_FPS` = 25 images/s (deadline-based, in the `runRenderLoop` callback), with no `HighlightLayer` and no `apex-camera-updated` broadcast (no ViewCube). Measured idle CPU (all Electron processes, production build, Prévisualisation + G-code): LiquidGlass 38 %, classic 60 fps 22 %, classic 25 fps ≈ 13 %, render loop stopped ≈ 4 % of one core. Next real gain = render on demand (draw only on camera / playback / edit / resize / selection change), not done.
 - **"Rendre le plateau avec ombres"** (`utils/plateShadingPrefs.ts`, off by default, in the classic "Vue" section): off = the frosted-glass plate capture (`blurRT`: full-frame render + 2 Gaussian blurs every frame) is rendered once empty then never again (plate and plate-action buttons stay black), and imported models get one shared unlit light-grey material (`flatModelMat`, no 3D effects); on = the full glass plate and the models' own lit materials. New effects in the viewport must be gated the same way.
@@ -236,8 +288,14 @@ Adding/removing points on a segment with resampling (23 is rejected, 24 redraw/r
 ### Roadmap
 - **Fix the B direction on the printer** (user, 2026-10-06): today a negative B sends the tip outward. Once the firmware is fixed, change the engine's `b_sign`, the preview and the kernel together, and write the convention in the file header so older G-code still reads correctly.
 - **Nozzle profile system** (user, 2026-10-07): to introduce, with notably the nozzle's **outer width** as a parameter (width between the edge of the nozzle hole and the end of the nozzle's flat face). Printer profiles already carry `apex.default_nozzle_profile` (`diameter_mm`, `profile_id` null) as the hook; format in `docs/PRINTER_PROFILE_FORMAT.md`.
+- **Finish cloning OrcaSlicer's auto-arrange and add the related slicer functions** (user, 2026-10-31). `utils/orcaArrange.ts` only clones part of it (credited in `utils/credits.ts`; AGPL-3.0 notice to keep). Read the real sources (`src/slic3r/GUI/Jobs/ArrangeJob.cpp`, `src/libslic3r/Arrange.cpp`, libnest2d's `nfpplacer.hpp` / `firstfit.hpp`) before cloning — the first pass was written from summaries, not from the code.
+  - *Not yet cloned from the algorithm*: the neighbour-alignment term of the objective (same-area items); the sort keys beyond area (bed temperature, extruder id, height in sequential mode); the incompatible-filament and mixed-colour rejection costs; sequential-print rules (row/lid height conflicts); exclusion zones as fixed items; the wipe tower as a fixed item; the belt-printer path; non-circular beds (rectangular and the bed-box overfit penalty); several plates with first-fit (today an item that does not fit stays where it is, with a warning); the real NFP candidate search (accuracy, edge sampling, non-convex outlines — today convex hulls only); fixed (unselected) items.
+  - *Related slicer functions to add*: arrange only the selected models; arrange parameters in the UI (spacing, allow rotations, align to Y axis, keep-on-plate) with a tooltip each; multiple plates; locking a model so arrange leaves it alone; arrange on import; progress and cancel for large scenes; undo of an arrange.
 - Later, after more thought: live influence adjustment by shortcut/wheel; overhang indicator.
 - Very long term: named history states.
 - **Credits to complete before any public release (user, 2026-10-21)**: the Assistant's orb (lab `src/lab/assistant/`) uses the "reasoning" orb of **Thinking Orbs** by yogesharc (https://github.com/yogesharc/thinking-orbs, npm `@yogesharc/thinking-orbs`, **MIT** — the licence notice must be kept in distributions) and the Liquid Glass rendering/parameters of **Liquid Glass Studio** by iyinchao (MIT, already credited in `edit-node/liquidGlass.ts`). Cite both in the credits (`utils/credits.ts` / `CreditsPanel.tsx`, README « Credits & Citations »). The "Phosphor 30" shader by xordev (https://21st.dev/@xordev/components/phosphor-30, tried then removed on 2026-10-21) is no longer used: its licence was never checked, so cite it and check it first only if it comes back.
 - Last of all, to explore: embed the object's initial geometry in the G-code, possibly as a full application.
 - "Dumb idea, for a dev who wants to finish their night once Apex is finished and released in at least version 100-billion-point-0, and has not forgotten to feed the cats and do the user's dishes first": save a set of handles and reapply it to another file/version (re-slice with other parameters, several copies of a part, printer-specific compensation). Poor fit if the geometry changed.
+
+### Automatic update (user, 2026-10-31)
+At every launch of the installed app (Windows, production build) `electron/update-flow.cjs` checks the latest GitHub **release** of `aeloxhardware/apex` and installs a newer one without asking (liquid-glass dialog « APEX / MISE À JOUR » with progress, no veil), downloading only the changed files (manifest of SHA-256, assets named by hash), with a signed manifest (Ed25519, public key `electron/update-public-key.pem`, private key kept outside the repos in `~/.apex/`). Running files are renamed to `.old`, replaced, then the app relaunches. Everything (behaviour, publishing, what is left to do): `docs/UPDATES.md`; shared rules: `apex/integration/RULES.md` §4.4. Pure logic in `electron/updater.cjs` (tested by `electron/updater.test.ts`), publishing scripts in `scripts/update/`.

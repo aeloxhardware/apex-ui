@@ -38,7 +38,9 @@ declare global {
     /** Chemin relatif à `profiles/`, séparateur `/`. */
     path: string;
     folders: ApexProfileFolder[];
-    printers: { name: string; path: string }[];
+    printers: { name: string; path: string; inactive?: boolean }[];
+    /** Grisé : aucun profil OrcaSlicer dans ce dossier. */
+    inactive?: boolean;
   }
 
   interface ApexProfile {
@@ -52,8 +54,12 @@ declare global {
   interface ApexSliceRequest {
     contract: number;
     stl: Uint8Array;
-    /** Champs partiels : le moteur complète avec ses défauts (types générés depuis le schéma, C1). */
-    params?: import('@/generated/params.schema').PipelineParams;
+    /** Algorithme (R-024) : « element-ardor » par défaut, « element-aeolis » (non planaire, G-code cartésien). */
+    algorithm?: 'element-ardor' | 'element-aeolis';
+    /** Champs partiels : le moteur complète avec ses défauts (types générés depuis le schéma, C1). Racine
+     *  `AeolisSliceParams` avec Element Aeolis, `PipelineParams` sinon. */
+    params?: import('@/generated/params.schema').PipelineParams | import('@/generated/params.schema').AeolisSliceParams;
+    /** Refusé par le moteur avec Element Aeolis (G-code cartésien, pas de pivot) : à ne pas envoyer. */
     gcode_params?: import('@/generated/params.schema').GcodeParams;
     name?: string;
   }
@@ -94,7 +100,8 @@ declare global {
     /** Abonnement à la progression (0–100) ; renvoie la fonction de désabonnement. */
     onConvertProgress(callback: (percent: number) => void): () => void;
     /** Étapes du tranchage, telles que le moteur les publie (`main.py steps`, contrat C3). */
-    sliceSteps?(): Promise<{ contract: number; steps: { slug: string; label: string }[] }>;
+    /** Étapes du moteur ; `algorithm` (« element-aeolis »…) : celles de cet algorithme, sinon le chemin par défaut. */
+    sliceSteps?(algorithm?: string): Promise<{ contract: number; algorithm?: string; steps: { slug: string; label: string }[] }>;
     /** Tranche un maillage STL par le moteur (sous-processus). Le résultat `status` vaut 'ok' ou un refus typé. */
     slice?(request: ApexSliceRequest): Promise<{ result: ApexSliceResult; gcodeText: string | null }>;
     /** Arrête le tranchage en cours (et ses sous-processus). */
@@ -120,6 +127,8 @@ declare global {
     openEditChannel(): void;
     /** Zoom natif de la fenêtre (échelle de l'interface, cf. utils/uiScalePrefs.ts). */
     setZoomFactor?(factor: number): void;
+    /** Barre de titre native masquée : la page dessine le bandeau Apex (components/TitleBar.tsx). */
+    customTitleBar?: boolean;
   }
 
   interface Window {

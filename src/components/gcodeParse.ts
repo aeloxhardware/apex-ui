@@ -8,6 +8,7 @@ import {
 import { findAirContours } from './gcodeAirContours';
 import { detectGeneratorSignature, guessGeneratorFromFeature, type GCodeGenerator } from './gcodeGenerator';
 import type { ApexHeaderPayload, ApexJournal } from '@/utils/apexHeader';
+import { hasApexSignature } from '@/utils/apexSignature';
 import {
   LEGACY_KINEMATICS, isPreviewSupported, nozzleTipActive, parseKinematicsHeader, setActiveKinematics, type Kinematics,
 } from '@/utils/kinematics';
@@ -388,7 +389,23 @@ function planCartesianTimes(
   return { times, speeds };
 }
 
+/**
+ * Machine déclarée par un G-code Apex (R-025) : signature en tête ET ligne `; apex_kinematics_json {...}`
+ * (`machine` : « cartesian » ou « apex-polar-4axis »). Null pour un fichier sans signature, ou sans description :
+ * l'aperçu garde alors ses heuristiques (présence d'un mot B ou C). Les six mots XYZABC sont écrits sur chaque
+ * mouvement des fichiers Apex, donc la seule présence d'un mot C ne dit rien de la machine.
+ */
+function declaredApexMachine(text: string): 'cartesian' | 'polar' | null {
+  if (!hasApexSignature(text)) return null;
+  const m = /^; apex_kinematics_json \{[^\r\n]*?"machine":"([^"]+)"/m.exec(text.slice(0, 20000));
+  if (!m) return null;
+  if (m[1] === 'cartesian') return 'cartesian';
+  if (m[1] === 'apex-polar-4axis') return 'polar';
+  return null;
+}
+
 export function parseGCode(text: string): ParsedGCode {
+  const apexMachine = declaredApexMachine(text);
   // Cinématique AVANT toute durée de mouvement (moveLength lit la pointe). Absente : valeur des anciens fichiers.
   const declaredKinematics = parseKinematicsHeader(text);
   if (declaredKinematics && !isPreviewSupported(declaredKinematics)) {
@@ -478,7 +495,7 @@ export function parseGCode(text: string): ParsedGCode {
   let usesInches = false;
 
   const handleComment = (comment: string) => {
-    if (TOOL_AXIS_RE.test(comment)) { toolOriented = true; return; }
+    if (TOOL_AXIS_RE.test(comment)) { if (!apexMachine) toolOriented = true; return; }
     if (WIPE_START_RE.test(comment)) { inWipe = true; return; }
     if (WIPE_END_RE.test(comment)) { inWipe = false; return; }
     if (!signature && moves.length < GENERATOR_SCAN_MOVES) signature = detectGeneratorSignature(comment);
@@ -671,8 +688,12 @@ export function parseGCode(text: string): ParsedGCode {
     switch (num) {
       case 0:
       case 1: {
-        if (has(w.C)) toolOriented = true;
-        if (has(w.B) && !toolOriented) polar = true;
+        // Fichier Apex qui déclare sa machine : on ne la déduit pas des mots B et C (écrits à 0 sur tous les mouvements).
+        if (apexMachine === 'polar') { if (has(w.B)) polar = true; }
+        else if (apexMachine === null) {
+          if (has(w.C)) toolOriented = true;
+          if (has(w.B) && !toolOriented) polar = true;
+        }
         if (has(w.F) && w.F > 0) feed = w.F * unit;
         // Orientation d'outil : B = −90 est l'outil vertical, donc l'inclinaison est B + 90.
         const bWord = toolOriented && has(w.B) ? w.B + 90 : w.B;
@@ -680,7 +701,7 @@ export function parseGCode(text: string): ParsedGCode {
         const nx = axis(x, w.X, unit);
         const ny = axis(y, w.Y, unit);
         const nz = axis(z, w.Z, unit);
-        const nb = toolOriented ? (has(bWord) ? bWord : b) : axis(b, bWord, 1);
+        const nb = toolOriented ? (has(bWord) ? bWord : b) : apexMachine === 'cartesian' ? 0 : axis(b, bWord, 1);
         push(nx, ny, nz, nb, extrusionDelta(), toolOriented && has(w.C) ? w.C : c);
         break;
       }

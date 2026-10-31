@@ -515,9 +515,10 @@ export interface GCodeLayer {
   setPickingEnabled(enabled: boolean): void;
   /** Point de trajectoire visible (déposé, type affiché) le plus proche du rayon monde `ray`, ou
    * null. `pxPerUnit` : taille monde d'un pixel à 1 unité de distance de la caméra (tolérance de
-   * visée de quelques pixels). `t` : index de mouvement fractionnaire où la tête dépose ce point
+   * visée de quelques pixels ; `fixedDistance` : distance à utiliser à la place de celle du point sur
+   * le rayon, pour la vue orthographique où l'échelle ne dépend pas de la distance). `t` : index de mouvement fractionnaire où la tête dépose ce point
    * (cf. `setTime`) ; `local` : sa position dans le repère du plateau. */
-  pickAt(ray: BABYLON.Ray, pxPerUnit: number): { t: number; local: BABYLON.Vector3 } | null;
+  pickAt(ray: BABYLON.Ray, pxPerUnit: number, fixedDistance?: number): { t: number; local: BABYLON.Vector3 } | null;
   /** Surligne un point (repère du plateau, cf. `pickAt`) ; null l'éteint. */
   setPickHighlight(local: BABYLON.Vector3 | null): void;
   setEnabled(enabled: boolean): void;
@@ -1298,7 +1299,7 @@ export function createGCodeLayer(
 
   let pickHighlight: BABYLON.Mesh | null = null;
 
-  const pickAt = (ray: BABYLON.Ray, pxPerUnit: number) => {
+  const pickAt = (ray: BABYLON.Ray, pxPerUnit: number, fixedDistance?: number) => {
     const grid = pickGrid;
     if (!grid || !parsed || !sampler) return null;
     const { moves } = parsed;
@@ -1360,7 +1361,7 @@ export function createGCodeLayer(
           const cx = pickA.x + ex * v, cy = pickA.y + ey * v, cz = pickA.z + ez * v;
           const dx = o.x + d.x * uu - cx, dy = o.y + d.y * uu - cy, dz = o.z + d.z * uu - cz;
           const dist = Math.hypot(dx, dy, dz);
-          const tol = radius + PICK_TOLERANCE_PX * pxPerUnit * uu;
+          const tol = radius + PICK_TOLERANCE_PX * pxPerUnit * (fixedDistance ?? uu);
           const tAt = k - 1 + (s - 1 + v) / n;
           if (dist <= tol && tAt <= tLimit && (!best || uu < best.u)) {
             best = { t: tAt, u: uu, x: cx, y: cy, z: cz };

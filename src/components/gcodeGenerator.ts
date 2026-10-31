@@ -10,10 +10,138 @@
  *    `; feature outer perimeter` Simplify3D, `; <layer>` IceSL).
  */
 
+import { hasApexSignature } from '@/utils/apexSignature';
+
 export interface GCodeGenerator {
   name: string;
   /** Vrai quand le nom est déduit du format plutôt que lu dans une signature explicite. */
   inferred: boolean;
+  /**
+   * Présent quand le fichier porte la signature Apex (utils/apexSignature.ts). `version` est le numéro
+   * lu tel quel dans le bloc chiffré (« 0.2.3.0.3.0.0.221 »), null s'il est inconnu ou absent ;
+   * `prerelease` la lettre de maturité (« alpha »). `unreadable` : bloc absent, tronqué ou illisible.
+   */
+  apex?: { version: string | null; prerelease: string | null; unreadable?: boolean; meta?: Record<string, unknown> };
+}
+
+export const APEX_SLICER_NAME = 'Apex Slicer';
+
+/** « alpha-0.2.3.0.3.0.0.221 » → { prerelease: 'alpha', version: '0.2.3.0.3.0.0.221' } ; null si inexploitable (« unknown »…). */
+export function parseApexVersion(raw: unknown): { version: string; prerelease: string | null } | null {
+  if (typeof raw !== 'string') return null;
+  const m = /^(?:([A-Za-z]+)-)?(\d+(?:\.\d+)*)$/.exec(raw.trim());
+  return m ? { version: m[2], prerelease: m[1] ?? null } : null;
+}
+
+/**
+ * Générateur d'un fichier portant la signature Apex. `header` : bloc d'en-tête déchiffré, ou null s'il
+ * est absent, tronqué ou illisible.
+ */
+export function apexGenerator(header: { meta?: Record<string, unknown> } | null): GCodeGenerator {
+  if (!header) return { name: APEX_SLICER_NAME, inferred: false, apex: { version: null, prerelease: null, unreadable: true } };
+  const v = parseApexVersion(header.meta?.apex_version);
+  return {
+    name: APEX_SLICER_NAME,
+    inferred: false,
+    apex: { version: v?.version ?? null, prerelease: v?.prerelease ?? null, meta: header.meta },
+  };
+}
+
+/**
+ * Générateur final d'un fichier. Priorité : signature Apex > signature d'un autre slicer > déduction
+ * par le format (les deux derniers viennent de l'analyse du G-code, `parsed`). Sans signature Apex,
+ * `parsed` est rendu tel quel : jamais « Apex Slicer » devant un fichier non signé.
+ */
+export function resolveGenerator(
+  text: string,
+  parsed: GCodeGenerator | null,
+  header: { meta?: Record<string, unknown> } | null,
+): GCodeGenerator | null {
+  return hasApexSignature(text) ? apexGenerator(header) : parsed;
+}
+
+/**
+ * Étiquette et valeur affichées pour le générateur, partagées par le panneau d'informations de la
+ * Prévisualisation (`panel`) et l'écran classique (`classic`), qui n'ont pas les mêmes mots hors Apex.
+ */
+export function formatGeneratorLabel(
+  generator: GCodeGenerator | null,
+  screen: 'panel' | 'classic' = 'panel',
+): { label: string; value: string } {
+  const apex = generator?.apex;
+  if (generator && apex) {
+    if (apex.unreadable) return { label: 'Généré par', value: `${generator.name} (version illisible)` };
+    if (!apex.version) return { label: 'Généré par', value: `${generator.name} (version inconnue)` };
+    return {
+      label: 'Généré par',
+      value: `${generator.name} V${apex.version}${apex.prerelease ? ` (${apex.prerelease})` : ''}`,
+    };
+  }
+  if (screen === 'classic') {
+    return {
+      label: 'Générateur',
+      value: generator ? `${generator.name}${generator.inferred ? ' (déduit)' : ''}` : '-',
+    };
+  }
+  return {
+    label: 'Généré le plus probablement par',
+    value: generator ? `${generator.name}${generator.inferred ? ' (déduit du format)' : ''}` : 'Inconnu',
+  };
+}
+
+// Libellés des métadonnées de tranchage écrites par le moteur (clés de `meta`, cf. file_io/gcode_export.py).
+const META_LABELS: Record<string, [string, string?]> = {
+  generator: ['Moteur'],
+  contract: ['Contrat moteur'],
+  algorithm_name: ['Algorithme'],
+  algorithm: ["Version de l'algorithme"],
+  min_layer_height: ['Épaisseur de couche min', 'mm'],
+  max_layer_height: ['Épaisseur de couche max', 'mm'],
+  intermediate_layers: ['Inter-couches'],
+  machine: ['Machine'],
+  layer_height: ['Hauteur de couche', 'mm'],
+  line_width: ['Largeur de ligne', 'mm'],
+  print_speed: ["Vitesse d'impression", 'mm/s'],
+  travel_speed: ['Vitesse de déplacement', 'mm/s'],
+  nozzle_temp: ['Température buse', '°C'],
+  'kinematics.pivot_to_tip': ['Pivot → pointe', 'mm'],
+  'kinematics.b_sign': ['Signe B'],
+  'kinematics.tilt_sign': ['Signe inclinaison'],
+  'kinematics.z_reference': ['Référence Z'],
+};
+
+function formatMetaValue(value: unknown, unit?: string): string {
+  const text = typeof value === 'number'
+    ? String(Number(value.toFixed(4))).replace('.', ',')
+    : typeof value === 'boolean' ? (value ? 'oui' : 'non')
+    : typeof value === 'string' ? value : JSON.stringify(value);
+  return unit ? `${text} ${unit}` : text;
+}
+
+/**
+ * Métadonnées du bloc d'en-tête Apex, à plat, une ligne [libellé, valeur] par entrée (objets imbriqués
+ * parcourus, clés `a.b`). Une clé inconnue est affichée telle quelle : le contenu de `meta` est libre
+ * et l'interface ne doit rien en cacher. `apex_version` est déjà dans la ligne « Généré par ».
+ */
+export function apexMetaRows(meta: Record<string, unknown> | undefined): [string, string][] {
+  const rows: [string, string][] = [];
+  const walk = (obj: Record<string, unknown>, prefix: string) => {
+    for (const [key, value] of Object.entries(obj)) {
+      const path = prefix ? `${prefix}.${key}` : key;
+      if (path === 'apex_version' || value === null || value === undefined) continue;
+      // Description de la cinématique (format `apex-kinematics/1`, R-025) : des dizaines de champs, dont des listes
+      // JSON, que l'aperçu lit lui-même ; le panneau n'en garde qu'une ligne.
+      if (path === 'kinematics_description' && typeof value === 'object' && !Array.isArray(value)) {
+        rows.push(['Description de la cinématique', String((value as Record<string, unknown>).schema ?? 'présente')]);
+        continue;
+      }
+      if (typeof value === 'object' && !Array.isArray(value)) { walk(value as Record<string, unknown>, path); continue; }
+      const [label, unit] = META_LABELS[path] ?? [path];
+      rows.push([label, formatMetaValue(value, unit)]);
+    }
+  };
+  if (meta) walk(meta, '');
+  return rows;
 }
 
 // Noms tels qu'écrits dans les fichiers → nom commercial.

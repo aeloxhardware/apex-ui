@@ -181,6 +181,12 @@
   left: 14px;
   right: 14px;
   top: 12px;
+  // Les informations d'un G-code Apex sont nombreuses (métadonnées du bloc chiffré) : la liste défile au lieu
+  // de déborder sur les commandes du bas (tête d'outil, vitesse).
+  bottom: 124px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
   transition: opacity 0.2s ease;
 
   .morphing > & {
@@ -257,21 +263,51 @@
 // Le mécanisme d'ouverture/fermeture du panneau est fonctionnel, mais son contenu (réglages
 // qualité/solidité/vitesse) n'est pas encore branché : grisé et non interactif, tooltip "Arrive
 // bientôt" sur chaque ligne (cf. CategoriesSidebar.tsx).
-.contentInert {
+.itemRowInert {
+  flex: 1 1 auto;
+  min-width: 0;
   opacity: 0.45;
   filter: grayscale(1);
+  cursor: default;
+  pointer-events: none;
 
-  .itemRow {
-    cursor: default;
-    pointer-events: none;
-  }
-
-  // grayscale() désature mais ne neutralise pas la luminosité : le cyan très saturé de
-  // .itemInput (#00f0ff, cf. plus bas) restait visuellement "vif" une fois désaturé en gris
-  // clair. On écrase sa couleur ici pour un gris terne sans ambiguïté.
+  // grayscale() désature mais ne neutralise pas la luminosité : le cyan très saturé de .itemInput (#00f0ff, cf. plus
+  // bas) restait visuellement "vif" une fois désaturé en gris clair. On écrase sa couleur pour un gris terne.
   .itemInput {
     color: rgba(255, 255, 255, 0.5);
   }
+}
+
+// Ligne reliée à un réglage du moteur (EngineItemRow) : active, libellé à la ligne, champ compact à droite.
+.engineRow {
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 8px;
+
+  .compactField {
+    flex: 0 0 auto;
+    width: 112px;
+    min-height: 26px;
+    border-radius: 6px;
+
+    input {
+      font-size: 11px;
+      padding: 0 6px;
+    }
+  }
+}
+
+.itemNameWrap {
+  white-space: normal;
+  line-height: 1.25;
+}
+
+.choiceValue {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  color: #00f0ff;
+  font-size: 11px;
 }
 
 .fusionMenuContent {
@@ -308,6 +344,38 @@
   }
 }
 
+.scopeSwitch {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.scopeButton {
+  flex: 1;
+  padding: 5px 8px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.scopeActive {
+  background: rgba(0, 240, 255, 0.14);
+  color: #00f0ff;
+}
+
+.scopeInert {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .sectionGroup {
   display: flex;
   flex-direction: column;
@@ -336,7 +404,7 @@
   align-items: center;
   justify-content: space-between;
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: none;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
   padding: 8px 10px;
   border-radius: 8px;
@@ -350,7 +418,6 @@
 
     &:hover {
       background: rgba(255, 255, 255, 0.12);
-      border-color: rgba(255, 255, 255, 0.2);
       transform: perspective(400px) translateZ(6px);
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
     }
@@ -373,7 +440,8 @@
 .itemInput {
   width: 55px;
   background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
   border-radius: 4px;
   color: #00f0ff;
   text-align: center;
@@ -382,8 +450,7 @@
   outline: none;
 
   &:focus {
-    border-color: #00f0ff;
-    box-shadow: 0 0 6px rgba(0, 240, 255, 0.3);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45), 0 0 8px rgba(0, 240, 255, 0.4);
   }
 }
 
@@ -392,7 +459,8 @@
   align-items: center;
   gap: 6px;
   background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
   border-radius: 6px;
   color: #00f0ff;
   font-size: 11px;
@@ -410,30 +478,31 @@
 
 .patternPopup {
   position: fixed;
-  left: calc(82px + 320px + 12px);
+  left: calc(24px + 320px + 12px); // bord droit du menu (left 24, largeur 320) + 12px
   top: calc(50% - 180px);
   width: 320px;
   max-height: 400px;
   border: none;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
   border-radius: 16px;
   z-index: 1003;
   display: flex;
   flex-direction: column;
   overflow: visible;
   isolation: isolate;
+}
 
-  &::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: rgba(10, 15, 26, 0.25);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-    z-index: -1;
-    border-radius: inherit;
-    pointer-events: none;
-  }
+// Verre du panneau : élément à part, qui porte lui-même son opacité (fondu) ET son backdrop-filter. Un parent translucide
+// désactive le flou de ses enfants : le verre ne doit donc pas être dans l'élément qui s'estompe.
+.patternGlass {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 15, 26, 0.25);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
+  border-radius: inherit;
+  z-index: -1;
+  pointer-events: none;
 }
 
 .patternPopupContent {
@@ -452,11 +521,13 @@
 }
 
 .patternItem {
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: none;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
   padding: 8px 10px;
   border-radius: 8px;
@@ -468,7 +539,6 @@
 
   &:hover {
     background: rgba(255, 255, 255, 0.12);
-    border-color: rgba(255, 255, 255, 0.2);
     color: #fff;
     transform: perspective(400px) translateZ(6px);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
@@ -476,8 +546,29 @@
 
   &.activePattern {
     background: rgba(0, 240, 255, 0.2);
-    border-color: #00f0ff;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 12px rgba(0, 240, 255, 0.3);
     color: #00f0ff;
     font-weight: 600;
+  }
+}
+
+.patternName {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+// Motif d'OrcaSlicer pas encore réalisé par le moteur : grisé, sans effet de survol ni de clic.
+.patternItemDisabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.03);
+    color: rgba(255, 255, 255, 0.9);
+    transform: perspective(400px) translateZ(0px);
+    box-shadow: none;
   }
 }

@@ -5,6 +5,7 @@
 // tranchage (`params` / `gcode_params`), en ne gardant que ce qui diffère du défaut du moteur.
 import { useEffect, useState } from 'react';
 import registry from './engineSettings.json';
+import help from './engineSettingsHelp.json';
 import { DEFAULT_LAYER_LIMITS } from '@/utils/layerLimits';
 
 export type EngineSettingLevel = 'user' | 'advanced' | 'developer';
@@ -27,6 +28,61 @@ export interface EngineSetting {
 }
 
 export const ENGINE_SETTINGS = registry as EngineSetting[];
+
+/**
+ * Explication de chaque réglage (à quoi il sert, ce qu'il change, ce qui a été mesuré). Obligatoire : un réglage sans
+ * texte dans `engineSettingsHelp.json` fait échouer `scripts/sync-engine-schema.cjs --verify` (règle de l'utilisateur,
+ * 2026-10-28). Les faits chiffrés viennent du moteur ; ce qu'il n'a pas mesuré est dit tel quel.
+ */
+export interface EngineSettingHelp { what: string; effect?: string; caution?: string }
+export const helpOf = (setting: EngineSetting): EngineSettingHelp | undefined => (help as Record<string, EngineSettingHelp>)[setting.path];
+
+export const getEngineSetting = (path: string): EngineSetting | undefined => ENGINE_SETTINGS.find((s) => s.path === path);
+
+// Libellés des valeurs énumérées du moteur (jamais affichées brutes) et leur description (faits donnés par le moteur).
+export const ENUM_LABELS: Record<string, string> = {
+  lines: 'Lignes', grid: 'Grille', crossed_zigzag: 'Zigzag croisé', oscillating_spiral: 'Spirale oscillante',
+  tetgen: 'TetGen', tetranet: 'TetraNet',
+};
+export const ENUM_DESCRIPTIONS: Record<string, string> = {
+  lines: 'Balayage parallèle.',
+  grid: 'Deux balayages croisés à 90° dans chaque couche.',
+  crossed_zigzag: "Un zigzag continu par zone, orienté dans un sens une couche sur deux et dans l'autre sens l'autre.",
+  oscillating_spiral: "Spirale autour de l'axe du plateau : le plateau tourne toujours dans le même sens et la ligne médiane est la même à toutes les couches (seules les aspérités changent).",
+};
+
+const nf = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 3 });
+
+export function formatValue(setting: EngineSetting, value: EngineSettingValue): string {
+  if (value === null) return 'aucune';
+  if (typeof value === 'boolean') return value ? 'oui' : 'non';
+  if (typeof value === 'string') return ENUM_LABELS[value] ?? value;
+  if (setting.unit === 'fraction') return `${Math.round(value * 100)} %`;
+  // Les unités longues (« facteur (× arête médiane²) ») vont dans l'infobulle, pas à côté de la valeur.
+  return setting.unit && setting.unit.length <= 8 ? `${nf.format(value)} ${setting.unit}` : nf.format(value);
+}
+
+/** Texte du bandeau du bas : explication du réglage (engineSettingsHelp.json), puis sa référence technique. */
+export function tooltipOf(setting: EngineSetting) {
+  const help = helpOf(setting);
+  const app = appDefaultOf(setting);
+  const tech = [`moteur : ${setting.path}`];
+  if (setting.unit) tech.push(`unité : ${setting.unit}`);
+  tech.push(`défaut du moteur : ${formatValue(setting, setting.default)}`);
+  if (app !== setting.default) tech.push(`valeur de l'application : ${formatValue(setting, app)}`);
+  const text = [help?.what, help?.effect, help?.caution && `Attention : ${help.caution}`].filter(Boolean).join(' ');
+  return { title: setting.label, desc: `${setting.label} — ${text} (${tech.join(' · ')}).` };
+}
+
+/** Explication de chaque catégorie (infobulle de sa icône dans la barre latérale). */
+export const ENGINE_SETTING_CATEGORY_HELP: Record<string, string> = {
+  'Lissage des couches': "Réglages du champ de chaleur dont les surfaces d'égale valeur deviennent les couches : lissage du champ, hauteur de couche, finesse du maillage.",
+  'Orientation de la tête': "Comment la tête s'incline pour suivre la surface sans demander à la machine une inclinaison impossible, et comment l'angle B est lissé.",
+  'Trajectoires': "Parois, remplissage, vitesse d'impression et température : ce qui est déposé dans chaque couche.",
+  'Collisions': "Marges de sécurité de la simulation de collision et limite de réorientation de la tête pour éviter de toucher la pièce.",
+  'Déplacements': "Déplacements sans extrusion : vitesse, dégagement, rétraction, et rotation cumulée tolérée du plateau.",
+  'Avancé': "Réglages de développeur : tétraédraliseur, plusieurs pièces, inclinaison atteignable depuis la machine.",
+};
 
 /** Ordre d'affichage des catégories. */
 export const ENGINE_SETTING_CATEGORIES = [

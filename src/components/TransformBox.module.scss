@@ -1,0 +1,61 @@
+// Boîte de saisie des valeurs des outils Déplacer / Pivoter / Mettre à l'échelle (cf. TransformBox.tsx),
+// posée sous la barre d'outils du bas, même verre que les barres.
+
+.box {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: rgba(10, 15, 26, 0.25);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.35), 0 4px 16px 0 rgba(0, 0, 0, 0.25);
+  pointer-events: auto;
+  white-space: nowrap;
+  transition: opacity 0.2s ease;
+}
+
+.disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+}
+
+.cell {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 128px;
+}
+
+.letter {
+  flex: 0 0 auto;
+  width: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+
+  input {
+    accent-color: #00f0ff;
+    cursor: pointer;
+  }
+}

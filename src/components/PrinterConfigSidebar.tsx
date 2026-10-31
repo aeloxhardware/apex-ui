@@ -174,12 +174,14 @@ const ProfileColumn: React.FC<ProfileColumnProps> = ({
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.15, delay: Math.min(idx, 12) * 0.03 }}
               >
-                <CustomTooltip content={sub.name} description="">
+                <CustomTooltip content={sub.name} description={sub.inactive ? "Inactif : aucun profil OrcaSlicer dans ce dossier." : ""}>
                   <li
                     className={clsx(isFirst ? styles.itemRow : styles.patternItem, {
                       [isFirst ? styles.activeRow : styles.activePattern]: openFolder === sub.name,
+                      [styles.inactiveItem]: sub.inactive,
                     })}
-                    onClick={() => onOpenFolder(sub.name)}
+                    aria-disabled={sub.inactive || undefined}
+                    onClick={() => { if (!sub.inactive) onOpenFolder(sub.name); }}
                   >
                     <span className={styles.itemName}>{sub.name}</span>
                     <ChevronRight size={14} className="text-zinc-400 shrink-0" />
@@ -197,12 +199,19 @@ const ProfileColumn: React.FC<ProfileColumnProps> = ({
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.15, delay: Math.min(folder.folders.length + idx, 12) * 0.03 }}
                 >
-                  <CustomTooltip content={printer.name} description="Cliquez pour afficher les informations techniques de l'imprimante.">
+                  <CustomTooltip
+                    content={printer.name}
+                    description={printer.inactive
+                      ? "Inactif : cette imprimante n'a pas de profil dans OrcaSlicer."
+                      : "Cliquez pour afficher les informations techniques de l'imprimante."}
+                  >
                     <li
                       className={clsx(isFirst ? styles.itemRow : styles.patternItem, {
                         [isFirst ? styles.activeRow : styles.activePattern]: isActive || isSelected,
+                        [styles.inactiveItem]: printer.inactive,
                       })}
-                      onClick={() => onOpenPrinter(printer)}
+                      aria-disabled={printer.inactive || undefined}
+                      onClick={() => { if (!printer.inactive) onOpenPrinter(printer); }}
                     >
                       <span className={styles.itemName}>{printer.name}</span>
                       {isActive
@@ -232,7 +241,8 @@ interface PrinterConfigSidebarProps {
   isOpen: boolean;
   onClose: () => void;
   selectedPrinter: string;
-  onSelectPrinter: (printerName: string) => void;
+  /** `printerPath` : chemin du profil dans `profiles/` (absent si l'appelant n'en dispose pas). */
+  onSelectPrinter: (printerName: string, printerPath?: string) => void;
   selectedFilament: string;
   onSelectFilament: (filamentName: string) => void;
 }
@@ -301,7 +311,7 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
   };
 
   const handleSelectPrinter = (name: string) => {
-    onSelectPrinter(name);
+    onSelectPrinter(name, activePrinter?.path);
     showSuccess(`Imprimante active : ${name}`);
     runClosingSequence();
   };

@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { apexMetaRows, formatGeneratorLabel } from './gcodeGenerator';
 import type { GCodeFileInfo } from '@/hooks/use-gcode-preview';
 import styles from './GCodeInfoPanel.module.scss';
 
@@ -42,13 +43,12 @@ export const GCodeInfoPanel = React.memo<GCodeInfoPanelProps>(({ fileInfo }) => 
     filamentMm += stat.filamentMm;
     massG += stat.massG;
   }
-  const generator = fileInfo.generator
-    ? `${fileInfo.generator.name}${fileInfo.generator.inferred ? ' (déduit du format)' : ''}`
-    : 'Inconnu';
+  const generator = formatGeneratorLabel(fileInfo.generator);
 
   const rows: [string, string][] = [
     ['Fichier', fileInfo.name],
-    ['Généré le plus probablement par', generator],
+    [generator.label, generator.value],
+    ...apexMetaRows(fileInfo.generator?.apex?.meta),
     ['Format', fileInfo.kind === 'cartesian'
       ? fileInfo.toolOriented ? "3 axes + orientation d'outil (B/C)" : '3 axes (cartésien)'
       : fileInfo.conversion

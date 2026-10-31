@@ -1,9 +1,19 @@
 "use client";
 
+import { importModelsOneByOne } from '@/utils/importModels';
 import { buildPlateStl, type PlatePart } from '@/utils/plateStl';
 import React, { useEffect, useRef, useState, useLayoutEffect } from 'react';
 import * as BABYLON from 'babylonjs';
 import { installFlatBabylon } from '@/utils/flatBabylon';
+import { OrcaRotateGizmo } from './orcaRotateGizmo';
+import { OrcaScaleGizmo } from './orcaScaleGizmo';
+import { createOrcaModelMaterial } from './orcaModelMaterial';
+import { PracticalModelsGrid, fetchPracticalModelFile, prewarmPracticalModels } from './PracticalModelsGrid';
+import ScaleUnitPrompt,{ type ScaleUnitSuggestion } from './ScaleUnitPrompt';
+import { suggestModelUnit } from '@/utils/modelUnit';
+import { apexEase } from '@/utils/easing';
+import { localPointOf, scaleKeepingPoint } from '@/utils/meshScale';
+import { motion } from 'framer-motion';
 import { FLAT_MAX_FPS, isFlatUi } from '@/utils/interfaceMode';
 import { isPlateShaded, subscribePlateShaded } from '@/utils/plateShadingPrefs';
 
@@ -14,6 +24,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { createPortal } from 'react-dom';
 import { Upload, BoxSelect, LayoutGrid, Trash2 } from 'lucide-react';
 import { showSuccess, showWarning, showError } from '@/utils/toast';
+import { arrange as arrangeOrca } from '@/utils/orcaArrange';
 import styles from './Viewport3D.module.scss';
 import { ApexSlider } from './ApexSlider';
 import { createAirContourCallout } from './airContourCallout';
@@ -22,8 +33,9 @@ import { createGCodeEditController, type GCodeEditController } from './edit-node
 import GCodeEditOverlay from './edit-node/GCodeEditOverlay';
 import { createScreenLine, createScreenLines } from './screenLine';
 import type { ColorByScope } from './gcodeColormap';
-import type { LineTypeVisibility } from './gcodeLineTypes';
+import { LINE_TYPE_BY_ID, type LineTypeVisibility } from './gcodeLineTypes';
 import { PAN_PERSPECTIVE_EVENT, readPanPerspective } from '@/utils/panPerspectivePrefs';
+import { isPreviewSpace } from '@/utils/previewSpace';
 import { previewZoomStepFactor } from '@/utils/previewZoomPrefs';
 
 const DEFAULT_BLUR_LEVEL = 40;
@@ -38,6 +50,14 @@ const menuTooltip = (tip: { title: string; desc: string }) => ({
 });
 const SELECT_ALL_TOOLTIP = { title: 'Tout sélectionner', desc: 'Sélectionne tous les modèles du plateau.' };
 const DELETE_ALL_TOOLTIP = { title: 'Tout supprimer', desc: 'Supprime tous les modèles du plateau.' };
+const SCALE_TOOLTIP = {
+  title: 'Échelle',
+  desc: "Unité dans laquelle le fichier de ce modèle a été dessiné. Un STL n'en porte pas : s'il a été dessiné en pouces, il apparaît 25,4 fois trop petit.",
+};
+// Même courbe que le reste de l'application (cf. utils/easing.ts), au format attendu par Framer Motion.
+const UNIT_PILL_EASE: [number, number, number, number] = [0.16, 1, 0.3, 1];
+const SCALE_INCH_TOOLTIP = { title: 'Pouces', desc: 'Lit le modèle en pouces : il est agrandi 25,4 fois, autour de son centre, et reste posé sur le plateau.' };
+const SCALE_MM_TOOLTIP = { title: 'Millimètres', desc: 'Lit le modèle en millimètres (unité par défaut) : annule le passage en pouces.' };
 // Outils pas encore disponibles : grisés et inactifs, seule l'info-bulle « Bientôt disponible ».
 const SOON_TOOLTIP = { title: 'Bientôt disponible', desc: 'Bientôt disponible' };
 const ORGANIZE_TOOLTIP = SOON_TOOLTIP;
@@ -83,7 +103,7 @@ const SPACE_MENU_ITEMS: Record<Exclude<ContextMenuSpace, 'preparation'>, { label
 const PRIMITIVE_TOOLTIP = { title: 'Ajouter une primitive', desc: 'Ajoute une forme simple, à dessiner directement sur le plateau.' };
 const BOX_TOOLTIP = { title: 'Boîte', desc: 'Dessinez un pavé sur le plateau, puis donnez-lui sa hauteur.' };
 const PYRAMID_TOOLTIP = { title: 'Pyramide 4 côtés', desc: 'Dessinez une base sur le plateau, puis donnez-lui sa hauteur : la pyramide se pose sur le plateau.' };
-const MODELS_TOOLTIP = SOON_TOOLTIP;
+const MODELS_TOOLTIP = { title: 'Ajouter des modèles pratiques', desc: 'Ouvre une sélection de modèles de test à poser sur le plateau.' };
 
 const BLUR_TOOLTIP = {
   title: 'Niveau de flou sous le plateau',
@@ -93,6 +113,10 @@ const BLUR_TOOLTIP = {
 export const Viewport3D = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  // Modèle sous le clic droit (null = clic dans le vide) et son unité courante.
+  const [contextModel, setContextModel] = useState<{ name: string; unit: 'mm' | 'in' } | null>(null);
+  // Proposition de changer l'unité de lecture d'un modèle trop petit ou trop grand, après son import.
+  const [unitSuggestion, setUnitSuggestion] = useState<ScaleUnitSuggestion | null>(null);
   // Espace courant, pour choisir le menu contextuel (événement `apex-space-changed`, émis par Index).
   const [contextSpace, setContextSpace] = useState<ContextMenuSpace>('preparation');
   useEffect(() => {
@@ -252,7 +276,33 @@ export const Viewport3D = () => {
     const baseGetProjectionMatrix = camera.getProjectionMatrix.bind(camera);
     const shiftedProjection = new BABYLON.Matrix();
     const shiftedArray = new Float32Array(16);
+    /**
+     * Perspective désactivée (interrupteur d'AxisSidebar) = vue ORTHOGRAPHIQUE, comme l'option
+     * « Orthographique » de Fusion 360 (demande de l'utilisateur, 2026-10-28) : plus de fuite, un
+     * plan vu de côté est un trait, et la molette change l'échelle de l'image. Les dimensions de
+     * la fenêtre sont celles que la perspective donnerait à la distance de la cible
+     * (`radius · tan(fov/2)`), donc le basculement ne change pas l'échelle au point visé et toutes
+     * les formules « monde par pixel » du fichier restent exactes. Le plan proche passe de l'autre
+     * côté de la caméra : sans fuite, rien ne justifie de couper ce qui est derrière l'œil
+     * (le rayon d'orbite, lui, peut devenir très petit au zoom).
+     */
+    let orthoActive = false;
+    const perspectiveMinZ = camera.minZ;
+    const applyProjectionMode = () => {
+      orthoActive = !panPerspective;
+      camera.mode = orthoActive ? BABYLON.Camera.ORTHOGRAPHIC_CAMERA : BABYLON.Camera.PERSPECTIVE_CAMERA;
+      if (!orthoActive) camera.minZ = perspectiveMinZ;
+    };
     camera.getProjectionMatrix = (force?: boolean) => {
+      if (orthoActive) {
+        const halfHeight = camera.radius * Math.tan(camera.fov / 2);
+        const halfWidth = halfHeight * engine.getAspectRatio(camera);
+        camera.orthoLeft = -halfWidth;
+        camera.orthoRight = halfWidth;
+        camera.orthoBottom = -halfHeight;
+        camera.orthoTop = halfHeight;
+        camera.minZ = -camera.maxZ;
+      }
       const base = baseGetProjectionMatrix(force);
       if (lensShift.x === 0 && lensShift.y === 0) return base;
       const m = base.m;
@@ -269,6 +319,7 @@ export const Viewport3D = () => {
     let sketchOrbitLocked = false; // orbite verrouillée = dessin d'esquisse en cours
     let panPerspective = readPanPerspective();
     const applyPanMode = () => {
+      applyProjectionMode();
       camera.movement.input.inputMap = [
         ...baseInputMap,
         ...(panPerspective ? [{ source: "pointer" as const, button: 1, interaction: "pan" as const }] : []),
@@ -364,7 +415,9 @@ export const Viewport3D = () => {
     const onCanvasWheel = (event: WheelEvent) => {
       event.preventDefault();
       const unit = event.deltaMode === 1 ? 33 : event.deltaMode === 2 ? 100 : 1; // lignes / pages
-      if (modelingActive) pendingZoomLog += event.deltaY * unit * ZOOM_LOG_PER_WHEEL_UNIT;
+      // Vue orthographique : l'échelle de l'image change d'un même pourcentage par cran, comme en
+      // Modélisation (un pas en mm n'a pas de sens sans perspective : la distance ne change rien).
+      if (modelingActive || orthoActive) pendingZoomLog += event.deltaY * unit * ZOOM_LOG_PER_WHEEL_UNIT;
       else {
         // Distance caméra → point visé sous le curseur (plan horizontal de la cible, comme l'ancre
         // du zoom) ; à défaut, le rayon de la caméra.
@@ -399,11 +452,15 @@ export const Viewport3D = () => {
       // (horizontal hors Modélisation ; plan de la grille en Modélisation).
       zoomAnchor.copyFrom(camera.target);
       const ray = scene.createPickingRay(scene.pointerX, scene.pointerY, BABYLON.Matrix.Identity(), camera);
-      const planeN = modelingActive ? gridNormal : BABYLON.Vector3.Up();
+      // Orthographique hors Modélisation : plan perpendiculaire à l'axe de vue, sans quoi une vue de
+      // côté (plan horizontal rasant) ne pourrait plus viser le curseur.
+      const planeN = modelingActive ? gridNormal : orthoActive ? ray.direction : BABYLON.Vector3.Up();
       const denom = BABYLON.Vector3.Dot(ray.direction, planeN);
       if (Math.abs(denom) > 1e-9) {
         const t = BABYLON.Vector3.Dot(camera.target.subtract(ray.origin), planeN) / denom;
-        if (t > 0 && t <= camera.radius * ZOOM_MAX_ANCHOR_DISTANCE_RADII) {
+        // Orthographique : l'origine du rayon est sur le plan proche (derrière la caméra) et il n'y
+        // a pas d'horizon, donc ni borne de distance ni risque de projeter loin.
+        if (t > 0 && (orthoActive || t <= camera.radius * ZOOM_MAX_ANCHOR_DISTANCE_RADII)) {
           ray.origin.addToRef(ray.direction.scale(t), zoomAnchor);
         }
       }
@@ -653,6 +710,16 @@ export const Viewport3D = () => {
     gizmoManager.rotationGizmoEnabled = false;
     gizmoManager.scaleGizmoEnabled = false;
 
+    // Les gizmos se placent par défaut sur l'ORIGINE du maillage (celle du fichier), pas sur son pivot :
+    // ils restaient loin de la pièce, et la rotation se faisait autour de ce point. Les gizmos sont créés
+    // à leur premier affichage, donc l'ancrage est réappliqué à chaque rattachement à un maillage.
+    gizmoManager.onAttachedToMeshObservable.add(() => {
+      const { positionGizmo, rotationGizmo, scaleGizmo } = gizmoManager.gizmos;
+      for (const gizmo of [positionGizmo, rotationGizmo, scaleGizmo]) {
+        if (gizmo) gizmo.anchorPoint = BABYLON.GizmoAnchorPoint.Pivot;
+      }
+    });
+
     // Interface classique : sélection = contour blanc (renderOutline), sans HighlightLayer (passes de rendu + flou).
     const outlinedMeshes = new Set<BABYLON.AbstractMesh>();
     const updateFlatOutline = () => {
@@ -752,6 +819,7 @@ export const Viewport3D = () => {
               }
             })
           );
+          emitTransformState();
         }
       }
     };
@@ -839,9 +907,91 @@ export const Viewport3D = () => {
     gizmoManager.gizmos.positionGizmo?.yGizmo.dragBehavior.onDragObservable.add(updateSelectedPosition);
     gizmoManager.gizmos.positionGizmo?.zGizmo.dragBehavior.onDragObservable.add(updateSelectedPosition);
 
-    gizmoManager.gizmos.rotationGizmo?.xGizmo.dragBehavior.onDragObservable.add(updateSelectedRotation);
-    gizmoManager.gizmos.rotationGizmo?.yGizmo.dragBehavior.onDragObservable.add(updateSelectedRotation);
-    gizmoManager.gizmos.rotationGizmo?.zGizmo.dragBehavior.onDragObservable.add(updateSelectedRotation);
+    // Pendant une rotation, le point le plus bas du modèle reste collé au plateau : on corrige
+    // la hauteur à chaque pas (le gizmo a déjà appliqué sa rotation, son observer est enregistré
+    // avant le nôtre).
+    const keepOnPlateAfterRotation = () => {
+      if (scene.isDisposed) return;
+      const selection = selectedMeshesRef.current;
+      if (selection.size === 0) return;
+      const activeMesh = Array.from(selection)[selection.size - 1];
+      if (!activeMesh || activeMesh.isDisposed()) return;
+      activeMesh.computeWorldMatrix(true);
+      const minY = activeMesh.getHierarchyBoundingVectors(true).min.y;
+      activeMesh.position.y += PLATE_SURFACE_Y - minY;
+      activeMesh.computeWorldMatrix(true);
+      updateSelectedPosition();
+    };
+    const onRotationDrag = () => {
+      keepOnPlateAfterRotation();
+      updateSelectedRotation();
+    };
+
+    // Gizmo de rotation d'OrcaSlicer (orcaRotateGizmo.ts) à la place de celui de Babylon : trois anneaux
+    // autour du CENTRE du modèle, accroche de l'angle, rotation autour de ce centre. Le gestionnaire de
+    // gizmos reste le point d'entrée : `rotationGizmoEnabled` et `attachToMesh` pilotent notre gizmo, celui
+    // de Babylon n'est jamais créé.
+    const orcaRotateGizmo = new OrcaRotateGizmo(scene, {
+      onRotated: onRotationDrag,
+      onDragEnd: () => { updateSelectedPosition(); updateSelectedRotation(); },
+    });
+    let rotateToolOn = false;
+    Object.defineProperty(gizmoManager, 'rotationGizmoEnabled', {
+      configurable: true,
+      get: () => rotateToolOn,
+      set: (enabled: boolean) => {
+        rotateToolOn = enabled;
+        orcaRotateGizmo.attach(enabled ? gizmoManager.attachedMesh : null);
+      },
+    });
+    gizmoManager.onAttachedToMeshObservable.add((mesh) => orcaRotateGizmo.attach(rotateToolOn ? mesh : null));
+
+    // Gizmo de mise à l'échelle d'OrcaSlicer (orcaScaleGizmo.ts) à la place de celui de Babylon, même principe
+    // que pour la rotation : `scaleGizmoEnabled` et `attachToMesh` pilotent notre gizmo, celui de Babylon n'est
+    // jamais créé. La base du modèle reste sur le plateau pendant l'échelle.
+    const orcaScaleGizmo = new OrcaScaleGizmo(scene, {
+      onScaled: () => { keepOnPlateAfterRotation(); updateSelectedPosition(); },
+      onDragEnd: () => { handleDragEnd(); updateSelectedPosition(); },
+    });
+    let scaleToolOn = false;
+    Object.defineProperty(gizmoManager, 'scaleGizmoEnabled', {
+      configurable: true,
+      get: () => scaleToolOn,
+      set: (enabled: boolean) => {
+        scaleToolOn = enabled;
+        orcaScaleGizmo.attach(enabled ? gizmoManager.attachedMesh : null);
+      },
+    });
+    gizmoManager.onAttachedToMeshObservable.add((mesh) => orcaScaleGizmo.attach(scaleToolOn ? mesh : null));
+    // Le gizmo de rotation n'est créé qu'à son premier affichage : on branche les observers dès
+    // qu'il existe (une seule fois par instance).
+    let rotationGizmoWired: unknown = null;
+    // Par défaut, glisser un gizmo détache puis ré-attache les contrôles de la caméra
+    // (`PointerDragBehavior.detachCameraControls`) ; cette version de Babylon remet alors la table
+    // `camera.movement.input.inputMap` à ses valeurs d'origine : l'orbite (clic droit) et le pan
+    // (bouton du milieu) personnalisés plus haut disparaissaient après le premier déplacement /
+    // rotation d'un modèle. Le gizmo ne s'utilise qu'avec le clic gauche, que la caméra ne gère
+    // pas : on laisse donc ses contrôles en place.
+    const gizmoDragsWired = new WeakSet<object>();
+    const keepCameraControlsDuringGizmoDrag = (gizmo: unknown) => {
+      if (!gizmo || typeof gizmo !== 'object') return;
+      for (const sub of Object.values(gizmo as Record<string, unknown>)) {
+        const behavior = (sub as { dragBehavior?: BABYLON.PointerDragBehavior } | null)?.dragBehavior;
+        if (!behavior || gizmoDragsWired.has(behavior)) continue;
+        gizmoDragsWired.add(behavior);
+        behavior.detachCameraControls = false;
+      }
+    };
+    scene.onBeforeRenderObservable.add(() => {
+      const gizmos = gizmoManager.gizmos;
+      keepCameraControlsDuringGizmoDrag(gizmos.positionGizmo);
+      keepCameraControlsDuringGizmoDrag(gizmos.rotationGizmo);
+      keepCameraControlsDuringGizmoDrag(gizmos.scaleGizmo);
+      const rg = gizmos.rotationGizmo;
+      if (!rg || rg === rotationGizmoWired) return;
+      rotationGizmoWired = rg;
+      [rg.xGizmo, rg.yGizmo, rg.zGizmo].forEach((g) => g.dragBehavior.onDragObservable.add(onRotationDrag));
+    });
 
     const onToolChanged = (e: Event) => {
       const customEvent = e as CustomEvent<{ tool: string }>;
@@ -884,6 +1034,117 @@ export const Viewport3D = () => {
       }
     };
     window.addEventListener('apex-tool-changed', onToolChanged);
+
+    // Saisie de valeurs exactes (TransformBox) : l'état du modèle actif part par `apex-transform-state`, une valeur
+    // saisie arrive par `apex-transform-set`. Axes de l'imprimante : X = Babylon x, Y = Babylon z, Z = Babylon y
+    // (vertical) ; rotations A / B / C autour de X / Y / Z. Position = centre de la boîte englobante, Z = hauteur de
+    // la base au-dessus du plateau. Taille et échelle suivent les axes locaux du maillage, par rapport à l'état vu
+    // la première fois (celui de l'import).
+    const transformBases = new WeakMap<BABYLON.AbstractMesh, { scaling: BABYLON.Vector3; extent: BABYLON.Vector3 }>();
+    const activeTransformMesh = () => {
+      const selection = selectedMeshesRef.current;
+      if (selection.size === 0) return null;
+      const m = Array.from(selection)[selection.size - 1];
+      return m && !m.isDisposed() ? m : null;
+    };
+    const transformBaseOf = (m: BABYLON.AbstractMesh) => {
+      let base = transformBases.get(m);
+      if (!base) {
+        const bb = m.getHierarchyBoundingVectors(true);
+        base = { scaling: m.scaling.clone(), extent: bb.max.subtract(bb.min) };
+        transformBases.set(m, base);
+      }
+      return base;
+    };
+    const meshEuler = (m: BABYLON.AbstractMesh) => (m.rotationQuaternion ? m.rotationQuaternion.toEulerAngles() : m.rotation);
+    function emitTransformState() {
+      const m = activeTransformMesh();
+      if (!m || scene.isDisposed) return;
+      m.computeWorldMatrix(true);
+      const bb = m.getHierarchyBoundingVectors(true);
+      const base = transformBaseOf(m);
+      const rot = meshEuler(m);
+      const deg = BABYLON.Tools.ToDegrees;
+      const ratio = (a: number, b: number) => (b !== 0 ? a / b : 1);
+      const rx = ratio(m.scaling.x, base.scaling.x);
+      const ry = ratio(m.scaling.y, base.scaling.y);
+      const rz = ratio(m.scaling.z, base.scaling.z);
+      window.dispatchEvent(new CustomEvent('apex-transform-state', {
+        detail: {
+          position: { x: (bb.min.x + bb.max.x) / 2, y: (bb.min.z + bb.max.z) / 2, z: bb.min.y - PLATE_SURFACE_Y },
+          rotation: { x: deg(rot.x), y: deg(rot.z), z: deg(rot.y) },
+          size: { x: base.extent.x * rx, y: base.extent.z * rz, z: base.extent.y * ry },
+          scale: { x: rx * 100, y: rz * 100, z: ry * 100 },
+        },
+      }));
+    }
+    const onTransformSet = (e: Event) => {
+      const { kind, axis, value, keepProportions } = (e as CustomEvent<{
+        kind: 'position' | 'rotation' | 'size' | 'scale'; axis: 'x' | 'y' | 'z'; value: number; keepProportions: boolean;
+      }>).detail;
+      const m = activeTransformMesh();
+      if (!m || scene.isDisposed || !Number.isFinite(value)) return;
+      m.computeWorldMatrix(true);
+      const bb = m.getHierarchyBoundingVectors(true);
+      const cx = (bb.min.x + bb.max.x) / 2;
+      const cz = (bb.min.z + bb.max.z) / 2;
+      const minY = bb.min.y;
+      // Remet la base sur le plateau et le centre à sa place (après rotation ou échelle).
+      const recenter = (baseCenter: boolean) => {
+        m.computeWorldMatrix(true);
+        const after = m.getHierarchyBoundingVectors(true);
+        if (baseCenter) {
+          m.position.x += cx - (after.min.x + after.max.x) / 2;
+          m.position.z += cz - (after.min.z + after.max.z) / 2;
+        }
+        m.position.y += PLATE_SURFACE_Y - after.min.y;
+        m.computeWorldMatrix(true);
+      };
+
+      if (kind === 'position') {
+        if (axis === 'x') m.position.x += value - cx;
+        else if (axis === 'y') m.position.z += value - cz;
+        else m.position.y += PLATE_SURFACE_Y + Math.max(0, value) - minY;
+        m.computeWorldMatrix(true);
+      } else if (kind === 'rotation') {
+        const cur = meshEuler(m);
+        const next = { x: cur.x, y: cur.y, z: cur.z }; // Babylon : x = A, y = C, z = B
+        const rad = BABYLON.Tools.ToRadians(value);
+        if (axis === 'x') next.x = rad;
+        else if (axis === 'y') next.z = rad;
+        else next.y = rad;
+        m.rotationQuaternion = BABYLON.Quaternion.RotationYawPitchRoll(next.y, next.x, next.z);
+        m.rotation.set(0, 0, 0);
+        recenter(true);
+      } else {
+        const base = transformBaseOf(m);
+        const local = { x: 'x', y: 'z', z: 'y' }[axis] as 'x' | 'y' | 'z'; // axe imprimante → axe Babylon
+        const current = {
+          x: base.scaling.x !== 0 ? m.scaling.x / base.scaling.x : 1,
+          y: base.scaling.y !== 0 ? m.scaling.y / base.scaling.y : 1,
+          z: base.scaling.z !== 0 ? m.scaling.z / base.scaling.z : 1,
+        };
+        const target = kind === 'size' ? value / (base.extent[local] || 1) : value / 100;
+        const next = { ...current };
+        if (keepProportions && current[local] !== 0) {
+          const f = target / current[local];
+          next.x *= f; next.y *= f; next.z *= f;
+        } else {
+          next[local] = target;
+        }
+        const newScaling = new BABYLON.Vector3(
+          base.scaling.x * Math.max(1e-4, next.x),
+          base.scaling.y * Math.max(1e-4, next.y),
+          base.scaling.z * Math.max(1e-4, next.z),
+        );
+        const anchor = new BABYLON.Vector3(cx, minY, cz);
+        scaleKeepingPoint(m, { position: m.position.clone(), scaling: newScaling }, localPointOf(m, anchor), anchor);
+        recenter(false);
+      }
+      emitTransformState();
+    };
+    window.addEventListener('apex-transform-request', emitTransformState);
+    window.addEventListener('apex-transform-set', onTransformSet);
 
     // Champs de matériau (PBR/Standard) inspectés pour la fiche texture, absents du type de
     // base BABYLON.Material — décrits explicitement plutôt que castés en `any`.
@@ -1595,7 +1856,8 @@ export const Viewport3D = () => {
         const along = tileValue * step;
         labelAxisPoint.set(axis === 'x' ? along : 0, 0, axis === 'z' ? along : 0);
         camPos.subtractToRef(labelAxisPoint, labelToCamera);
-        const distance = labelToCamera.length();
+        // Orthographique : même échelle partout, celle du rayon d'orbite.
+        const distance = orthoActive ? camera.radius : labelToCamera.length();
         if (distance <= 0) { mesh.isVisible = false; return; }
         const worldPerPixel = distance / pixelsPerWorldAtUnitDistance;
         // Écart RÉEL à l'écran avec la graduation suivante (vers l'extérieur), perspective
@@ -2106,6 +2368,7 @@ export const Viewport3D = () => {
     gcodeAnchor.parent = volumeRoot;
     gcodeAnchor.position.y = glassDisc.position.y + 0.05; // Z = 0 du G-code : juste sur le disque
     let gcodePreviewActive = false;
+    let syncGCodePicking = () => {};
     const gcodeLayer = createGCodeLayer(scene, gcodeAnchor, (rotationY) => {
       if (gcodePreviewActive) originAxesRoot.rotation.y = rotationY;
     });
@@ -2121,6 +2384,11 @@ export const Viewport3D = () => {
     const onGCodePreviewToggled = (e: Event) => {
       const active = !!(e as CustomEvent<{ active: boolean }>).detail?.active;
       gcodePreviewActive = active;
+      syncGCodePicking();
+      // L'infobulle d'un espace ne doit pas survivre au passage dans l'autre.
+      window.dispatchEvent(new CustomEvent('apex-model-hover', {
+        detail: { visible: false, x: 0, y: 0, modelName: '', hasTexture: false },
+      }));
       originAxesRoot.rotation.y = active ? gcodeLayer.getPlateRotation() : 0;
       gcodeLayer.setEnabled(active);
       modelsRef.current.forEach((m) => { if (!m.isDisposed()) m.setEnabled(!active); });
@@ -2171,12 +2439,15 @@ export const Viewport3D = () => {
     const pickGCodePoint = () => {
       const ray = scene.createPickingRay(scene.pointerX, scene.pointerY, BABYLON.Matrix.Identity(), camera);
       const pxPerUnit = (2 * Math.tan(camera.fov / 2)) / Math.max(1, engine.getRenderHeight());
-      return gcodeLayer.pickAt(ray, pxPerUnit);
+      return gcodeLayer.pickAt(ray, pxPerUnit, orthoActive ? camera.radius : undefined);
     };
+    // L'index spatial de sélection sert aussi à l'infobulle de survol du tracé (Prévisualisation) :
+    // il reste donc construit tant que l'espace est affiché, pas seulement en mode « point de trajectoire ».
+    syncGCodePicking = () => gcodeLayer.setPickingEnabled(gcodePickMode || gcodePreviewActive);
     const setGCodePickMode = (active: boolean) => {
       gcodePickMode = active;
       gcodePickDown = null;
-      gcodeLayer.setPickingEnabled(active);
+      syncGCodePicking();
       if (!active) gcodeLayer.setPickHighlight(null);
       canvas.style.cursor = active ? 'crosshair' : '';
     };
@@ -2199,6 +2470,8 @@ export const Viewport3D = () => {
     });
     window.addEventListener('apex-gcode-pick-mode', onGCodePickMode);
     window.addEventListener('apex-preview-toggled', onGCodePreviewToggled);
+    // Monté depuis l'Accueil / Paramètres, on arrive après le départ de l'événement : on rattrape l'état.
+    if (isPreviewSpace()) onGCodePreviewToggled(new CustomEvent('apex-preview-toggled', { detail: { active: true } }));
     window.addEventListener('apex-gcode-loaded', onGCodeLoaded);
     window.addEventListener('apex-gcode-time', onGCodeTime);
     window.addEventListener('apex-gcode-line-visibility', onGCodeLineVisibility);
@@ -3403,7 +3676,7 @@ export const Viewport3D = () => {
     );
     const sketchPlaneScaleObserver = scene.onBeforeRenderObservable.add(() => {
       if (!sketchPlanePickActive) return;
-      const distance = BABYLON.Vector3.Distance(camera.position, BABYLON.Vector3.Zero());
+      const distance = orthoActive ? camera.radius : BABYLON.Vector3.Distance(camera.position, BABYLON.Vector3.Zero());
       const visibleHeight = 2 * distance * Math.tan(camera.fov / 2);
       const k = Math.max(1e-9, (SKETCH_PLANE_SCREEN_FRACTION * visibleHeight) / sketchAxisEnd);
       sketchPlanePlates.forEach((p) => {
@@ -4313,13 +4586,21 @@ export const Viewport3D = () => {
       hits.sort((h1, h2) => h1.d - h2.d);
       for (const hit of hits.slice(0, 6)) {
         // Visible : aucune surface plus proche de la caméra sur le rayon qui mène au point de l'arête.
-        const toPoint = hit.point.subtract(camera.position);
+        // Orthographique : rayons parallèles à l'axe de vue, partant d'un point en amont de l'arête.
+        let rayOrigin = camera.position;
+        let toPoint = hit.point.subtract(camera.position);
+        if (orthoActive) {
+          const viewDir = camera.getTarget().subtract(camera.position).normalize();
+          rayOrigin = hit.point.subtract(viewDir.scale(camera.maxZ));
+          toPoint = viewDir.scale(camera.maxZ);
+        }
         const dist = toPoint.length();
-        const ray = new BABYLON.Ray(camera.position.clone(), toPoint.scale(1 / Math.max(dist, 1e-9)), 1e6);
+        const ray = new BABYLON.Ray(rayOrigin.clone(), toPoint.scale(1 / Math.max(dist, 1e-9)), 1e6);
         const blocker = scene.pickWithRay(ray, (m) => (
           m.isPickable && m.isEnabled() && (sketchFaceMeshes.includes(m as BABYLON.Mesh) || isSolid(m))
         ));
-        if (blocker?.hit && blocker.distance < dist - Math.max(0.05, dist * 0.01)) continue;
+        const slack = orthoActive ? Math.max(0.05, camera.radius * 0.003) : Math.max(0.05, dist * 0.01);
+        if (blocker?.hit && blocker.distance < dist - slack) continue;
         return hit.cand;
       }
       return null;
@@ -4520,7 +4801,7 @@ export const Viewport3D = () => {
     // Taille écran constante de la flèche (≈ 18 % de la hauteur visible à sa distance).
     const extrudeArrowScaleObserver = scene.onBeforeRenderObservable.add(() => {
       if (!extrudeArrowRoot) return;
-      const distance = BABYLON.Vector3.Distance(camera.position, extrudeArrowRoot.position);
+      const distance = orthoActive ? camera.radius : BABYLON.Vector3.Distance(camera.position, extrudeArrowRoot.position);
       const visibleHeight = 2 * distance * Math.tan(camera.fov / 2);
       extrudeArrowRoot.scaling.setAll(Math.max(1e-6, 0.18 * visibleHeight));
     });
@@ -4905,9 +5186,49 @@ export const Viewport3D = () => {
           }
         }
 
-        const pick = scene.pick(scene.pointerX, scene.pointerY, isPickableForUi);
         const clientX = evt.clientX;
         const clientY = evt.clientY;
+
+        // Prévisualisation : l'infobulle décrit le G-code sous le curseur (jamais un modèle du plateau,
+        // masqué dans cet espace) — type de ligne, vitesse, couche, températures, position.
+        if (gcodePreviewActive) {
+          const parsed = gcodeLayer.getParsed();
+          const hit = parsed && evt.buttons === 0 ? pickGCodePoint() : null;
+          if (parsed && hit) {
+            const k = Math.min(parsed.moves.length - 1, Math.max(0, Math.ceil(hit.t)));
+            const mv = parsed.moves[k];
+            const lineType = LINE_TYPE_BY_ID[mv.type];
+            const at = (arr: ArrayLike<number> | undefined) => (arr && arr.length > k ? arr[k] : null);
+            window.dispatchEvent(new CustomEvent('apex-model-hover', {
+              detail: {
+                visible: true, x: clientX, y: clientY, modelName: '', hasTexture: false,
+                gcode: {
+                  kind: parsed.kind,
+                  lineLabel: lineType?.label ?? mv.type,
+                  lineColor: lineType?.color ?? '#ffffff',
+                  move: k + 1,
+                  moves: parsed.moves.length,
+                  x: mv.x, y: mv.y, z: mv.z, b: mv.b, c: mv.c,
+                  speedMmS: at(parsed.speedMmS),
+                  // Couches détectées par palier Z : sans sens dans un fichier non planaire (chaque
+                  // changement de Z ouvrirait une « couche »).
+                  layer: parsed.kind === 'cartesian' && !parsed.nonPlanar ? at(parsed.layerIndex) : null,
+                  layerHeightMm: at(parsed.layerHeightMm),
+                  widthMm: at(parsed.widthMm),
+                  nozzleTempC: at(parsed.nozzleTempC),
+                  fanPct: at(parsed.fanPct),
+                },
+              },
+            }));
+          } else {
+            window.dispatchEvent(new CustomEvent('apex-model-hover', {
+              detail: { visible: false, x: 0, y: 0, modelName: '', hasTexture: false },
+            }));
+          }
+          return;
+        }
+
+        const pick = scene.pick(scene.pointerX, scene.pointerY, isPickableForUi);
 
         if (pick?.hit && pick.pickedMesh) {
           let hoveredMesh = pick.pickedMesh;
@@ -4915,6 +5236,11 @@ export const Viewport3D = () => {
             hoveredMesh = getRootModel(hoveredMesh);
           }
           const hasTexture = hoveredMesh.material && hoveredMesh.material.name !== "boundaryMat";
+          // Triangles du modèle survolé, parties comprises (le total de l'indexation, pas ceux du seul morceau pointé).
+          let triangles = 0;
+          for (const part of [hoveredMesh, ...hoveredMesh.getChildMeshes(false)]) {
+            if (part.getTotalVertices() > 0) triangles += Math.floor(part.getTotalIndices() / 3);
+          }
           window.dispatchEvent(
             new CustomEvent('apex-model-hover', {
               detail: {
@@ -4923,6 +5249,7 @@ export const Viewport3D = () => {
                 y: clientY,
                 modelName: hoveredMesh.name || "Modèle 3D",
                 hasTexture: !!hasTexture,
+                triangles,
               }
             })
           );
@@ -5088,10 +5415,81 @@ export const Viewport3D = () => {
           const dy = evt.clientY - down.y;
           if (Math.hypot(dx, dy) > RIGHT_CLICK_DRAG_THRESHOLD_PX) return;
         }
+        // Clic droit sur un modèle (et non dans le vide) : le menu ajoute le sélecteur d'échelle.
+        const hit = scene.pick(scene.pointerX, scene.pointerY, (m) => modelsRef.current.has(getRootModel(m)));
+        const hitRoot = hit?.hit && hit.pickedMesh ? getRootModel(hit.pickedMesh) : null;
+        setContextModel(hitRoot ? { name: hitRoot.name, unit: hitRoot.metadata?.apexUnit === 'in' ? 'in' : 'mm' } : null);
         suppressNextBackdropContextMenuRef.current = true;
         setContextMenu({ x: evt.clientX, y: evt.clientY });
       }
     });
+
+    // Unité d'un modèle : « Pouces » = le fichier est lu en pouces (×25,4 par rapport aux
+    // millimètres), « Millimètres » le ramène. Le modèle garde son centre et reste posé sur le plateau
+    // (axe Z de l'imprimante = Y de Babylon).
+    const INCH_TO_MM = 25.4;
+    // Croissance du modèle pendant la pastille du sélecteur (même instant, durée courte) : l'animation reste
+    // brève, sur la courbe de l'application.
+    const UNIT_GROW_DELAY_MS = 0;
+    const UNIT_GROW_MS = 320;
+    // Une bascule en cours par modèle : `finish` la termine (échelle finale posée), `observer` l'anime.
+    const unitTweens = new WeakMap<BABYLON.AbstractMesh, { observer: BABYLON.Observer<BABYLON.Scene>; finish: () => void }>();
+    const finishUnitTween = (mesh: BABYLON.AbstractMesh) => {
+      const tween = unitTweens.get(mesh);
+      if (!tween) return;
+      scene.onBeforeRenderObservable.remove(tween.observer);
+      unitTweens.delete(mesh);
+    };
+    // Mise à l'échelle uniforme autour du centre de la base, pour que la pièce reste posée sur le plateau
+    // (scaleKeepingPoint : fonctionne même si le pivot du maillage est décalé). Le facteur est appliqué
+    // géométriquement (k^e), donc la croissance paraît régulière à l'œil.
+    const animateUnitScale = (mesh: BABYLON.AbstractMesh, factor: number) => {
+      // Une bascule encore en cours est terminée d'abord, pour que le facteur s'applique à l'échelle finale.
+      unitTweens.get(mesh)?.finish();
+      finishUnitTween(mesh);
+      mesh.computeWorldMatrix(true);
+      const base = { position: mesh.position.clone(), scaling: mesh.scaling.clone() };
+      const box = mesh.getHierarchyBoundingVectors(true);
+      const anchor = new BABYLON.Vector3((box.min.x + box.max.x) / 2, box.min.y, (box.min.z + box.max.z) / 2);
+      const localAnchor = localPointOf(mesh, anchor);
+      const placeAt = (f: number) => scaleKeepingPoint(
+        mesh,
+        { position: base.position, scaling: base.scaling.scale(f) },
+        localAnchor,
+        anchor,
+      );
+      const finish = () => {
+        placeAt(factor);
+        finishUnitTween(mesh);
+      };
+      const start = performance.now() + UNIT_GROW_DELAY_MS;
+      const observer = scene.onBeforeRenderObservable.add(() => {
+        if (mesh.isDisposed()) { finishUnitTween(mesh); return; }
+        const t = Math.min(1, Math.max(0, (performance.now() - start) / UNIT_GROW_MS));
+        if (t >= 1) {
+          finish();
+          updateHighlight();
+          updateSelectedPosition();
+          return;
+        }
+        placeAt(Math.pow(factor, apexEase(t)));
+        updateSelectedPosition();
+      });
+      unitTweens.set(mesh, { observer, finish });
+    };
+    const onSetModelUnit = (e: Event) => {
+      const { name, unit } = (e as CustomEvent<{ name: string; unit: 'mm' | 'in' }>).detail ?? {};
+      const mesh = Array.from(modelsRef.current).find((m) => m.name === name);
+      if (!mesh || (unit !== 'mm' && unit !== 'in')) return;
+      const current: 'mm' | 'in' = mesh.metadata?.apexUnit === 'in' ? 'in' : 'mm';
+      if (current === unit) return;
+      const k = unit === 'in' ? INCH_TO_MM : 1 / INCH_TO_MM;
+      mesh.metadata = { ...(mesh.metadata ?? {}), apexUnit: unit };
+      animateUnitScale(mesh, k);
+      updateHighlight();
+      updateSelectedPosition();
+    };
+    window.addEventListener('apex-set-model-unit', onSetModelUnit);
 
     const onSelectModel = (e: Event) => {
       const customEvent = e as CustomEvent<{ name: string; additive?: boolean }>;
@@ -5222,6 +5620,18 @@ export const Viewport3D = () => {
           }
 
           r.computeWorldMatrix(true);
+          // Pivot au centre de la boîte englobante : le gizmo de rotation se place sur le pivot et
+          // la rotation se fait autour de lui. Sans cela, il reste à l'origine du fichier (le STL
+          // peut être modélisé loin de (0,0,0)) : gizmo décalé et rotation autour d'un point
+          // sans rapport avec la pièce. Posé avant le calcul du centre ci-dessous, qui est refait après
+          // (le pivot déplace la pièce si l'échelle n'est pas 1) : le placement reste exact.
+          {
+            const b0 = r.getHierarchyBoundingVectors(true);
+            const worldCenter = b0.min.add(b0.max).scale(0.5);
+            const localCenter = BABYLON.Vector3.TransformCoordinates(worldCenter, r.getWorldMatrix().clone().invert());
+            r.setPivotPoint(localCenter);
+            r.computeWorldMatrix(true);
+          }
           const boundingInfo = r.getHierarchyBoundingVectors(true);
           const center = boundingInfo.min.add(boundingInfo.max).scale(0.5);
           const footprintRadius = Math.max(boundingInfo.max.x - boundingInfo.min.x, boundingInfo.max.z - boundingInfo.min.z) / 2;
@@ -5241,13 +5651,22 @@ export const Viewport3D = () => {
             // défaut (le shader de zone d'exclusion de l'imprimante est réservé aux parois du
             // volume et culle les faces arrière, ce qui rend invisible tout STL aux normales
             // inversées — cas fréquent selon le logiciel d'export).
-            const defaultMat = new BABYLON.StandardMaterial("stlDefaultMat", scene);
-            defaultMat.diffuseColor = new BABYLON.Color3(0.6, 0.65, 0.7);
-            defaultMat.backFaceCulling = false;
-            r.material = defaultMat;
+            // Rendu d'OrcaSlicer (ombrage de Gouraud à deux lumières fixées à la caméra), cf. orcaModelMaterial.ts.
+            r.material = createOrcaModelMaterial("stlDefaultMat", scene, new BABYLON.Color3(0.6, 0.65, 0.7));
           }
 
           modelsRef.current.add(r);
+          // Un import est lu en millimètres ; si la plus grande dimension suggère les pouces (ou l'inverse),
+          // la carte propose le changement. La taille est celle de la boîte avant placement (la translation ne la change pas).
+          {
+            const sizeMm = Math.max(
+              boundingInfo.max.x - boundingInfo.min.x,
+              boundingInfo.max.y - boundingInfo.min.y,
+              boundingInfo.max.z - boundingInfo.min.z,
+            );
+            const unit = suggestModelUnit(sizeMm, 'mm');
+            setUnitSuggestion(unit ? { name: r.name, unit, sizeMm } : null);
+          }
           applyModelShading();
           selectedMeshesRef.current.clear();
           selectedMeshesRef.current.add(r);
@@ -5305,6 +5724,9 @@ export const Viewport3D = () => {
       } catch (err) {
         console.error("Failed to import 3D model:", err);
         showError(`Échec de l'import du modèle : ${file.name}.`);
+      } finally {
+        // Fin de l'import (succès ou échec) : l'import de plusieurs fichiers déposés s'enchaîne dessus.
+        window.dispatchEvent(new Event('apex-import-model-settled'));
       }
     };
 
@@ -5324,8 +5746,17 @@ export const Viewport3D = () => {
     window.addEventListener('apex-select-all-models', onSelectAll);
 
     const onRequestSliceModels = () => {
-      const names = Array.from(modelsRef.current).map((mesh) => mesh.name);
-      window.dispatchEvent(new CustomEvent('apex-slice-models', { detail: { names } }));
+      const models = Array.from(modelsRef.current);
+      const names = models.map((mesh) => mesh.name);
+      // Triangles réels du plateau (fenêtre « Lancer la découpe », seuil de sécurité), hiérarchie comprise.
+      let triangles = 0;
+      for (const root of models) {
+        if (root.isDisposed()) continue;
+        for (const mesh of [root, ...root.getChildMeshes(false)]) {
+          if (mesh.isVisible && mesh.getTotalVertices() > 0) triangles += Math.floor(mesh.getTotalIndices() / 3);
+        }
+      }
+      window.dispatchEvent(new CustomEvent('apex-slice-models', { detail: { names, triangles } }));
     };
 
     const onSliceAllModels = () => {
@@ -5362,7 +5793,11 @@ export const Viewport3D = () => {
             parts.push({ positions, indices, mirrored: world.determinant() < 0 });
           }
         });
-        resolve(buildPlateStl(parts));
+        // Un modèle sous le plateau est coupé à sa surface avant le tranchage (section rebouchée).
+        resolve(buildPlateStl(parts, {
+          clipBelowZ: PLATE_SURFACE_Y,
+          onClipped: () => showSuccess('Partie du modèle sous le plateau coupée avant le tranchage.'),
+        }));
       } catch (err) {
         console.error('Export du plateau en STL échoué :', err);
         resolve(null);
@@ -5397,26 +5832,40 @@ export const Viewport3D = () => {
     };
     window.addEventListener('apex-delete-all-models', onDeleteAll);
 
-    // Disposition automatique : on replace les modèles un par un, du plus encombrant au plus
-    // petit, chacun à l'emplacement libre le plus proche du centre parmi ceux déjà replacés —
-    // le même algorithme que pour un import.
+    // Disposition automatique à la OrcaSlicer (utils/orcaArrange.ts) : empreinte convexe gonflée de
+    // l'écart, tri du plus grand au plus petit, rotations {0, 45°, 90°, 135°} et placement par NFP.
     const onArrangeModels = () => {
-      const footprints = Array.from(modelsRef.current).map((mesh) => {
+      const meshes = Array.from(modelsRef.current);
+      if (meshes.length === 0) return;
+      const inputs = meshes.map((mesh) => {
+        mesh.computeWorldMatrix(true);
+        const outline: { x: number; z: number }[] = [];
+        [mesh, ...mesh.getChildMeshes()].forEach((m) => {
+          const pos = m.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+          if (!pos) return;
+          const world = m.getWorldMatrix();
+          const v = new BABYLON.Vector3();
+          for (let i = 0; i < pos.length; i += 3) {
+            BABYLON.Vector3.TransformCoordinatesFromFloatsToRef(pos[i], pos[i + 1], pos[i + 2], world, v);
+            outline.push({ x: v.x, z: v.z });
+          }
+        });
+        return { outline };
+      });
+      const results = arrangeOrca(inputs, { binRadius: RADIUS, spacing: 5, allowRotations: true });
+      let skipped = 0;
+      results.forEach((r, i) => {
+        if (!r.center) { skipped++; return; }
+        const mesh = meshes[i];
+        // Babylon tourne dans l'autre sens que orcaArrange (axe Y vers le haut, repère main gauche).
+        if (Math.abs(r.angle) > 1e-9) mesh.rotate(BABYLON.Axis.Y, -r.angle, BABYLON.Space.WORLD);
         mesh.computeWorldMatrix(true);
         const b = mesh.getHierarchyBoundingVectors(true);
-        return { mesh, radius: Math.max(b.max.x - b.min.x, b.max.z - b.min.z) / 2 };
-      });
-      if (footprints.length === 0) return;
-      footprints.sort((p, q) => q.radius - p.radius);
-      const placed: BABYLON.AbstractMesh[] = [];
-      footprints.forEach(({ mesh, radius }) => {
-        const spot = findFreeSpot(radius, placed);
-        const b = mesh.getHierarchyBoundingVectors(true);
-        mesh.position.x += spot.x - (b.min.x + b.max.x) / 2;
-        mesh.position.z += spot.z - (b.min.z + b.max.z) / 2;
+        mesh.position.x += r.center.x - (b.min.x + b.max.x) / 2;
+        mesh.position.z += r.center.z - (b.min.z + b.max.z) / 2;
         mesh.computeWorldMatrix(true);
-        placed.push(mesh);
       });
+      if (skipped > 0) showWarning(`${skipped} modèle(s) ne tiennent pas sur le plateau et n'ont pas été déplacés.`);
       updateSelectedPosition();
     };
     window.addEventListener('apex-arrange-models', onArrangeModels);
@@ -5486,6 +5935,8 @@ export const Viewport3D = () => {
         window.removeEventListener('resize', handleResize);
         cancelAnimationFrame(resizeFrame);
         renderPipeline?.dispose();
+        orcaRotateGizmo.dispose();
+        orcaScaleGizmo.dispose();
         gizmoManager.dispose();
         scene.dispose();
         engine.dispose();
@@ -5512,6 +5963,8 @@ export const Viewport3D = () => {
       window.removeEventListener('apex-set-blur-level', onSetBlurLevel);
       window.removeEventListener('apex-select-model', onSelectModel);
       window.removeEventListener('apex-tool-changed', onToolChanged);
+      window.removeEventListener('apex-transform-request', emitTransformState);
+      window.removeEventListener('apex-transform-set', onTransformSet);
       window.removeEventListener('apex-mode-changed', onModeChanged);
       window.removeEventListener('apex-primitive-box-start', onBoxDrawStart);
       scene.onPointerObservable.remove(boxDrawObserver);
@@ -5562,6 +6015,7 @@ export const Viewport3D = () => {
       window.removeEventListener('pointercancel', onWindowPointerUpSafety);
       scene.onPointerObservable.remove(pointerObserver);
       scene.onPointerObservable.remove(contextMenuPointerObserver);
+      window.removeEventListener('apex-set-model-unit', onSetModelUnit);
       scene.onBeforeRenderObservable.remove(gridZoomObserver);
       scene.onBeforeRenderObservable.remove(zoomTowardCursorObserver);
       window.removeEventListener('apex-arrange-models', onArrangeModels);
@@ -5575,10 +6029,12 @@ export const Viewport3D = () => {
       unsubscribeShading();
       if (disposed) return;
       renderPipeline?.dispose();
+      orcaRotateGizmo.dispose();
+      orcaScaleGizmo.dispose();
       gizmoManager.dispose();
       scene.dispose();
       engine.dispose();
-      
+
       engineRef.current = null;
       sceneRef.current = null;
       gizmoManagerRef.current = null;
@@ -5616,12 +6072,29 @@ export const Viewport3D = () => {
     primitiveHoverTimeout.current = setTimeout(() => setPrimitiveSubmenuOpen(false), 120);
   };
 
+  // Sous-menu « Ajouter des modèles pratiques » : même fonctionnement (survol, portail dans le body).
+  const [modelsSubmenuOpen, setModelsSubmenuOpen] = useState(false);
+  const modelsItemRef = useRef<HTMLDivElement>(null);
+  const pendingTestNames = useRef(new Set<string>());
+  const modelsHoverTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const openModelsSubmenu = () => {
+    if (modelsHoverTimeout.current) clearTimeout(modelsHoverTimeout.current);
+    setModelsSubmenuOpen(true);
+  };
+  const closeModelsSubmenuDelayed = () => {
+    if (modelsHoverTimeout.current) clearTimeout(modelsHoverTimeout.current);
+    modelsHoverTimeout.current = setTimeout(() => setModelsSubmenuOpen(false), 120);
+  };
+
   React.useLayoutEffect(() => {
     if (!contextMenu) {
       setMenuPos(null);
       setPrimitiveSubmenuOpen(false);
+      setModelsSubmenuOpen(false);
       return;
     }
+    // Les miniatures des modèles pratiques se dessinent déjà pendant que le menu s'ouvre.
+    prewarmPracticalModels();
     setMenuPos(contextMenu);
   }, [contextMenu]);
 
@@ -5743,9 +6216,10 @@ export const Viewport3D = () => {
         ref={plateImportInputRef}
         style={{ display: 'none' }}
         accept=".stl,.glb,.gltf"
+        multiple
         onChange={(e) => {
-          if (e.target.files?.[0]) {
-            window.dispatchEvent(new CustomEvent('apex-import-model', { detail: e.target.files[0] }));
+          if (e.target.files?.length) {
+            void importModelsOneByOne(Array.from(e.target.files));
           }
           e.target.value = '';
         }}
@@ -5887,6 +6361,43 @@ export const Viewport3D = () => {
               border: 'none',
             }}
           >
+            {contextSpace === 'preparation' && contextModel && (<>
+              <div style={{ ...menuItemStyle, cursor: 'default', gap: 18, padding: '10px 14px' }} {...menuTooltip(SCALE_TOOLTIP)}>
+                <span style={{ fontWeight: 500 }}>Échelle</span>
+                {/* Le fond bleu glisse d'une option à l'autre (layoutId) : la bascule suit la courbe de l'app. */}
+                <span style={{ display: 'flex', gap: 2, padding: 3, borderRadius: 9, background: 'rgba(255,255,255,0.08)' }}>
+                  {([['in', 'Pouces'], ['mm', 'Millimètres']] as const).map(([unit, label]) => {
+                    const active = contextModel.unit === unit;
+                    return (
+                      <span
+                        key={unit}
+                        onClick={() => {
+                          if (active) return;
+                          window.dispatchEvent(new CustomEvent('apex-set-model-unit', { detail: { name: contextModel.name, unit } }));
+                          setContextModel({ ...contextModel, unit });
+                        }}
+                        style={{
+                          position: 'relative', padding: '5px 12px', borderRadius: 7, fontSize: 12, cursor: 'pointer',
+                          textAlign: 'center', userSelect: 'none', whiteSpace: 'nowrap',
+                          color: active ? '#00f0ff' : 'rgba(255,255,255,0.8)',
+                        }}
+                        {...menuTooltip(unit === 'in' ? SCALE_INCH_TOOLTIP : SCALE_MM_TOOLTIP)}
+                      >
+                        {active && (
+                          <motion.span
+                            layoutId="apex-unit-pill"
+                            transition={{ duration: 0.24, ease: UNIT_PILL_EASE }}
+                            style={{ position: 'absolute', inset: 0, borderRadius: 7, background: 'rgba(0,240,255,0.22)' }}
+                          />
+                        )}
+                        <span style={{ position: 'relative' }}>{label}</span>
+                      </span>
+                    );
+                  })}
+                </span>
+              </div>
+              <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '6px 4px' }} />
+            </>)}
             {contextSpace === 'preparation' && (<>
             <div style={menuItemStyle} onClick={() => runAction(() => window.dispatchEvent(new CustomEvent('apex-select-all-models')))} {...menuTooltip(SELECT_ALL_TOOLTIP)}>Tout sélectionner</div>
             <div style={menuItemStyle} onClick={() => runAction(() => window.dispatchEvent(new CustomEvent('apex-delete-all-models')))} {...menuTooltip(DELETE_ALL_TOOLTIP)}>Tout Supprimer</div>
@@ -5940,8 +6451,57 @@ export const Viewport3D = () => {
                 document.body,
               )}
             </div>
-            <div style={{ ...menuItemStyle, color: 'rgba(255,255,255,0.35)', cursor: 'default' }} {...menuTooltip(MODELS_TOOLTIP)}>
+            <div
+              ref={modelsItemRef}
+              style={{ ...menuItemStyle, position: 'relative' }}
+              onMouseEnter={() => { openModelsSubmenu(); showTooltip(MODELS_TOOLTIP); }}
+              onMouseLeave={() => { closeModelsSubmenuDelayed(); hideTooltip(); }}
+            >
               <span>Ajouter des modèles pratiques</span><span style={{ opacity: 0.6 }}>›</span>
+
+              {modelsSubmenuOpen && modelsItemRef.current && createPortal(
+                <div
+                  onMouseEnter={openModelsSubmenu}
+                  onMouseLeave={closeModelsSubmenuDelayed}
+                  style={{
+                    position: 'fixed',
+                    top: Math.max(8, Math.min(modelsItemRef.current.getBoundingClientRect().top - 6, window.innerHeight - 340)),
+                    left: modelsItemRef.current.getBoundingClientRect().right,
+                    zIndex: 10001,
+                    paddingLeft: 8,
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: 6, borderRadius: 14,
+                      background: 'rgba(20,22,30,0.55)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
+                      boxShadow: '0 12px 40px 0 rgba(0,0,0,0.45), 0 4px 16px 0 rgba(0,0,0,0.35)',
+                      border: 'none',
+                    }}
+                  >
+                    <PracticalModelsGrid
+                      onHover={(model) => (model
+                        ? showTooltip({ title: model.label, desc: 'Ajoute ce modèle de test sur le plateau.' })
+                        : showTooltip(MODELS_TOOLTIP))}
+                      onPick={(model) => {
+                        // Le modèle prend le nom « test_x », x = plus petit numéro libre (plateau + imports en cours).
+                        const taken = new Set([...Array.from(modelsRef.current).map((m) => m.name), ...pendingTestNames.current]);
+                        let n = 1;
+                        while (taken.has(`test_${n}`)) n++;
+                        const testName = `test_${n}`;
+                        pendingTestNames.current.add(testName);
+                        window.addEventListener('apex-import-model-settled', () => pendingTestNames.current.delete(testName), { once: true });
+                        void fetchPracticalModelFile(model, testName)
+                          .then((file) => window.dispatchEvent(new CustomEvent('apex-import-model', { detail: file })))
+                          .catch(() => showError(`Échec du chargement du modèle : ${model.fileName}.`));
+                        setContextMenu(null);
+                        hideTooltip();
+                      }}
+                    />
+                  </div>
+                </div>,
+                document.body,
+              )}
             </div>
             <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '6px 4px' }} />
             </>)}
@@ -5975,6 +6535,17 @@ export const Viewport3D = () => {
           </div>
         </>,
         document.body,
+      )}
+
+      {unitSuggestion && (
+        <ScaleUnitPrompt
+          suggestion={unitSuggestion}
+          onAccept={(suggestion) => {
+            window.dispatchEvent(new CustomEvent('apex-set-model-unit', { detail: { name: suggestion.name, unit: suggestion.unit } }));
+            setUnitSuggestion(null);
+          }}
+          onDismiss={() => setUnitSuggestion(null)}
+        />
       )}
     </div>
   );

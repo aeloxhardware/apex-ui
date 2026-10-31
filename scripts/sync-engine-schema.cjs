@@ -15,6 +15,7 @@ const typesFile = path.join(outDir, 'params.schema.ts');
 const contractFile = path.join(root, 'src', 'utils', 'engineContract.ts');
 
 const registryFile = path.join(root, 'src', 'utils', 'engineSettings.json');
+const helpFile = path.join(root, 'src', 'utils', 'engineSettingsHelp.json');
 
 const mode = process.argv.includes('--verify') ? 'verify' : process.argv.includes('--check') ? 'check' : 'sync';
 
@@ -101,6 +102,13 @@ function verifyRegistry(schema) {
     if (dflt === undefined && keys.length === 2 && pipelineDefault) dflt = pipelineDefault[keys[0]]?.default?.[keys[1]];
     if (dflt !== undefined && dflt !== s.default) problems.push(`${s.path} : défaut ${dflt} dans le schéma, ${s.default} dans la liste`);
   }
+  // Chaque réglage doit avoir une vraie explication (règle de l'utilisateur, 2026-10-28) ; aucun texte orphelin.
+  const help = JSON.parse(read(helpFile));
+  const paths = new Set(JSON.parse(read(registryFile)).map((s) => s.path));
+  for (const p of paths) {
+    if (!help[p] || typeof help[p].what !== 'string' || help[p].what.trim().length < 40) problems.push(`${p} : explication manquante ou trop courte dans engineSettingsHelp.json`);
+  }
+  for (const p of Object.keys(help)) if (!paths.has(p)) problems.push(`${p} : explication sans réglage correspondant`);
   if (problems.length) fail(['engineSettings.json en désaccord avec le schéma :', ...problems.map((p) => `  ${p}`)].join(String.fromCharCode(10)));
 }
 

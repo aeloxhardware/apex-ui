@@ -56,13 +56,18 @@
 }
 
 // Curseur externe (ExternalScrollArea) : posé à 4 px hors du bord droit de la boîte (data-scroll-edge).
+// La zone de défilement rogne ce qui dépasse de son cadre : on lui donne 8 px de marge interne
+// (.content) pour que la montée et l'ombre portée de la ligne sélectionnée ne soient pas coupées,
+// compensée par une marge négative pour que la mise en page ne bouge pas.
 .scrollArea {
-  max-height: 200px;
+  max-height: 216px;
+  margin: -8px;
 }
 
 .content {
   display: flex;
   flex-direction: column;
+  padding: 8px;
 }
 
 .emptyText {
@@ -91,19 +96,33 @@
   align-items: center;
   gap: 6px;
   padding: 6px 8px;
-  border-radius: 8px;
+  // Coins intérieurs de la pile : peu arrondis ; seuls les coins extérieurs (cf. .treeNodeFirst / .treeNodeLast) le sont plus.
+  border-radius: 4px;
   cursor: pointer;
   background: rgba(255, 255, 255, 0.03);
-  transition: background 0.2s;
+  transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
 
   &:hover {
     background: rgba(255, 255, 255, 0.08);
   }
 
+  // Sélection : la ligne monte vers l'utilisateur, avec une ombre portée (pas de contour).
   &.selectedNode {
     background: rgba(0, 240, 255, 0.12);
-    border: 1px solid rgba(0, 240, 255, 0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 14px -4px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.3);
   }
+}
+
+// Coins extérieurs de la liste : première ligne en haut, dernière en bas.
+.treeNodeFirst > .nodeRow {
+  border-top-left-radius: 14px;
+  border-top-right-radius: 14px;
+}
+
+.treeNodeLast > .nodeRow {
+  border-bottom-left-radius: 14px;
+  border-bottom-right-radius: 14px;
 }
 
 .nodeName {
@@ -118,7 +137,8 @@
 .childList {
   list-style: none;
   padding-left: 20px;
-  margin: 2px 0 6px 0;
+  margin: 0; // marges verticales animées dans ModelStatusBox.tsx
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 2px;

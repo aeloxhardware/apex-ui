@@ -3,6 +3,8 @@
 // Cette permutation est un miroir, donc l'orientation des triangles est vérifiée au volume signé et
 // retournée si besoin (le moteur refuse ou répare des normales vers l'intérieur).
 
+import { clipAbovePlane } from './plateClip';
+
 export interface PlatePart {
   /** Sommets en repère monde de la scène, x y z à la suite. */
   positions: ArrayLike<number>;
@@ -11,13 +13,32 @@ export interface PlatePart {
   mirrored: boolean;
 }
 
-export function buildPlateStl(parts: PlatePart[]): Uint8Array | null {
-  const tris: number[] = [];
+export interface PlateStlOptions {
+  /** Hauteur du plateau (repère imprimante, Z vers le haut) : ce qui est dessous est coupé, la section est rebouchée. */
+  clipBelowZ?: number;
+  /** Appelé quand une partie du modèle a effectivement été coupée. */
+  onClipped?: () => void;
+}
+
+/** Marge (mm) sous laquelle un modèle « posé » sur le plateau n'est pas considéré comme le traversant. */
+const CLIP_TOLERANCE_MM = 0.01;
+
+export function buildPlateStl(parts: PlatePart[], options: PlateStlOptions = {}): Uint8Array | null {
+  let tris: number[] = [];
   for (const part of parts) {
     const { positions: p, indices: ix } = part;
     for (let i = 0; i + 2 < ix.length; i += 3) {
       const order = part.mirrored ? [ix[i], ix[i + 2], ix[i + 1]] : [ix[i], ix[i + 1], ix[i + 2]];
       for (const v of order) tris.push(p[v * 3], p[v * 3 + 2], p[v * 3 + 1]);
+    }
+  }
+  const clipZ = options.clipBelowZ;
+  if (clipZ !== undefined) {
+    let minZ = Infinity;
+    for (let i = 2; i < tris.length; i += 3) minZ = Math.min(minZ, tris[i]);
+    if (minZ < clipZ - CLIP_TOLERANCE_MM) {
+      tris = clipAbovePlane(tris, clipZ);
+      options.onClipped?.();
     }
   }
   const count = tris.length / 9;

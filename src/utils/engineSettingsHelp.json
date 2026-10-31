@@ -1,0 +1,88 @@
+{
+  "field_solver.heat_method_time_factor": {
+    "what": "Durée de diffusion de la chaleur qui définit le champ dont les couches sont les surfaces d'égale valeur : facteur × (arête médiane du maillage)². Plus elle est longue, plus le champ est lissé.",
+    "effect": "Mesuré de 10 à 1000 : résultat quasi identique (0,1 % d'écart). Trop court (1) : le champ sature loin du plateau et la direction des couches n'est plus que du bruit.",
+    "caution": "Au-delà de 1000, aucune mesure du moteur."
+  },
+  "layers.layer_height_base": {
+    "what": "Épaisseur nominale d'une couche, mesurée le long de la direction de dépôt.",
+    "effect": "Plus fine : surface plus lisse, mais plus de couches, donc un tranchage et une impression plus longs. Bornée par les limites du profil d'imprimante."
+  },
+  "resolution": {
+    "what": "Taille cible des tétraèdres du maillage volumique, en mm : c'est la précision avec laquelle le champ suit la forme. Partagée par la tétraédralisation et le calcul du champ.",
+    "effect": "Plus petite : couches plus fidèles, mais calcul plus long et plus de mémoire."
+  },
+  "field_solver.heat_project_reachable": {
+    "what": "Dans le champ, projette la direction du flux de chaleur sur les inclinaisons que la tête peut atteindre (le plateau impose C, la tête ne penche que vers +R) avant de tracer les couches.",
+    "effect": "Les couches s'adaptent à la machine au lieu de demander une inclinaison impossible.",
+    "caution": "Sans effet si « Inclinaison atteignable depuis la machine » (réglage développeur) est désactivé."
+  },
+  "machine_toolpath.per_point_normal": {
+    "what": "La tête s'oriente selon le gradient local du champ en chaque point, et non selon la normale moyenne de la couche.",
+    "effect": "Mesuré sur 4 modèles : l'écart médian entre la tête et la normale est divisé par 2 à 3, mais le temps d'impression augmente de 65 à 130 %."
+  },
+  "machine_toolpath.free_axis_median_window": {
+    "what": "Filtre médian sur l'angle B le long de la trajectoire, en nombre de points (impair ; 0 = aucun filtre). Il supprime les inversions brusques de B, qui ralentissent tout le mouvement.",
+    "effect": "À 9 (défaut), mesuré sur 4 modèles : temps d'impression −19 à −31 %, moins de collisions, écart médian à la direction visée +0,2 à +0,4°."
+  },
+  "adjustment.max_direction_deviation_deg": {
+    "what": "Quand la tête touche la pièce, le moteur cherche une autre orientation ; ce seuil limite l'écart angulaire toléré entre la nouvelle orientation et la direction de dépôt d'origine.",
+    "effect": "Une orientation qui supprime la collision mais dépasse ce seuil est refusée (elle recréerait un surplomb). Plus grand : plus de marge pour éviter les collisions, au risque de surplombs."
+  },
+  "collision.safety_margin": {
+    "what": "Distance minimale, en mm, entre la tête et le plateau dans la simulation de collision : la pointe ne descend jamais sous le plateau.",
+    "effect": "Plus grande : plus prudent, mais plus de collisions à corriger. La matière déjà déposée a sa propre marge (−0,15 mm par défaut : un léger recouvrement est toléré)."
+  },
+  "toolpath2d.wall_count": {
+    "what": "Nombre de contours imprimés le long du bord de chaque couche, avant le remplissage.",
+    "effect": "Plus de parois : pièce plus solide et surface plus régulière, mais plus de matière et de temps."
+  },
+  "toolpath2d.infill_density": {
+    "what": "Part de l'intérieur de la pièce remplie de matière, de 5 % à 100 %.",
+    "effect": "Plus dense : pièce plus rigide et plus lourde, mais plus longue à imprimer."
+  },
+  "toolpath2d.infill_pattern": {
+    "what": "Dessin du remplissage. Lignes : balayage parallèle. Grille : deux balayages croisés à 90° dans chaque couche. Zigzag croisé : un zigzag continu par zone, orienté dans un sens une couche sur deux et dans l'autre sens l'autre. Spirale oscillante : spirale autour de l'axe du plateau.",
+    "effect": "Avec la spirale oscillante, le plateau tourne toujours dans le même sens et la ligne médiane est la même à toutes les couches (seules les aspérités changent)."
+  },
+  "toolpath2d.bridge_anchor_extra_walls": {
+    "what": "Parois supplémentaires resserrées sur le périmètre d'un pont (matière suspendue entre deux appuis), en plus du nombre de parois, pour l'ancrer sur ses bords.",
+    "effect": "Renforce le périmètre du pont, pas la densité du remplissage."
+  },
+  "gcode_params.print_speed": {
+    "what": "Vitesse de la pointe de buse pendant l'extrusion, en mm/s.",
+    "effect": "Plus rapide : impression plus courte, mais extrusion et adhérence plus exigeantes. Le temps réel dépend aussi des limites de vitesse des axes."
+  },
+  "gcode_params.nozzle_temp": {
+    "what": "Température de consigne de la buse (commande M109), écrite en tête du G-code.",
+    "effect": "Elle doit correspondre au filament : trop basse, la matière s'extrude mal ; trop haute, elle suinte."
+  },
+  "gcode_params.travel_speed": {
+    "what": "Vitesse de la pointe de buse pour les déplacements sans extrusion, en mm/s.",
+    "effect": "Plus rapide : moins de temps perdu en déplacements, au prix de plus de vibrations."
+  },
+  "gcode_params.travel_clearance": {
+    "what": "Hauteur dont la tête se dégage, le long d'un seul axe, avant un déplacement à vide, pour ne pas racler la pièce.",
+    "effect": "Si le dégagement touche encore la pièce, le moteur essaie l'autre axe, puis double le dégagement, jusqu'à 4 fois cette valeur."
+  },
+  "gcode_params.retract_length": {
+    "what": "Longueur de filament rétractée avant un déplacement à vide, pour éviter les fils entre deux zones.",
+    "effect": "Trop courte : des fils ; trop longue : risque de bouchon. Pas de rétraction pour un trajet de moins de 2 mm."
+  },
+  "gcode_params.max_y_turns": {
+    "what": "Cumul de rotation du plateau toléré, en tours ; vide = aucune limite. Utile si des câbles ou un joint tournant limitent la rotation continue.",
+    "effect": "Repères mesurés par le moteur : environ 32 tours pour un Benchy, 621 pour le dino. Un dépassement ne fait refuser le G-code qu'en mode strict du moteur, que l'interface n'active pas."
+  },
+  "mesher": {
+    "what": "Programme qui découpe le maillage triangulé en tétraèdres pour calculer le champ. TetGen : référence historique, qui répare la surface avant. TetraNet : prototype natif qui ne répare pas la surface mais la mesure.",
+    "effect": "TetraNet refuse un modèle dont la surface est trop abîmée (trous, faces retournées…) avec un diagnostic chiffré, et ignore pour l'instant le raffinement près du plateau."
+  },
+  "allow_multi_mesh": {
+    "what": "Accepte un plateau à plusieurs pièces : l'interface les assemble en un seul maillage, et leurs positions sont conservées.",
+    "effect": "Désactivé : un fichier à plusieurs objets est refusé."
+  },
+  "reachable_tilt_from_machine": {
+    "what": "Renseigne le champ avec ce que la machine peut atteindre (C imposé par la position, B vers +R seulement) quand le premier axe est couplé à la position.",
+    "effect": "Mesuré sur 4 modèles : matière sans appui −9 % (l_shape), −45 % (l-triple), −23 % (death), −30 % (turkish) ; écart tête/normale médian de 16-49° à 3-6°. Sans effet sur une machine à C libre."
+  }
+}

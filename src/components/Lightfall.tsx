@@ -414,6 +414,9 @@ const Lightfall: React.FC<LightfallProps> = ({
     const gl = canvas?.getContext('webgl2', {
       alpha: true,
       premultipliedAlpha: true,
+      // Le verre de l'Accueil (GlassPanelBackdrop) recopie ce canevas avec drawImage : sans cela le
+      // tampon est vide dès que l'image est composée.
+      preserveDrawingBuffer: true,
       antialias: false,
       depth: false,
       stencil: false,
@@ -805,6 +808,7 @@ const Lightfall: React.FC<LightfallProps> = ({
     >
       <canvas
         ref={canvasRef}
+        id="home-background"
         aria-hidden="true"
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block' }}
       />

@@ -51,6 +51,17 @@ export const FileSidebar: React.FC<FileSidebarProps> = ({
           </button>
         </CustomTooltip>
 
+        <div className={styles.separator} />
+
+        <CustomTooltip content={soundMuted ? 'Activer les sons' : 'Couper les sons'} description="Active ou coupe les sons de survol et de clic de l'interface. Coupés par défaut.">
+          <button
+            className={clsx(styles.button)}
+            onClick={toggleSoundMuted}
+          >
+            {soundMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+          </button>
+        </CustomTooltip>
+
         <div className={clsx(styles.printerGroup, { [styles.printerGroupHidden]: !showPrinterButton })} aria-hidden={!showPrinterButton}>
           <div className={styles.separator} />
 
@@ -64,17 +75,6 @@ export const FileSidebar: React.FC<FileSidebarProps> = ({
             </button>
           </CustomTooltip>
         </div>
-
-        <div className={styles.separator} />
-
-        <CustomTooltip content={soundMuted ? 'Activer les sons' : 'Couper les sons'} description="Active ou coupe les sons de survol et de clic de l'interface. Coupés par défaut.">
-          <button
-            className={clsx(styles.button)}
-            onClick={toggleSoundMuted}
-          >
-            {soundMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-          </button>
-        </CustomTooltip>
       </div>
     </div>
   );

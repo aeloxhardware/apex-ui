@@ -16,10 +16,15 @@ import {
 } from '@/components/gcodeLayer';
 import { DEFAULT_LINE_VISIBILITY, type LineTypeId, type LineTypeVisibility } from '@/components/gcodeLineTypes';
 import { defaultColorByScope, COLOR_BY_LABELS, type ColorByScope } from '@/components/gcodeColormap';
-import type { GCodeGenerator } from '@/components/gcodeGenerator';
+import { resolveGenerator, type GCodeGenerator } from '@/components/gcodeGenerator';
 import { isConversionAvailable, runConversion } from '@/utils/gcodeConversion';
 import { parseGCodeAsync } from '@/utils/gcodeParseAsync';
 import { isLocallySliced, writeEditedGCode } from '@/utils/gcodeWriter';
+import { hasApexSignature } from '@/utils/apexSignature';
+
+/** Fichier écrit par Aeolis (signature Apex) : son mode 3 axes est un choix du tranchage, pas un
+ * fichier étranger à convertir — pas de carte de conversion, export direct. */
+const isApexGenerated = (text: string) => hasApexSignature(text);
 import { removeAirContours } from '@/utils/gcodeAirRemoval';
 import { AIR_CONTOURS_REMOVE_EVENT } from '@/components/airContourCallout';
 import { readApexHeader, writeApexHeader, type ApexHeaderPayload } from '@/utils/apexHeader';
@@ -283,6 +288,8 @@ export function useGCodePreview(active: boolean) {
       parsed.apexHeader = null;
       showWarning("En-tête Apex illisible : l'historique des modifications de ce fichier est ignoré.");
     }
+    // Un seul déchiffrement par fichier : le même bloc donne le journal et la version du générateur.
+    parsed.generator = resolveGenerator(text, parsed.generator, parsed.apexHeader);
     if (seq !== loadSeqRef.current) return null;
     parsedRef.current = parsed;
     currentRef.current = { text, name, path: null };
@@ -716,7 +723,7 @@ export function useGCodePreview(active: boolean) {
     openFilePicker,
     conversion,
     /** G-code 3 axes chargé, convertible en polaire (qu'il l'ait déjà été ou non), sinon null. */
-    conversionSource: fileInfo && sourceRef.current
+    conversionSource: fileInfo && sourceRef.current && !isApexGenerated(sourceRef.current.text)
       ? {
         name: sourceRef.current.name,
         nonPlanar: sourceRef.current.parsed.nonPlanar,
@@ -726,7 +733,9 @@ export function useGCodePreview(active: boolean) {
     setOffPlateHighlight,
     convert,
     /** Seul un G-code polaire (natif Apex ou converti) s'exporte pour l'Apex. */
-    canExport: fileInfo?.kind === 'polar' && conversion.status !== 'running',
+    canExport: (fileInfo?.kind === 'polar'
+      || (fileInfo?.kind === 'cartesian' && !!sourceRef.current && isApexGenerated(sourceRef.current.text)))
+      && conversion.status !== 'running',
     exportGCode,
     /** Conversion possible ici : application de bureau, ou serveur de développement Vite. */
     conversionAvailable: isConversionAvailable(),

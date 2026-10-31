@@ -11,6 +11,9 @@ const STEP_LABELS: Record<string, string> = {
   segmentation: 'Segmentation en régions',
   field: 'Calcul du champ de couches',
   layers: 'Extraction des couches courbes',
+  // Element Aeolis (R-026) : six étapes, aucune de celles d'Element Ardor hors import, parois, collision et écriture.
+  heightfield: 'Modèle de surface en hauteur',
+  layer_surfaces: 'Surfaces des couches',
   toolpath2d: 'Parois et remplissage',
   scheduling: 'Ordonnancement',
   machine_toolpath: 'Trajectoire machine',

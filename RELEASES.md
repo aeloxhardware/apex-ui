@@ -2,9 +2,67 @@
 
 Historique de toutes les versions du logiciel Apex (numéro de version), et non des Releases GitHub. Seul lien avec la publication : le compteur Builds (voir `CLAUDE.md`). Format et règles de numérotation : section « Versioning » de `CLAUDE.md`.
 
-**Version actuelle : `alpha-0.2.1.4.4.1.1.221`**
+**Version actuelle : `alpha-0.2.3.0.5.5.4.221`**
 
 `<préversion>-<public>.<global>.<majeur>.<moyen>.<mineur>.<add-ins>.<correctif>.<builds>`
+
+## alpha-0.2.3.0.5.5.4.221 — 2026-10-31
+
+- Prévisualisation : les touches M, R, S (et T) ne sont plus prises en compte ; elles basculaient les outils de Préparation (déplacer / pivoter / échelle) en arrière-plan (`Sidebar.tsx`). Non vu dans l'application. Correctif incrémenté ; le `VERSION` du dépôt partagé `apex` n'a pas été mis à jour.
+
+## alpha-0.2.3.0.5.5.3.221 — 2026-10-31
+
+- Menu « Colorer par » (légende du tracé) : « Temps écoulé » devient « Ordonnancement » et se place juste sous « Type de ligne » (hors du groupe Cinématique). Les rangées n'ont plus de contour ; elles ont des ombres portées plus marquées. Les petits dégradés de chaque rangée ont une lueur externe (même dégradé flouté, `::before`). Non vu dans l'application. Add-ins incrémenté ; le `VERSION` du dépôt partagé `apex` n'a pas été mis à jour.
+
+## alpha-0.2.3.0.5.4.3.221 — 2026-10-31
+
+- Carte « G-code 3 axes (cartésien) … Convertissez-le » : n'apparaît plus pour un fichier généré par Aeolis (signature Apex), dont le mode 3 axes est un choix du tranchage. Exception limitée aux fichiers signés ; un G-code cartésien importé garde la carte. Ces fichiers restent exportables sans conversion (`canExport`, `use-gcode-preview.ts`). Non vu dans l'application (typage non lancé). Correctif incrémenté ; le `VERSION` du dépôt partagé `apex` n'a pas été mis à jour.
+
+## alpha-0.2.3.0.5.4.2.221 — 2026-10-31
+
+- Sous-menu « Ajouter des modèles pratiques » : taille maximale 3 colonnes × 4 rangées ; au-delà de 12 modèles la grille défile avec le curseur externe d'Apex (`ExternalScrollArea`, à 4 px du bord droit du panneau, visible seulement si le contenu dépasse). Moins de 12 modèles : le panneau se réduit au nombre de rangées nécessaires. Non vu dans l'application (typage vérifié seulement). Correctif incrémenté ; le `VERSION` du dépôt partagé `apex` n'a pas été mis à jour.
+
+## alpha-0.2.3.0.5.4.1.221 — 2026-10-31
+
+- Sous-menu « Ajouter des modèles pratiques » : cascade carte par carte (fondu + glissement), menu toujours instantané. Une carte est révélée dès que sa miniature est prête, jamais moins de 70 ms après la précédente ; quand des miniatures attendent déjà, l'écart se réduit (70 / (1 + en attente), plancher 18 ms) pour rattraper, et si le rendu est lent les cartes suivent son rythme (`useCascade` dans `PracticalModelsGrid.tsx`). Remplace le décalage fixe de 45 ms par rang. Non vu dans l'application (typage vérifié seulement). Correctif incrémenté ; le `VERSION` du dépôt partagé `apex` n'a pas été mis à jour.
+
+## alpha-0.2.3.0.5.4.0.221 — 2026-10-31
+
+- Sous-menu « Ajouter des modèles pratiques » : le panneau s'ouvre tout de suite et les boutons apparaissent en cascade (45 ms d'écart, fondu + léger glissement de 260 ms), chacun dès que sa miniature est prête et que son tour est venu. Les miniatures se dessinent l'une après l'autre dans une file (pause entre deux), sont gardées en image (réouverture instantanée) et leur dessin démarre dès l'ouverture du menu contextuel (`prewarmPracticalModels`). Les rangs de la cascade suivent l'ordre par nom. Non vu dans l'application (typage vérifié seulement). Add-ins incrémenté ; le `VERSION` du dépôt partagé `apex` n'a pas été mis à jour.
+
+## alpha-0.2.3.0.5.3.0.221 — 2026-10-31
+
+- Modèles importés (STL) : rendu par défaut d'OrcaSlicer à la place du matériau standard de Babylon. Port des shaders `gouraud.vs` / `gouraud.fs` d'Orca (lus dans l'installation locale, `resources/shaders/110/`) : ombrage de Gouraud par sommet, lumière du haut (diffuse 0,48, spéculaire 0,075, brillance 20), lumière de face (diffuse 0,18), ambiante 0,3, toutes deux fixées à la caméra (`components/orcaModelMaterial.ts`, composante Z des lumières inversée pour le repère main gauche de Babylon, matrice des normales par maillage). Non repris : détection de pente, hors-volume, plans de coupe. La couleur (gris-bleu, 0,6 / 0,65 / 0,7) reste celle d'Apex : la couleur par défaut d'Orca vient du filament et n'a pas pu être vérifiée dans l'installation. Citation ajoutée dans `utils/credits.ts` (« OrcaSlicer — rendu des modèles », AGPL-3.0) et notice dans le fichier source. Mode interface classique inchangé (matériau plat). Non vu dans l'application (typage vérifié seulement).
+- Modèles pratiques : un modèle ajouté prend le nom `test_x`, x = plus petit numéro libre (modèles du plateau et imports en cours), au lieu du nom de son fichier.
+
+## alpha-0.2.3.0.5.2.0.221 — 2026-10-31
+
+- Menu contextuel de Préparation : « Ajouter des modèles pratiques » est actif. Au survol, un sous-menu (même mécanique que « Ajouter une primitive ») affiche une grille de boutons carrés, chacun avec un rendu gris du modèle (miniature dessinée en logiciel sur un canvas 2D, `utils/stlThumbnail.ts`, sans contexte WebGL de plus), triés par nom (ordre naturel). Un clic importe le modèle sur le plateau comme un fichier choisi à la main (`apex-import-model`). Les modèles sont les `.stl` de `src/assets/practical-models/` (liste par `import.meta.glob` : ajouter un fichier suffit). Copiés depuis `slicer_engine/res/test_models` : death, l-triple-axis-overhanged-shape, l_shape_overhang, real_overhang, turkish, plate_1_1, plate_5 (~2 Mo) ; laissés de côté pour le poids : death_hi-res (11 Mo), timetest (5 Mo), plate_2, plate_3, plate_6. Infobulles de bas d'écran de ma rédaction, à valider. Test : lecture des STL réels (2 tests) ; typage vérifié ; rendu non vu dans l'application. Add-ins incrémenté ; le `VERSION` du dépôt partagé `apex` n'a pas été mis à jour.
+
+## alpha-0.2.3.0.5.1.0.221 — 2026-10-31
+
+- Tranchage : un modèle (ou une partie) sous la surface du plateau est coupé à cette surface avant l'envoi au moteur, la section étant rebouchée pour rester un solide fermé (`utils/plateClip.ts`, appelé par `buildPlateStl` avec `clipBelowZ`, déclenché dans `onExportPlateStl` de `Viewport3D.tsx`). Un modèle posé sur le plateau (à 0,01 mm près) n'est pas touché ; un modèle entièrement dessous disparaît (« Aucun modèle sur le plateau »). Une pastille informe quand une coupe a eu lieu. Section : chaînage des segments de coupe en boucles, trous reliés au contour, découpage en oreilles ; un maillage ouvert (boucle non fermée) n'est pas rebouché. Testé par 4 tests unitaires (cube, orientation inversée, anneau à trou, modèle sous le plan : volume et surface fermée) ; pas testé dans l'application ni avec le moteur. Add-ins incrémenté ; le `VERSION` du dépôt partagé `apex` n'a pas été mis à jour.
+
+## alpha-0.2.3.0.5.0.0.221 — 2026-10-31
+
+- Préparation, outils Déplacer / Pivoter / Mettre à l'échelle : une boîte `TransformBox` sous la barre d'outils permet de saisir les valeurs exactes du modèle actif (champs `ApexNumberField`, lettres colorées comme les gizmos : X rouge, Y vert, Z bleu). Déplacer : X, Y, Z en mm (centre de la boîte englobante, Z = hauteur de la base au-dessus du plateau, ≥ 0). Pivoter : A, B, C en ° (autour de X, Y, Z ; la base reste sur le plateau et le centre en place). Mettre à l'échelle : taille en mm et échelle en %, par axe, avec la case « Garder les proportions » (cochée par défaut). Événements `apex-transform-request` / `apex-transform-state` / `apex-transform-set` (Viewport3D ↔ boîte), la boîte suit aussi les glissements de gizmo. Limites : seul le modèle actif (dernier sélectionné) est modifié ; taille et échelle suivent les axes locaux du maillage, relativement à son état à la première sélection ; les textes d'infobulle sont de ma rédaction, à valider. Non testé dans l'application (typage des fichiers modifiés vérifié seulement). Niveau Mineur incrémenté, Add-ins et Correctif remis à 0 ; le `VERSION` du dépôt partagé `apex` n'a pas été mis à jour.
+
+## alpha-0.2.3.0.4.1.1.221 — 2026-10-31
+
+- Barre d'outils de Préparation : les icônes Déplacer / Pivoter / Mettre à l'échelle (`ToolAxisIcons.tsx`) reprennent les tracés des icônes Lucide `Move3d`, `Rotate3d` et `Scale3d`, découpés par axe (X rouge, vertical bleu, profondeur vert, teinte des gizmos), au lieu des tracés maison. Colorées uniquement quand l'outil est actif, couleur du texte au repos. Non testé dans l'application (rendu non vérifié). Niveau Add-ins incrémenté ; le `VERSION` du dépôt partagé `apex` n'a pas été mis à jour (dépôt absent de cette machine).
+
+## alpha-0.2.3.0.4.0.1.221 — 2026-10-31
+
+- Prévisualisation, carte de conversion polaire (`GCodeConversionCard`) : elle affichait « l'imprimante sélectionnée imprime en coordonnées polaires » pour tout G-code cartésien, sans consulter l'imprimante. Elle ne s'affiche plus que si l'imprimante choisie déclare au moins 4 axes (`apex.axes_count` de son profil, `profileAxes()` dans `machineProfile.ts`) : une imprimante 3 axes imprime un G-code 3 axes telle quelle, et une machine à axes rotatifs accepte les fichiers 3 ou 5 axes. Nombre d'axes inconnu (« Inconnu » ou absent) : carte masquée, pour ne rien affirmer sans donnée. Sans imprimante choisie dans le menu, c'est le profil par défaut (Aetheris-4, 4 axes) qui s'applique. `PrinterConfigSidebar` transmet désormais aussi le chemin du profil (`onSelectPrinter(name, path?)`) ; `Index.tsx` le lit par `readProfile`.
+- Champs numériques (`ApexNumberField`) : le focus se marque par un surlignage cyan doux (teinte + halo) au lieu d'un contour net ; les flèches restent grises pour le contraste. Non testé dans l'application (typage des fichiers modifiés vérifié seulement). Niveau Correctif incrémenté. Le `VERSION` du dépôt partagé `apex` n'a pas été mis à jour (dépôt absent de cette machine).
+
+## alpha-0.2.3.0.4.0.0.221 — 2026-10-30
+
+- Prévisualisation, G-code d'Apex (R-025, prompt `integration/PROMPT_UX_reconnaitre_apex.md`) : le panneau d'informations (`GCodeInfoPanel.tsx`) et l'écran classique (`ClassicApp.tsx`) affichent « Généré par : Apex Slicer V0.2.3.0.3.0.0.221 (alpha) » (numéro de `meta.apex_version`, non arrondi) à la place de « Généré le plus probablement par : … (déduit du format) ». Détection : ligne exacte `; 85Ejj-sV6dI-NXTGl-JiodA-0b8aZ` dans les 40 premières lignes (`utils/apexSignature.ts`, constante unique ; un repère, pas une preuve). Version lue dans le bloc chiffré déjà déchiffré au chargement (`readApexHeader`, un seul déchiffrement par fichier). Bloc absent, tronqué ou illisible : « Apex Slicer (version illisible) » ; version `unknown` ou absente : « Apex Slicer (version inconnue) ». Sans signature, affichage inchangé, jamais « Apex Slicer ». Modèle : `GCodeGenerator.apex?: { version, prerelease, unreadable? }`, une seule fonction `formatGeneratorLabel` pour les deux écrans, priorité signature Apex > signature d'un autre slicer > déduction par le format (`resolveGenerator`). **Pas fait** : classement du fichier (cartésien / polaire) d'après `meta.machine` avant `parseGCode`, autre volet de R-025, resté ouvert. Premiers tests unitaires du dépôt : `vitest` (nouvelle dépendance de développement, `npm test`), 25 tests dans `src/utils/apexSignature.test.ts`, avec les deux exemples du moteur (`python scripts/gen_header_samples.py`) dans `src/utils/__fixtures__/`. Niveau Mineur incrémenté, Add-ins et Correctif remis à 0 (comme le moteur dans `apex/VERSIONS.md` ; convention toujours à confirmer). Non testé dans l'application (tests unitaires et typage seulement).
+
+## alpha-0.2.1.4.5.1.1.221 — 2026-10-28
+
+- Interrupteur de perspective désactivé = **vue orthographique** (comme l'option « Orthographique » de Fusion 360, demande de l'utilisateur) : plus de fuite, un plan vu de côté (ex. clic sur l'axe X du ViewCube) n'est qu'un trait fin, les vues alignées sur les plans cliqués sont exactes. Molette : zoom multiplicatif vers le curseur (échelle de l'image), plan d'ancrage perpendiculaire à l'axe de vue ; le panoramique reste un décalage d'image. Fenêtre orthographique = `rayon · tan(fov/2)` : l'échelle au point visé ne change pas au basculement et les formules « monde par pixel » (grille, barre d'échelle, étiquettes, pointage G-code, gizmos à taille d'écran fixe) restent exactes ; plan proche négatif. Non testé dans l'application (typage vérifié uniquement). Niveau Mineur incrémenté, Add-ins et Correctif remis à 1 ; le `VERSION` du dépôt partagé `apex` n'a pas été mis à jour.
 
 ## alpha-0.2.1.4.4.1.1.221 — 2026-10-27
 

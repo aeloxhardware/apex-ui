@@ -3,6 +3,7 @@ import styles from './ModelStatusBox.module.scss';
 import { ExternalScrollArea } from './ExternalScrollArea';
 import { Box, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { FilamentSelector } from './FilamentSelector';
 import { ELEMENTS_FADE_MS, MODEL_TREE_TOP, MODEL_TREE_PILL_GAP, PILL_TOP } from '@/utils/spaceMorphGeometry';
 
 interface SubMeshItem {
@@ -38,6 +39,7 @@ export const ModelStatusBox: React.FC<ModelStatusBoxProps> = ({ startsInPreview 
   // Vrai dès le clic vers Prévisualisation : sortie rapide (ELEMENTS_FADE_MS) plutôt que 0,9 s.
   const [enteringPreview, setEnteringPreview] = useState(false);
   const toolbarRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let fallbackTimer: number | undefined;
@@ -164,7 +166,8 @@ export const ModelStatusBox: React.FC<ModelStatusBoxProps> = ({ startsInPreview 
   // recouvrir ou coller. On mesure la hauteur réellement rendue et on ne diffuse un décalage que
   // lorsque le bord bas réel + la marge dépasse la position par défaut de la pilule (PILL_TOP).
   useEffect(() => {
-    const el = toolbarRef.current;
+    // Colonne entière (arborescence + carte Filament dessous) : la pilule se place sous la carte du bas.
+    const el = containerRef.current;
     if (!el || previewActive || modelingActive) {
       window.dispatchEvent(new CustomEvent('apex-model-tree-resized', { detail: { overflow: 0 } }));
       return;
@@ -184,7 +187,7 @@ export const ModelStatusBox: React.FC<ModelStatusBoxProps> = ({ startsInPreview 
   }, [previewActive, modelingActive]);
 
   return (
-    <div className={styles.container} data-apex-chrome-panel>
+    <div ref={containerRef} className={styles.container} data-apex-chrome-panel>
       <AnimatePresence custom={modelingActive || enteringPreview}>
         {!previewActive && !modelingActive && (
           <motion.div
@@ -229,13 +232,15 @@ export const ModelStatusBox: React.FC<ModelStatusBoxProps> = ({ startsInPreview 
           ) : (
             <ul className={styles.treeList}>
               <AnimatePresence>
-                {models.map((model) => {
+                {models.map((model, index) => {
                   const isSelected = selectedModelNames.has(model.name);
                   const isExpanded = !!expandedModels[model.name];
+                  const isFirst = index === 0;
+                  const isLast = index === models.length - 1;
                   return (
-                    <motion.li 
-                      key={model.id} 
-                      className={styles.treeNode}
+                    <motion.li
+                      key={model.id}
+                      className={`${styles.treeNode} ${isFirst ? styles.treeNodeFirst : ''} ${isLast ? styles.treeNodeLast : ''}`}
                       initial={{ opacity: 0, height: 0, scale: 0.9 }}
                       animate={{ opacity: 1, height: 'auto', scale: 1 }}
                       exit={{ opacity: 0, height: 0, scale: 0.9, marginBottom: 0 }}
@@ -266,9 +271,11 @@ export const ModelStatusBox: React.FC<ModelStatusBoxProps> = ({ startsInPreview 
                         {isExpanded && model.children && model.children.length > 0 && (
                           <motion.ul 
                             className={styles.childList}
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
+                            // Marges animées avec la hauteur (et non fixées en CSS) : sinon elles
+                            // subsistent à hauteur 0 puis disparaissent d'un coup au démontage.
+                            initial={{ opacity: 0, height: 0, marginTop: 0, marginBottom: 0 }}
+                            animate={{ opacity: 1, height: 'auto', marginTop: 2, marginBottom: 6 }}
+                            exit={{ opacity: 0, height: 0, marginTop: 0, marginBottom: 0 }}
                             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                           >
                             {model.children.map(child => (
@@ -291,6 +298,28 @@ export const ModelStatusBox: React.FC<ModelStatusBoxProps> = ({ startsInPreview 
           )}
         </ExternalScrollArea>
           </motion.div>
+        )}
+        {!previewActive && !modelingActive && (
+          <FilamentSelector
+            key="filament"
+            motionProps={{
+              initial: { opacity: 0, x: -20 },
+              animate: { opacity: 1, x: 0 },
+              custom: modelingActive || enteringPreview,
+              variants: {
+                exit: (fast: boolean) => ({
+                  opacity: 0,
+                  x: -20,
+                  transition: {
+                    duration: fast ? ELEMENTS_FADE_MS / 1000 : 0.9,
+                    ease: fast ? 'easeInOut' : 'linear',
+                  },
+                }),
+              },
+              exit: 'exit',
+              transition: { opacity: { duration: 0.9, ease: 'linear' }, x: { duration: 0.9, ease: 'easeInOut' } },
+            }}
+          />
         )}
       </AnimatePresence>
     </div>

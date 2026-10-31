@@ -129,7 +129,7 @@ function replayFromStart() {
   const labelEl = document.querySelector('[data-role="progress-label"]');
   if (fill) fill.style.width = '0%';
   if (count) count.textContent = '0 / 0';
-  if (labelEl) labelEl.textContent = 'Préparation…';
+  if (labelEl) labelEl.textContent = 'Preparing…';
 
   playIntro();
 
@@ -452,9 +452,9 @@ document.addEventListener('click', async (event) => {
       const result = await window.installerApi.runInstall(options);
       if (!result || !result.success) {
         // Echec : retour arriere deja fait cote main ; on revient au choix du dossier avec le message d'erreur.
-        window.alert(`L'installation a echoue.
+        window.alert(`Installation failed.
 
-${(result && result.error) || 'Erreur inconnue.'}`);
+${(result && result.error) || 'Unknown error.'}`);
         showScreen('welcome');
         break;
       }

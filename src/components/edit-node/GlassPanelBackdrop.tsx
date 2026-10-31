@@ -98,7 +98,7 @@ export function GlassPanelBackdrop({
         return;
       }
       const el = targetRef.current;
-      const scene = (document.getElementById('babylon-canvas') ?? document.getElementById('topo-background')) as HTMLCanvasElement | null;
+      const scene = (document.getElementById('babylon-canvas') ?? document.getElementById('home-background') ?? document.getElementById('topo-background')) as HTMLCanvasElement | null;
       if (!el || !scene || scene.width === 0) {
         if (shown) { renderer.clear(); shown = false; }
         return;
@@ -111,8 +111,10 @@ export function GlassPanelBackdrop({
         return;
       }
       // Le calque épouse le canevas 3D : même repère que la texture réfractée.
-      canvas.style.left = `${s.left}px`;
-      canvas.style.top = `${s.top}px`;
+      // `position: fixed` se repère sur la zone de l'interface (bandeau ancré au-dessus, cf. GpuWarningFrame), pas sur la fenêtre.
+      const origin = portalRoot === document.body ? null : portalRoot.getBoundingClientRect();
+      canvas.style.left = `${s.left - (origin?.left ?? 0)}px`;
+      canvas.style.top = `${s.top - (origin?.top ?? 0)}px`;
       canvas.style.width = `${s.width}px`;
       canvas.style.height = `${s.height}px`;
       renderer.resize(scene.width, scene.height);
@@ -161,14 +163,14 @@ export function GlassPanelBackdrop({
       if (next !== sig) { sig = next; settle = 30; }
       // Fond animé (relief topographique de l'Accueil) : le verre en réfracte une copie, à rafraîchir
       // à chaque image sinon il montre un fond périmé dès que le panneau cesse de bouger.
-      if (settle > 0 || document.getElementById('topo-background')) { settle = Math.max(0, settle - 1); frame(); }
+      if (settle > 0 || document.getElementById('home-background') || document.getElementById('topo-background')) { settle = Math.max(0, settle - 1); frame(); }
     };
     raf = requestAnimationFrame(watch);
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener(SCENE_RENDERED_EVENT, frame);
     };
-  }, [targetRef, corner, enabled, warp, blurPx, whiteRim, distortion, dispersion]);
+  }, [targetRef, corner, enabled, warp, blurPx, whiteRim, distortion, dispersion, portalRoot]);
 
   return createPortal(
     <canvas

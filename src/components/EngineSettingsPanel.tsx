@@ -1,196 +1,103 @@
 import React, { useState } from 'react';
-import { Compass, Layers, RotateCcw, Route, Settings2, Shield, Waypoints, type LucideIcon } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Check, ChevronDown } from 'lucide-react';
 import clsx from 'clsx';
-import { ApexSlider } from './ApexSlider';
+import { CustomTooltip } from './CustomTooltip';
+import { ApexNumberField } from './ApexNumberField';
+import { ENGINE_ALGORITHM, SLICING_MODES, SLICING_MODE_LOGOS, isSlicingModeAvailable, useSlicingMode } from '@/utils/slicingMode';
+import { AEOLIS_NOZZLE_BOUNDS, setAeolisNozzle, useAeolisNozzle } from '@/utils/aeolisNozzle';
 import styles from './EngineSettingsPanel.module.scss';
-import {
-  ENGINE_SETTINGS, ENGINE_SETTING_CATEGORIES, appDefaultOf, boundsOf, getEngineSettingValue,
-  isEngineSettingModified, resetEngineSettings, setEngineSettingValue, setShowAdvancedSettings,
-  useEngineSettings, type EngineSetting, type EngineSettingValue,
-} from '@/utils/engineSettings';
-import { useDevMode } from '@/utils/devModePrefs';
-
-// Libellés des valeurs énumérées du moteur (jamais affichées brutes).
-const ENUM_LABELS: Record<string, string> = {
-  lines: 'Lignes', grid: 'Grille', crossed_zigzag: 'Zigzag croisé', oscillating_spiral: 'Spirale oscillante',
-  tetgen: 'TetGen', tetranet: 'TetraNet',
-};
-
-// Icône de chaque catégorie dans la barre latérale.
-const CATEGORY_ICONS: Record<string, LucideIcon> = {
-  'Lissage des couches': Layers,
-  'Orientation de la tête': Compass,
-  'Trajectoires': Route,
-  'Collisions': Shield,
-  'Déplacements': Waypoints,
-  'Avancé': Settings2,
-};
-
-const nf = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 3 });
-
-function formatValue(setting: EngineSetting, value: EngineSettingValue): string {
-  if (value === null) return 'aucune';
-  if (typeof value === 'boolean') return value ? 'oui' : 'non';
-  if (typeof value === 'string') return ENUM_LABELS[value] ?? value;
-  if (setting.unit === 'fraction') return `${Math.round(value * 100)} %`;
-  // Les unités longues (« facteur (× arête médiane²) ») vont dans l'infobulle, pas à côté de la valeur.
-  return setting.unit && setting.unit.length <= 8 ? `${nf.format(value)} ${setting.unit}` : nf.format(value);
-}
-
-function tooltipOf(setting: EngineSetting) {
-  const app = appDefaultOf(setting);
-  const parts = [`Paramètre du moteur : ${setting.path}`];
-  if (setting.unit) parts.push(`Unité : ${setting.unit}`);
-  parts.push(`Défaut du moteur : ${formatValue(setting, setting.default)}`);
-  if (app !== setting.default) parts.push(`Valeur de l'application : ${formatValue(setting, app)}`);
-  return { title: setting.label, desc: `${parts.join(' · ')}.` };
-}
-
-const showTooltip = (setting: EngineSetting) => window.dispatchEvent(new CustomEvent('apex-set-tooltip', { detail: tooltipOf(setting) }));
-const resetTooltip = () => window.dispatchEvent(new CustomEvent('apex-reset-tooltip'));
-
-const NumberField: React.FC<{ setting: EngineSetting; value: EngineSettingValue }> = ({ setting, value }) => {
-  const { min, max } = boundsOf(setting);
-  return (
-    <input
-      type="number"
-      className={styles.numberInput}
-      min={min}
-      max={max ?? undefined}
-      step={setting.step ?? 1}
-      value={value === null ? '' : String(value)}
-      placeholder={setting.type === 'number|null' ? 'aucune' : undefined}
-      onChange={(e) => {
-        if (e.target.value === '') { if (setting.type === 'number|null') setEngineSettingValue(setting, null); return; }
-        setEngineSettingValue(setting, Number(e.target.value));
-      }}
-    />
-  );
-};
-
-const SettingControl: React.FC<{ setting: EngineSetting }> = ({ setting }) => {
-  const value = getEngineSettingValue(setting);
-  if (setting.type === 'boolean') {
-    return (
-      <label className={styles.checkboxRow}>
-        <input type="checkbox" className={styles.checkbox} checked={value === true}
-          onChange={(e) => setEngineSettingValue(setting, e.target.checked)} />
-        <span>{setting.label}</span>
-      </label>
-    );
-  }
-  const { min, max } = boundsOf(setting);
-  let control: React.ReactNode;
-  if (setting.type === 'string' && setting.enum) {
-    control = (
-      <div className={styles.segmented}>
-        {setting.enum.map((option) => (
-          <button key={option} type="button" className={clsx(styles.segment, { [styles.segmentActive]: value === option })}
-            onClick={() => setEngineSettingValue(setting, option)}>
-            {ENUM_LABELS[option] ?? option}
-          </button>
-        ))}
-      </div>
-    );
-  } else if (setting.type === 'number' && max !== null) {
-    control = (
-      <ApexSlider
-        value={typeof value === 'number' ? value : min}
-        onChange={(v) => setEngineSettingValue(setting, v)}
-        min={min}
-        max={max}
-        scale={setting.scale ?? 'linear'}
-        step={setting.step ?? undefined}
-        defaultValue={typeof appDefaultOf(setting) === 'number' ? (appDefaultOf(setting) as number) : undefined}
-        format={(v) => formatValue(setting, v)}
-        ariaLabel={setting.label}
-      />
-    );
-  } else {
-    control = <NumberField setting={setting} value={value} />;
-  }
-  return (
-    <div className={styles.field}>
-      <div className={styles.fieldHead}>
-        <span className={styles.fieldLabel}>{setting.label}</span>
-        {!(setting.type === 'number' && max !== null) && setting.type !== 'string' && setting.unit && setting.unit.length <= 8 && (
-          <span className={styles.fieldUnit}>{setting.unit}</span>
-        )}
-      </div>
-      {control}
-    </div>
-  );
-};
 
 /**
- * Espace Préparation, à droite : réglages propres à ce slicer non-planaire. La liste (libellés, niveaux, bornes)
- * vient du moteur (utils/engineSettings.json) ; les valeurs sont envoyées à chaque tranchage. Une barre
- * latérale, à gauche du panneau, sélectionne la catégorie affichée.
+ * Espace Préparation, à droite : panneau « Réglages Apex ». Les réglages du moteur n'y figurent plus (demande de
+ * l'utilisateur, 2026-10-29) : ils sont dans Paramètres › Algorithme (avancé), voir EngineSettingsEditor.
  */
 export const EngineSettingsPanel: React.FC = () => {
-  const { showAdvanced } = useEngineSettings();
-  const devMode = useDevMode();
-  const [selected, setSelected] = useState<string>(ENGINE_SETTING_CATEGORIES[0]);
-
-  const visible = (s: EngineSetting) =>
-    s.level === 'user' || (s.level === 'advanced' && showAdvanced) || (s.level === 'developer' && devMode);
-  const categories = ENGINE_SETTING_CATEGORIES
-    .map((name) => ({ name, settings: ENGINE_SETTINGS.filter((s) => s.category === name && visible(s)) }))
-    .filter((c) => c.settings.length > 0);
-  // Une catégorie qui disparaît (réglages avancés décochés) cède la place à la première visible.
-  const current = categories.find((c) => c.name === selected) ?? categories[0];
-  const modified = current?.settings.some(isEngineSettingModified) ?? false;
-
+  // Sélecteur vide pour l'instant : même fonctionnement que celui du motif de remplissage (CategoriesSidebar), en miroir
+  // (flèche à gauche, liste qui sort à gauche du panneau).
+  const [selectorOpen, setSelectorOpen] = useState(false);
+  const { axisMode, mode, setMode } = useSlicingMode();
+  const nozzle = useAeolisNozzle();
+  const isAeolis = ENGINE_ALGORITHM[mode] === 'element-aeolis';
+  const logo = (option: string) => (
+    <span className={styles.modeLogo} aria-hidden style={{ maskImage: `url(${SLICING_MODE_LOGOS[option]})`, WebkitMaskImage: `url(${SLICING_MODE_LOGOS[option]})` }} />
+  );
+  const chooseMode = (next: string) => {
+    if (!isSlicingModeAvailable(next, axisMode)) return;
+    setMode(next);
+    setSelectorOpen(false);
+  };
   return (
-    <div className={styles.container} data-apex-chrome-panel>
-      <nav className={styles.rail} aria-label="Catégories de réglages">
-        {categories.map(({ name, settings }) => {
-          const Icon = CATEGORY_ICONS[name] ?? Settings2;
-          return (
-            <button
-              key={name}
-              type="button"
-              className={clsx(styles.railButton, { [styles.railActive]: current?.name === name })}
-              aria-label={name}
-              aria-pressed={current?.name === name}
-              onClick={() => setSelected(name)}
-              onMouseEnter={() => window.dispatchEvent(new CustomEvent('apex-set-tooltip', { detail: { title: name, desc: `${settings.length} réglage${settings.length > 1 ? 's' : ''}.` } }))}
-              onMouseLeave={resetTooltip}
-            >
-              <Icon size={18} />
-              {settings.some(isEngineSettingModified) && <span className={styles.railDot} />}
-            </button>
-          );
-        })}
-      </nav>
-
-      <aside className={styles.panel} aria-label="Réglages Apex">
-        <div className={styles.header}>
-          <h2 className={styles.title}>Réglages Apex</h2>
-          <label className={styles.checkboxRow}>
-            <input type="checkbox" className={styles.checkbox} checked={showAdvanced}
-              onChange={(e) => setShowAdvancedSettings(e.target.checked)} />
-            <span>Réglages avancés</span>
-          </label>
+  <div className={styles.container} data-apex-chrome-panel>
+    <aside className={styles.panel} aria-label="Réglages Apex"
+      data-apex-tooltip="Panneau de réglages propres à Apex.">
+      <div className={styles.header}>
+        <h2 className={styles.title}>Réglages Apex</h2>
+      </div>
+      <CustomTooltip content="Mode de tranchage" description="Choisissez parmi différents algorithmes de tranchage de couches afin d'assurer une génération adaptée à l'objet.">
+        <div className={clsx(styles.selectorRow, { [styles.selectorOpen]: selectorOpen })} role="button" tabIndex={0}
+          onClick={() => setSelectorOpen((open) => !open)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectorOpen((open) => !open); } }}>
+          <ChevronDown size={14} className="shrink-0 text-white/40 rotate-90 mr-2" />
+          <span className={styles.selectorLabel}>Mode de tranchage</span>
+          <span className={styles.selectorValue}>{mode.split(' - ')[0]}{logo(mode)}</span>
         </div>
-        {current && (
-          <div className={styles.body}>
-            <h3 className={styles.categoryTitle}>{current.name}</h3>
-            <div className={styles.categoryBody}>
-              {current.settings.map((setting) => (
-                <div key={setting.path} onMouseEnter={() => showTooltip(setting)} onMouseLeave={resetTooltip}>
-                  <SettingControl setting={setting} />
-                </div>
-              ))}
-              {modified && (
-                <button type="button" className={styles.resetButton} onClick={() => resetEngineSettings(current.name)}>
-                  <RotateCcw size={12} /> Rétablir cette catégorie
-                </button>
-              )}
+      </CustomTooltip>
+      {isAeolis && (
+        <>
+          <CustomTooltip content="Angle de la buse" description="Pente maximale, depuis l'horizontale, de la surface déjà imprimée autour de la pointe de la buse (0° : épaule plate, 90° : aiguille). Détermine ce que la tête peut atteindre sans toucher la matière voisine : Element Aeolis ne garde le tranchage « surface en hauteur » que si les couches respectent cette limite. Par défaut 10° (très bas, pour ne pas casser une imprimante à conduits de ventilation serrés) ; à relever pour une tête dégagée.">
+            <div className={styles.settingRow}>
+              <span className={styles.selectorLabel}>Angle de la buse</span>
+              <ApexNumberField className={styles.settingField} value={nozzle.angleDeg} onChange={(v) => setAeolisNozzle({ angleDeg: v ?? undefined })}
+                min={AEOLIS_NOZZLE_BOUNDS.angleDeg.min} max={AEOLIS_NOZZLE_BOUNDS.angleDeg.max} step={AEOLIS_NOZZLE_BOUNDS.angleDeg.step} suffix="°" ariaLabel="Angle de la buse" />
             </div>
-          </div>
-        )}
-      </aside>
-    </div>
+          </CustomTooltip>
+          <CustomTooltip content="Longueur de la buse" description="Longueur maximale atteignable par la buse : longueur de buse sous le conduit de ventilation, c'est-à-dire le dénivelé maximal toléré entre la pointe et la matière voisine plus haute. Avec l'angle de la buse, elle borne les couches qu'Element Aeolis peut trancher en surface en hauteur ; au-delà, le moteur passe au tranchage général. Par défaut 2 mm.">
+            <div className={styles.settingRow}>
+              <span className={styles.selectorLabel}>Longueur de la buse</span>
+              <ApexNumberField className={styles.settingField} value={nozzle.reachMm} onChange={(v) => setAeolisNozzle({ reachMm: v ?? undefined })}
+                min={AEOLIS_NOZZLE_BOUNDS.reachMm.min} max={AEOLIS_NOZZLE_BOUNDS.reachMm.max} step={AEOLIS_NOZZLE_BOUNDS.reachMm.step} suffix="mm" ariaLabel="Longueur de la buse" />
+            </div>
+          </CustomTooltip>
+        </>
+      )}
+    </aside>
+
+    <AnimatePresence>
+      {selectorOpen && (
+        <motion.div
+          className={styles.selectorPopup}
+          initial={{ scale: 0.95, x: 10 }}
+          animate={{ scale: 1, x: 0 }}
+          exit={{ scale: 0.95, x: 10 }}
+          transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        >
+          {/* Le verre fait son propre fondu : un parent translucide désactiverait son flou. */}
+          <motion.div className={styles.selectorGlass} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} />
+          <motion.div className={styles.selectorContent} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+            <h4 className={styles.selectorTitle}>Mode de tranchage</h4>
+            <ul className={styles.selectorList}>
+              {SLICING_MODES.map((option) => {
+                const available = isSlicingModeAvailable(option, axisMode);
+                return (
+                  <CustomTooltip key={option} content={option} description={available
+                    ? `Mode de tranchage « ${option} » : le moteur le lance (algorithme ${ENGINE_ALGORITHM[option]}).`
+                    : ENGINE_ALGORITHM[option]
+                      ? `Mode de tranchage « ${option} » : réservé au mode dev en 3 axes, donc inactif.`
+                      : `Mode de tranchage « ${option} » : pas encore implémenté dans le moteur, donc inactif.`}>
+                    <li className={clsx(styles.selectorItem, { [styles.selectorItemActive]: mode === option, [styles.selectorItemDisabled]: !available })}
+                      aria-disabled={!available} onClick={() => chooseMode(option)}>
+                      <span className={styles.modeLabel}>{logo(option)}{option}</span>
+                      {mode === option && <Check size={14} className="text-[#00f0ff] shrink-0" />}
+                    </li>
+                  </CustomTooltip>
+                );
+              })}
+            </ul>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  </div>
   );
 };

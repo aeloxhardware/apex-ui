@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="fr" class="boot">
+<html lang="en" class="boot">
 <head>
   <meta charset="utf-8" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'" />
-  <title>Installation — Apex Slicer</title>
+  <title>Setup — Apex Slicer</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Inter:wght@400;500;600&display=swap" />
   <link rel="stylesheet" href="./styles.css" />
 </head>
@@ -20,10 +20,10 @@
          contrairement a l'ancien drag sur toute .windowSurface qui rendait
          hover/clic morts partout sous Electron+Windows. -->
     <div class="dragHandle"></div>
-    <button class="closeBtn" data-action="quit" type="button" aria-label="Fermer">✕</button>
+    <button class="closeBtn" data-action="quit" type="button" aria-label="Close">✕</button>
     <!-- Bouton dev uniquement : rejoue les animations de l'ecran courant sans
          fermer/rouvrir l'app. A retirer avant la release finale. -->
-    <button class="devReplayBtn" data-action="dev-replay" type="button" title="Rejouer les animations (touche R)">⟲</button>
+    <button class="devReplayBtn" data-action="dev-replay" type="button" title="Replay animations (R key)">⟲</button>
     <!-- Etape 0 : intro / logo anime -->
     <section class="screen" data-screen="intro">
       <div class="logoRing">
@@ -36,7 +36,7 @@
       <div class="introTextSwap">
         <div class="introTextPost">
           <h1 class="brandTitle">Apex Slicer</h1>
-          <p class="brandSubtitle">Assistant d'installation</p>
+          <p class="brandSubtitle">Setup Wizard</p>
         </div>
       </div>
     </section>
@@ -44,21 +44,21 @@
     <!-- Etape 1 : bienvenue + dossier -->
     <section class="screen" data-screen="welcome">
       <header class="screenHeader">
-        <h2 class="animItem">Bienvenue</h2>
-        <p class="screenLead animItem">Cet assistant va installer Apex Slicer sur votre ordinateur.</p>
+        <h2 class="animItem">Welcome</h2>
+        <p class="screenLead animItem">This wizard will install Apex Slicer on your computer.</p>
       </header>
 
       <div class="field">
-        <label class="fieldLabel" for="install-path">Dossier d'installation</label>
+        <label class="fieldLabel" for="install-path">Installation folder</label>
         <div class="pathRow">
           <input id="install-path" class="pathInput" type="text" readonly />
-          <button class="btn btnGhost" data-action="choose-directory" type="button">Parcourir…</button>
+          <button class="btn btnGhost" data-action="choose-directory" type="button">Browse…</button>
         </div>
       </div>
 
       <footer class="screenFooter">
-        <button class="btn btnGhost" data-action="quit" type="button">Annuler</button>
-        <button class="btn btnPrimary" data-action="go-options" type="button">Suivant</button>
+        <button class="btn btnGhost" data-action="quit" type="button">Cancel</button>
+        <button class="btn btnPrimary" data-action="go-options" type="button">Next</button>
       </footer>
     </section>
 
@@ -66,25 +66,25 @@
     <section class="screen" data-screen="options">
       <header class="screenHeader">
         <h2 class="animItem">Options</h2>
-        <p class="screenLead animItem">Choisissez les raccourcis à créer.</p>
+        <p class="screenLead animItem">Choose which shortcuts to create.</p>
       </header>
 
       <div class="optionList">
         <label class="optionRow">
           <input type="checkbox" id="opt-desktop" checked />
           <span class="optionCheck"></span>
-          <span class="optionText">Créer un raccourci sur le Bureau</span>
+          <span class="optionText">Create a Desktop shortcut</span>
         </label>
         <label class="optionRow">
           <input type="checkbox" id="opt-start-menu" checked />
           <span class="optionCheck"></span>
-          <span class="optionText">Ajouter au menu Démarrer</span>
+          <span class="optionText">Add to the Start menu</span>
         </label>
       </div>
 
       <footer class="screenFooter">
-        <button class="btn btnGhost" data-action="go-welcome" type="button">Précédent</button>
-        <button class="btn btnPrimary" data-action="go-plan" type="button">Suivant</button>
+        <button class="btn btnGhost" data-action="go-welcome" type="button">Back</button>
+        <button class="btn btnPrimary" data-action="go-plan" type="button">Next</button>
       </footer>
     </section>
 
@@ -94,51 +94,51 @@
          recommandation d'usage et sa liste de fonctions - voir .planCard. -->
     <section class="screen" data-screen="plan">
       <header class="screenHeader">
-        <h2 class="animItem">Interface</h2>
-        <p class="screenLead animItem">Choisissez le plan d'interface adapté à votre machine.</p>
+        <h2 class="animItem">Interface <span class="comingSoon">Coming soon</span></h2>
+        <p class="screenLead animItem">Choose the interface plan that suits your machine.</p>
       </header>
 
       <div class="planList" data-role="plan-list">
-        <button class="planCard animItem" data-plan="economique" type="button" aria-pressed="false">
+        <button class="planCard animItem" data-plan="economique" type="button" aria-pressed="false" disabled>
           <span class="planCardHeader">
-            <span class="planTitle">Économique</span>
-            <span class="planRecommend">Recommandé pour les petits PC</span>
+            <span class="planTitle">Economy</span>
+            <span class="planRecommend">Recommended for low-end PCs</span>
           </span>
           <ul class="planFeatures">
-            <li>Interface noir et blanc, styles Windows par défaut</li>
-            <li>Aucun effet graphique</li>
-            <li>Consommation minimale en RAM et GPU</li>
+            <li>Black and white interface, default Windows styles</li>
+            <li>No graphical effects</li>
+            <li>Minimal RAM and GPU usage</li>
           </ul>
         </button>
 
-        <button class="planCard animItem" data-plan="pro" type="button" aria-pressed="false">
+        <button class="planCard animItem" data-plan="pro" type="button" aria-pressed="true" disabled>
           <span class="planCardHeader">
             <span class="planTitle">Pro</span>
-            <span class="planRecommend">Recommandé pour un usage quotidien</span>
+            <span class="planRecommend">Recommended for everyday use</span>
           </span>
           <ul class="planFeatures">
-            <li>Interface ergonomique, éléments flottants</li>
-            <li>Aucun effet graphique superflu</li>
-            <li>Bon compromis confort / performance</li>
+            <li>Ergonomic interface, floating elements</li>
+            <li>No unnecessary graphical effects</li>
+            <li>Good balance of comfort and performance</li>
           </ul>
         </button>
 
-        <button class="planCard animItem" data-plan="ultimate" type="button" aria-pressed="false">
+        <button class="planCard animItem" data-plan="ultimate" type="button" aria-pressed="false" disabled>
           <span class="planCardHeader">
             <span class="planTitle">Ultimate</span>
-            <span class="planRecommend">Recommandé pour PC récents</span>
+            <span class="planRecommend">Recommended for recent PCs</span>
           </span>
           <ul class="planFeatures">
-            <li>Interface complète (celle de cet assistant)</li>
-            <li>Flou, transparence et animations</li>
-            <li>Expérience visuelle la plus aboutie</li>
+            <li>Full interface (the one used by this wizard)</li>
+            <li>Blur, transparency and animations</li>
+            <li>The most polished visual experience</li>
           </ul>
         </button>
       </div>
 
       <footer class="screenFooter">
-        <button class="btn btnGhost" data-action="go-options" type="button">Précédent</button>
-        <button class="btn btnPrimary" data-action="go-nonplanar" type="button">Suivant</button>
+        <button class="btn btnGhost" data-action="go-options" type="button">Back</button>
+        <button class="btn btnPrimary" data-action="go-nonplanar" type="button">Next</button>
       </footer>
     </section>
 
@@ -148,73 +148,73 @@
          precedent, pour rester coherent. -->
     <section class="screen" data-screen="nonplanar">
       <header class="screenHeader">
-        <h2 class="animItem">Tranchage non-planaire</h2>
-        <p class="screenLead animItem">Installer le moteur de tranchage non-planaire ?</p>
+        <h2 class="animItem">Non-planar slicing <span class="comingSoon">Coming soon</span></h2>
+        <p class="screenLead animItem">Install the non-planar slicing engine?</p>
       </header>
 
       <div class="choiceList" data-role="nonplanar-choice">
-        <button class="choiceCard animItem" data-choice="yes" type="button" aria-pressed="false">
-          <span class="choiceTitle">Oui</span>
-          <span class="choiceDesc">Active le tranchage non-planaire (surfaces courbes, coques variables).</span>
+        <button class="choiceCard animItem" data-choice="yes" type="button" aria-pressed="false" disabled>
+          <span class="choiceTitle">Yes</span>
+          <span class="choiceDesc">Enables non-planar slicing (curved surfaces, variable shells).</span>
         </button>
-        <button class="choiceCard animItem" data-choice="no" type="button" aria-pressed="false">
-          <span class="choiceTitle">Non</span>
-          <span class="choiceDesc">N'installe pas ce moteur. Modifiable plus tard depuis les paramètres.</span>
+        <button class="choiceCard animItem" data-choice="no" type="button" aria-pressed="true" disabled>
+          <span class="choiceTitle">No</span>
+          <span class="choiceDesc">Does not install this engine. Can be changed later in the settings.</span>
         </button>
       </div>
 
       <div class="choiceSubBlock">
-        <p class="choiceSubLabel">Installer aussi l'option de tranchage 4/5 axes ?</p>
+        <p class="choiceSubLabel">Also install the 4/5-axis slicing option?</p>
         <p class="choiceSubHint" data-role="axis-hint" hidden>
-          Le tranchage non-planaire est un prérequis pour cette option.
+          Non-planar slicing is a prerequisite for this option.
         </p>
         <div class="choiceList choiceSubList" data-role="axis-choice">
           <button class="choiceCard animItem" data-choice="yes" type="button" aria-pressed="false" disabled>
-            <span class="choiceTitle">Oui</span>
-            <span class="choiceDesc">Ajoute le tranchage multi-axes pour têtes/plateaux rotatifs.</span>
+            <span class="choiceTitle">Yes</span>
+            <span class="choiceDesc">Adds multi-axis slicing for rotary heads/beds.</span>
           </button>
           <button class="choiceCard animItem" data-choice="no" type="button" aria-pressed="true" disabled>
-            <span class="choiceTitle">Non</span>
-            <span class="choiceDesc">Reste en tranchage non-planaire 3 axes uniquement.</span>
+            <span class="choiceTitle">No</span>
+            <span class="choiceDesc">Stays with 3-axis non-planar slicing only.</span>
           </button>
         </div>
       </div>
 
       <footer class="screenFooter">
-        <button class="btn btnGhost" data-action="go-plan" type="button">Précédent</button>
-        <button class="btn btnPrimary" data-action="go-modeler" type="button">Suivant</button>
+        <button class="btn btnGhost" data-action="go-plan" type="button">Back</button>
+        <button class="btn btnPrimary" data-action="go-modeler" type="button">Next</button>
       </footer>
     </section>
 
     <!-- Etape 2d : modelisateur 3D inclus. -->
     <section class="screen" data-screen="modeler">
       <header class="screenHeader">
-        <h2 class="animItem">Modélisateur</h2>
-        <p class="screenLead animItem">Installer le modélisateur 3D inclus dans Apex ?</p>
+        <h2 class="animItem">Modeling <span class="comingSoon">Coming soon</span></h2>
+        <p class="screenLead animItem">Install the 3D modeling workspace included in Apex?</p>
       </header>
 
       <div class="choiceList" data-role="modeler-choice">
-        <button class="choiceCard animItem" data-choice="yes" type="button" aria-pressed="false">
-          <span class="choiceTitle">Oui</span>
-          <span class="choiceDesc">Créez et modifiez vos modèles sans quitter Apex Slicer.</span>
+        <button class="choiceCard animItem" data-choice="yes" type="button" aria-pressed="false" disabled>
+          <span class="choiceTitle">Yes</span>
+          <span class="choiceDesc">Create and edit your models without leaving Apex Slicer.</span>
         </button>
-        <button class="choiceCard animItem" data-choice="no" type="button" aria-pressed="false">
-          <span class="choiceTitle">Non</span>
-          <span class="choiceDesc">N'installe pas le modélisateur. Modifiable plus tard.</span>
+        <button class="choiceCard animItem" data-choice="no" type="button" aria-pressed="true" disabled>
+          <span class="choiceTitle">No</span>
+          <span class="choiceDesc">Does not install the modeling workspace. Can be changed later.</span>
         </button>
       </div>
 
       <footer class="screenFooter">
-        <button class="btn btnGhost" data-action="go-nonplanar" type="button">Précédent</button>
-        <button class="btn btnPrimary" data-action="go-install" type="button">Installer</button>
+        <button class="btn btnGhost" data-action="go-nonplanar" type="button">Back</button>
+        <button class="btn btnPrimary" data-action="go-install" type="button">Install</button>
       </footer>
     </section>
 
     <!-- Etape 3 : progression -->
     <section class="screen" data-screen="progress">
       <header class="screenHeader">
-        <h2 class="animItem">Installation en cours</h2>
-        <p class="screenLead animItem" data-role="progress-label">Préparation…</p>
+        <h2 class="animItem">Installing</h2>
+        <p class="screenLead animItem" data-role="progress-label">Preparing…</p>
       </header>
 
       <div class="progressBarTrack">
@@ -231,17 +231,17 @@
           <path class="doneCheckMark" fill="none" d="M14 27l7 7 17-17" />
         </svg>
       </div>
-      <h2 class="doneTitle">Installation terminée</h2>
-      <p class="screenLead">Apex Slicer est prêt à être utilisé.</p>
+      <h2 class="doneTitle">Installation complete</h2>
+      <p class="screenLead">Apex Slicer is ready to use.</p>
 
       <label class="optionRow optionRowCentered">
         <input type="checkbox" id="opt-launch-now" checked />
         <span class="optionCheck"></span>
-        <span class="optionText">Lancer Apex Slicer maintenant</span>
+        <span class="optionText">Launch Apex Slicer now</span>
       </label>
 
       <footer class="screenFooter">
-        <button class="btn btnPrimary" data-action="finish" type="button">Terminer</button>
+        <button class="btn btnPrimary" data-action="finish" type="button">Finish</button>
       </footer>
     </section>
     </div>
@@ -287,15 +287,15 @@
            separee de .criticalBox pour ne pas partager son fond/flou. -->
       <div class="criticalStack">
         <div class="confirmBox criticalBox">
-          <p class="confirmTitle criticalTitle">Attention</p>
+          <p class="confirmTitle criticalTitle">Warning</p>
           <p class="confirmText">
-            Vous êtes sur le point d'annuler l'installation du logiciel Apex Slicer.<br />
-            Êtes-vous certain de vouloir continuer ?
+            You are about to cancel the installation of Apex Slicer.<br />
+            Are you sure you want to continue?
           </p>
         </div>
         <div class="confirmActions criticalActions">
-          <button class="btn btnGhost" data-action="close-confirm-stay" type="button">Continuer l'installation</button>
-          <button class="btn btnDanger" data-action="close-confirm-quit" type="button">Annuler l'installation</button>
+          <button class="btn btnGhost" data-action="close-confirm-stay" type="button">Continue installation</button>
+          <button class="btn btnDanger" data-action="close-confirm-quit" type="button">Cancel installation</button>
         </div>
       </div>
     </div>

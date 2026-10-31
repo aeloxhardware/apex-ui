@@ -1,0 +1,181 @@
+.card {
+  width: 293px;
+  box-sizing: border-box;
+}
+
+.current {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.label {
+  color: rgba(255, 255, 255, 0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #00f0ff;
+}
+
+.detail {
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.popup {
+  width: 320px;
+}
+
+// Même fond et mêmes ombres que les lignes de la liste (.item) : pas de fond sombre. Au focus, pas de halo
+// externe : le fond vire au bleuté.
+.searchRow {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+// Petit bouton carré à droite du champ : même fond que le champ et les lignes.
+.filterButton {
+  flex: 0 0 auto;
+  width: 32px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  transition: background 0.2s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s;
+  &:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+}
+.filterActive { background: rgba(0, 240, 255, 0.2); color: #00f0ff; }
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip {
+  display: inline-flex;
+  align-items: stretch;
+  max-width: 100%;
+  border-radius: 8px;
+  background: rgba(0, 240, 255, 0.16);
+  color: #00f0ff;
+  font-size: 10px;
+  overflow: hidden;
+  transition: background 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  &:hover { background: rgba(0, 240, 255, 0.26); }
+}
+.chipBody, .chipClose {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.chipBody { padding: 4px 4px 4px 8px; min-width: 0; }
+.chipLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chipClose { padding: 0 8px 0 4px; opacity: 0.7; &:hover { opacity: 1; } }
+.chipExclude {
+  background: rgba(255, 90, 90, 0.16);
+  color: #ff8a8a;
+  &:hover { background: rgba(255, 90, 90, 0.28); }
+}
+
+.search {
+  flex: 1;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.03);
+  border: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  border-radius: 8px;
+  color: #00f0ff;
+  font: inherit;
+  font-size: 11px;
+  padding: 8px 10px; // même retrait que les lignes : le texte saisi et le curseur de saisie s'alignent dessus
+  outline: none;
+  caret-color: #00f0ff;
+  text-indent: 2px; // le curseur de saisie ne touche plus la première lettre
+  transition: background 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
+  &::placeholder { color: rgba(255, 255, 255, 0.4); }
+  &:focus { background: rgba(0, 240, 255, 0.2); }
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+// Même ligne que .patternItem.
+.item {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.03);
+  border: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  padding: 8px 10px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.9);
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: perspective(400px) translateZ(0px);
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    transform: perspective(400px) translateZ(6px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  }
+}
+
+.itemActive {
+  background: rgba(0, 240, 255, 0.2);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 12px rgba(0, 240, 255, 0.3);
+  color: #00f0ff;
+  font-weight: 600;
+}
+
+.itemMeta {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.empty {
+  padding: 6px 10px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+}

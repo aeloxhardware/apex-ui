@@ -1,0 +1,91 @@
+// Sélecteur numérique unique d'Apex (cf. ApexNumberField.tsx) : même fond de verre que les autres champs,
+// flèches toujours visibles, cyan au survol et au focus.
+
+.root {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  min-height: 32px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  &:focus-within {
+    // Surlignage doux (teinte cyan + halo diffus), pas de contour net.
+    background: linear-gradient(rgba(0, 240, 255, 0.14), rgba(0, 240, 255, 0.14)), rgba(255, 255, 255, 0.1);
+    box-shadow: 0 0 14px rgba(0, 240, 255, 0.22), inset 0 0 10px rgba(0, 240, 255, 0.12);
+
+    // Les flèches restent neutres (gris sombre) pour contraster avec le surlignage.
+    .stepper:not(:hover):not(:active) {
+      background: rgba(24, 26, 32, 0.6);
+      color: rgba(255, 255, 255, 0.85);
+    }
+  }
+}
+
+.input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0 10px;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+
+  &::placeholder {
+    color: rgba(255, 255, 255, 0.35);
+  }
+}
+
+.suffix {
+  flex: 0 0 auto;
+  align-self: center;
+  padding-right: 6px;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 11px;
+  user-select: none;
+}
+
+.steppers {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  width: 22px;
+  margin: 3px 4px 3px 0;
+  gap: 2px;
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 0;
+  padding: 0;
+  border: none;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background: rgba(0, 240, 255, 0.18);
+    color: #00f0ff;
+  }
+
+  &:active:not(:disabled) {
+    background: rgba(0, 240, 255, 0.3);
+  }
+
+  &:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+}

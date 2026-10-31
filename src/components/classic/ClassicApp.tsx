@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { importModelsOneByOne } from '@/utils/importModels';
 import { Viewport3D } from '@/components/Viewport3D';
 import { EditionPanel } from '@/components/edit-node/EditionPanel';
 import { setPreviewTab, usePreviewTab } from '@/components/PreviewUpperTabs';
+import { formatGeneratorLabel } from '@/components/gcodeGenerator';
 import { COLOR_BY_LABELS } from '@/components/gcodeColormap';
 import { LINE_TYPES } from '@/components/gcodeLineTypes';
 import type { ColorByMode } from '@/components/gcodeParse';
@@ -27,7 +29,7 @@ type Tab = 'home' | 'prep' | 'preview' | 'modeling' | 'dev' | 'params';
 
 const ALL_TABS: { id: Tab; label: string; devOnly?: boolean }[] = [
   { id: 'home', label: 'Accueil' },
-  { id: 'prep', label: 'Préparation', devOnly: true },
+  { id: 'prep', label: 'Préparation' },
   { id: 'preview', label: 'Prévisualisation' },
   { id: 'modeling', label: 'Modélisation', devOnly: true },
   { id: 'dev', label: 'Dev', devOnly: true },
@@ -102,7 +104,7 @@ const ClassicApp: React.FC = () => {
     return () => window.removeEventListener('apex-mesh-selected', onSelected);
   }, []);
 
-  // Sans mode dev, seuls Accueil, Prévisualisation et Paramètres existent (cf. CLAUDE.md, « Dev value »).
+  // Sans mode dev, seuls Accueil, Préparation, Prévisualisation et Paramètres existent (cf. CLAUDE.md, « Dev value »).
   const tabs = ALL_TABS.filter((t) => devMode || !t.devOnly);
   useEffect(() => {
     if (!tabs.some((t) => t.id === tab)) setTab('home');
@@ -126,6 +128,7 @@ const ClassicApp: React.FC = () => {
   }, [tab]);
 
   const info = gp.fileInfo;
+  const generatorRow = formatGeneratorLabel(info?.generator ?? null, 'classic');
   const cur = gp.current;
 
   return (
@@ -146,7 +149,7 @@ const ClassicApp: React.FC = () => {
       <div className={styles.body}>
         {tab === 'home' && (
           <div className={styles.page}>
-            <Section title="Apex Slicer Studio">
+            <Section title="Apex Studio">
               <p>{devMode ? APP_TAGLINE_DEV : APP_TAGLINE_PREVIEW}</p>
               <p>Aelox Hardware</p>
             </Section>
@@ -195,9 +198,10 @@ const ClassicApp: React.FC = () => {
                     <input
                       ref={importRef}
                       type="file"
-                      accept=".stl,.glb"
+                      accept=".stl,.glb,.gltf"
+                      multiple
                       hidden
-                      onChange={(e) => { const f = e.target.files?.[0]; if (f) emit('apex-import-model', f); e.target.value = ''; }}
+                      onChange={(e) => { if (e.target.files?.length) void importModelsOneByOne(Array.from(e.target.files)); e.target.value = ''; }}
                     />
                     <div className={styles.row}>
                       <button type="button" onClick={() => emit('apex-select-all-models')}>Tout sélectionner</button>
@@ -242,7 +246,7 @@ const ClassicApp: React.FC = () => {
                             <tbody>
                               <tr><th>Nom</th><td>{info.name}</td></tr>
                               <tr><th>Type</th><td>{info.kind === 'polar' ? 'Polaire (4 axes)' : 'Cartésien (3 axes)'}</td></tr>
-                              <tr><th>Générateur</th><td>{info.generator ? `${info.generator.name}${info.generator.inferred ? ' (déduit)' : ''}` : '-'}</td></tr>
+                              <tr><th>{generatorRow.label}</th><td>{generatorRow.value}</td></tr>
                               <tr><th>Imprimante</th><td>{info.printer ?? '-'}</td></tr>
                               <tr><th>Mouvements</th><td>{info.moves} (dont {info.extruding} en extrusion)</td></tr>
                               <tr><th>Durée</th><td>{fmtTime(info.totalTime)}</td></tr>

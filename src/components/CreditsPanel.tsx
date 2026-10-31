@@ -28,7 +28,7 @@ export const CreditsPanel: React.FC = () => {
 
   return (
     <>
-      <GlassPanelBackdrop targetRef={panelRef} corner={20} warp={1} blurPx={0.55} distortion={3} whiteRim />
+      <GlassPanelBackdrop targetRef={panelRef} corner={20} warp={1.3} blurPx={5} distortion={8} whiteRim />
       <motion.aside
         ref={panelRef}
         className={styles.panel}

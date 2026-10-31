@@ -231,6 +231,13 @@
   box-shadow: 0 0 10px rgba(34, 197, 94, 0.45);
 }
 
+// Étape qui a échoué : même disque que « terminé », en rouge, avec une croix.
+.iconError {
+  background: #ef4444;
+  color: #2a0707;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.45);
+}
+
 // Non commencé : même disque, mais vide, gris, en pointillés.
 .iconPending {
   border: 2px dashed rgba(255, 255, 255, 0.3);

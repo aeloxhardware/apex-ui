@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import styles from './SliceModal.module.scss';
 import { Play, X, AlertTriangle } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { getSlicingMode, slicingAlgorithmName } from '@/utils/slicingMode';
 
 interface SliceModalProps {
   isOpen: boolean;
@@ -10,103 +11,61 @@ interface SliceModalProps {
 }
 
 export const SliceModal: React.FC<SliceModalProps> = ({ isOpen, onClose, onConfirm }) => {
-  const [is5Axes, setIs5Axes] = useState(true);
-  const [modelCount, setModelCount] = useState(1);
-  const [triangleCount, setTriangleCount] = useState(48200);
+  const [triangleCount, setTriangleCount] = useState(0);
 
   useEffect(() => {
-    const handleSliceModels = (e: CustomEvent<{ names: string[] }>) => {
-      setModelCount(e.detail?.names?.length ?? 0);
-    };
-
-    const handleAxisChanged = (e: CustomEvent<{ mode: string }>) => {
-      if (e.detail?.mode) {
-        setIs5Axes(e.detail.mode === '5-axes');
-      }
-    };
-
-    const handleMeshSelected = (e: CustomEvent<{ name: string | null; names?: string[]; subMeshes?: { id: string; name: string; color: string }[] }>) => {
-      // Le nombre de modèles tranchés est celui du plateau (`apex-slice-models`), pas la sélection.
-      if (e.detail?.name) {
-        setTriangleCount(Math.floor(Math.random() * 60000) + 25000);
-      }
+    const handleSliceModels = (e: CustomEvent<{ names: string[]; triangles?: number }>) => {
+      setTriangleCount(e.detail?.triangles ?? 0);
     };
 
     window.addEventListener('apex-slice-models', handleSliceModels as EventListener);
-    window.addEventListener('apex-axis-changed', handleAxisChanged as EventListener);
-    window.addEventListener('apex-mesh-selected', handleMeshSelected as EventListener);
 
     return () => {
       window.removeEventListener('apex-slice-models', handleSliceModels as EventListener);
-      window.removeEventListener('apex-axis-changed', handleAxisChanged as EventListener);
-      window.removeEventListener('apex-mesh-selected', handleMeshSelected as EventListener);
-    };
+      };
   }, []);
 
   if (!isOpen) return null;
 
+  const algorithmName = slicingAlgorithmName(getSlicingMode());
+
   return (
     <div className={styles.backdrop}>
-      {is5Axes ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {/* Boîte 1 : Le Titre */}
-          <div className={styles.modalCard} style={{ width: '440px', padding: '16px 20px', gap: '0' }}>
-            <div className={styles.header} style={{ borderBottom: 'none', paddingBottom: '0' }}>
-              <div className={styles.title}>
-                <Play size={16} className="fill-current text-[#00f0ff]" />
-                <span>Lancer la découpe des modèles</span>
-              </div>
-              <button className={styles.closeBtn} onClick={onClose}>
-                <X size={16} />
-              </button>
-            </div>
-          </div>
-
-          {/* Boîte 2 : Le Panneau Attention (clignotant avec filtre rouge) */}
-          <div className={styles.attentionBox}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#ef4444', fontWeight: 700, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              <AlertTriangle size={15} style={{ flexShrink: 0 }} />
-              <span>Attention</span>
-              <AlertTriangle size={15} style={{ flexShrink: 0 }} />
-            </div>
-          </div>
-
-          {/* Boîte 3 : Le Texte d'avertissement */}
-          <div className={styles.modalCard} style={{ width: '440px', padding: '18px 20px', gap: '0' }}>
-            <div className={styles.body}>
-              <p>
-                Vous êtes sur le point de lancer une opération de tranchage de <span className="text-white font-semibold">{modelCount}</span> modèles pour un total de <span className="text-white font-semibold">{triangleCount.toLocaleString()}</span> triangles en mode 5 axes.
-              </p>
-              <p>
-                Selon la puissance de votre ordinateur et la complexité du maillage, cette opération peut prendre plusieurs minutes.
-              </p>
-              <p>
-                Vous ne pourrez plus modifier de nombreux paramètres de base.
-              </p>
-              <p className="font-semibold text-white pt-1">
-                Êtes-vous absolument sûr de vouloir continuer cette opération?
-              </p>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className={styles.modalCard} style={{ width: '440px' }}>
-          <div className={styles.header}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div className={styles.modalCard} style={{ width: '440px', padding: '16px 20px', gap: '0' }}>
+          <div className={styles.header} style={{ borderBottom: 'none', paddingBottom: '0' }}>
             <div className={styles.title}>
               <Play size={16} className="fill-current text-[#00f0ff]" />
-              <span>Lancer la découpe (Slicing)</span>
+              <span>Lancer la découpe des modèles</span>
             </div>
             <button className={styles.closeBtn} onClick={onClose}>
               <X size={16} />
             </button>
           </div>
+        </div>
+
+        <div className={styles.attentionBox}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#ef4444', fontWeight: 700, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <AlertTriangle size={15} style={{ flexShrink: 0 }} />
+            <span>Attention</span>
+            <AlertTriangle size={15} style={{ flexShrink: 0 }} />
+          </div>
+        </div>
+
+        <div className={styles.modalCard} style={{ width: '440px', padding: '18px 20px', gap: '0' }}>
           <div className={styles.body}>
             <p>
-              Voulez-vous lancer le calcul complet des trajectoires G-code pour le plateau d'impression actuel ?
+              Vous êtes sur le point de lancer le traitement d'un maillage triangulé contenant un total de <span className="text-white font-semibold">{triangleCount.toLocaleString('fr-FR')}</span> facettes ayant dépassé le seuil de sécurité de l'algorithme <span className="text-white font-semibold">{algorithmName}</span>. Cette demande a déclenché les systèmes de vérification de sécurité du logiciel.
+            </p>
+            <p>
+              Selon la puissance de votre ordinateur et la complexité du maillage, cette opération peut durer plusieurs minutes, heures, voire ne jamais aboutir.
+            </p>
+            <p className="font-semibold text-white pt-1">
+              Êtes-vous sûr de vouloir continuer?
             </p>
           </div>
         </div>
-      )}
+      </div>
 
       <div className={styles.externalButtonsContainer}>
         <button className={styles.cancelBtn} onClick={onClose}>

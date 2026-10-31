@@ -62,8 +62,14 @@
   font-size: 13.5px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.9);
-  white-space: nowrap;
+  // Une description courte tient sur une ligne ; une explication de réglage passe à la ligne (4 lignes au plus),
+  // dans un bandeau d'au plus 900 px (le reste de la barre garde `white-space: nowrap`).
+  white-space: normal;
+  max-width: 900px;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
   overflow: hidden;
-  text-overflow: ellipsis;
   text-align: center;
 }

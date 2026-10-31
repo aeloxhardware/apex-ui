@@ -171,7 +171,7 @@
   align-items: center;
   justify-content: space-between;
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: none;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
   padding: 8px 10px;
   border-radius: 8px;
@@ -191,7 +191,6 @@
 
   &.activeRow {
     background: rgba(0, 240, 255, 0.2);
-    border-color: #00f0ff;
     color: #00f0ff;
     font-weight: 500;
   }
@@ -338,7 +337,7 @@
   align-items: center;
   justify-content: space-between;
   background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: none;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
   padding: 8px 10px;
   border-radius: 8px;
@@ -358,9 +357,24 @@
 
   &.activePattern {
     background: rgba(0, 240, 255, 0.2);
-    border-color: #00f0ff;
     color: #00f0ff;
     font-weight: 600;
+  }
+}
+
+// Entrée sans profil OrcaSlicer : grisée, non cliquable.
+.itemRow.inactiveItem,
+.patternItem.inactiveItem {
+  opacity: 0.35;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+  pointer-events: auto;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.03);
+    box-shadow: none;
+    transform: none;
   }
 }
 

@@ -15,6 +15,8 @@ const isDev = process.env.ELECTRON_START_URL !== undefined;
 // Écran de démarrage : fenêtre sans bordure affichée tout de suite, fermée quand l'interface annonce
 // (`apex:app-ready`, premier rendu du viewport 3D) qu'elle est prête — la fenêtre principale reste
 // cachée pendant tout le chargement au lieu de s'afficher à moitié construite.
+// Icône d'Apex (fenêtres et barre des tâches) : sans elle, Electron affiche la sienne en développement.
+const APP_ICON = path.join(__dirname, 'icon-256.png');
 const SPLASH_MIN_MS = 1200;
 const SPLASH_TIMEOUT_MS = 30000;
 
@@ -23,6 +25,7 @@ function createSplash() {
     width: 520,
     height: 300,
     frame: false,
+    icon: APP_ICON,
     transparent: true,
     hasShadow: false,
     resizable: false,
@@ -124,6 +127,12 @@ function createWindow() {
     minHeight: 640,
     backgroundColor: '#0a0f1a',
     autoHideMenuBar: true,
+    // Sans cadre système, plein écran : le bandeau flottant d'Apex (TitleBar.tsx) remplace la barre de fenêtre.
+    // Barre de titre native masquée (animations, ancrage et dispositions Windows conservés) : le bandeau Apex est dessiné
+    // par la page (TitleBar.tsx) et seuls les boutons natifs réduire / agrandir / fermer restent, aux couleurs d'Apex.
+    titleBarStyle: 'hidden',
+    titleBarOverlay: { color: '#0a0f1a', symbolColor: '#e6f6fa', height: 32 },
+    icon: APP_ICON,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -136,6 +145,9 @@ function createWindow() {
       ],
     },
   });
+
+  // Lancement agrandi (animations natives de Windows pour agrandir / restaurer ensuite).
+  win.maximize();
 
   // Étape affichée sur la carte de démarrage.
   const setStatus = (text) => {
@@ -204,7 +216,7 @@ function createWindow() {
 
   if (isDev) {
     win.loadURL(process.env.ELECTRON_START_URL);
-    win.webContents.openDevTools({ mode: 'detach' });
+    // Pas d'ouverture automatique des outils de développement (fenêtre détachée encombrante) : F12 / Ctrl+Maj+I en dev.
   } else {
     win.loadFile(path.join(__dirname, '../dist/index.html'));
   }
@@ -236,7 +248,7 @@ ipcMain.handle('apex:convert-gcode', (event, request) =>
 // `python main.py` du dépôt voisin `slicer_engine`.
 const packagedEngineExe = () =>
   app.isPackaged ? path.join(process.resourcesPath, 'engine', `apex-engine${process.platform === 'win32' ? '.exe' : ''}`) : null;
-ipcMain.handle('apex:slice-steps', () => engineRunner.listSteps(packagedEngineExe()));
+ipcMain.handle('apex:slice-steps', (_event, algorithm) => engineRunner.listSteps(packagedEngineExe(), algorithm));
 ipcMain.handle('apex:slice', (event, request) => {
   // La page qui a demandé le tranchage se recharge ou se ferme : personne ne l'attend plus, on l'arrête
   // (sinon il bloque le suivant : un seul tranchage à la fois).
@@ -342,6 +354,8 @@ app.whenReady().then(async () => {
   prefsStore.register();
   shutdown.register({ stopEditProcess: () => { try { editProcess?.kill(); } catch { /* déjà arrêté */ } editProcess = null; } });
   registerUninstallTask();
+  // Mise à jour automatique à chaque lancement (installation seulement) : si elle s'applique, l'application relance.
+  if (await require('./update-flow.cjs').runStartupUpdate()) return;
   await detectLowGpuPower();  // renseigne low_gpu_pwr avant le splash (verre liquide désactivé si GPU < RTX 3080)
   createWindow();
 

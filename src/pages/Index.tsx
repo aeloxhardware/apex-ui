@@ -11,9 +11,11 @@ import { AxisSidebar } from '@/components/AxisSidebar';
 import { ModelingSidebar } from '@/components/ModelingSidebar';
 import { TopRightMenu } from '@/components/TopRightMenu';
 import { ModelStatusBox } from '@/components/ModelStatusBox';
+import { FILAMENT_CHANGED_EVENT, getSelectedFilamentKey } from '@/utils/filamentCatalog';
 import { ModelHoverTooltip } from '@/components/ModelHoverTooltip';
 import { TextureEditorModal } from '@/components/TextureEditorModal';
 import { SliceModal } from '@/components/SliceModal';
+import { getSlicingMode, triangleSafetyThreshold } from '@/utils/slicingMode';
 import { SlicingProgressModal } from '@/components/SlicingProgressModal';
 import { sliceController } from '@/utils/sliceController';
 import { ViewCube } from '@/components/ViewCube';
@@ -34,9 +36,12 @@ import { useGCodePreview } from '@/hooks/use-gcode-preview';
 import { useAnimate, motion, AnimatePresence } from 'framer-motion';
 import { Box } from 'lucide-react';
 import { showSuccess } from '@/utils/toast';
-import { AlphaWatermark } from '@/components/AlphaWatermark';
+import { BetaWatermark, BetaBanners } from '@/components/BetaWatermark';
 import { useDevMode } from '@/utils/devModePrefs';
 import { setModelingSpace } from '@/utils/modelingSpace';
+
+import { readProfile } from '@/utils/printerProfiles';
+import { DEFAULT_PRINTER_PROFILE, profileAxes } from '@/utils/machineProfile';
 
 interface ModelStatus {
   name: string;
@@ -47,10 +52,25 @@ const Index = () => {
   const devMode = useDevMode();
   // L'application s'ouvre sur l'Accueil (espace sans 3D) ; le viewport n'est monté qu'en le quittant.
   const [activeTab, setActiveTab] = useState<'3d-view' | 'settings' | 'developer' | 'params' | 'home'>('home');
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState<string | null>('quality');
   const [isPrinterConfigOpen, setIsPrinterConfigOpen] = useState(false);
   const [selectedPrinter, setSelectedPrinter] = useState('Prusa MK4');
-  const [selectedFilament, setSelectedFilament] = useState('PLA Premium (eSUN / Prusament)');
+  // Nombre d'axes de l'imprimante choisie, lu dans son profil (`apex.axes_count`) ; tant qu'aucune n'est choisie
+  // dans le menu, c'est celui du profil par défaut (machineProfile.ts). `null` : profil muet ou « Inconnu ».
+  const [printerAxes, setPrinterAxes] = useState<number | null>(() => profileAxes(DEFAULT_PRINTER_PROFILE));
+  const handleSelectPrinter = (name: string, path?: string) => {
+    setSelectedPrinter(name);
+    if (!path) return;
+    readProfile(path)
+      .then((p) => setPrinterAxes(p.status === 'ok' ? profileAxes(p.data) : null))
+      .catch(() => setPrinterAxes(null));
+  };
+  const [selectedFilament, setSelectedFilament] = useState(() => getSelectedFilamentKey().split('|')[1]);
+  useEffect(() => {
+    const onChanged = (e: Event) => setSelectedFilament((e as CustomEvent<{ key: string }>).detail.key.split('|')[1]);
+    window.addEventListener(FILAMENT_CHANGED_EVENT, onChanged);
+    return () => window.removeEventListener(FILAMENT_CHANGED_EVENT, onChanged);
+  }, []);
   const [isSliceModalOpen, setIsSliceModalOpen] = useState(false);
   const [isSlicingProgressOpen, setIsSlicingProgressOpen] = useState(false);
   const [modelStatus, setModelStatus] = useState<ModelStatus | null>(null);
@@ -200,9 +220,16 @@ const Index = () => {
     };
   }, []);
 
+  // Sous le seuil de sécurité de l'algorithme choisi, la demande de tranchage est exécutée sans confirmation ;
+  // au-dessus, la fenêtre « Lancer la découpe » prévient d'abord (utils/slicingMode.ts : triangleSafetyThreshold).
   const handleSlice = () => {
-    window.dispatchEvent(new CustomEvent('apex-request-slice-models'));
-    setIsSliceModalOpen(true);
+    let triangles = 0;
+    const onModels = (e: Event) => { triangles = (e as CustomEvent<{ triangles?: number }>).detail?.triangles ?? 0; };
+    window.addEventListener('apex-slice-models', onModels);
+    window.dispatchEvent(new CustomEvent('apex-request-slice-models')); // réponse synchrone de Viewport3D
+    window.removeEventListener('apex-slice-models', onModels);
+    if (triangles > triangleSafetyThreshold(getSlicingMode())) setIsSliceModalOpen(true);
+    else handleConfirmSlice();
   };
 
   const handleConfirmSlice = () => {
@@ -249,7 +276,7 @@ const Index = () => {
       {!isParams && (
         <>
           <ModelStatusBox startsInPreview={isPreviewActive} />
-          <ModelHoverTooltip />
+          <ModelHoverTooltip gcodeName={gcodePreview.fileInfo?.name} />
           <TextureEditorModal />
           <SliceModal
             isOpen={isSliceModalOpen}
@@ -367,7 +394,9 @@ const Index = () => {
                     previewLowerHeader={<GCodeInfoPanel fileInfo={gcodePreview.fileInfo} />}
                     previewBelowContent={
                       <GCodeConversionCard
-                        source={gcodePreview.conversionSource}
+                        // Un G-code 3 axes ne demande une conversion polaire que pour une machine à axes rotatifs (4 ou 5) :
+                        // une imprimante 3 axes (ou au nombre d'axes inconnu) l'imprime tel quel, la carte reste cachée.
+                        source={printerAxes !== null && printerAxes >= 4 ? gcodePreview.conversionSource : null}
                         conversion={gcodePreview.conversion}
                         onConvert={gcodePreview.convert}
                         onHighlightOffPlate={gcodePreview.setOffPlateHighlight}
@@ -388,7 +417,7 @@ const Index = () => {
                     isOpen={isPrinterConfigOpen}
                     onClose={() => setIsPrinterConfigOpen(false)}
                     selectedPrinter={selectedPrinter}
-                    onSelectPrinter={setSelectedPrinter}
+                    onSelectPrinter={handleSelectPrinter}
                     selectedFilament={selectedFilament}
                     onSelectFilament={setSelectedFilament}
                   />
@@ -504,7 +533,8 @@ const Index = () => {
           chrome ci-dessus, sinon il disparaîtrait avec lui pendant la transition qu'il est
           justement censé masquer. */}
       <SpaceTransitionOverlay />
-      {!devMode && <AlphaWatermark />}
+      {!devMode && <BetaWatermark />}
+      {!devMode && <BetaBanners />}
       <UnlayeredDetectedDialog fileInfo={gcodePreview.fileInfo} loading={gcodePreview.isLoading} active={isPreviewActive} />
     </div>
   );

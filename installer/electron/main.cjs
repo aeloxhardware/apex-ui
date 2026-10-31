@@ -380,7 +380,7 @@ function createWindow() {
     // sans aucun code natif Win32/DWM a maintenir.
     frame: false,
     transparent: true,
-    title: 'Installation — Apex Slicer',
+    title: 'Setup — Apex Slicer',
     // Icone du bouton de barre des taches et d'Alt+Tab (logo Apex, rendu depuis res/logo.svg en 256x256).
     icon: path.join(__dirname, 'icon-256.png'),
     webPreferences: {
@@ -552,7 +552,7 @@ app.on('window-all-closed', () => {
 
 ipcMain.handle('installer:choose-directory', async (_event, defaultPath) => {
   const result = await dialog.showOpenDialog(mainWindow, {
-    title: "Choisir le dossier d'installation",
+    title: "Choose the installation folder",
     defaultPath,
     properties: ['openDirectory', 'createDirectory'],
   });

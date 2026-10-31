@@ -64,6 +64,11 @@ export function machineFacts(profile: unknown): MachineFacts {
   };
 }
 
+/** Nombre d'axes déclaré (`apex.axes_count`) ; `null` quand le profil se tait ou dit « Inconnu ». */
+export function profileAxes(profile: unknown): number | null {
+  return num((profile as { apex?: { axes_count?: unknown } } | null)?.apex?.axes_count);
+}
+
 const RAD = Math.PI / 180;
 
 /**
@@ -87,6 +92,18 @@ export function engineMachineProfile(profile: unknown): Record<string, unknown> 
   // Tête de collision de l'étape 9 : un identifiant, jamais un chemin (R-020) ; le moteur le résout dans ses ressources.
   if (f.toolheadModel !== null) out.toolhead_id = f.toolheadModel;
   return out;
+}
+
+/**
+ * Plancher et plafond d'épaisseur de couche du profil, en racine `AeolisSliceParams` (R-024) : omis quand le profil
+ * ne les donne pas, le moteur garde alors ses défauts (0,1 et 0,25 mm).
+ */
+export function engineLayerLimits(profile: unknown): { min_layer_height?: number; max_layer_height?: number } {
+  const f = machineFacts(profile);
+  return {
+    ...(f.layerMinMm !== null ? { min_layer_height: f.layerMinMm } : {}),
+    ...(f.layerMaxMm !== null ? { max_layer_height: f.layerMaxMm } : {}),
+  };
 }
 
 /** Longueur pivot-pointe de la tête B (`gcode_params.pivot_to_tip`), si le profil la donne. */

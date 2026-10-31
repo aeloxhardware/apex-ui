@@ -1,7 +1,8 @@
 {
   "name": "vite_react_shadcn_ts",
-  "version": "0.2.1",
-  "apexVersion": "alpha-0.2.1.4.4.1.1.221",
+  "version": "0.2.3",
+  "apexVersion": "alpha-0.2.3.0.5.5.4.221",
+  "apexUpdate": { "repo": "aeloxhardware/apex", "channel": "release" },
   "private": true,
   "type": "module",
   "main": "electron/main.cjs",
@@ -14,6 +15,7 @@
     "schema:verify": "node scripts/sync-engine-schema.cjs --verify",
     "vectors:sync": "node scripts/sync-engine-vectors.cjs",
     "vectors:check": "node scripts/sync-engine-vectors.cjs --check",
+    "test": "vitest run",
     "test:kinematics": "node scripts/check-kinematics-vectors.cjs",
     "build": "node scripts/sync-engine-schema.cjs --verify && vite build",
     "build:dev": "vite build --mode development",
@@ -105,6 +107,7 @@
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.0.1",
     "vite": "^8.0.0",
+    "vitest": "^5.0.5",
     "wait-on": "^9.1.0"
   },
   "build": {

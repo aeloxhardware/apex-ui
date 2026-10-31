@@ -79,11 +79,18 @@ function killTree(child) {
   }
 }
 
-/** Liste des étapes du chemin par défaut (C3) : `{ contract, steps: [{ slug, label }] }`. */
-function listSteps(packagedExe) {
+/**
+ * Liste des étapes (C3) : `{ contract, steps: [{ slug, label }] }`. `algorithm` (« element-aeolis »…) demande
+ * celles d'un autre algorithme que le chemin par défaut (R-026) ; la réponse porte alors `algorithm`.
+ */
+function listSteps(packagedExe, algorithm) {
   const { command, args, cwd } = engineCommand(packagedExe);
+  if (algorithm !== undefined && algorithm !== null && !/^[a-z0-9-]+$/.test(String(algorithm))) {
+    return Promise.reject(new Error('Algorithme invalide.'));
+  }
+  const extra = algorithm ? ['--algorithm', String(algorithm)] : [];
   return new Promise((resolve, reject) => {
-    execFile(command, [...args, 'steps'], { cwd, env: childEnv(cwd), windowsHide: true, maxBuffer: 1 << 20 }, (err, stdout) => {
+    execFile(command, [...args, 'steps', ...extra], { cwd, env: childEnv(cwd), windowsHide: true, maxBuffer: 1 << 20 }, (err, stdout) => {
       if (err) return reject(new Error(`Le moteur n'a pas pu lister ses étapes : ${err.message}`));
       try { resolve(JSON.parse(stdout.trim().split(/\r?\n/).pop())); } catch { reject(new Error('Liste des étapes illisible.')); }
     });
@@ -107,7 +114,7 @@ function cancelSlice() {
  */
 async function runSlice(request, { packagedExe, onEvent }) {
   if (current) throw new Error('Un tranchage est déjà en cours.');
-  const { contract, stl, params, gcode_params: gcodeParams, name } = request ?? {};
+  const { contract, stl, params, gcode_params: gcodeParams, name, algorithm } = request ?? {};
   if (!Number.isInteger(contract) || !(stl instanceof Uint8Array) || stl.byteLength === 0) {
     throw new Error('Requête de tranchage invalide.');
   }
@@ -122,9 +129,14 @@ async function runSlice(request, { packagedExe, onEvent }) {
     await fs.promises.writeFile(mesh, stl);
     const requestFile = path.join(dir, 'requete.json');
     const outName = (typeof name === 'string' && /^[\w .()-]+\.gcode$/i.test(name)) ? name : 'plateau.gcode';
+    if (algorithm !== undefined && !/^[a-z0-9-]+$/.test(String(algorithm))) throw new Error('Algorithme invalide.');
+    // `algorithm` (R-024) n'est écrit que s'il est donné : sans lui, le moteur prend Element Ardor. Avec Element Aeolis
+    // il refuse `gcode_params` (G-code cartésien, pas de pivot) : la clé est alors absente, pas vide.
+    const aeolis = algorithm === 'element-aeolis';
     await fs.promises.writeFile(requestFile, JSON.stringify({
       contract, mesh, output_dir: dir, output_name: outName,
-      params: params ?? {}, gcode_params: gcodeParams ?? {},
+      ...(algorithm ? { algorithm } : {}),
+      params: params ?? {}, ...(aeolis ? {} : { gcode_params: gcodeParams ?? {} }),
     }), 'utf8');
 
     const { stdout, code, tail } = await new Promise((resolve, reject) => {

@@ -9,6 +9,37 @@ export interface AABB {
   min_corner?: number[];
 }
 
+/** SliceParams(min_layer_height: 'float' = 0.1, max_layer_height: 'float' = 0.25, layer_height: 'float | None' = None, first_layer_height: 'float | None' = None, nozzle_reach: 'float' = 2.0, nozzle_angle_deg: 'float' = 10.0, enforce_nozzle_limits: 'bool' = True, mode: 'str' = 'auto', check_head: 'bool' = True, head_model: 'str | None' = None, head_contact_clearance: 'float' = 3.0, head_safety_margin: 'float' = 0.0, intermediate_layers: 'bool' = True, grid_cell: 'float' = 0.25, toolpath: 'tp.Toolpat */
+export interface AeolisSliceParams {
+  bed_temp?: number;
+  center_xy?: [number, number] | null;
+  check_head?: boolean;
+  enforce_nozzle_limits?: boolean;
+  filament_diameter?: number;
+  first_layer_height?: number | null;
+  first_layer_speed?: number;
+  flow?: number;
+  grid_cell?: number;
+  head_contact_clearance?: number;
+  head_model?: string | null;
+  head_safety_margin?: number;
+  intermediate_layers?: boolean;
+  layer_height?: number | null;
+  max_layer_height?: number;
+  min_layer_height?: number;
+  mode?: string;
+  nozzle_angle_deg?: number;
+  nozzle_reach?: number;
+  nozzle_temp?: number;
+  place_on_bed?: boolean;
+  print_speed?: number;
+  retract_length?: number;
+  retract_speed?: number;
+  toolpath?: ToolpathParams;
+  travel_speed?: number;
+  z_hop?: number;
+}
+
 /** CollisionOrderParams(pose_spacing: 'float' = 3.0, material_spacing: 'float' = 1.5, head_sample_spacing: 'float' = 6.0, margin: 'float' = 1.0, nozzle_contact_clearance: 'float' = 3.0, neighbours: 'int' = 4, support_depth: 'Optional[float]' = 0.3, support_radius: 'float' = 0.6) */
 export interface CollisionOrderParams {
   head_sample_spacing?: number;
@@ -151,6 +182,7 @@ export interface PipelineParams {
   resolution?: number;
   scheduling?: Step7Params;
   segmentation?: SegmentationParams;
+  skin?: SkinParams | null;
   support_check?: SupportCheckParams | null;
   tetranet_refuse_ratio?: number;
   toolpath2d?: Step6Params;
@@ -178,6 +210,21 @@ export interface SegmentationParams {
   platform_z?: number | null;
   rotation_axes?: RotationAxisSpec[] | null;
   up_vector?: number[];
+}
+
+/** SkinParams(thickness: 'float' = 0.2, pattern: 'str' = 'rectilinear', head_tolerance_deg: 'float' = 45.0, trim_radius: 'float' = 2.0, max_iter: 'int' = 8, loop_sampling: 'float' = 2.0, exclusion_rounds: 'int' = 3, plate_radius: 'Optional[float]' = None, face_sample: 'Optional[int]' = None, head_sample_spacing: 'float' = 5.0, workers: 'Optional[int]' = None) */
+export interface SkinParams {
+  exclusion_rounds?: number;
+  face_sample?: number | null;
+  head_sample_spacing?: number;
+  head_tolerance_deg?: number;
+  loop_sampling?: number;
+  max_iter?: number;
+  pattern?: string;
+  plate_radius?: number | null;
+  thickness?: number;
+  trim_radius?: number;
+  workers?: number | null;
 }
 
 /** Step10Params(max_adjustment_iterations: 'int' = 3, reorientation_samples_per_axis: 'int' = 12, max_direction_deviation_deg: 'float' = 45.0, excluded_range_half_width_deg: 'float' = 15.0, rate_limit_neighbor_margin: 'int' = 1, orientation_support_min_residual_deg: 'Optional[float]' = None) */
@@ -246,6 +293,16 @@ export interface SupportCheckParams {
   path_sampling_step?: number;
   platform_contact_tolerance_factor?: number;
   vertical_search_height_factor?: number;
+}
+
+/** ToolpathParams(line_width: 'float' = 0.4, wall_count: 'int' = 2, infill_density: 'float' = 0.2, solid_bottom_mm: 'float' = 0.6, solid_top_mm: 'float' = 0.8, max_segment: 'float' = 0.5) */
+export interface ToolpathParams {
+  infill_density?: number;
+  line_width?: number;
+  max_segment?: number;
+  solid_bottom_mm?: number;
+  solid_top_mm?: number;
+  wall_count?: number;
 }
 
 /** TravelRoutingParams(length_threshold: 'float' = 5.0, lift_height: 'float' = 3.0, max_lift_multiplier: 'float' = 4.0, traverse_samples: 'int' = 1, routing_toolhead_sample_spacing: 'float' = 15.0, routing_grid_cell_size_multiplier: 'float' = 40.0) */

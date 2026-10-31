@@ -11,6 +11,12 @@ import {
   Check
 } from 'lucide-react';
 import { CustomTooltip } from './CustomTooltip';
+import { EngineItemRow } from './EngineItemRow';
+import { InfillPatternIcon } from './InfillPatternIcon';
+import { ENGINE_PATTERN_ICON, ORCA_ONLY_PATTERNS } from '@/utils/orcaInfillPatterns';
+import {
+  ENUM_DESCRIPTIONS, ENUM_LABELS, getEngineSetting, getEngineSettingValue, setEngineSettingValue, useEngineSettings,
+} from '@/utils/engineSettings';
 import { LiquidGlassMorph, GLASS_BLUR_PX, PREVIEW_GLASS_BLUR_PX } from './LiquidGlassMorph';
 import styles from './CategoriesSidebar.module.scss';
 import { showSuccess } from '@/utils/toast';
@@ -67,46 +73,6 @@ const SupportsIcon = () => (
   </svg>
 );
 
-export interface InfillPattern {
-  name: string;
-  description: string;
-}
-
-export const INFILL_PATTERNS: InfillPattern[] = [
-  { name: 'Concentrique', description: 'Suit la forme du périmètre externe en décalant la bordure vers l\'intérieur à chaque boucle.' },
-  { name: 'Rectiligne', description: 'Lignes droites parallèles croisées d\'un angle fixe alterné à chaque couche.' },
-  { name: 'Grille', description: 'Lignes parallèles croisées tracées sur une même couche pour former une grille carrée.' },
-  { name: 'Ligne', description: 'Lignes parallèles tracées sur une même couche sans croisement, orientées à 90° de la couche précédente.' },
-  { name: 'Triangles', description: 'Réseau de trois jeux de lignes croisées formant des triangles équilatéraux.' },
-  { name: 'Tri-hexagone', description: 'Trois séries de lignes droites formant des hexagones entrelacés avec de petits triangles.' },
-  { name: 'Nid d\'abeille', description: 'Hexagones parfaits alignés en 2D à chaque couche.' },
-  { name: 'Rectiligne aligné', description: 'Lignes parallèles toujours orientées dans le même sens sur toutes les couches.' },
-  { name: 'Spirale d\'Archimède', description: 'Motifs circulaires continus s\'enroulant du centre vers l\'extérieur.' },
-  { name: 'Spirale Octagramme', description: 'Motif en étoile à 8 branches généré par des spirales concentriques polygonales.' },
-  { name: 'Zigzag', description: 'Trajectoire continue en ligne brisée évitant les rétractions de l\'extrudeur.' },
-  { name: 'Nid d\'abeille latéral', description: 'Structure en nid d\'abeille orientée verticalement le long des parois.' },
-  { name: 'Grille latérale', description: 'Grille carrée projetée verticalement sur les flancs de la pièce.' },
-  { name: 'Cubique', description: 'Réseau 3D de cubes basculés sur leur coin, créant des cavités pyramidales inversées.' },
-  { name: 'Cubique adaptatif', description: 'Motif cubique dont la densité augmente à mesure qu\'on s\'approche des surfaces supérieures ou des parois.' },
-  { name: 'Un quart de cube', description: 'Variante du motif cubique décalée pour réduire la taille des cellules par deux dans une direction.' },
-  { name: 'Tétraèdre', description: 'Pyramides à base triangulaire interconnectées pour maximiser la résistance à la compression.' },
-  { name: 'Nid d\'abeille 3D', description: 'Structure alvéolaire dont la forme évolue de façon fluide le long de l\'axe Z.' },
-  { name: 'Support Cubique', description: 'Remplissage très aéré qui ne se densifie que sous les plafonds internes pour les soutenir.' },
-  { name: 'Gyroïde', description: 'Surface courbe 3D isotrope ondulée continue offrant une résistance multidirectionnelle sans croisement de buse.' },
-  { name: 'Croix 3D', description: 'Motif 3D composé de croix entrelacées offrant flexibilité et absorption d\'impacts.' },
-  { name: 'Croix', description: 'Motif 2D souple composé de formes en croix à branches arrondies.' },
-  { name: 'Croix-Zag', description: 'Structure hybride alternant entre la croix 3D et le tracé en zigzag.' },
-  { name: 'Interlocked-Zag', description: 'Motif de remplissage avec liaisons mécaniques verrouillées d\'une couche à l\'autre.' },
-  { name: 'TPMS Diamond', description: 'Structure minimale 3D inspirée de la disposition cristalline du diamant.' },
-  { name: 'Gyroïde graduel', description: 'Gyroïde dont la densité et l\'épaisseur évoluent progressivement selon la hauteur Z.' },
-  { name: 'TPMS Diamond graduel', description: 'Structure TPMS Diamond dont la densité varie le long de la pièce.' },
-  { name: 'Fischer-Koch', description: 'Surface TPMS complexe offrant une porosité élevée et une répartition très homogène des contraintes.' },
-  { name: 'Fischer-Koch graduel', description: 'Structure Fischer-Koch à densité variable le long de l\'axe Z.' },
-  { name: 'Courbe de Hilbert', description: 'Ligne brisée continue remplissant l\'espace 2D sans croisement, idéale pour les pièces flexibles.' },
-  { name: 'Éclair', description: 'Structure d\'arborescence interne suspendue qui ne soutient que les plafonds internes.' },
-  { name: 'Hachures croisées', description: 'Motif de hachures croisées à intervalles alternés pour limiter l\'accumulation de matière.' }
-];
-
 export interface CategoryItem {
   id: string;
   title: string;
@@ -116,9 +82,12 @@ export interface CategoryItem {
   disabled?: boolean;
   sections: {
     title: string;
-    items: { label: string; defaultValue: string; description: string; isPatternDropdown?: boolean }[];
+    /** `engine` : chemin du réglage du moteur auquel la ligne est reliée (ligne active, cf. EngineItemRow). */
+    items: { label: string; defaultValue: string; description: string; engine?: string }[];
   }[];
 }
+
+const DESC_ORCA = 'Réglage d’OrcaSlicer, pas encore pris en charge par le moteur d’Apex.';
 
 const CATEGORIES: CategoryItem[] = [
   {
@@ -129,14 +98,44 @@ const CATEGORIES: CategoryItem[] = [
     icon: <Sparkles size={20} />,
     sections: [
       {
-        title: 'Quality settings',
+        title: 'Hauteur de couche',
         items: [
-          { label: 'Hauteur de couche (Layer height)', defaultValue: '0.2 mm', description: 'Définit la résolution verticale et le niveau de détail de la pièce.' },
-          { label: 'Vitesse globale', defaultValue: '100%', description: 'Applique un facteur global aux vitesses d’impression.' },
-          { label: 'Précision des parois', defaultValue: 'Élevée', description: 'Contrôle la précision dimensionnelle et la qualité des contours.' },
-          { label: 'Angles et porte-à-faux (Overhangs)', defaultValue: '45°', description: 'Définit l’angle à partir duquel les porte-à-faux nécessitent une attention particulière.' },
-          { label: 'Position de couture (Seam position)', defaultValue: 'Alignée', description: 'Choisit la position des points de départ de chaque couche.' },
-          { label: 'Compensation d’isolation', defaultValue: 'Activée', description: 'Compense les écarts thermiques et dimensionnels liés à l’isolation.' }
+          { label: 'Hauteur de couche', defaultValue: '', description: '', engine: 'layers.layer_height_base' },
+          { label: 'Hauteur de couche initiale', defaultValue: '0,2 mm', description: DESC_ORCA }
+        ]
+      },
+      {
+        title: 'Largeur de ligne',
+        items: [
+          { label: 'Défaut', defaultValue: '0,4 mm', description: DESC_ORCA },
+          { label: 'Couche initiale', defaultValue: '0,5 mm', description: DESC_ORCA },
+          { label: 'Paroi extérieure', defaultValue: '0,4 mm', description: DESC_ORCA },
+          { label: 'Paroi intérieure', defaultValue: '0,45 mm', description: DESC_ORCA },
+          { label: 'Surface supérieure', defaultValue: '0,4 mm', description: DESC_ORCA },
+          { label: 'Remplissage', defaultValue: '0,45 mm', description: DESC_ORCA },
+          { label: 'Remplissage plein interne', defaultValue: '0,4 mm', description: DESC_ORCA },
+          { label: 'Supports', defaultValue: '0,4 mm', description: DESC_ORCA },
+          { label: 'Pont', defaultValue: '100%', description: DESC_ORCA }
+        ]
+      },
+      {
+        title: 'Couture',
+        items: [
+          { label: 'Position de la couture', defaultValue: 'Alignée', description: DESC_ORCA },
+          { label: 'Coutures intérieures décalées', defaultValue: 'Désactivé', description: DESC_ORCA },
+          { label: 'Écart de couture', defaultValue: '10%', description: DESC_ORCA },
+          { label: 'Couture en biseau (beta)', defaultValue: 'Aucun', description: DESC_ORCA },
+          { label: 'Vitesse d’essuyage en fonction de la vitesse d’extrusion', defaultValue: 'Activé', description: DESC_ORCA },
+          { label: 'Vitesse d’essuyage', defaultValue: '80%', description: DESC_ORCA },
+          { label: 'Essuyer sur les boucles', defaultValue: 'Désactivé', description: DESC_ORCA },
+          { label: 'Essuyer avant la boucle externe', defaultValue: 'Désactivé', description: DESC_ORCA }
+        ]
+      },
+      {
+        title: 'Précision',
+        items: [
+          { label: 'Rayon de fermeture de l’écart des tranches', defaultValue: '0,049 mm', description: DESC_ORCA },
+          { label: 'Résolution', defaultValue: '0,012 mm', description: DESC_ORCA }
         ]
       }
     ]
@@ -151,16 +150,16 @@ const CATEGORIES: CategoryItem[] = [
       {
         title: 'Parois & coques',
         items: [
-          { label: 'Nombre de parois (Perimeters / Walls)', defaultValue: '3', description: 'Nombre de périmètres extérieurs formant les parois de la pièce.' },
+          { label: 'Nombre de parois', defaultValue: '', description: '', engine: 'toolpath2d.wall_count' },
           { label: 'Couches supérieures / inférieures (Top / Bottom shells)', defaultValue: '4', description: 'Nombre de couches pleines formant le dessus et le dessous de la pièce.' }
         ]
       },
       {
         title: 'Remplissage & ancrage',
         items: [
-          { label: 'Densité de remplissage (Infill)', defaultValue: '15%', description: 'Pourcentage de matière utilisé à l’intérieur de la pièce.' },
-          { label: 'Motif de remplissage (Infill pattern)', defaultValue: 'Gyroïde', description: 'Géométrie de la structure interne de la pièce.', isPatternDropdown: true },
-          { label: 'Ancrage des structures', defaultValue: 'Activé', description: 'Renforce la liaison entre le remplissage, les parois et les couches solides.' }
+          { label: 'Densité de remplissage', defaultValue: '', description: '', engine: 'toolpath2d.infill_density' },
+          { label: 'Motif de remplissage', defaultValue: '', description: '', engine: 'toolpath2d.infill_pattern' },
+          { label: 'Parois d’ancrage des ponts', defaultValue: '', description: '', engine: 'toolpath2d.bridge_anchor_extra_walls' }
         ]
       }
     ]
@@ -175,6 +174,7 @@ const CATEGORIES: CategoryItem[] = [
       {
         title: 'Accélération & vitesses',
         items: [
+          { label: 'Vitesse d’impression', defaultValue: '', description: '', engine: 'gcode_params.print_speed' },
           { label: 'Accélération', defaultValue: '5000 mm/s²', description: 'Vitesse à laquelle la tête atteint sa consigne.' },
           { label: 'Vitesse des parois externes', defaultValue: '80 mm/s', description: 'Vitesse des contours visibles.' },
           { label: 'Vitesse des parois internes', defaultValue: '120 mm/s', description: 'Vitesse des contours internes.' },
@@ -184,10 +184,18 @@ const CATEGORIES: CategoryItem[] = [
         ]
       },
       {
+        title: 'Déplacements',
+        items: [
+          { label: 'Vitesse de déplacement', defaultValue: '', description: '', engine: 'gcode_params.travel_speed' },
+          { label: 'Dégagement', defaultValue: '', description: '', engine: 'gcode_params.travel_clearance' },
+          { label: 'Limite de rotation cumulée du plateau', defaultValue: '', description: '', engine: 'gcode_params.max_y_turns' }
+        ]
+      },
+      {
         title: 'Rétraction',
         items: [
           { label: 'Vitesse de rétraction', defaultValue: '35 mm/s', description: 'Vitesse de recul du filament pendant les déplacements.' },
-          { label: 'Distance de rétraction', defaultValue: '0.8 mm', description: 'Distance de recul du filament pour limiter le suintement.' }
+          { label: 'Longueur de rétraction', defaultValue: '', description: '', engine: 'gcode_params.retract_length' }
         ]
       }
     ]
@@ -195,7 +203,7 @@ const CATEGORIES: CategoryItem[] = [
   {
     id: 'support',
     title: 'Support (Support & Adhérence)',
-    label: 'Support & Adhérence',
+    label: 'Supports',
     description: 'Configurez les supports, leurs interfaces et l’adhérence au plateau.',
     icon: <SupportsIcon />,
     sections: [
@@ -221,13 +229,14 @@ const CATEGORIES: CategoryItem[] = [
   {
     id: 'others',
     title: 'Others (Autres)',
-    label: 'Autres',
+    label: 'Autre',
     description: 'Regroupez les options avancées, la ventilation fine, la purge multi-couleurs et les scripts.',
     icon: <Layers size={20} />,
     sections: [
       {
         title: 'Impression & ventilation',
         items: [
+          { label: 'Température', defaultValue: '', description: '', engine: 'gcode_params.nozzle_temp' },
           { label: 'Mode vase (Spiral vase)', defaultValue: 'Désactivé', description: 'Imprime les parois en spirale continue pour les objets adaptés.' },
           { label: 'Ordre d’impression des objets', defaultValue: 'Séquentiel', description: 'Définit l’ordre dans lequel les objets sont imprimés.' },
           { label: 'Stratégie de ventilation fine', defaultValue: 'Automatique', description: 'Ajuste finement le refroidissement selon la géométrie et la couche.' }
@@ -324,7 +333,7 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
   const [hasPatternScroll, setHasPatternScroll] = useState(false);
   const [isPatternDragging, setIsPatternDragging] = useState(false);
 
-  const [selectedPattern, setSelectedPattern] = useState<string>('Gyroïde');
+  useEngineSettings(); // le motif choisi (liste de droite) vient du réglage du moteur
   const [isPatternPopupOpen, setIsPatternPopupOpen] = useState(false);
   const [previewActive, setPreviewActive] = useState(initialPreviewActive);
   // Figé au montage, jamais réévalué : `initialPreviewActive` (la PROP) suit isPreviewActive en
@@ -652,6 +661,7 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
   }, [isPatternPopupOpen]);
 
   const activeCatData = CATEGORIES.find(c => c.id === activeCategory);
+  const patternSetting = getEngineSetting('toolpath2d.infill_pattern');
 
   const previewGeo = previewGeometry(window.innerHeight);
 
@@ -861,7 +871,7 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
         <LiquidGlassMorph
           key={morphPhase}
           left={PANEL_LEFT}
-          top={PILL_TOP}
+          top={PILL_TOP + modelTreeOverflow}
           width={MENU_W}
           height={MENU_STAGE_H}
           duration={MENU_MORPH_MS}
@@ -875,7 +885,7 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
       )}
 
       <AnimatePresence>
-        {activeCatData && !activeCatData.disabled && (
+        {activeCatData && !activeCatData.disabled && !previewActive && (
           <>
             {/* Toujours ouvert/fermé par un morphing : pas d'animation d'entrée ni de sortie
                 propre, le verre animé en tient lieu (.morphing masque le fond de ce panneau et
@@ -885,36 +895,48 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
               className={clsx(styles.fusionMenuContainer, {
                 [styles.morphing]: morphPhase !== null,
               })}
+              // Le menu suit la pilule quand l'arborescence des modèles / la carte Filament la repoussent.
+              style={modelTreeOverflow > 0 ? { top: 280 + modelTreeOverflow } : undefined}
               initial={false}
               exit={{ opacity: 0 }}
               transition={{ duration: 0 }}
             >
               <div
                 ref={contentRef}
-                className={clsx(styles.fusionMenuContent, styles.contentInert)}
+                className={styles.fusionMenuContent}
                 onScroll={handleScroll}
               >
+                {/* Portée des réglages, comme « Global / Objets » d'OrcaSlicer. Les réglages par objet n'existent
+                    pas encore côté moteur : « Par objet » est visible mais inactif. */}
+                <div className={styles.scopeSwitch}>
+                  <CustomTooltip content="Global" description="Les réglages s'appliquent à tout le plateau.">
+                    <button type="button" className={clsx(styles.scopeButton, styles.scopeActive)}>Global</button>
+                  </CustomTooltip>
+                  <CustomTooltip content="Arrive bientôt" description="Réglages propres à chaque objet du plateau, qui remplacent les réglages globaux pour cet objet.">
+                    <button type="button" className={clsx(styles.scopeButton, styles.scopeInert)} aria-disabled="true" tabIndex={-1}>Par objet</button>
+                  </CustomTooltip>
+                </div>
                 {activeCatData.sections.map((section, idx) => (
                   <div key={idx} className={styles.sectionGroup}>
                     <h4 className={styles.sectionTitle}>{section.title}</h4>
                     <ul className={styles.itemsList}>
-                      {section.items.map((item, iIdx) => (
+                      {section.items.map((item, iIdx) => item.engine ? (
+                        <EngineItemRow
+                          key={item.engine}
+                          path={item.engine}
+                          onOpenChoices={getEngineSetting(item.engine)?.enum ? () => setIsPatternPopupOpen((open) => !open) : undefined}
+                        />
+                      ) : (
                         <CustomTooltip key={iIdx} content="Arrive bientôt" description={item.description}>
-                          <li className={styles.itemRow}>
-                            <span className={styles.itemName}>
-                              {item.isPatternDropdown ? `Motif de remplissage (${selectedPattern})` : item.label}
-                            </span>
-                            {item.isPatternDropdown ? (
-                              <ChevronDown size={14} className="shrink-0 text-white/40 -rotate-90 ml-2" />
-                            ) : (
-                              <input
-                                type="text"
-                                defaultValue={item.defaultValue}
-                                className={styles.itemInput}
-                                readOnly
-                                tabIndex={-1}
-                              />
-                            )}
+                          <li className={clsx(styles.itemRow, styles.itemRowInert)}>
+                            <span className={styles.itemName}>{item.label}</span>
+                            <input
+                              type="text"
+                              defaultValue={item.defaultValue}
+                              className={styles.itemInput}
+                              readOnly
+                              tabIndex={-1}
+                            />
                           </li>
                         </CustomTooltip>
                       ))}
@@ -940,39 +962,65 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
               {isPatternPopupOpen && (
                 <motion.div
                   className={styles.patternPopup}
-                  initial={{ opacity: 0, scale: 0.95, x: -10 }}
-                  animate={{ opacity: 1, scale: 1, x: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, x: -10 }}
+                  // Le verre (.patternGlass) fait son propre fondu : un parent translucide désactiverait son flou.
+                  initial={{ scale: 0.95, x: -10 }}
+                  animate={{ scale: 1, x: 0 }}
+                  exit={{ scale: 0.95, x: -10 }}
                   transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                 >
-                  <div 
+                  <motion.div
+                    className={styles.patternGlass}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                  />
+                  <motion.div
                     ref={patternContentRef}
                     className={styles.patternPopupContent}
                     onScroll={handlePatternScroll}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
                   >
                     <div className={styles.sectionGroup}>
                       <h4 className={styles.sectionTitle}>Motifs de remplissage</h4>
                       <ul className={styles.itemsList}>
-                        {INFILL_PATTERNS.map((pat, pIdx) => {
-                          const isSelected = selectedPattern === pat.name;
+                        {patternSetting?.enum?.map((option) => {
+                          const isSelected = getEngineSettingValue(patternSetting) === option;
                           return (
-                            <CustomTooltip key={pIdx} content={pat.name} description={pat.description} key-override={pat.name}>
-                              <li 
+                            <CustomTooltip key={option} content={ENUM_LABELS[option] ?? option} description={ENUM_DESCRIPTIONS[option] ?? ''}>
+                              <li
                                 className={clsx(styles.patternItem, { [styles.activePattern]: isSelected })}
                                 onClick={() => {
-                                  setSelectedPattern(pat.name);
+                                  setEngineSettingValue(patternSetting, option);
                                   setIsPatternPopupOpen(false);
                                 }}
                               >
-                                <span className={styles.itemName}>{pat.name}</span>
+                                <span className={styles.patternName}>
+                                  <InfillPatternIcon pattern={ENGINE_PATTERN_ICON[option] ?? option} />
+                                  <span className={styles.itemName}>{ENUM_LABELS[option] ?? option}</span>
+                                </span>
                                 {isSelected && <Check size={14} className="text-[#00f0ff] shrink-0" />}
                               </li>
                             </CustomTooltip>
                           );
                         })}
+                        {/* Motifs d'OrcaSlicer que le moteur ne réalise pas encore : proposés, grisés. */}
+                        {ORCA_ONLY_PATTERNS.map((pattern) => (
+                          <CustomTooltip key={pattern.key} content="Arrive bientôt" description={`${pattern.label} : motif d’OrcaSlicer pas encore pris en charge par le moteur d’Apex.`}>
+                            <li className={clsx(styles.patternItem, styles.patternItemDisabled)} aria-disabled>
+                              <span className={styles.patternName}>
+                                <InfillPatternIcon pattern={pattern.key} />
+                                <span className={styles.itemName}>{pattern.label}</span>
+                              </span>
+                            </li>
+                          </CustomTooltip>
+                        ))}
                       </ul>
                     </div>
-                  </div>
+                  </motion.div>
 
                   {hasPatternScroll && (
                     <div 

@@ -1,14 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { MODEL_FILE_EXT, importModelsOneByOne } from '@/utils/importModels';
 import { motion, Variants } from 'framer-motion';
 import clsx from 'clsx';
+import ToolAxisIcon from './ToolAxisIcons';
+import TransformBox from './TransformBox';
+import { IconCubePlus } from '@tabler/icons-react';
 import {
   FileSliders,
   Box,
   MousePointer2,
-  Move3d,
-  RotateCw,
-  Maximize,
-  Upload,
   Code,
   Maximize2,
   Eye,
@@ -376,8 +376,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
     };
     const onDrop = (e: DragEvent) => {
       if (!hasFiles(e)) return;
-      const file = e.dataTransfer?.files?.[0];
-      if (!file || !GCODE_FILE_EXT.test(file.name)) return;
+      const files = Array.from(e.dataTransfer?.files ?? []);
+      const file = files[0];
+      if (!file) return;
+      // Préparation seulement (le viewport est démonté sur Accueil / Paramètres) : modèles 3D déposés
+      // sur le plateau, comme avec le bouton d'import (mêmes formats que son sélecteur).
+      if (activeTab === '3d-view') {
+        const models = files.filter((f) => MODEL_FILE_EXT.test(f.name));
+        if (models.length > 0) {
+          e.preventDefault();
+          void importModelsOneByOne(models);
+          return;
+        }
+      }
+      if (!GCODE_FILE_EXT.test(file.name)) return;
       e.preventDefault();
       enterPreview(file);
     };
@@ -388,7 +400,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       window.removeEventListener('drop', onDrop);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPreviewActive, isModeling]);
+  }, [isPreviewActive, isModeling, activeTab]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -396,6 +408,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       if (target && (['INPUT', 'TEXTAREA'].includes(target.tagName) || target.isContentEditable)) {
         return;
       }
+      // Prévisualisation : M / R / S / T (outils de Préparation) ne doivent rien faire.
+      if (isPreviewActive && ['m', 'r', 's', 't'].includes(e.key.toLowerCase())) return;
 
       const key = e.key.toLowerCase();
       if (key === 'm') {
@@ -429,7 +443,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [activeTool]);
+  }, [activeTool, isPreviewActive]);
 
   // Mesure la largeur naturelle de la barre slicer dès qu'on la voit au repos (mode box,
   // aucune transition en cours) — la toute première fois, et à nouveau si jamais elle
@@ -531,7 +545,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className={styles.activeIndicatorShape} style={{ clipPath: indicatorOnLogo ? TRIANGLE_CLIP : PILL_CLIP }} />
         </div>
 
-        <CustomTooltip content="Apex Slicer Studio" description={devMode ? APP_TAGLINE_DEV : APP_TAGLINE_PREVIEW}>
+        <CustomTooltip content="Apex Studio" description={devMode ? APP_TAGLINE_DEV : APP_TAGLINE_PREVIEW}>
           <button
             ref={(el) => { if (el) buttonRefs.current.set('home', el); }}
             className={styles.logoContainer}
@@ -544,20 +558,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         <div className={styles.topSeparator} />
 
-        {devMode && (
-          <CustomTooltip content="Vue 3D Perspective" description="Basculez sur l'espace de travail principal pour inspecter et manipuler vos modèles sur le plateau d'impression.">
-            <button
-              ref={(el) => { if (el) buttonRefs.current.set('box', el); }}
-              className={clsx(styles.button, styles.topButton, {
-                [styles.active]: activeTab === '3d-view' && !isPreviewActive,
-              })}
-              onClick={() => handleTopTabClick('box')}
-            >
-              <FileSliders size={22} />
-              <span className={styles.topButtonLabel}>Préparation</span>
-            </button>
-          </CustomTooltip>
-        )}
+        <CustomTooltip content="Vue 3D Perspective" description="Basculez sur l'espace de travail principal pour inspecter et manipuler vos modèles sur le plateau d'impression.">
+          <button
+            ref={(el) => { if (el) buttonRefs.current.set('box', el); }}
+            className={clsx(styles.button, styles.topButton, {
+              [styles.active]: activeTab === '3d-view' && !isPreviewActive,
+            })}
+            onClick={() => handleTopTabClick('box')}
+          >
+            <FileSliders size={22} />
+            <span className={styles.topButtonLabel}>Préparation</span>
+          </button>
+        </CustomTooltip>
 
         <CustomTooltip content="Prévisualisation" description="Visualisez le parcours de la buse et ajustez différents paramètres si cela ne vous convient pas.">
           <button
@@ -674,6 +686,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
         style={{ originX: 0.5, originY: 0.5, pointerEvents: 'auto' }}
       >
         <motion.div custom={0} variants={iconVariants} animate={isPreviewActive || isModeling ? "hidden" : "visible"} initial="visible" className="flex items-center">
+          <CustomTooltip content="Importer un Modèle 3D (.stl, .glb, .gltf)" description="Ouvrez le sélecteur de fichiers pour charger un nouveau fichier 3D avec textures sur le plateau.">
+            <button
+              className={clsx(styles.button, styles.bottomButton, styles.uploadActionButton)}
+              onClick={handleUploadClick}
+            >
+              <IconCubePlus size={16} stroke={2} />
+            </button>
+          </CustomTooltip>
+        </motion.div>
+
+        <motion.div custom={1} variants={iconVariants} animate={isPreviewActive || isModeling ? "hidden" : "visible"} initial="visible" className="flex items-center">
+          <div className={styles.separator} />
+        </motion.div>
+
+        <motion.div custom={2} variants={iconVariants} animate={isPreviewActive || isModeling ? "hidden" : "visible"} initial="visible" className="flex items-center">
           <CustomTooltip content="Outil de Sélection" description="Cliquez sur n'importe quel modèle 3D sur le plateau pour le sélectionner et afficher ses propriétés.">
             <button
               className={clsx(styles.button, styles.bottomButton, {
@@ -686,7 +713,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </CustomTooltip>
         </motion.div>
 
-        <motion.div custom={1} variants={iconVariants} animate={isPreviewActive || isModeling ? "hidden" : "visible"} initial="visible" className="flex items-center">
+        <motion.div custom={3} variants={iconVariants} animate={isPreviewActive || isModeling ? "hidden" : "visible"} initial="visible" className="flex items-center">
           <CustomTooltip content="Outil de Déplacement (Move - M)" description="Affichez les gizmos directionnels pour repositionner précisément l'objet sur le plateau d'impression. (Raccourci : M)">
             <button
               className={clsx(styles.button, styles.bottomButton, {
@@ -694,12 +721,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
               })}
               onClick={() => handleToolClick('move')}
             >
-              <Move3d size={16} />
+              <ToolAxisIcon tool="move" active={activeTool === 'move'} />
             </button>
           </CustomTooltip>
         </motion.div>
 
-        <motion.div custom={2} variants={iconVariants} animate={isPreviewActive || isModeling ? "hidden" : "visible"} initial="visible" className="flex items-center">
+        <motion.div custom={4} variants={iconVariants} animate={isPreviewActive || isModeling ? "hidden" : "visible"} initial="visible" className="flex items-center">
           <CustomTooltip content="Outil de Rotation (Rotate - R)" description="Faites pivoter le modèle selon les axes X, Y et Z pour optimiser son orientation de contact. (Raccourci : R)">
             <button
               className={clsx(styles.button, styles.bottomButton, {
@@ -707,12 +734,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
               })}
               onClick={() => handleToolClick('rotate')}
             >
-              <RotateCw size={16} />
+              <ToolAxisIcon tool="rotate" active={activeTool === 'rotate'} />
             </button>
           </CustomTooltip>
         </motion.div>
 
-        <motion.div custom={3} variants={iconVariants} animate={isPreviewActive || isModeling ? "hidden" : "visible"} initial="visible" className="flex items-center">
+        <motion.div custom={5} variants={iconVariants} animate={isPreviewActive || isModeling ? "hidden" : "visible"} initial="visible" className="flex items-center">
           <CustomTooltip content="Outil de Mise à l'échelle (Scale - S)" description="Modifiez la taille et les proportions du modèle 3D sur le plateau d'impression. (Raccourci : S)">
             <button
               className={clsx(styles.button, styles.bottomButton, {
@@ -720,12 +747,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
               })}
               onClick={() => handleToolClick('scale')}
             >
-              <Maximize size={16} />
+              <ToolAxisIcon tool="scale" active={activeTool === 'scale'} />
             </button>
           </CustomTooltip>
         </motion.div>
 
-        <motion.div custom={4} variants={iconVariants} animate={isPreviewActive || isModeling ? "hidden" : "visible"} initial="visible" className="flex items-center">
+        <motion.div custom={6} variants={iconVariants} animate={isPreviewActive || isModeling ? "hidden" : "visible"} initial="visible" className="flex items-center">
           <CustomTooltip content="Outil Texture & Matériau (Texture - T)" description="Sélectionnez et éditez les textures et propriétés de matériaux du modèle actif. (Raccourci : T)">
             <button
               className={clsx(styles.button, styles.bottomButton, {
@@ -738,11 +765,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </CustomTooltip>
         </motion.div>
 
-        <motion.div custom={5} variants={iconVariants} animate={isPreviewActive || isModeling ? "hidden" : "visible"} initial="visible" className="flex items-center">
+        <motion.div custom={7} variants={iconVariants} animate={isPreviewActive || isModeling ? "hidden" : "visible"} initial="visible" className="flex items-center">
           <div className={styles.separator} />
         </motion.div>
 
-        <motion.div custom={6} variants={iconVariants} animate={isPreviewActive || isModeling ? "hidden" : "visible"} initial="visible" className="flex items-center">
+        <motion.div custom={8} variants={iconVariants} animate={isPreviewActive || isModeling ? "hidden" : "visible"} initial="visible" className="flex items-center">
           <CustomTooltip content="Réinitialiser la Caméra" description="Remettez la caméra dans sa position isométrique par défaut face au plateau.">
             <button
               className={clsx(styles.button, styles.bottomButton)}
@@ -753,28 +780,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </CustomTooltip>
         </motion.div>
 
-        <motion.div custom={7} variants={iconVariants} animate={isPreviewActive || isModeling ? "hidden" : "visible"} initial="visible" className="flex items-center">
+        <motion.div custom={9} variants={iconVariants} animate={isPreviewActive || isModeling ? "hidden" : "visible"} initial="visible" className="flex items-center">
           <CustomTooltip content="Ajuster à l'Écran (Fit)" description="Zoomez et recentrez la vue automatiquement sur le modèle sélectionné.">
             <button
               className={clsx(styles.button, styles.bottomButton)}
               onClick={() => window.dispatchEvent(new CustomEvent('apex-fit-screen'))}
             >
               <Maximize2 size={16} />
-            </button>
-          </CustomTooltip>
-        </motion.div>
-
-        <motion.div custom={8} variants={iconVariants} animate={isPreviewActive || isModeling ? "hidden" : "visible"} initial="visible" className="flex items-center">
-          <div className={styles.separator} />
-        </motion.div>
-
-        <motion.div custom={9} variants={iconVariants} animate={isPreviewActive || isModeling ? "hidden" : "visible"} initial="visible" className="flex items-center">
-          <CustomTooltip content="Importer un Modèle 3D (.stl, .glb, .gltf)" description="Ouvrez le sélecteur de fichiers pour charger un nouveau fichier 3D avec textures sur le plateau.">
-            <button
-              className={clsx(styles.button, styles.bottomButton, styles.uploadActionButton)}
-              onClick={handleUploadClick}
-            >
-              <Upload size={16} />
             </button>
           </CustomTooltip>
         </motion.div>
@@ -827,18 +839,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
           className={styles.modelingSlot}
         />
 
+        {!isPreviewActive && !isModeling && (activeTool === 'move' || activeTool === 'rotate' || activeTool === 'scale') && (
+          <TransformBox tool={activeTool} />
+        )}
+
         <input
           type="file"
           ref={fileInputRef}
           style={{ display: 'none' }}
           accept=".stl,.glb,.gltf"
+          multiple
           onChange={(e) => {
-            if (e.target.files?.[0]) {
-              window.dispatchEvent(
-                new CustomEvent('apex-import-model', {
-                  detail: e.target.files[0],
-                })
-              );
+            if (e.target.files?.length) {
+              void importModelsOneByOne(Array.from(e.target.files));
             }
             // Réinitialise la valeur pour pouvoir réimporter exactement le même fichier
             // à la suite (sinon le navigateur ne redéclenche pas onChange).

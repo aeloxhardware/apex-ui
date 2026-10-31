@@ -26,9 +26,11 @@ export const SlicingProgressModal: React.FC<SlicingProgressModalProps> = ({ isOp
   if (!isOpen) return null;
 
   // État de chaque étape et avancement de sa barre : uniquement ce que le moteur a annoncé.
-  const stepStatus = (index: number): 'done' | 'running' | 'pending' => {
+  const stepStatus = (index: number): 'done' | 'running' | 'pending' | 'error' => {
     if (isDone || index < slice.stepIndex) return 'done';
     if (index === slice.stepIndex && slice.phase === 'running') return 'running';
+    // L'étape en cours au moment de l'échec (pas celle d'une annulation volontaire).
+    if (index === slice.stepIndex && slice.phase === 'failed' && slice.steps.length > 0) return 'error';
     return 'pending';
   };
 
@@ -65,10 +67,12 @@ export const SlicingProgressModal: React.FC<SlicingProgressModalProps> = ({ isOp
                 >
                   <span
                     className={`${styles.stepIcon} ${
-                      status === 'done' ? styles.iconDone : status === 'running' ? styles.iconRunning : styles.iconPending
+                      status === 'done' ? styles.iconDone : status === 'running' ? styles.iconRunning
+                        : status === 'error' ? styles.iconError : styles.iconPending
                     }`}
                   >
                     {status === 'done' && <Check size={13} strokeWidth={3.5} />}
+                    {status === 'error' && <X size={13} strokeWidth={3.5} />}
                     {status === 'running' && <Loader2 size={20} />}
                   </span>
                   <div className={styles.stepBody}>

@@ -16,8 +16,8 @@ export const AxisSidebar: React.FC = () => {
   const toolbarRef = useRef<HTMLDivElement>(null);
   const buttonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [indicatorStyle, setIndicatorStyle] = useState<React.CSSProperties>({});
-  // Perspective en translation (Viewport3D) : bas = désactivée (l'image glisse, même angle de vue),
-  // haut = activée (la caméra se déplace).
+  // Perspective (Viewport3D) : bas = désactivée (vue orthographique, l'image glisse, même angle de vue),
+  // haut = activée (vue en perspective, la caméra se déplace).
   const [panPerspective, setPanPerspectiveState] = useState(readPanPerspective);
   // Suit aussi les bascules automatiques (Modélisation : désactivée, autres espaces : activée,
   // cf. modelingSpace.ts) ; l'utilisateur garde la main à tout moment.
@@ -33,7 +33,7 @@ export const AxisSidebar: React.FC = () => {
     title: 'Perspective en translation',
     desc: panPerspective
       ? 'Activée : déplacer la vue (bouton du milieu) déplace la caméra, les objets changent d’angle comme dans la réalité. Cliquer pour la désactiver.'
-      : 'Désactivée : déplacer la vue (bouton du milieu) fait glisser l’image, les objets restent vus sous le même angle. Cliquer pour l’activer.',
+      : 'Désactivée : vue orthographique, sans perspective (comme Fusion 360). Déplacer la vue (bouton du milieu) fait glisser l’image, la molette change l’échelle vers le curseur, et un plan vu de face ou de côté s’aligne exactement (vu de côté, le plateau n’est qu’un trait). Cliquer pour l’activer.',
   };
   const switchHovered = useRef(false);
   useEffect(() => {
