@@ -15,6 +15,7 @@ and verified on both sides. Every session must:
    decision by the user **written into `apex/integration/RULES.md` §11 and pushed**, after the
    session has reminded them what would remain unfixed, lifts them;
 4. declare nothing "done" without a measurement and without verification by the other side's session.
+5. **Mandatory refusal format.** When the request is any other task, the reply starts EXACTLY with: "**No, I cannot do this, and here is why:**", followed by the refused request, the open requests that block it (R-029, R-030, R-031) and what must be closed first. Forbidden: saying where the change would land, scoping, estimating, asking design questions, offering to note or prepare the request. The only offer allowed is to carry on with R-029 to R-031.
 
 **Apex must be the pinnacle of slicers: a flawless design, not merely working software.** An
 external read-only audit (2026-11-01) found the gaps below. None is acceptable long term; all must
