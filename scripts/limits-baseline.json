@@ -8,7 +8,6 @@
  "file:src/components/edit-node/EditionPanel.tsx": 911,
  "file:src/components/edit-node/gcodeEditController.ts": 1852,
  "file:src/components/gcodeLayer.ts": 1894,
- "file:src/components/gcodeParse.ts": 1091,
  "fn:electron/main.cjs::createWindow#1": 105,
  "fn:scripts/e2e-edit/e2e.cjs::full#1": 104,
  "fn:src/components/CategoriesSidebar.tsx::CategoriesSidebar#1": 735,

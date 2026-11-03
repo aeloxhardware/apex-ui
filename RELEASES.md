@@ -2,9 +2,16 @@
 
 Historique de toutes les versions du logiciel Apex (numéro de version), et non des Releases GitHub. Seul lien avec la publication : le compteur Builds (voir `CLAUDE.md`). Format et règles de numérotation : section « Versioning » de `CLAUDE.md`.
 
-**Version actuelle : `alpha-0.2.3.1.3.3.0.221`**
+**Version actuelle : `alpha-0.2.3.1.3.4.0.221`**
 
 `<préversion>-<public>.<global>.<majeur>.<moyen>.<mineur>.<add-ins>.<correctif>.<builds>`
+
+## alpha-0.2.3.1.3.4.0.221 — 2026-11-03
+
+R-031 point 1 : `gcodeParse.ts` 1 093 → 793 lignes (sous la limite de 800). Aucun changement de comportement ; Add-ins incrémenté.
+
+- Types sortis dans `gcodeTypes.ts`, constantes et utilitaires dans `gcodeParseConstants.ts`, planificateur de temps cartésien dans `gcodePlanTimes.ts` ; `gcodeParse.ts` les ré-exporte, les importeurs ne changent pas.
+- Dette restante dans ce fichier : `parseGCode` (630 lignes, une seule fonction).
 
 ## alpha-0.2.3.1.3.3.0.221 — 2026-11-03
 
