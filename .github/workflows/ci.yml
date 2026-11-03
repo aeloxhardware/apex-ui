@@ -1,0 +1,32 @@
+name: CI
+on:
+  push:
+  pull_request:
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Le contrat (schéma, vecteurs) se vérifie contre le moteur : dépôt privé, jeton de lecture requis
+      # (secret ENGINE_READ_TOKEN). Sans lui cette étape échoue : une CI rouge vaut mieux qu'un contrat non vérifié.
+      - uses: actions/checkout@v4
+        with:
+          repository: aeloxhardware/apex-engine
+          token: ${{ secrets.ENGINE_READ_TOKEN }}
+          path: slicer_engine
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Lint et limites (cliquet)
+        run: pnpm lint
+      - name: Types
+        run: pnpm typecheck
+      - name: Tests
+        run: pnpm test
+      - name: Contrat moteur (schéma et vecteurs)
+        env:
+          APEX_ENGINE_DIR: ${{ github.workspace }}/slicer_engine
+        run: pnpm schema:check && pnpm vectors:check

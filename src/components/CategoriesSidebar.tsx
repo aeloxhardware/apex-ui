@@ -60,8 +60,8 @@ const pillIconsContainerVariants = {
 };
 
 const pillIconVariants = {
-  visible: { opacity: 1, x: 0, y: 0, transition: { duration: PILL_ICON_FADE_MS, ease: [0.4, 0, 0.2, 1] } },
-  hidden: { opacity: 0, x: -14, y: -4, transition: { duration: PILL_ICON_FADE_MS, ease: [0.4, 0, 0.2, 1] } },
+  visible: { opacity: 1, x: 0, y: 0, transition: { duration: PILL_ICON_FADE_MS, ease: [0.4, 0, 0.2, 1] as const } },
+  hidden: { opacity: 0, x: -14, y: -4, transition: { duration: PILL_ICON_FADE_MS, ease: [0.4, 0, 0.2, 1] as const } },
 };
 
 const SolidityIcon = () => <BicepsFlexed size={20} />;

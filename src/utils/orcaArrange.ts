@@ -194,7 +194,7 @@ export const arrange = (inputs: ArrangeInput[], params: ArrangeParams): ArrangeR
     const isBig = item.area > BIG_ITEM_THRESHOLD * binArea;
     const remaining = items.length - placed.length;
     const R = remaining / items.length;
-    let pileBox = placed.length ? bbox(placed.flatMap((pl) => pl.poly.map((p) => ({ x: p.x + pl.cx, z: p.z + pl.cz })))) : null;
+    const pileBox = placed.length ? bbox(placed.flatMap((pl) => pl.poly.map((p) => ({ x: p.x + pl.cx, z: p.z + pl.cz })))) : null;
     const bigs = placed.filter((pl) => pl.area > BIG_ITEM_THRESHOLD * binArea);
     const bigCenter = bigs.length
       ? { x: bigs.reduce((s, b) => s + b.cx, 0) / bigs.length, z: bigs.reduce((s, b) => s + b.cz, 0) / bigs.length }

@@ -377,9 +377,8 @@ const Lightfall: React.FC<LightfallProps> = ({
   const wakeRef = useRef<(() => void) | null>(null);
   const readyRef = useRef(onReady);
   readyRef.current = onReady;
-  const settingsRef = useRef<any>(null);
   const [generation, setGeneration] = useState(0);
-  settingsRef.current = {
+  const settings = {
     colors: (Array.isArray(colors) && colors.length ? colors : ['#ffffff']).slice(0, MAX_COLORS).map(String),
     backgroundColor: String(backgroundColor),
     speed,
@@ -407,6 +406,7 @@ const Lightfall: React.FC<LightfallProps> = ({
     paused,
     dpr,
   };
+  const settingsRef = useRef(settings); settingsRef.current = settings;
 
   useEffect(() => {
     const container = containerRef.current;

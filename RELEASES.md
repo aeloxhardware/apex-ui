@@ -2,9 +2,18 @@
 
 Historique de toutes les versions du logiciel Apex (numéro de version), et non des Releases GitHub. Seul lien avec la publication : le compteur Builds (voir `CLAUDE.md`). Format et règles de numérotation : section « Versioning » de `CLAUDE.md`.
 
-**Version actuelle : `alpha-0.2.3.1.3.1.0.221`**
+**Version actuelle : `alpha-0.2.3.1.3.2.0.221`**
 
 `<préversion>-<public>.<global>.<majeur>.<moyen>.<mineur>.<add-ins>.<correctif>.<builds>`
+
+## alpha-0.2.3.1.3.2.0.221 — 2026-11-03
+
+R-031 (qualité sans compromis), première passe : l'outillage. Add-ins incrémenté.
+
+- `scripts/check-limits.cjs` + `scripts/limits-baseline.json` : fichier ≤ 800 lignes, fonction ≤ 80 (composant ≤ 150), ≤ 8 paramètres, avec cliquet (aucune dette ne grossit, aucune nouvelle). Branché sur `pnpm lint`. Dette de départ : **10 fichiers, 53 fonctions, 3 signatures** hors limite (dont `Viewport3D.tsx` 6 552 lignes et son effet unique de 5 806 lignes).
+- CI (`.github/workflows/ci.yml`) : lint + limites, `tsc`, tests, `schema:check`, `vectors:check`.
+- Types : `pnpm typecheck` ; 10 erreurs préexistantes corrigées (`as const` sur les courbes d'animation). Lint : 6 erreurs préexistantes corrigées ; `src/components/ui` (shadcn généré) et `icons-main` (icônes tierces) exclus d'ESLint.
+- Code mort supprimé : `GCodePointInspector.tsx` (aucun import, types disparus).
 
 ## alpha-0.2.3.1.3.1.0.221 — 2026-10-31
 
