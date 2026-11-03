@@ -1,5 +1,4 @@
 {
- "file:src/components/ModelingSidebar.tsx": 1183,
  "file:src/components/Viewport3D.tsx": 6497,
  "file:src/components/edit-node/gcodeEditController.ts": 1852,
  "file:src/components/gcodeLayer.ts": 1894,
@@ -14,8 +13,7 @@
  "fn:src/components/Lightfall.tsx::Lightfall/<anon>#1": 380,
  "fn:src/components/Lightfall.tsx::Lightfall/render#1": 110,
  "fn:src/components/ModelStatusBox.tsx::ModelStatusBox#1": 298,
- "fn:src/components/ModelingSidebar.tsx::ModelingSidebar#1": 1035,
- "fn:src/components/ModelingSidebar.tsx::ModelingSidebar/<anon>#28": 91,
+ "fn:src/components/ModelingSidebar.tsx::ModelingSidebar#1": 733,
  "fn:src/components/NotificationStack.tsx::NotificationStack#1": 421,
  "fn:src/components/NotificationStack.tsx::NotificationStack/<anon>#20": 84,
  "fn:src/components/NotificationStack.tsx::NotificationStack/<anon>#28": 85,

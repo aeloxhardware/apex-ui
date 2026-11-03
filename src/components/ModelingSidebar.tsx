@@ -1,27 +1,15 @@
+import { ModelTree } from './ModelingTree';
+import { SketchBar } from './ModelingSketchBar';
+import { FeatureParams } from './ModelingFeatureParams';
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import clsx from 'clsx';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   Box,
-  ChevronRight,
-  Circle,
-  Eye,
-  EyeOff,
-  FlipHorizontal2,
-  Minus,
-  MousePointerSquareDashed,
-  PenLine,
-  RotateCw,
-  Square,
-  Trash2,
-  Triangle,
-  Waves,
 } from 'lucide-react';
 import styles from './ModelingSidebar.module.scss';
-import { ExternalScrollArea } from './ExternalScrollArea';
 import { CustomTooltip } from './CustomTooltip';
-import { ChamferIcon, ExtrudeIcon, FilletIcon, FinishSketchIcon } from './ModelingIcons';
 import { ExtrudePanel, type ExtrudeParams } from './ExtrudePanel';
 import {
   LiquidGlassShadow,
@@ -34,7 +22,6 @@ import {
 import { showError, showSuccess } from '@/utils/toast';
 import {
   FEATURE_LABELS,
-  SKETCH_ENTITY_LABELS,
   nextId,
   type Feature,
   type FeatureKind,
@@ -42,88 +29,13 @@ import {
   type ExtrudeFeature,
   type SketchEntity,
   type SketchEntityKind,
-  type SketchPlane,
   type SketchPlaneRef,
 } from '@/modeling/types';
 import { modelingMorphStage, modelingPathAt, modelingMorphDuration } from '@/utils/spaceMorphGeometry';
 
 /** Sous-maillage d'un modèle importé, tel que le diffuse `apex-mesh-selected`. */
-interface SubMeshItem {
-  id: string;
-  name: string;
-  color: string;
-}
-
-/** Un corps de la scène et les features paramétriques qui lui sont rattachées. */
-interface ModelNode {
-  id: string;
-  name: string;
-  children: SubMeshItem[];
-  features: Feature[];
-}
-
-const TOOLS: {
-  kind: FeatureKind;
-  icon: React.ElementType;
-  description: string;
-}[] = [
-  { kind: 'sketch', icon: PenLine, description: 'Créez des contours géométriques sur un plan ou une surface plane afin de définir la base d\'une conception tridimensionnelle.' },
-  { kind: 'extrude', icon: ExtrudeIcon, description: 'Tire le profil d\'un plan surfacique, parallèlement ou non à sa normale pour générer un volume.' },
-  { kind: 'revolve', icon: RotateCw, description: 'Faire tourner un profil autour d\'un axe.' },
-  { kind: 'fillet', icon: FilletIcon, description: 'Arrondir les arêtes sélectionnées avec un rayon.' },
-  { kind: 'chamfer', icon: ChamferIcon, description: 'Biseauter les arêtes sélectionnées.' },
-  { kind: 'mirror', icon: FlipHorizontal2, description: 'Dupliquer le corps par symétrie autour d\'un point.' },
-];
-
-const SKETCH_ENTITIES: { kind: SketchEntityKind; icon: React.ElementType }[] = [
-  { kind: 'line', icon: Minus },
-  { kind: 'rectangle', icon: Square },
-  { kind: 'circle', icon: Circle },
-  { kind: 'triangle', icon: Triangle },
-  { kind: 'curve', icon: Waves },
-];
-
-// Provisoire (demande de l'utilisateur, 2026-10-20) : tout le sélecteur est grisé pour l'instant.
-// Repasser à false pour le réactiver (Corps et Face redeviennent utilisables).
-const SELECTION_LOCKED = true;
-
-const SELECTION_MODES: { mode: SelectionMode; label: string; enabled: boolean }[] = [
-  { mode: 'body', label: 'Corps', enabled: !SELECTION_LOCKED },
-  { mode: 'face', label: 'Face', enabled: !SELECTION_LOCKED },
-  { mode: 'edge', label: 'Arête', enabled: false },
-  { mode: 'vertex', label: 'Sommet', enabled: false },
-];
-
-const FEATURE_ICONS: Record<FeatureKind, React.ElementType> = {
-  sketch: PenLine,
-  extrude: ExtrudeIcon,
-  revolve: RotateCw,
-  fillet: FilletIcon,
-  chamfer: ChamferIcon,
-  mirror: FlipHorizontal2,
-};
-
-// Fraction du morph ('enter' : t croissant de 0 à 1) au-delà de laquelle la silhouette est assez
-// proche de sa forme normale pour que le contenu (header, Sélection, Corps) commence à apparaître,
-// un groupe après l'autre (cf. contentVariants / CONTENT_STAGGER_MS). En dessous, le contenu reste
-// (cf. contentRevealed) invisible plutôt que de montrer un fragment illisible d'un texte/bouton bien
-// plus grand que la silhouette qui le découpe. `1` (pas moins) : le contenu ne doit apparaître
-// qu'UNE FOIS la déformation entièrement terminée, jamais pendant qu'elle est encore en cours (même
-// proche de la fin, la silhouette peut encore être trop étroite/basse pour l'accueillir proprement).
-const CONTENT_REVEAL_THRESHOLD = 1;
-const CONTENT_STAGGER_MS = 0.09;
-
-// Cascade dans les deux sens, toujours du haut vers le bas (header, Sélection, Corps) : apparition
-// à la fin d'un morph d'entrée, disparition dès le clic qui quitte Modélisation.
-const contentContainerVariants = {
-  hidden: { transition: { staggerChildren: CONTENT_STAGGER_MS } },
-  visible: { transition: { staggerChildren: CONTENT_STAGGER_MS } },
-};
-
-const contentGroupVariants = {
-  hidden: { opacity: 0, y: 6 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.22, ease: [0.4, 0, 0.2, 1] as const } },
-};
+import { TOOLS, SELECTION_LOCKED, SELECTION_MODES, CONTENT_REVEAL_THRESHOLD, contentContainerVariants, contentGroupVariants, type SubMeshItem, type ModelNode } from './modelingData';
+export type { SubMeshItem, ModelNode } from './modelingData';
 
 interface ModelingSidebarProps {
   /**
@@ -781,258 +693,12 @@ export const ModelingSidebar: React.FC<ModelingSidebarProps> = ({ morph }) => {
 
           <motion.div variants={contentGroupVariants}>
           <div className={styles.sectionLabel}>Corps</div>
-          <ExternalScrollArea className={styles.treeScroll} contentClassName={styles.treeContent}>
-            {models.length === 0 ? (
-              <div className={styles.emptyState}>
-                Aucun corps dans la scène.<br />
-                Importez un modèle ou créez une esquisse.
-              </div>
-            ) : (
-              <ul className={styles.treeList}>
-                <AnimatePresence initial={false}>
-                  {models.map((model) => {
-                    const isExpanded = !!expanded[model.id];
-                    const hasChildren = model.children.length > 0 || model.features.length > 0;
-
-                    return (
-                      <motion.li
-                        key={model.id}
-                        className={styles.treeNode}
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-                      >
-                        <div
-                          role="button"
-                          tabIndex={0}
-                          className={clsx(styles.treeRow, {
-                            [styles.selected]: selectedModel === model.name,
-                          })}
-                          onClick={() => selectModelInViewport(model.name)}
-                          onKeyDown={(e) => { if (e.key === 'Enter') selectModelInViewport(model.name); }}
-                        >
-                          {hasChildren ? (
-                            <ChevronRight
-                              className={clsx('w-3 h-3', styles.chevron, { [styles.expanded]: isExpanded })}
-                              onClick={(e) => toggleExpand(e, model.id)}
-                            />
-                          ) : (
-                            <span className={styles.chevronSpacer} />
-                          )}
-                          <Box className={clsx('w-3.5 h-3.5', styles.nodeIcon)} />
-                          <span className={styles.nodeName}>{model.name}</span>
-                        </div>
-
-                        <AnimatePresence initial={false}>
-                          {isExpanded && hasChildren && (
-                            <motion.ul
-                              className={styles.childList}
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: 'auto', opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
-                              transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
-                            >
-                              {model.children.map((sub) => (
-                                <li key={sub.id} className={styles.childRow}>
-                                  <span className={styles.childDot} style={{ background: sub.color }} />
-                                  {sub.name}
-                                </li>
-                              ))}
-
-                              {model.features.map((feature) => {
-                                const Icon = FEATURE_ICONS[feature.kind];
-                                return (
-                                  <li key={feature.id}>
-                                    <div
-                                      role="button"
-                                      tabIndex={0}
-                                      className={clsx(styles.treeRow, styles.featureRow, {
-                                        [styles.selected]: selectedFeatureId === feature.id,
-                                        [styles.suppressed]: feature.suppressed,
-                                        [styles.errored]: !!feature.error,
-                                      })}
-                                      onClick={() => setSelectedFeatureId(feature.id)}
-                                      onKeyDown={(e) => { if (e.key === 'Enter') setSelectedFeatureId(feature.id); }}
-                                    >
-                                      <Icon className={clsx('w-3 h-3', styles.nodeIcon)} />
-                                      <span className={styles.nodeName}>{feature.name}</span>
-                                      <button
-                                        className={styles.nodeAction}
-                                        title={feature.suppressed ? 'Réactiver' : 'Supprimer du calcul'}
-                                        onClick={(e) => { e.stopPropagation(); toggleSuppress(model.id, feature.id); }}
-                                      >
-                                        {feature.suppressed ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                                      </button>
-                                      <button
-                                        className={styles.nodeAction}
-                                        title="Supprimer"
-                                        onClick={(e) => { e.stopPropagation(); deleteFeature(model.id, feature.id); }}
-                                      >
-                                        <Trash2 className="w-3 h-3" />
-                                      </button>
-                                    </div>
-                                  </li>
-                                );
-                              })}
-                            </motion.ul>
-                          )}
-                        </AnimatePresence>
-                      </motion.li>
-                    );
-                  })}
-                </AnimatePresence>
-              </ul>
-            )}
-          </ExternalScrollArea>
+      <ModelTree models={models} expanded={expanded} selectedModel={selectedModel} selectModelInViewport={selectModelInViewport} toggleExpand={toggleExpand} selectedFeatureId={selectedFeatureId} setSelectedFeatureId={setSelectedFeatureId} toggleSuppress={toggleSuppress} deleteFeature={deleteFeature} />
           </motion.div>
           </motion.div>
 
           {/* ---- Paramètres de la feature sélectionnée ---- */}
-          <AnimatePresence initial={false}>
-            {selectedFeature && targetModel && (
-              <motion.div
-                className={styles.params}
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-              >
-                <div className={styles.paramsTitle}>{selectedFeature.name}</div>
-
-                {selectedFeature.kind === 'sketch' && selectedFeature.planeRef.kind === 'axis' && (
-                  <div className={styles.paramRow}>
-                    <span className={styles.paramLabel}>Plan</span>
-                    <select
-                      className={styles.paramSelect}
-                      value={selectedFeature.planeRef.plane}
-                      onChange={(e) =>
-                        updateFeature(targetModel.id, selectedFeature.id, {
-                          planeRef: { kind: 'axis', plane: e.target.value as SketchPlane },
-                        })
-                      }
-                    >
-                      {/* Repère Babylon, Y vertical : XZ est le plan du sol (dessus). */}
-                      <option value="XZ">XZ (dessus)</option>
-                      <option value="XY">XY (face)</option>
-                      <option value="YZ">YZ (côté)</option>
-                    </select>
-                  </div>
-                )}
-
-                {selectedFeature.kind === 'sketch' && selectedFeature.planeRef.kind === 'face' && (
-                  <div className={styles.paramRow}>
-                    <span className={styles.paramLabel}>Plan</span>
-                    <span className={styles.paramLabel} style={{ color: 'rgba(0,240,255,0.85)' }}>
-                      Face sélectionnée
-                    </span>
-                  </div>
-                )}
-
-                {selectedFeature.kind === 'extrude' && (
-                  <>
-                    <div className={styles.paramRow}>
-                      <span className={styles.paramLabel}>Distance (mm)</span>
-                      <input
-                        type="number"
-                        className={styles.paramInput}
-                        value={selectedFeature.distance}
-                        step={0.5}
-                        onChange={(e) =>
-                          updateFeature(targetModel.id, selectedFeature.id, { distance: Number(e.target.value) })
-                        }
-                      />
-                    </div>
-                    <div className={styles.paramRow}>
-                      <label className={styles.paramToggle}>
-                        <input
-                          type="checkbox"
-                          checked={selectedFeature.symmetric}
-                          onChange={(e) =>
-                            updateFeature(targetModel.id, selectedFeature.id, { symmetric: e.target.checked })
-                          }
-                        />
-                        Symétrique
-                      </label>
-                    </div>
-                  </>
-                )}
-
-                {selectedFeature.kind === 'revolve' && (
-                  <div className={styles.paramRow}>
-                    <span className={styles.paramLabel}>Angle (°)</span>
-                    <input
-                      type="number"
-                      className={styles.paramInput}
-                      value={selectedFeature.angle}
-                      min={1}
-                      max={360}
-                      onChange={(e) =>
-                        updateFeature(targetModel.id, selectedFeature.id, { angle: Number(e.target.value) })
-                      }
-                    />
-                  </div>
-                )}
-
-                {selectedFeature.kind === 'fillet' && (
-                  <div className={styles.paramRow}>
-                    <span className={styles.paramLabel}>Rayon (mm)</span>
-                    <input
-                      type="number"
-                      className={styles.paramInput}
-                      value={selectedFeature.radius}
-                      step={0.5}
-                      min={0.1}
-                      onChange={(e) =>
-                        updateFeature(targetModel.id, selectedFeature.id, { radius: Number(e.target.value) })
-                      }
-                    />
-                  </div>
-                )}
-
-                {selectedFeature.kind === 'chamfer' && (
-                  <div className={styles.paramRow}>
-                    <span className={styles.paramLabel}>Distance (mm)</span>
-                    <input
-                      type="number"
-                      className={styles.paramInput}
-                      value={selectedFeature.distance}
-                      step={0.5}
-                      min={0.1}
-                      onChange={(e) =>
-                        updateFeature(targetModel.id, selectedFeature.id, { distance: Number(e.target.value) })
-                      }
-                    />
-                  </div>
-                )}
-
-                {selectedFeature.kind === 'mirror' && (
-                  <div className={styles.paramRow}>
-                    <span className={styles.paramLabel}>Centre X</span>
-                    <input
-                      type="number"
-                      className={styles.paramInput}
-                      value={selectedFeature.center.x}
-                      onChange={(e) =>
-                        updateFeature(targetModel.id, selectedFeature.id, {
-                          center: { ...selectedFeature.center, x: Number(e.target.value) },
-                        })
-                      }
-                    />
-                  </div>
-                )}
-
-                {(selectedFeature.kind === 'fillet' || selectedFeature.kind === 'chamfer') && (
-                  <div className={styles.paramRow}>
-                    <span className={styles.paramLabel}>
-                      <MousePointerSquareDashed className="w-3 h-3 inline mr-1" />
-                      {selectedFeature.targetIds.length} face(s) sélectionnée(s)
-                    </span>
-                  </div>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
+      <FeatureParams selectedFeature={selectedFeature} targetModel={targetModel} updateFeature={updateFeature} />
         </div>
       </div>
 
@@ -1121,63 +787,7 @@ export const ModelingSidebar: React.FC<ModelingSidebarProps> = ({ morph }) => {
       </AnimatePresence>
 
       {/* ---------- Petite barre des formes d'esquisse, juste sous la barre principale ---------- */}
-      <AnimatePresence initial={false}>
-        {activeTool === 'sketch' && (
-          <motion.div
-            className={styles.sketchBar}
-            data-apex-chrome-panel
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
-          >
-            {/* Groupe centré : la barre d'outils reste au milieu de l'écran, le bouton « Terminer
-                l'esquisse » est posé sur son côté (positionné hors du flux, à droite de la barre). */}
-            <div className={styles.sketchBarGroup}>
-            <CustomTooltip
-              inline
-              container
-              content="Boîte à outils Esquisse"
-              description="Suite d'outils permettant la définition des contours d'une conception tridimensionnelle."
-            >
-            <div className={styles.sketchBarInner}>
-              {SKETCH_ENTITIES.map(({ kind, icon: Icon }) => (
-                <CustomTooltip
-                  key={kind}
-                  content={SKETCH_ENTITY_LABELS[kind]}
-                  description={kind === 'rectangle' ? 'Tracer un rectangle sur la grille (aimantée).' : 'Arrive bientôt.'}
-                >
-                  <button
-                    className={clsx(styles.barButton, { [styles.active]: sketchEntity === kind })}
-                    onClick={() => handleSketchEntity(kind)}
-                    disabled={kind !== 'rectangle'}
-                    aria-label={SKETCH_ENTITY_LABELS[kind]}
-                  >
-                    <Icon className="w-5 h-5" />
-                  </button>
-                </CustomTooltip>
-              ))}
-            </div>
-            </CustomTooltip>
-            <CustomTooltip
-              inline
-              wrapperStyle={{ position: 'absolute', left: '100%', top: 0, marginLeft: 8 }}
-              content="Terminer l'esquisse"
-              description="Valide l'esquisse en cours et quitte l'outil Esquisse ; l'orbite de la vue est de nouveau possible."
-            >
-              <button
-                type="button"
-                className={styles.finishSketchButton}
-                onClick={handleFinishSketch}
-                aria-label="Terminer l'esquisse"
-              >
-                <FinishSketchIcon className="h-7 w-14" />
-              </button>
-            </CustomTooltip>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <SketchBar activeTool={activeTool} sketchEntity={sketchEntity} handleSketchEntity={handleSketchEntity} handleFinishSketch={handleFinishSketch} />
     </>
   );
 };

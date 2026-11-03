@@ -2,9 +2,13 @@
 
 Historique de toutes les versions du logiciel Apex (numéro de version), et non des Releases GitHub. Seul lien avec la publication : le compteur Builds (voir `CLAUDE.md`). Format et règles de numérotation : section « Versioning » de `CLAUDE.md`.
 
-**Version actuelle : `alpha-0.2.3.1.3.9.0.221`**
+**Version actuelle : `alpha-0.2.3.1.3.10.0.221`**
 
 `<préversion>-<public>.<global>.<majeur>.<moyen>.<mineur>.<add-ins>.<correctif>.<builds>`
+
+## alpha-0.2.3.1.3.10.0.221 — 2026-11-03
+
+R-031 point 1 : `ModelingSidebar.tsx` 1 183 → 793 lignes (arborescence `ModelingTree.tsx`, paramètres `ModelingFeatureParams.tsx`, barre d'esquisse `ModelingSketchBar.tsx`, tables dans `modelingData.tsx`). Aucun changement de comportement ; Add-ins incrémenté. Vérifié : `tsc`, lint, 79 tests, et capture de l'espace Modélisation identique au pixel près avant/après (Chromium headless, sans modèle chargé : l'arborescence peuplée n'est pas exercée). Dette de fichiers restante : 3 (Viewport3D, gcodeLayer, gcodeEditController).
 
 ## alpha-0.2.3.1.3.9.0.221 — 2026-11-03
 
