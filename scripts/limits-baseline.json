@@ -3,7 +3,6 @@
  "file:src/components/ModelingSidebar.tsx": 1183,
  "file:src/components/Viewport3D.tsx": 6497,
  "file:src/components/edit-node/EditNode.tsx": 1024,
- "file:src/components/edit-node/EditionPanel.tsx": 911,
  "file:src/components/edit-node/gcodeEditController.ts": 1852,
  "file:src/components/gcodeLayer.ts": 1894,
  "fn:electron/main.cjs::createWindow#1": 105,
