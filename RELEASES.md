@@ -2,9 +2,13 @@
 
 Historique de toutes les versions du logiciel Apex (numéro de version), et non des Releases GitHub. Seul lien avec la publication : le compteur Builds (voir `CLAUDE.md`). Format et règles de numérotation : section « Versioning » de `CLAUDE.md`.
 
-**Version actuelle : `alpha-0.2.3.1.3.8.0.221`**
+**Version actuelle : `alpha-0.2.3.1.3.9.0.221`**
 
 `<préversion>-<public>.<global>.<majeur>.<moyen>.<mineur>.<add-ins>.<correctif>.<builds>`
+
+## alpha-0.2.3.1.3.9.0.221 — 2026-11-03
+
+R-031 point 3 : test de l'aller-retour `gcodeParse` ↔ `gcodeWriter` (`src/utils/gcodeWriter.test.ts`) : texte inchangé sans édition, étiquettes `;TYPE:` et commentaires de fin de ligne conservés après édition, valeur éditée relue par l'analyseur. Vérifié par mutation (un writer qui perd les commentaires fait échouer le test). Reste à couvrir : logique du viewport, client du noyau d'édition. Add-ins incrémenté.
 
 ## alpha-0.2.3.1.3.8.0.221 — 2026-11-03
 
