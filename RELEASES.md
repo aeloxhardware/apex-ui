@@ -2,13 +2,17 @@
 
 Historique de toutes les versions du logiciel Apex (numéro de version), et non des Releases GitHub. Seul lien avec la publication : le compteur Builds (voir `CLAUDE.md`). Format et règles de numérotation : section « Versioning » de `CLAUDE.md`.
 
-**Version actuelle : `alpha-0.2.3.1.3.7.0.221`**
+**Version actuelle : `alpha-0.2.3.1.3.8.0.221`**
 
 `<préversion>-<public>.<global>.<majeur>.<moyen>.<mineur>.<add-ins>.<correctif>.<builds>`
 
+## alpha-0.2.3.1.3.8.0.221 — 2026-11-03
+
+R-031 point 1 : `EditNode.tsx` 1 025 → 400 lignes (poignée, gouttelette, constantes d'animation et icônes dans `editNodeParts.tsx`, types dans `editNodeTypes.ts`). Aucun changement de comportement ; Add-ins incrémenté. Dette de fichiers restante : 4 (Viewport3D, gcodeLayer, gcodeEditController, ModelingSidebar). Le composant `Handle` (331 lignes) a changé de fichier sans changer de taille : sa dette est reportée telle quelle dans `limits-baseline.json`, à découper ensuite.
+
 ## alpha-0.2.3.1.3.7.0.221 — 2026-11-03
 
-R-031 point 1 : `CategoriesSidebar.tsx` 1 042 → 799 lignes (catalogue des catégories dans `categoriesData.tsx`, géométrie et animations dans `categoriesMotion.ts`). Aucun changement de comportement ; Add-ins incrémenté. Dette de fichiers restante : 5 (Viewport3D, gcodeLayer, gcodeEditController, ModelingSidebar, EditNode).
+R-031 point 1 : `CategoriesSidebar.tsx` 1 042 → 800 lignes (catalogue des catégories dans `categoriesData.tsx`, géométrie et animations dans `categoriesMotion.ts`). Aucun changement de comportement ; Add-ins incrémenté. Dette de fichiers restante : 5 (Viewport3D, gcodeLayer, gcodeEditController, ModelingSidebar, EditNode).
 
 ## alpha-0.2.3.1.3.6.0.221 — 2026-11-03
 
