@@ -2,9 +2,13 @@
 
 Historique de toutes les versions du logiciel Apex (numéro de version), et non des Releases GitHub. Seul lien avec la publication : le compteur Builds (voir `CLAUDE.md`). Format et règles de numérotation : section « Versioning » de `CLAUDE.md`.
 
-**Version actuelle : `alpha-0.2.3.1.3.10.0.221`**
+**Version actuelle : `alpha-0.2.3.1.3.11.0.221`**
 
 `<préversion>-<public>.<global>.<majeur>.<moyen>.<mineur>.<add-ins>.<correctif>.<builds>`
+
+## alpha-0.2.3.1.3.11.0.221 — 2026-11-03
+
+R-031 point 6 : un seul gestionnaire de paquets, **pnpm** (choisi : `CLAUDE.md`, `pnpm-workspace.yaml` et la CI l'utilisent déjà, installation figée `--frozen-lockfile`, stockage dédupliqué). `package-lock.json` supprimé ; `pnpm-lock.yaml` fait foi. Numéro aligné sur `apex/VERSION` (RULES §9.1 : le plus élevé s'applique). Add-ins incrémenté.
 
 ## alpha-0.2.3.1.3.10.0.221 — 2026-11-03
 
