@@ -23,7 +23,6 @@ import { getPreviewTab, usePreviewTab } from './PreviewUpperTabs';
 import { usePreviewPanelVars } from '@/hooks/use-preview-panel-vars';
 import { CATEGORIES, type CategoryItem } from './categoriesData';
 export type { CategoryItem } from './categoriesData';
-
 import {
   MENU_OFFSET_Y, MENU_W, MENU_R, MENU_STAGE_H, MENU_MORPH_MS, PREVIEW_STRETCH_MS, PREVIEW_HOLD_MS, PREVIEW_DIVIDE_MS, PREVIEW_MORPH_MS, pillIconsContainerVariants, pillIconVariants,
 } from './categoriesMotion';
