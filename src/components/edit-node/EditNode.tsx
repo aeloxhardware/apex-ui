@@ -6,7 +6,6 @@ import {
   useSpring,
   useTransform,
   type MotionValue,
-  type Transition,
 } from "framer-motion";
 import { GLASS_LENS_ATTR, GLASS_PULL_ATTR, MAX_PULLS } from "./liquidGlass";
 import styles from "./EditNode.module.scss";
@@ -265,7 +264,7 @@ interface HandleProps {
   /** Position du nœud : une poignée verrouillée garde sa position absolue quand il bouge. */
   nodeX: number;
   nodeY: number;
-  anchorRef: React.RefObject<HTMLDivElement>;
+  anchorRef: React.RefObject<HTMLDivElement | null>;
   registry: React.MutableRefObject<HandleRegistry>;
   /** La poignée entre / sort de la zone de suppression (centre du nœud). */
   onDoomedChange: (id: number, doomed: boolean) => void;

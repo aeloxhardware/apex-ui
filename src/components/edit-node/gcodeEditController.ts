@@ -510,7 +510,7 @@ export function createGCodeEditController(opts: {
       }
       return;
     }
-    if (attempt < 12) headTimer = window.setTimeout(() => void refreshHeadSamples(attempt + 1), 1500);
+    if (attempt < 12) headTimer = window.setTimeout((): void => void refreshHeadSamples(attempt + 1), 1500);
   };
 
   // --- verrous de zones de matière -----------------------------------------------------------------
@@ -958,7 +958,7 @@ export function createGCodeEditController(opts: {
     layer.setEditWeights(null);
     clearPreviews();
     pushTransform(null);
-    if (status === 'ready') void editKernel.cancel().catch(() => undefined);
+    if (status === 'ready') void editKernel.cancel().catch((): void => undefined);
     updateView(true);
     emit();
   };
@@ -1225,7 +1225,7 @@ export function createGCodeEditController(opts: {
       updatePreview(n, res);
       scheduleLiveValidation(n);
       emit();
-    }).catch(() => undefined);
+    }).catch((): void => undefined);
   };
 
   const applyChange = (indices?: Uint32Array, values?: Float64Array, trimmed?: Uint32Array, trimState?: boolean) => {
@@ -1723,7 +1723,7 @@ export function createGCodeEditController(opts: {
     // Le noyau garde ses bornes jusqu'à nouvel ordre : les lui donner, puis refaire les poids du nœud actif.
     void editKernel.setLayerLimits(layerLimits.minMm, layerLimits.maxMm, layerLimits.widthFactor)
       .then(() => { if (node) requestWeights(); })
-      .catch(() => undefined);
+      .catch((): void => undefined);
   };
   const onAnalyze = (e: Event) => { void analyzeFile(!!(e as CustomEvent<{ collisions: boolean }>).detail?.collisions); };
   const onUndo = () => historyStep('undo');

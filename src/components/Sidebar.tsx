@@ -60,7 +60,6 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   onTabChange,
-  onOpenModel
 }) => {
   const [activeTool, setActiveTool] = useState<'select' | 'move' | 'rotate' | 'scale' | 'texture' | 'layers'>('select');
   const [isPreviewActive, setIsPreviewActive] = useState(false);

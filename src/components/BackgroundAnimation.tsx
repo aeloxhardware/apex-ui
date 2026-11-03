@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 
 export const BackgroundAnimation: React.FC = () => {
   const gridLines = useMemo(() => {
-    const lines = [];
+    const lines: ({ id: string; type: 'h'; y: number } | { id: string; type: 'v'; x: number })[] = [];
     const step = 40;
     
     // Horizontal lines

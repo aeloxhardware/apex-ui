@@ -119,7 +119,7 @@ function capTriangles(segments: [P3, P3][], zc: number): [P3, P3, P3][] {
   const outers: number[] = [];
   const holes: number[] = [];
   areas.forEach((a, i) => (Math.sign(a) === dominant ? outers : holes).push(i));
-  const holesOf = new Map<number, number[]>(outers.map((o) => [o, []]));
+  const holesOf = new Map<number, number[]>(outers.map((o): [number, number[]] => [o, []]));
   for (const h of holes) {
     let owner = -1;
     for (const o of outers) {

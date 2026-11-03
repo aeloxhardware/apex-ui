@@ -111,7 +111,7 @@ class EditDeformPlugin extends BABYLON.MaterialPluginBase {
     uniformBuffer.updateFloat4('apexEditTint', EDIT_TINT.r, EDIT_TINT.g, EDIT_TINT.b, EDIT_TINT_MAX * editDeformState.tint);
   }
 
-  getCustomCode(shaderType: string) {
+  getCustomCode(shaderType: string): { [pointName: string]: string } | null {
     if (shaderType === 'vertex') {
       return {
         CUSTOM_VERTEX_DEFINITIONS: `#ifdef APEX_EDIT_DEFORM

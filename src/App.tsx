@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, lazy } from 'react';
+import { Suspense, lazy } from 'react';
 // HashRouter : sous file:// (application de bureau) le chemin de la page n'est pas « / », BrowserRouter ne reconnaitrait aucune route.
 import { HashRouter as Router, Routes, Route } from 'react-router-dom';
 import { isFlatUi } from '@/utils/interfaceMode';

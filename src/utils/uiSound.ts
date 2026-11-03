@@ -98,7 +98,7 @@ function getAudioContext(): AudioContext | null {
 export function closeUiAudio() {
   for (const name of Object.keys(buffers) as UiSoundName[]) delete buffers[name];
   buffersLoading = null;
-  void audioContext?.close().catch(() => undefined);
+  void audioContext?.close().catch((): void => undefined);
   audioContext = null;
 }
 

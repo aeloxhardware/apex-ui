@@ -135,7 +135,7 @@ export function applyLiquidGlassShadow(
  * d'une frame à l'autre, rendant les deux silhouettes visibles décalées l'une de l'autre).
  */
 export function useLiquidGlassClip(
-  ref: React.RefObject<HTMLElement>,
+  ref: React.RefObject<HTMLElement | null>,
   { duration, pathAt, reverse = false, onDone }: LiquidGlassMorphTimingProps,
   deps: React.DependencyList,
   onFrame?: (progress: number) => void,

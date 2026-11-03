@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { DEFAULT_GLASS, GLASS_LENS_ATTR, GLASS_PULL_ATTR, LiquidGlassRenderer, collectLenses, type GlassParams } from '@/components/edit-node/liquidGlass';
 import { Orb } from '@yogesharc/thinking-orbs';
 import styles from './AssistantLab.module.scss';

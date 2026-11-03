@@ -5,20 +5,18 @@ import { toolheadModelUrl } from '@/utils/toolheadModels';
 import {
   LINE_TYPES,
   DEFAULT_LINE_VISIBILITY,
-  resolveLineType,
   type LineTypeId,
   type LineTypeVisibility,
 } from './gcodeLineTypes';
-import { detectGeneratorSignature, guessGeneratorFromFeature, type GCodeGenerator } from './gcodeGenerator';
 import { colorForMode, defaultColorByScope, type ColorByScope } from './gcodeColormap';
 import { isColorByDeferred } from '@/utils/gcodeColorByPrefs';
 import { attachEditDeform, editDeformState, EDIT_AXIS_KIND, EDIT_SLIDE_KIND, EDIT_WEIGHT_KIND } from './gcodeEditDeform';
 import { EDIT_VALUES_PER_POINT } from '@/utils/editKernelClient';
 
 import {
-  type GCodeKind, type GCodeMove, type LineTypeStat, type MarkerTypeId, type ContinuousColorByMode,
-  type ColorByMode, type ColorByRange, type ColorByRanges, type ParsedGCode, type ConversionMode,
-  PLATE_RADIUS_MM, SUSPICIOUS_C_RANGE_DEG, MAX_SUBSEGMENT_DEG, DEG2RAD, nozzleTip, moveLength, parseGCode, timeAtIndex, indexAtTime, stateAt, toolAxisAt,
+  type ContinuousColorByMode,
+  type ColorByMode, type ParsedGCode, 
+  MAX_SUBSEGMENT_DEG, DEG2RAD, nozzleTip, moveLength, stateAt, toolAxisAt,
 } from './gcodeParse';
 
 // Le parseur (sans Babylon) vit dans gcodeParse.ts pour pouvoir tourner dans un Web Worker ;

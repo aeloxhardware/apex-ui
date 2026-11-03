@@ -1,4 +1,3 @@
-import React from 'react';
 
 /**
  * Icônes des outils à gizmo (translation, rotation, redimensionnement). Les tracés sont ceux des icônes Lucide

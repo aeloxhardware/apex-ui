@@ -7,7 +7,6 @@ import {
   Gauge,
   Sparkles,
   Terminal,
-  ChevronDown,
   Check
 } from 'lucide-react';
 import { CustomTooltip } from './CustomTooltip';
@@ -20,7 +19,7 @@ import {
 import { LiquidGlassMorph, GLASS_BLUR_PX, PREVIEW_GLASS_BLUR_PX } from './LiquidGlassMorph';
 import styles from './CategoriesSidebar.module.scss';
 import { showSuccess } from '@/utils/toast';
-import { mitosisPath, rectPath, stretchPath, type GlassRect } from '@/utils/liquidGlass';
+import { mitosisPath, rectPath, stretchPath } from '@/utils/liquidGlass';
 import {
   PANEL_LEFT, PILL_TOP, PILL, PREVIEW_W, previewGeometry, FROM_PREVIEW_FADE_MS, previewTabLayout, tabMorphPathAt,
   TAB_CASCADE_FADE_MS, TAB_CASCADE_STAGGER_MS, TAB_MORPH_MS,
@@ -64,7 +63,6 @@ const pillIconVariants = {
   hidden: { opacity: 0, x: -14, y: -4, transition: { duration: PILL_ICON_FADE_MS, ease: [0.4, 0, 0.2, 1] as const } },
 };
 
-const SolidityIcon = () => <BicepsFlexed size={20} />;
 
 // Icône personnalisée "Supports" : barres verticales évoquant une structure de support
 const SupportsIcon = () => (
@@ -485,7 +483,7 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
       { duration: TAB_CASCADE_FADE_MS, delay: i * TAB_CASCADE_STAGGER_MS, easing: 'cubic-bezier(0.4, 0, 0.2, 1)', fill: 'forwards' },
     ));
     let finished = false;
-    Promise.all(animations.map((a) => a.finished.catch(() => undefined))).then(() => {
+    Promise.all(animations.map((a) => a.finished.catch((): void => undefined))).then(() => {
       if (cancelled) return;
       finished = true;
       setTabMorph('absorb');

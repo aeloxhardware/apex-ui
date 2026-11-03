@@ -171,7 +171,7 @@ interface Placed { poly: Pt[]; cx: number; cz: number; area: number }
 export const arrange = (inputs: ArrangeInput[], params: ArrangeParams): ArrangeResult[] => {
   const { binRadius, spacing, allowRotations } = params;
   const binArea = Math.PI * binRadius * binRadius;
-  const results: ArrangeResult[] = inputs.map(() => ({ center: null, angle: 0 }));
+  const results: ArrangeResult[] = inputs.map((): ArrangeResult => ({ center: null, angle: 0 }));
 
   const items: Item[] = inputs.map((inp, index) => {
     const hull = convexHull(inp.outline);

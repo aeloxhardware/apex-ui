@@ -2,9 +2,17 @@
 
 Historique de toutes les versions du logiciel Apex (numéro de version), et non des Releases GitHub. Seul lien avec la publication : le compteur Builds (voir `CLAUDE.md`). Format et règles de numérotation : section « Versioning » de `CLAUDE.md`.
 
-**Version actuelle : `alpha-0.2.3.1.3.2.0.221`**
+**Version actuelle : `alpha-0.2.3.1.3.3.0.221`**
 
 `<préversion>-<public>.<global>.<majeur>.<moyen>.<mineur>.<add-ins>.<correctif>.<builds>`
+
+## alpha-0.2.3.1.3.3.0.221 — 2026-11-03
+
+R-031 point 2 : TypeScript strict. Add-ins incrémenté.
+
+- `strict`, `noImplicitAny`, `noUnusedLocals`, `noUnusedParameters` activés dans `tsconfig.app.json` et `tsconfig.json` (0 erreur de type ; ne plus jamais les relâcher).
+- Code mort retiré par le compilateur : imports et variables inutilisés, `createBoundaryMaterial` (Viewport3D, −55 lignes), paramètre `onOpenModel` de `Sidebar`.
+- Types précisés : `.catch((): void => undefined)`, `RefObject<… | null>`, union discriminée des lignes de grille, `getCustomCode` de `EditDeformPlugin`.
 
 ## alpha-0.2.3.1.3.2.0.221 — 2026-11-03
 

@@ -5,7 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useExternalScrollThumb } from '@/hooks/use-external-scroll-thumb';
 import { LINE_TYPES, type LineTypeId, type LineTypeVisibility } from './gcodeLineTypes';
 import type { ColorByMode, ColorByRange, ContinuousColorByMode } from './gcodeLayer';
-import { COLOR_BY_LABELS, COLOR_BY_UNITS, COLORMAP_STOPS_HEX, defaultColorByScope, type ColorByScope } from './gcodeColormap';
+import { COLOR_BY_LABELS, COLOR_BY_UNITS, COLORMAP_STOPS_HEX, type ColorByScope } from './gcodeColormap';
 import type { GCodeFileInfo } from '@/hooks/use-gcode-preview';
 import styles from './GCodeLineTypeLegend.module.scss';
 import { ExternalScrollArea } from './ExternalScrollArea';

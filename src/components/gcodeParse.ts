@@ -1,9 +1,7 @@
 import {
   LINE_TYPES,
-  DEFAULT_LINE_VISIBILITY,
   resolveLineType,
   type LineTypeId,
-  type LineTypeVisibility,
 } from './gcodeLineTypes';
 import { findAirContours } from './gcodeAirContours';
 import { detectGeneratorSignature, guessGeneratorFromFeature, type GCodeGenerator } from './gcodeGenerator';
