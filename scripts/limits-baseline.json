@@ -1,8 +1,6 @@
 {
  "file:src/components/CategoriesSidebar.tsx": 1041,
- "file:src/components/Lightfall.tsx": 819,
  "file:src/components/ModelingSidebar.tsx": 1183,
- "file:src/components/Sidebar.tsx": 864,
  "file:src/components/Viewport3D.tsx": 6497,
  "file:src/components/edit-node/EditNode.tsx": 1024,
  "file:src/components/edit-node/EditionPanel.tsx": 911,
@@ -26,7 +24,7 @@
  "fn:src/components/NotificationStack.tsx::NotificationStack/<anon>#28": 85,
  "fn:src/components/ParamsPanel.tsx::ParamsPanel#1": 189,
  "fn:src/components/PrinterConfigSidebar.tsx::PrinterConfigSidebar#1": 193,
- "fn:src/components/Sidebar.tsx::Sidebar#1": 805,
+ "fn:src/components/Sidebar.tsx::Sidebar#1": 748,
  "fn:src/components/SpaceTransitionOverlay.tsx::SpaceTransitionOverlay#1": 251,
  "fn:src/components/SpaceTransitionOverlay.tsx::SpaceTransitionOverlay/<anon>#4": 111,
  "fn:src/components/TextureEditorModal.tsx::TextureEditorModal#1": 183,

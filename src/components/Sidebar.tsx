@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MODEL_FILE_EXT, importModelsOneByOne } from '@/utils/importModels';
-import { motion, Variants } from 'framer-motion';
+import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import ToolAxisIcon from './ToolAxisIcons';
 import TransformBox from './TransformBox';
@@ -20,30 +20,16 @@ import styles from './Sidebar.module.scss';
 import { CustomTooltip } from './CustomTooltip';
 import { BricksIcon } from './ModelingIcons';
 import { PREVIEW_TABS, getPreviewTab, setPreviewTab, usePreviewTab } from './PreviewUpperTabs';
-import { playUiSound, type UiSoundName } from '@/utils/uiSound';
+import { playUiSound } from '@/utils/uiSound';
 import { GCODE_FILE_EXT } from '@/hooks/use-gcode-preview';
 import { showSuccess } from '@/utils/toast';
 import { APP_TAGLINE_DEV, APP_TAGLINE_PREVIEW, isDevModeEnabled, subscribeDevMode } from '@/utils/devModePrefs';
 import { getStartPage } from '@/utils/startPagePrefs';
+import {
+  VIEWCUBE_RIGHT, VIEWCUBE_BOTTOM, PREVIEW_TOOLBAR_TOP_GAP, PREVIEW_TOOLBAR_WIDTH, BOTTOM_TOOLBAR_REST_TOP,
+  CONTAINER_RESHAPE_DURATION, SPACE_LABELS, SPACE_SOUNDS, TOOL_LABELS, iconVariants,
+} from './sidebarData';
 
-// Doit correspondre à ViewCube.module.scss (`.container`) : la colonne d'outils du mode
-// Prévisualisation vient se coller au même bord droit, juste sous le gizmo.
-const VIEWCUBE_RIGHT = 24;
-const VIEWCUBE_BOTTOM = 70 + 130; // top + height
-const PREVIEW_TOOLBAR_TOP_GAP = 10; // marge entre le bas du ViewCube et le haut de la colonne
-const PREVIEW_TOOLBAR_WIDTH = 56; // largeur de la colonne de calques en mode Prévisualisation
-
-// Position de repos (mode box, sans transformation) du haut de `.bottomToolbar` : top du
-// `.container` (20px) + hauteur du `.topToolbar` (42px de bouton + 8px de padding de
-// chaque côté = 58px) + le gap de la pile flex (10px). Doit rester en phase avec
-// Sidebar.module.scss si ces valeurs changent.
-const BOTTOM_TOOLBAR_REST_TOP = 20 + 58 + 10;
-
-// Durée totale de l'animation de déplacement/déformation du conteneur `.bottomToolbar`
-// (voir son `transition` plus bas) : c'est le délai avant lequel les icônes du mode cible
-// ne doivent JAMAIS commencer à apparaître (cf. `iconVariants.visible`), dans tous les sens
-// de transition. Partagée par les deux pour qu'elles ne puissent pas diverger.
-const CONTAINER_RESHAPE_DURATION = 1.1;
 
 interface SidebarProps {
   activeTab: '3d-view' | 'settings' | 'developer' | 'params' | 'home';
@@ -158,24 +144,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     fileInputRef.current?.click();
   };
 
-  const SPACE_LABELS: Record<'box' | 'settings' | 'developer' | 'layers' | 'params' | 'home', string> = {
-    home: 'Accueil',
-    box: 'Préparation',
-    settings: 'Modélisation',
-    developer: 'Dev',
-    layers: 'Prévisualisation',
-    params: 'Paramètres',
-  };
-
-  // Son propre à l'espace d'arrivée. Pas de son pour la console Dev ni pour les Paramètres.
-  const SPACE_SOUNDS: Record<'box' | 'settings' | 'developer' | 'layers' | 'params' | 'home', UiSoundName | null> = {
-    home: null,
-    box: 'spacePreparation',
-    settings: 'spaceModeling',
-    developer: null,
-    layers: 'spacePreview',
-    params: null,
-  };
 
   /**
    * Joue le rideau "APEX / <espace>" (voir SpaceTransitionOverlay) puis exécute `onCovered`
@@ -250,14 +218,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
-  const TOOL_LABELS: Record<'select' | 'move' | 'rotate' | 'scale' | 'texture' | 'layers', string> = {
-    select: 'Sélection',
-    move: 'Déplacement',
-    rotate: 'Rotation',
-    scale: 'Échelle',
-    texture: 'Texture',
-    layers: 'Prévisualisation',
-  };
   const announceTool = (tool: keyof typeof TOOL_LABELS) => {
     showSuccess(`Outil ${TOOL_LABELS[tool]} activé.`);
   };
@@ -500,37 +460,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   }, [activeTab, activeTool]);
 
-  const iconVariants: Variants = {
-    // Les icônes du mode cible n'apparaissent qu'UNE FOIS le reshape du conteneur terminé
-    // (durée totale de l'animation de `.bottomToolbar`, voir CONTAINER_RESHAPE_DURATION) —
-    // dans tous les sens de transition, pas seulement Prévisualisation→Modélisation. Sans ce
-    // délai de base, les icônes du nouveau mode démarraient leur propre petit délai en
-    // cascade (`i*0.04`) dès le changement de state React, bien avant que le conteneur ait
-    // fini de se déplacer/déformer.
-    visible: (i: number) => ({
-      opacity: 1,
-      y: 0,
-      scale: 1,
-      transition: {
-        delay: CONTAINER_RESHAPE_DURATION + i * 0.04,
-        duration: 0.3,
-        ease: [0.16, 1, 0.3, 1] as const
-      }
-    }),
-    // La sortie, elle, doit rester immédiate : les icônes du mode qu'on quitte doivent avoir
-    // disparu AVANT que le conteneur ne commence à se déformer (cf. keyframes `times` de
-    // `.bottomToolbar` : vidage sur les premiers 45%, déformation sur les 55% restants).
-    hidden: (i: number) => ({
-      opacity: 0,
-      y: 15,
-      scale: 0.95,
-      transition: {
-        delay: i * 0.04,
-        duration: 0.25,
-        ease: [0.25, 1, 0.5, 1] as const
-      }
-    })
-  };
 
   return (
     <div className={styles.container} data-apex-chrome-panel>
