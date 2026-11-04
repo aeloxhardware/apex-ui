@@ -2,9 +2,13 @@
 
 Historique de toutes les versions du logiciel Apex (numéro de version), et non des Releases GitHub. Seul lien avec la publication : le compteur Builds (voir `CLAUDE.md`). Format et règles de numérotation : section « Versioning » de `CLAUDE.md`.
 
-**Version actuelle : `alpha-0.2.3.1.3.17.0.221`**
+**Version actuelle : `alpha-0.2.3.1.4.0.0.221`**
 
 `<préversion>-<public>.<global>.<majeur>.<moyen>.<mineur>.<add-ins>.<correctif>.<builds>`
+
+## alpha-0.2.3.1.4.0.0.221 — 2026-11-04
+
+Contrat moteur ↔ interface passé de 2 à **3** (R-027, décision de l'utilisateur du 2026-11-04 : les défauts de buse très bas d'Element Aeolis sont gardés ; un défaut qui change le G-code incrémente le contrat, RULES §4.1). `APEX_CONTRACT_VERSION = 3` (`src/utils/engineContract.ts`), schéma et types resynchronisés (`schema:sync`, `schema:check` verts). Libellé « Angle de la buse » renommé **« Angle maximum buse-paroi »** (`EngineSettingsPanel.tsx`) ; le sens du réglage ne change pas. **À fusionner avec la PR du moteur qui passe le contrat à 3** : l'interface refuse un moteur d'une autre version. Mineur incrémenté.
 
 ## alpha-0.2.3.1.3.17.0.221 — 2026-11-04
 
