@@ -2,9 +2,13 @@
 
 Historique de toutes les versions du logiciel Apex (numéro de version), et non des Releases GitHub. Seul lien avec la publication : le compteur Builds (voir `CLAUDE.md`). Format et règles de numérotation : section « Versioning » de `CLAUDE.md`.
 
-**Version actuelle : `alpha-0.2.3.1.3.13.0.221`**
+**Version actuelle : `alpha-0.2.3.1.3.14.0.221`**
 
 `<préversion>-<public>.<global>.<majeur>.<moyen>.<mineur>.<add-ins>.<correctif>.<builds>`
+
+## alpha-0.2.3.1.3.14.0.221 — 2026-11-04
+
+R-031 point 3 : tests du client du noyau d'édition (`src/utils/editKernelClient.test.ts`, 5 tests sur un vrai `MessageChannel`, sans simulacre) : protocole `{id, op, args}`, erreurs du noyau, hors application de bureau, glissement « la plus récente remplace celle qui attend », commit qui écarte le glissement en attente puis applique la position finale. Vérifiés par mutation (les deux règles, une fois retirées, font échouer un test). Reste à couvrir : la logique du viewport. Add-ins incrémenté.
 
 ## alpha-0.2.3.1.3.13.0.221 — 2026-11-04
 
