@@ -215,7 +215,7 @@ export class OrcaRotateGizmo {
       };
       draw();
       // La police est servie par l'application : si elle n'est pas encore chargée, on redessine après.
-      void document.fonts?.load(`bold 44px ${LETTER_FONT}`).then(draw, () => undefined);
+      void document.fonts?.load(`bold 44px ${LETTER_FONT}`).then(draw, (): void => undefined);
       const mat = new BABYLON.StandardMaterial(`orcaRotateLetterMat${index}`, uscene);
       mat.diffuseTexture = texture;
       mat.useAlphaFromDiffuseTexture = true;

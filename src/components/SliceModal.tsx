@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import styles from './SliceModal.module.scss';
 import { Play, X, AlertTriangle } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { getSlicingMode, slicingAlgorithmName } from '@/utils/slicingMode';
 
 interface SliceModalProps {

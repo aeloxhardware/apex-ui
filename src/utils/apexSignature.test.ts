@@ -70,7 +70,7 @@ describe('formatGeneratorLabel', () => {
       .toEqual({ label: 'Généré par', value: 'Apex Slicer (version inconnue)' });
   });
   it('Apex : jamais « probablement » ni « déduit », sur les deux écrans', () => {
-    for (const a of [{ version: '1.2', prerelease: 'alpha' }, { version: null, prerelease: null }, { version: null, prerelease: null, unreadable: true }]) {
+    for (const a of [{ version: '1.2', prerelease: 'alpha' }, { version: null, prerelease: null }, { version: null, prerelease: null, unreadable: true }] as { version: string | null; prerelease: string | null; unreadable?: boolean }[]) {
       for (const screen of ['panel', 'classic'] as const) {
         const { label, value } = formatGeneratorLabel(apex(a), screen);
         expect(`${label} ${value}`).not.toMatch(/probablement|déduit/i);

@@ -337,7 +337,7 @@ export function useGCodePreview(active: boolean) {
       return;
     }
     setIsLoading(true);
-    const text = await file.text().catch(() => null);
+    const text = await file.text().catch((): string | null => null);
     const parsed = text === null ? null : await loadText(text, file.name);
     setIsLoading(false);
     if (!parsed) return;

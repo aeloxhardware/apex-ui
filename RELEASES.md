@@ -2,9 +2,61 @@
 
 Historique de toutes les versions du logiciel Apex (numéro de version), et non des Releases GitHub. Seul lien avec la publication : le compteur Builds (voir `CLAUDE.md`). Format et règles de numérotation : section « Versioning » de `CLAUDE.md`.
 
-**Version actuelle : `alpha-0.2.3.1.3.1.0.221`**
+**Version actuelle : `alpha-0.2.3.1.3.11.0.221`**
 
 `<préversion>-<public>.<global>.<majeur>.<moyen>.<mineur>.<add-ins>.<correctif>.<builds>`
+
+## alpha-0.2.3.1.3.11.0.221 — 2026-11-03
+
+R-031 point 6 : un seul gestionnaire de paquets, **pnpm** (choisi : `CLAUDE.md`, `pnpm-workspace.yaml` et la CI l'utilisent déjà, installation figée `--frozen-lockfile`, stockage dédupliqué). `package-lock.json` supprimé ; `pnpm-lock.yaml` fait foi. Numéro aligné sur `apex/VERSION` (RULES §9.1 : le plus élevé s'applique). Add-ins incrémenté.
+
+## alpha-0.2.3.1.3.10.0.221 — 2026-11-03
+
+R-031 point 1 : `ModelingSidebar.tsx` 1 183 → 793 lignes (arborescence `ModelingTree.tsx`, paramètres `ModelingFeatureParams.tsx`, barre d'esquisse `ModelingSketchBar.tsx`, tables dans `modelingData.tsx`). Aucun changement de comportement ; Add-ins incrémenté. Vérifié : `tsc`, lint, 79 tests, et capture de l'espace Modélisation identique au pixel près avant/après (Chromium headless, sans modèle chargé : l'arborescence peuplée n'est pas exercée). Dette de fichiers restante : 3 (Viewport3D, gcodeLayer, gcodeEditController).
+
+## alpha-0.2.3.1.3.9.0.221 — 2026-11-03
+
+R-031 point 3 : test de l'aller-retour `gcodeParse` ↔ `gcodeWriter` (`src/utils/gcodeWriter.test.ts`) : texte inchangé sans édition, étiquettes `;TYPE:` et commentaires de fin de ligne conservés après édition, valeur éditée relue par l'analyseur. Vérifié par mutation (un writer qui perd les commentaires fait échouer le test). Reste à couvrir : logique du viewport, client du noyau d'édition. Add-ins incrémenté.
+
+## alpha-0.2.3.1.3.8.0.221 — 2026-11-03
+
+R-031 point 1 : `EditNode.tsx` 1 025 → 400 lignes (poignée, gouttelette, constantes d'animation et icônes dans `editNodeParts.tsx`, types dans `editNodeTypes.ts`). Aucun changement de comportement ; Add-ins incrémenté. Dette de fichiers restante : 4 (Viewport3D, gcodeLayer, gcodeEditController, ModelingSidebar). Le composant `Handle` (331 lignes) a changé de fichier sans changer de taille : sa dette est reportée telle quelle dans `limits-baseline.json`, à découper ensuite.
+
+## alpha-0.2.3.1.3.7.0.221 — 2026-11-03
+
+R-031 point 1 : `CategoriesSidebar.tsx` 1 042 → 800 lignes (catalogue des catégories dans `categoriesData.tsx`, géométrie et animations dans `categoriesMotion.ts`). Aucun changement de comportement ; Add-ins incrémenté. Dette de fichiers restante : 5 (Viewport3D, gcodeLayer, gcodeEditController, ModelingSidebar, EditNode).
+
+## alpha-0.2.3.1.3.6.0.221 — 2026-11-03
+
+R-031 point 1 : `EditionPanel.tsx` 911 → 717 lignes (listes de choix et textes dans `editionPanelData.ts`, `NumberField` et `NormalGraph` dans `EditionPanelWidgets.tsx`). Aucun changement de comportement ; Add-ins incrémenté. Dette de fichiers restante : 6.
+
+## alpha-0.2.3.1.3.5.0.221 — 2026-11-03
+
+R-031 point 1 : `Lightfall.tsx` 819 → 566 lignes (GLSL dans `lightfallShaders.ts`) et `Sidebar.tsx` 864 → 792 (tables statiques dans `sidebarData.ts`). Aucun changement de comportement ; Add-ins incrémenté. Dette de fichiers restante : 7 (Viewport3D, gcodeLayer, gcodeEditController, ModelingSidebar, CategoriesSidebar, EditNode, EditionPanel).
+
+## alpha-0.2.3.1.3.4.0.221 — 2026-11-03
+
+R-031 point 1 : `gcodeParse.ts` 1 093 → 793 lignes (sous la limite de 800). Aucun changement de comportement ; Add-ins incrémenté.
+
+- Types sortis dans `gcodeTypes.ts`, constantes et utilitaires dans `gcodeParseConstants.ts`, planificateur de temps cartésien dans `gcodePlanTimes.ts` ; `gcodeParse.ts` les ré-exporte, les importeurs ne changent pas.
+- Dette restante dans ce fichier : `parseGCode` (630 lignes, une seule fonction).
+
+## alpha-0.2.3.1.3.3.0.221 — 2026-11-03
+
+R-031 point 2 : TypeScript strict. Add-ins incrémenté.
+
+- `strict`, `noImplicitAny`, `noUnusedLocals`, `noUnusedParameters` activés dans `tsconfig.app.json` et `tsconfig.json` (0 erreur de type ; ne plus jamais les relâcher).
+- Code mort retiré par le compilateur : imports et variables inutilisés, `createBoundaryMaterial` (Viewport3D, −55 lignes), paramètre `onOpenModel` de `Sidebar`.
+- Types précisés : `.catch((): void => undefined)`, `RefObject<… | null>`, union discriminée des lignes de grille, `getCustomCode` de `EditDeformPlugin`.
+
+## alpha-0.2.3.1.3.2.0.221 — 2026-11-03
+
+R-031 (qualité sans compromis), première passe : l'outillage. Add-ins incrémenté.
+
+- `scripts/check-limits.cjs` + `scripts/limits-baseline.json` : fichier ≤ 800 lignes, fonction ≤ 80 (composant ≤ 150), ≤ 8 paramètres, avec cliquet (aucune dette ne grossit, aucune nouvelle). Branché sur `pnpm lint`. Dette de départ : **10 fichiers, 53 fonctions, 3 signatures** hors limite (dont `Viewport3D.tsx` 6 552 lignes et son effet unique de 5 806 lignes).
+- CI (`.github/workflows/ci.yml`) : lint + limites, `tsc`, tests, `schema:check`, `vectors:check`.
+- Types : `pnpm typecheck` ; 10 erreurs préexistantes corrigées (`as const` sur les courbes d'animation). Lint : 6 erreurs préexistantes corrigées ; `src/components/ui` (shadcn généré) et `icons-main` (icônes tierces) exclus d'ESLint.
+- Code mort supprimé : `GCodePointInspector.tsx` (aucun import, types disparus).
 
 ## alpha-0.2.3.1.3.1.0.221 — 2026-10-31
 

@@ -395,7 +395,7 @@ class EditKernelClient {
   commit(finalTransform?: EditTransform): Promise<EditChange> {
     this.queuedDrag?.resolve(null);
     this.queuedDrag = null;
-    if (finalTransform) void this.call('drag', finalTransform, {}).catch(() => undefined);
+    if (finalTransform) void this.call('drag', finalTransform, {}).catch((): void => undefined);
     return this.call('commit');
   }
 

@@ -179,61 +179,6 @@ export const Viewport3D = () => {
   // travers le plateau jusqu'à la grille de fond, ~65mm plus bas.
   const PLATE_SURFACE_Y = HEIGHT * 0.5 + 0.1;
 
-  const createBoundaryMaterial = (scene: BABYLON.Scene) => {
-    BABYLON.Effect.ShadersStore["boundaryVertexShader"] = `
-      precision highp float;
-      attribute vec3 position;
-      attribute vec3 normal;
-      uniform mat4 worldViewProjection;
-      uniform mat4 world;
-      varying vec3 vPositionW;
-      varying vec3 vNormalW;
-      void main(void) {
-          vec4 outPosition = worldViewProjection * vec4(position, 1.0);
-          gl_Position = outPosition;
-          vPositionW = vec3(world * vec4(position, 1.0));
-          vNormalW = normalize(vec3(world * vec4(normal, 0.0)));
-      }
-    `;
-    BABYLON.Effect.ShadersStore["boundaryFragmentShader"] = `
-      precision highp float;
-      varying vec3 vPositionW;
-      varying vec3 vNormalW;
-      uniform float radius;
-      uniform float height;
-      uniform vec3 cameraPosition;
-      void main(void) {
-          float dist = sqrt(vPositionW.x * vPositionW.x + vPositionW.z * vPositionW.z);
-          bool isOut = (dist > radius || vPositionW.y < -0.1 || vPositionW.y > height);
-          vec3 lightDir = normalize(vec3(0.5, 1.0, 0.3));
-          float diffuse = max(dot(vNormalW, lightDir), 0.4);
-          vec3 viewDirW = normalize(cameraPosition - vPositionW);
-          float fresnel = pow(1.0 - max(dot(vNormalW, viewDirW), 0.0), 3.0);
-          if (isOut) {
-              vec3 orange = vec3(1.0, 0.5, 0.0);
-              vec3 glowRed = vec3(1.0, 0.0, 0.0);
-              vec3 finalColor = mix(orange * diffuse, glowRed, fresnel * 0.8);
-              gl_FragColor = vec4(finalColor, 1.0); 
-          } else {
-              float distToWall = abs(dist - radius);
-              float distToTop = abs(vPositionW.y - height);
-              float edgeDist = min(distToWall, distToTop);
-              if (edgeDist < 0.8 && (dist > radius - 1.0 || vPositionW.y > height - 1.0 || vPositionW.y < 0.0)) {
-                  gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
-              } else {
-                  vec3 neutralGrey = vec3(0.45, 0.45, 0.45);
-                  gl_FragColor = vec4(neutralGrey * diffuse, 1.0);
-              }
-          }
-      }
-    `;
-    const mat = new BABYLON.ShaderMaterial("boundaryMat", scene, { vertex: "boundary", fragment: "boundary" }, { attributes: ["position", "normal"], uniforms: ["worldViewProjection", "world", "radius", "height", "cameraPosition"] });
-    mat.setFloat("radius", RADIUS);
-    mat.setFloat("height", HEIGHT);
-    mat.backFaceCulling = true;
-    mat.forceDepthWrite = true;
-    return mat;
-  };
 
   useLayoutEffect(() => {
     if (!canvasRef.current) return;
@@ -2065,12 +2010,12 @@ export const Viewport3D = () => {
       // Signale une seule fois l'arrivée au plancher de zoom (`camera.lowerRadiusLimit`, déjà
       // appliqué par Babylon) plutôt qu'à chaque frame passée collé dessus ; le drapeau se relève
       // dès qu'on redézoome un peu, pour pouvoir re-déclencher le message la prochaine fois.
-      if (camera.radius <= camera.lowerRadiusLimit * 1.001) {
+      if (camera.radius <= (camera.lowerRadiusLimit ?? 0) * 1.001) {
         if (!gridZoomLimitReached) {
           gridZoomLimitReached = true;
           showWarning(`Zoom maximal atteint (pas de grille : ${formatGridValue(Math.pow(10, GRID_MIN_STEP_EXPONENT))} mm)`);
         }
-      } else if (camera.radius > camera.lowerRadiusLimit * 1.05) {
+      } else if (camera.radius > (camera.lowerRadiusLimit ?? 0) * 1.05) {
         gridZoomLimitReached = false;
       }
 
