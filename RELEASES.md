@@ -2,9 +2,13 @@
 
 Historique de toutes les versions du logiciel Apex (numéro de version), et non des Releases GitHub. Seul lien avec la publication : le compteur Builds (voir `CLAUDE.md`). Format et règles de numérotation : section « Versioning » de `CLAUDE.md`.
 
-**Version actuelle : `alpha-0.2.3.1.3.12.0.221`**
+**Version actuelle : `alpha-0.2.3.1.3.13.0.221`**
 
 `<préversion>-<public>.<global>.<majeur>.<moyen>.<mineur>.<add-ins>.<correctif>.<builds>`
+
+## alpha-0.2.3.1.3.13.0.221 — 2026-11-04
+
+R-031 point 6 : `CLAUDE.md` ramené de 302 à 160 lignes. Les sections de conception détaillée et d'historique sont déplacées sans modification dans `docs/` (`EDITION_GCODE.md`, `CLASSIC_INTERFACE.md`, `POLAR_CONVERTER.md`, `ROADMAP_UI.md`) et laissent un pointeur. Liste des dettes connues mise à jour (3 fichiers, 52 fonctions). Add-ins incrémenté.
 
 ## alpha-0.2.3.1.3.12.0.221 — 2026-11-04
 
