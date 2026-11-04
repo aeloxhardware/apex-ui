@@ -2,9 +2,13 @@
 
 Historique de toutes les versions du logiciel Apex (numéro de version), et non des Releases GitHub. Seul lien avec la publication : le compteur Builds (voir `CLAUDE.md`). Format et règles de numérotation : section « Versioning » de `CLAUDE.md`.
 
-**Version actuelle : `alpha-0.2.3.1.3.16.0.221`**
+**Version actuelle : `alpha-0.2.3.1.3.17.0.221`**
 
 `<préversion>-<public>.<global>.<majeur>.<moyen>.<mineur>.<add-ins>.<correctif>.<builds>`
+
+## alpha-0.2.3.1.3.17.0.221 — 2026-11-04
+
+Numéro aligné sur `apex/VERSION` (moteur en `.17` : prototypes archivés dans la branche `archives` de `apex-engine`). Aucun changement dans l'interface.
 
 ## alpha-0.2.3.1.3.16.0.221 — 2026-11-04
 
