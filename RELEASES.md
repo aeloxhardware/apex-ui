@@ -2,9 +2,13 @@
 
 Historique de toutes les versions du logiciel Apex (numéro de version), et non des Releases GitHub. Seul lien avec la publication : le compteur Builds (voir `CLAUDE.md`). Format et règles de numérotation : section « Versioning » de `CLAUDE.md`.
 
-**Version actuelle : `alpha-0.2.3.1.3.11.0.221`**
+**Version actuelle : `alpha-0.2.3.1.3.12.0.221`**
 
 `<préversion>-<public>.<global>.<majeur>.<moyen>.<mineur>.<add-ins>.<correctif>.<builds>`
+
+## alpha-0.2.3.1.3.12.0.221 — 2026-11-04
+
+CI : version de pnpm fixée (`packageManager: pnpm@10.28.0`, sans elle `pnpm/action-setup` échoue) ; le dossier `slicer_engine/` récupéré par la CI est exclu d'ESLint. Add-ins incrémenté.
 
 ## alpha-0.2.3.1.3.11.0.221 — 2026-11-03
 
