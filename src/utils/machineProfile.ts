@@ -8,6 +8,17 @@ import aetheris4 from '../../profiles/Aelox Hardware/Aetheris-4.json';
 /** Profil de l'imprimante utilisée tant que le menu Imprimantes ne permet pas d'en choisir une autre. */
 export const DEFAULT_PRINTER_PROFILE: unknown = aetheris4;
 
+/**
+ * Rayon du plateau (mm) lu dans le profil de l'imprimante : seule source, pour le viewport, l'analyseur
+ * G-code, l'arrangement et la validation. Le profil par défaut est embarqué : s'il n'a pas cette
+ * donnée, c'est une erreur de donnée qu'on veut voir tout de suite, pas une valeur à deviner.
+ */
+export const PLATE_RADIUS_MM: number = (() => {
+  const r = (DEFAULT_PRINTER_PROFILE as { apex?: { plate_radius_mm?: unknown } } | null)?.apex?.plate_radius_mm;
+  if (typeof r !== 'number' || !(r > 0)) throw new Error("Le profil d'imprimante par défaut n'indique pas `apex.plate_radius_mm`.");
+  return r;
+})();
+
 export interface ProfileRotaryAxis {
   axis: string;
   role?: string;

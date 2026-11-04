@@ -2,9 +2,13 @@
 
 Historique de toutes les versions du logiciel Apex (numéro de version), et non des Releases GitHub. Seul lien avec la publication : le compteur Builds (voir `CLAUDE.md`). Format et règles de numérotation : section « Versioning » de `CLAUDE.md`.
 
-**Version actuelle : `alpha-0.2.3.1.3.14.0.221`**
+**Version actuelle : `alpha-0.2.3.1.3.15.0.221`**
 
 `<préversion>-<public>.<global>.<majeur>.<moyen>.<mineur>.<add-ins>.<correctif>.<builds>`
+
+## alpha-0.2.3.1.3.15.0.221 — 2026-11-04
+
+R-031 point 5 : le rayon du plateau vient du profil d'imprimante (`apex.plate_radius_mm`, `utils/machineProfile.ts`). Décision de l'utilisateur (2026-11-04) : **150 mm** (le viewport, l'analyseur G-code et l'arrangement utilisaient 125 mm en dur alors que le profil, et le moteur via `platform_radius`, disaient 150). Changement visible : plateau, volume d'impression, limites de l'arrangement et détection « hors plateau » des G-code cartésiens passent de 125 à 150 mm. La vue par défaut de la caméra suit (2,4 rayons, soit 360 mm au lieu de 300) : le plateau garde la même taille à l'écran. Reste en dur : la hauteur du volume (130 mm), faute de donnée dans le profil. Test `plateRadius.test.ts`. Add-ins incrémenté.
 
 ## alpha-0.2.3.1.3.14.0.221 — 2026-11-04
 
