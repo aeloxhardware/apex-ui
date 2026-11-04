@@ -1,8 +1,8 @@
 import type { GCodeKind, GCodeMove } from './gcodeTypes';
 import { nozzleTipActive } from '@/utils/kinematics';
 
-/** Rayon du plateau de l'Apex (mm), cf. RADIUS dans Viewport3D.tsx. */
-export const PLATE_RADIUS_MM = 125;
+/** Rayon du plateau (mm) : lu dans le profil d'imprimante (utils/machineProfile.ts). */
+export { PLATE_RADIUS_MM } from '@/utils/machineProfile';
 
 export type ConversionMode = 'polar' | 'dynamic';
 

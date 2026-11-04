@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react';
 
 export interface AeolisNozzle {
-  /** Angle de la buse : pente maximale, depuis l'horizontale, de la surface déjà imprimée autour de la pointe (°). */
+  /** Angle maximum buse-paroi : pente maximale, depuis l'horizontale, de la surface déjà imprimée autour de la pointe (°). */
   angleDeg: number;
   /** Longueur maximale atteignable par la buse : dénivelé maximal toléré entre la pointe et la matière voisine plus haute (mm). */
   reachMm: number;

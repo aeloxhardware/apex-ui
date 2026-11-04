@@ -1,7 +1,7 @@
 // Généré par scripts/sync-engine-schema.cjs depuis apex-engine/config/params.schema.json. NE PAS ÉDITER.
-// Contrat C1, version 2.
+// Contrat C1, version 3.
 
-export const SCHEMA_CONTRACT_VERSION = 2;
+export const SCHEMA_CONTRACT_VERSION = 3;
 
 /** Boîte englobante alignée sur les axes. */
 export interface AABB {

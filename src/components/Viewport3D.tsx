@@ -37,6 +37,7 @@ import { LINE_TYPE_BY_ID, type LineTypeVisibility } from './gcodeLineTypes';
 import { PAN_PERSPECTIVE_EVENT, readPanPerspective } from '@/utils/panPerspectivePrefs';
 import { isPreviewSpace } from '@/utils/previewSpace';
 import { previewZoomStepFactor } from '@/utils/previewZoomPrefs';
+import { PLATE_RADIUS_MM } from '@/utils/machineProfile';
 
 const DEFAULT_BLUR_LEVEL = 40;
 // Info-bulles de bas d'écran des éléments du menu contextuel (cf. CLAUDE.md : chaque élément porte
@@ -167,9 +168,7 @@ export const Viewport3D = () => {
   const clipboardMeshNamesRef = useRef<string[]>([]);
   const currentToolRef = useRef<string>("select");
   const [, setSelectedMeshName] = useState<string | null>(null);
-  // Dimensions : 250mm de diamètre (rayon 125) et 130mm de haut
-  const RADIUS = 125;
-  const HEIGHT = 130;
+  const RADIUS = PLATE_RADIUS_MM, HEIGHT = 130, VIEW_RADIUS = RADIUS * 2.4; // rayon du plateau : profil d'imprimante ; vue par défaut = 2,4 rayons (300 mm pour 125)
   const HOLE_RADIUS = 20;
   // Élévation MONDE de la surface réelle du plateau (le disque "verre dépoli", cf. glassDisc) :
   // volumeRoot (le socle du plateau) est à HEIGHT * 0.5, et glassDisc est posé 0.1mm au-dessus de
@@ -190,7 +189,7 @@ export const Viewport3D = () => {
     sceneRef.current = scene;
     scene.clearColor = new BABYLON.Color4(0, 0, 0, 0);
 
-    const camera = new BABYLON.ArcRotateCamera("camera", Math.PI / 4, Math.PI / 3, 300, new BABYLON.Vector3(0, HEIGHT / 2, 0), scene);
+    const camera = new BABYLON.ArcRotateCamera("camera", Math.PI / 4, Math.PI / 3, VIEW_RADIUS, new BABYLON.Vector3(0, HEIGHT / 2, 0), scene);
     camera.attachControl(canvas, true);
 
     // Le clic gauche est réservé à la sélection rectangulaire (fenêtre de sélection, cf. plus
@@ -542,7 +541,7 @@ export const Viewport3D = () => {
       const view = customEvent.detail?.view;
       if (!camera) return;
 
-      const targetRadius = 300;
+      const targetRadius = VIEW_RADIUS;
       const targetLookAt = new BABYLON.Vector3(0, HEIGHT / 2, 0);
       resetLensShift();
       camera.target = targetLookAt;

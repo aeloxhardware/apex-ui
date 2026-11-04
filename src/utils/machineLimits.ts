@@ -1,5 +1,5 @@
 import type { EditMachineLimits } from '@/utils/editKernelClient';
-import { DEFAULT_PRINTER_PROFILE, machineFacts } from '@/utils/machineProfile';
+import { DEFAULT_PRINTER_PROFILE, PLATE_RADIUS_MM, machineFacts } from '@/utils/machineProfile';
 
 /**
  * Limites de la machine pour la validation de l'édition (limites de B, collisions de la tête).
@@ -28,7 +28,7 @@ export const DEFAULT_MACHINE_LIMITS: MachineLimits = {
   bMaxDeg: FACTS.bRangeDeg?.[1] ?? 185,
   bSpeedDegS: FACTS.bSpeedDegS ?? 1666.7,
   bAccelDegS2: FACTS.bAccelDegS2 ?? 1300,
-  plateRadiusMm: FACTS.plateRadiusMm ?? 150,
+  plateRadiusMm: FACTS.plateRadiusMm ?? PLATE_RADIUS_MM,
   collisionMarginMm: 1,
   nozzleToleranceMm: 0.18,
   bodyToleranceMm: 0.7,

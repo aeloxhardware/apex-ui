@@ -2,9 +2,41 @@
 
 Historique de toutes les versions du logiciel Apex (numéro de version), et non des Releases GitHub. Seul lien avec la publication : le compteur Builds (voir `CLAUDE.md`). Format et règles de numérotation : section « Versioning » de `CLAUDE.md`.
 
-**Version actuelle : `alpha-0.2.3.1.3.11.0.221`**
+**Version actuelle : `alpha-0.2.3.1.4.1.0.221`**
 
 `<préversion>-<public>.<global>.<majeur>.<moyen>.<mineur>.<add-ins>.<correctif>.<builds>`
+
+## alpha-0.2.3.1.4.1.0.221 — 2026-11-04
+
+Numéro aligné sur `apex/VERSION` (moteur en `.4.1` : dépendances déclarées et figées, CI du moteur). Aucun changement dans l'interface.
+
+## alpha-0.2.3.1.4.0.0.221 — 2026-11-04
+
+Contrat moteur ↔ interface passé de 2 à **3** (R-027, décision de l'utilisateur du 2026-11-04 : les défauts de buse très bas d'Element Aeolis sont gardés ; un défaut qui change le G-code incrémente le contrat, RULES §4.1). `APEX_CONTRACT_VERSION = 3` (`src/utils/engineContract.ts`), schéma et types resynchronisés (`schema:sync`, `schema:check` verts). Libellé « Angle de la buse » renommé **« Angle maximum buse-paroi »** (`EngineSettingsPanel.tsx`) ; le sens du réglage ne change pas. **À fusionner avec la PR du moteur qui passe le contrat à 3** : l'interface refuse un moteur d'une autre version. Mineur incrémenté.
+
+## alpha-0.2.3.1.3.17.0.221 — 2026-11-04
+
+Numéro aligné sur `apex/VERSION` (moteur en `.17` : prototypes archivés dans la branche `archives` de `apex-engine`). Aucun changement dans l'interface.
+
+## alpha-0.2.3.1.3.16.0.221 — 2026-11-04
+
+Numéro aligné sur `apex/VERSION` : le moteur est passé à `.16` (`apex-engine` @ 61e23fe, outil de limites et nettoyage du dépôt), et le numéro le plus élevé s'applique (RULES §9.1). Aucun changement dans l'interface.
+
+## alpha-0.2.3.1.3.15.0.221 — 2026-11-04
+
+R-031 point 5 : le rayon du plateau vient du profil d'imprimante (`apex.plate_radius_mm`, `utils/machineProfile.ts`). Décision de l'utilisateur (2026-11-04) : **150 mm** (le viewport, l'analyseur G-code et l'arrangement utilisaient 125 mm en dur alors que le profil, et le moteur via `platform_radius`, disaient 150). Changement visible : plateau, volume d'impression, limites de l'arrangement et détection « hors plateau » des G-code cartésiens passent de 125 à 150 mm. La vue par défaut de la caméra suit (2,4 rayons, soit 360 mm au lieu de 300) : le plateau garde la même taille à l'écran. Reste en dur : la hauteur du volume (130 mm), faute de donnée dans le profil. Test `plateRadius.test.ts`. Add-ins incrémenté.
+
+## alpha-0.2.3.1.3.14.0.221 — 2026-11-04
+
+R-031 point 3 : tests du client du noyau d'édition (`src/utils/editKernelClient.test.ts`, 5 tests sur un vrai `MessageChannel`, sans simulacre) : protocole `{id, op, args}`, erreurs du noyau, hors application de bureau, glissement « la plus récente remplace celle qui attend », commit qui écarte le glissement en attente puis applique la position finale. Vérifiés par mutation (les deux règles, une fois retirées, font échouer un test). Reste à couvrir : la logique du viewport. Add-ins incrémenté.
+
+## alpha-0.2.3.1.3.13.0.221 — 2026-11-04
+
+R-031 point 6 : `CLAUDE.md` ramené de 302 à 160 lignes. Les sections de conception détaillée et d'historique sont déplacées sans modification dans `docs/` (`EDITION_GCODE.md`, `CLASSIC_INTERFACE.md`, `POLAR_CONVERTER.md`, `ROADMAP_UI.md`) et laissent un pointeur. Liste des dettes connues mise à jour (3 fichiers, 52 fonctions). Add-ins incrémenté.
+
+## alpha-0.2.3.1.3.12.0.221 — 2026-11-04
+
+CI : version de pnpm fixée (`packageManager: pnpm@10.28.0`, sans elle `pnpm/action-setup` échoue) ; le dossier `slicer_engine/` récupéré par la CI est exclu d'ESLint. Add-ins incrémenté.
 
 ## alpha-0.2.3.1.3.11.0.221 — 2026-11-03
 
