@@ -1,0 +1,12 @@
+dist
+src/components/ui
+icons-main
+slicer_engine
+src/generated
+coverage
+pnpm-lock.yaml
+*.scss
+*.md
+*.json
+*.css
+*.html

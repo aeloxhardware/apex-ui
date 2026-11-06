@@ -1,25 +1,22 @@
 import * as BABYLON from 'babylonjs';
 import 'babylonjs-loaders';
-import type { LineTypeVisibility } from './gcodeLineTypes';
-import { defaultColorByScope, type ColorByScope } from './gcodeColormap';
-import { editDeformState } from './gcodeEditDeform';
-import type { ColorByMode, ParsedGCode } from './gcodeParse';
-import { GCODE_MESH_PREFIX } from './gcode-layer/constants';
-import { createBuilder } from './gcode-layer/build';
-import { createColorBy } from './gcode-layer/colorBy';
-import { createEditGeometry } from './gcode-layer/editGeometry';
-import { createEditWeights } from './gcode-layer/editWeights';
-import { createHead } from './gcode-layer/head';
-import { createLayerMaterials } from './gcode-layer/materials';
-import { createOffPlateBlink } from './gcode-layer/offPlate';
-import { createPicker } from './gcode-layer/pick';
-import { createPlayback } from './gcode-layer/playback';
-import { createLayerState } from './gcode-layer/state';
+import { type LineTypeVisibility } from './gcodeLineTypes';
+import { type ColorByScope } from './gcodeColormap';
+
+import { type ColorByMode, type ParsedGCode } from './gcodeParse';
 
 // Le parseur (sans Babylon) vit dans gcodeParse.ts pour pouvoir tourner dans un Web Worker ;
 // ré-exporté ici pour que les importeurs existants de gcodeLayer ne changent pas.
 export * from './gcodeParse';
-export { BEAD_WIDTH_MM, BEAD_HEIGHT_MM, GCODE_MESH_PREFIX } from './gcode-layer/constants';
+
+import { setupGCodeLayerScene } from './gcodeLayerParts/layerScene';
+import { setupGCodeLayerBuild } from './gcodeLayerParts/layerBuild';
+import { setupGCodeLayerPick } from './gcodeLayerParts/layerPick';
+import { setupGCodeLayerEdit } from './gcodeLayerParts/layerEdit';
+import { setupGCodeLayerApi } from './gcodeLayerParts/layerApi';
+import { createGCodeLayerState } from './gcodeLayerParts/gcodeLayerState';
+export { GCODE_MESH_PREFIX } from './gcodeLayerParts/gcodeLayerShared';
+
 
 export interface GCodeLayer {
   /** Construit le maillage par tranches (l'interface ne gèle pas) ; résolu une fois affiché. */
@@ -71,7 +68,7 @@ export interface GCodeLayer {
   getMoveTip(k: number, out: BABYLON.Vector3): BABYLON.Vector3;
   /** Édition : poids d'influence par mouvement (indices croissants), appliqués par le vertex shader
    * des cordons ; null les efface. Recalcul une fois par pose / réglage, jamais par image. */
-  setEditWeights(indices: Uint32Array | null, weights?: Float32Array, slideNormals?: Float32Array, axes?: Float32Array): void;
+  setEditWeights(indices: Uint32Array | null, weights?: Float32Array | undefined, slideNormals?: Float32Array | undefined, axes?: Float32Array): void;
   /** Onglet Édition : cordons en gris neutre (vrai) ou selon le mode « colorer par » (faux). */
   setEditNeutral(neutral: boolean): void;
   /** Édition : déformation en direct des points pondérés (repère du plateau),
@@ -82,7 +79,7 @@ export interface GCodeLayer {
     axis: BABYLON.Vector3;
     angle: number;
     /** Mode « empilement » : axe de tête du nœud (local) ; absent ou nul hors de ce mode. */
-    stackAxis?: BABYLON.Vector3;
+    stackAxis?: BABYLON.Vector3 | undefined;
   }): void;
   /** Édition : nouvelles valeurs validées par le noyau (R, C, Z, B, E par indice) — met à jour
    * les mouvements, l'extrusion (`eDelta`), la liste des mouvements modifiés (`editedMoves`), et
@@ -106,8 +103,7 @@ export interface GCodeLayer {
 
 /**
  * Calque de prévisualisation G-code posé dans une scène existante. `parent` est le repère du
- * plateau (origine au centre de sa surface) : Z = 0 du G-code y correspond. Les fonctions vivent
- * dans `gcode-layer/` ; elles partagent l'état de `LayerState`.
+ * plateau (origine au centre de sa surface) : Z = 0 du G-code y correspond.
  */
 export function createGCodeLayer(
   scene: BABYLON.Scene,
@@ -115,120 +111,10 @@ export function createGCodeLayer(
   /** Appelé à chaque mise à jour de la rotation du plateau (radians), pour y caler du décor. */
   onPlateRotation?: (rotationY: number) => void,
 ): GCodeLayer {
-  const root = new BABYLON.TransformNode(`${GCODE_MESH_PREFIX}Root`, scene);
-  root.parent = parent;
-  root.setEnabled(false);
-  // Repère tournant du plateau : toute la matière déposée en est enfant.
-  const plateNode = new BABYLON.TransformNode(`${GCODE_MESH_PREFIX}Plate`, scene);
-  plateNode.parent = root;
-
-  let state: ReturnType<typeof createLayerState>;
-  const head = createHead(scene, root, () => state.disposed);
-  state = createLayerState(scene, plateNode, createLayerMaterials(scene), head);
-  const st = state;
-
-  const playback = createPlayback(st, onPlateRotation);
-  const colorBy = createColorBy(st);
-  const blink = createOffPlateBlink(st);
-  const picker = createPicker(st);
-  const weights = createEditWeights(st);
-  const geometry = createEditGeometry(st, picker, playback.apply);
-  const builder = createBuilder(st, {
-    picker, edit: weights, applyVisibility: playback.applyVisibility, applyColorBy: colorBy.apply,
-  });
-
-  /** Reconstruit le même fichier (précision ou mode de coloration changés), puis réaffiche. */
-  const rebuildCurrent = () => {
-    const current = st.parsed;
-    void builder.buildAll(current!).then(() => { if (st.parsed === current) playback.apply(); });
-  };
-
-  return {
-    async replaceMoves(next) {
-      st.moveFlags = null;
-      st.flagSets.clear();
-      st.lastWeights = null;
-      st.travelPreviewKeys.clear();
-      const last = next.moves.length - 1;
-      const wasAtEnd = st.time >= (st.parsed?.moves.length ?? 1) - 1;
-      await builder.buildAll(next, true);
-      if (st.parsed !== next) return;
-      if (wasAtEnd) st.time = last;
-      st.time = Math.min(st.time, last);
-      playback.apply();
-    },
-    async load(next) {
-      await builder.buildAll(next);
-      if (st.parsed !== next) return; // supplanté par un chargement plus récent
-      st.time = next.moves.length - 1;
-      playback.apply();
-    },
-    setRenderPrecision(mm) {
-      st.renderPrecisionMm = mm;
-      if (!st.parsed || st.colorBy === 'lineType') return;
-      rebuildCurrent();
-    },
-    setTime(t) {
-      st.time = t;
-      playback.apply();
-    },
-    setLineTypeVisibility(next) {
-      st.visibility = { ...next };
-      playback.applyVisibility();
-    },
-    setColorBy(mode, scope) {
-      // Un réglage de précision cartésienne change la géométrie elle-même (plus de sous-segments
-      // par mouvement, cf. createSampler) SEULEMENT en mode continu — passer de/vers `lineType`
-      // alors qu'une précision est déjà réglée doit donc reconstruire, pas seulement recolorer,
-      // sans quoi le mode catégoriel hériterait de la géométrie subdivisée (ou l'inverse).
-      const needsRebuild = st.renderPrecisionMm != null && (mode === 'lineType') !== (st.colorBy === 'lineType');
-      st.colorBy = mode;
-      if (scope) st.colorByScope = scope;
-      else if (mode !== 'lineType' && st.parsed) st.colorByScope = defaultColorByScope(st.parsed.ranges[mode]);
-      if (needsRebuild && st.parsed) rebuildCurrent();
-      else colorBy.apply();
-    },
-    setOffPlateHighlight(show) {
-      st.highlightOffPlate = show;
-      playback.applyVisibility();
-    },
-    setOffPlateBlinking: blink.setBlinking,
-    setFullHead: head.setFullHead,
-    setPickingEnabled: picker.setEnabled,
-    pickAt: picker.pickAt,
-    setPickHighlight: picker.setHighlight,
-    setEnabled: (enabled) => root.setEnabled(enabled),
-    getPlateRotation: () => plateNode.rotation.y,
-    getParsed: () => st.parsed,
-    getPlateWorldMatrix: () => plateNode.computeWorldMatrix(true),
-    getMoveTip(k, out) {
-      if (st.sampler) st.sampler.tip(k, 1, out);
-      return out;
-    },
-    setEditWeights: weights.setEditWeights,
-    setEditNeutral(neutral: boolean) {
-      if (st.editNeutral === neutral) return;
-      st.editNeutral = neutral;
-      colorBy.apply();
-    },
-    setEditTransform({ translation, pivot, axis, angle, stackAxis }) {
-      editDeformState.translation.copyFrom(translation);
-      editDeformState.pivot.copyFrom(pivot);
-      editDeformState.axis.copyFrom(axis);
-      editDeformState.angle = angle;
-      if (stackAxis) editDeformState.stackAxis.copyFrom(stackAxis);
-      else editDeformState.stackAxis.setAll(0);
-    },
-    applyMoveEdits: geometry.applyMoveEdits,
-    setEditFlagBit: weights.setEditFlagBit,
-    setTravelPreview: geometry.setTravelPreview,
-    getHeadSamples: head.getSamples,
-    dispose() {
-      st.disposed = true;
-      colorBy.cancelPending();
-      blink.dispose();
-      builder.disposeAll();
-      root.dispose(false, true);
-    },
-  };
+  const st = createGCodeLayerState({ scene, parent, onPlateRotation });
+  setupGCodeLayerScene(st);
+  setupGCodeLayerBuild(st);
+  setupGCodeLayerPick(st);
+  setupGCodeLayerEdit(st);
+  return setupGCodeLayerApi(st);
 }

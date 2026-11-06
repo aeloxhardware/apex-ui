@@ -91,7 +91,10 @@
         },
         "default_nozzle_profile": {
             "diameter_mm": "Inconnu",
-            "profile_id": null
+            "profile_id": null,
+            "length_mm": 2,
+            "angle_deg": 10,
+            "outer_width_mm": "Inconnu"
         }
     }
 }

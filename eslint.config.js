@@ -5,7 +5,12 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist"] },
+  {
+    // dist : sortie de build. src/components/ui : code shadcn/ui généré (AI_RULES.md : ne pas l'éditer).
+    // icons-main : jeu d'icônes tiers copié tel quel, hors du code d'Apex.
+    // slicer_engine : copie du moteur récupérée par la CI pour vérifier le contrat, pas du code de ce dépôt.
+    ignores: ["dist", "src/components/ui", "icons-main", "slicer_engine"],
+  },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],

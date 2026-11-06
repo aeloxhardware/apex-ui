@@ -1,3 +1,9 @@
+import type { GCodeMove, ParsedGCode } from './gcodeTypes';
+import { createParseState } from './gcodeParseState';
+import { processLine } from './gcodeParseLine';
+import { DEG2RAD } from './gcodeParseConstants';
+import { finalizeParse } from './gcodeParsePost';
+
 /**
  * Parseur G-code + calque Babylon de prévisualisation. Deux familles de fichiers :
  *
@@ -27,107 +33,70 @@
  * rétractions et coutures sont reconnus pour la légende et la coloration (cf. gcodeLineTypes.ts).
  */
 
-import { hasApexSignature } from '@/utils/apexSignature';
-import {
-  LEGACY_KINEMATICS, isPreviewSupported, parseKinematicsHeader, setActiveKinematics,
-} from '@/utils/kinematics';
-import { parseLine } from './gcode-parse/commands';
-import { createParserState, type ApexMachine } from './gcode-parse/state';
-import {
-  computeLayerMaxSpeed, computeTiming, computeWidths, placeOnPlate, requalifyAirContours,
-} from './gcode-parse/finalize';
-import { computeBounds, computeLineStats, computeRanges, detectGenerator } from './gcode-parse/summary';
-import type { GCodeKind, ParsedGCode } from './gcode-parse/types';
+export * from './gcodeTypes';
+export { PLATE_RADIUS_MM, DEG2RAD, MAX_SUBSEGMENT_DEG, SUSPICIOUS_C_RANGE_DEG, nozzleTip, moveLength, type ConversionMode } from './gcodeParseConstants';
 
-export * from './gcode-parse/types';
-export * from './gcode-parse/geometry';
-
-/**
- * Machine déclarée par un G-code Apex (R-025) : signature en tête ET ligne `; apex_kinematics_json {...}`
- * (`machine` : « cartesian » ou « apex-polar-4axis »). Null pour un fichier sans signature, ou sans description :
- * l'aperçu garde alors ses heuristiques (présence d'un mot B ou C). Les six mots XYZABC sont écrits sur chaque
- * mouvement des fichiers Apex, donc la seule présence d'un mot C ne dit rien de la machine.
- */
-function declaredApexMachine(text: string): ApexMachine {
-  if (!hasApexSignature(text)) return null;
-  const m = /^; apex_kinematics_json \{[^\r\n]*?"machine":"([^"]+)"/m.exec(text.slice(0, 20000));
-  if (!m) return null;
-  if (m[1] === 'cartesian') return 'cartesian';
-  if (m[1] === 'apex-polar-4axis') return 'polar';
-  return null;
+/** Analyse un G-code (polaire 4 axes de l'Apex ou cartésien) : lecture ligne à ligne, puis calculs dérivés. */
+export function parseGCode(text: string): ParsedGCode {
+  const s = createParseState(text);
+  const lines = text.split('\n');
+  for (let lineNo = 0; lineNo < lines.length; lineNo++) processLine(s, lines[lineNo], lineNo);
+  return finalizeParse(s);
 }
 
-export function parseGCode(text: string): ParsedGCode {
-  const apexMachine = declaredApexMachine(text);
-  // Cinématique AVANT toute durée de mouvement (moveLength lit la pointe). Absente : valeur des anciens fichiers.
-  const declaredKinematics = parseKinematicsHeader(text);
-  if (declaredKinematics && !isPreviewSupported(declaredKinematics)) {
-    throw new Error(`Cinématique du G-code non prise en charge par l'aperçu (b_sign=${declaredKinematics.bSign}, tilt_sign=${declaredKinematics.tiltSign}, z_reference=${declaredKinematics.zReference}) : la pointe serait mal relue.`);
+/** Temps machine (s) à l'index de mouvement fractionnaire `t`. */
+export function timeAtIndex(times: Float64Array, t: number) {
+  const last = times.length - 1;
+  const i = Math.max(0, Math.min(last, Math.floor(t)));
+  if (i >= last) return times[last];
+  return times[i] + (times[i + 1] - times[i]) * (t - i);
+}
+
+/** Index de mouvement fractionnaire atteint au temps machine `s` (inverse de `timeAtIndex`). */
+export function indexAtTime(times: Float64Array, s: number) {
+  const last = times.length - 1;
+  if (s <= 0) return 0;
+  if (s >= times[last]) return last;
+  let lo = 0, hi = last; // times[lo] <= s < times[hi]
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (times[mid] <= s) lo = mid; else hi = mid;
   }
-  const kinematics = declaredKinematics ?? LEGACY_KINEMATICS;
-  setActiveKinematics(kinematics);
+  return lo + (s - times[lo]) / (times[hi] - times[lo]);
+}
 
-  const s = createParserState(apexMachine);
-  const lines = text.split('\n');
-  for (let lineNo = 0; lineNo < lines.length; lineNo++) parseLine(s, lines[lineNo], lineNo);
-
-  const kind: GCodeKind = s.polar ? 'polar' : 'cartesian';
-  const placement = placeOnPlate(s, kind);
-  const { times, speedMmS, segLengthMm } = computeTiming(s, kind);
-  const widthMm = computeWidths(s, segLengthMm);
-  const layerMaxSpeedMmS = computeLayerMaxSpeed(s, kind, speedMmS);
-  const airRanges = requalifyAirContours(s, kind);
-  const lineStats = computeLineStats(s, times);
-
-  const layerHeightMm = Float32Array.from(s.layerHeights);
-  const accelMmS2 = Float32Array.from(s.accels);
-  const nozzleTempC = Float32Array.from(s.temps);
-  const fanPct = Float32Array.from(s.fans);
-  const ranges = computeRanges({
-    moves: s.moves, times, deposits: s.deposits, filamentDiameter: s.filamentDiameter,
-    speedMmS, accelMmS2, segLengthMm, widthMm, layerHeightMm, nozzleTempC, fanPct, layerMaxSpeedMmS,
-  });
-
+/** Position machine (x, y, z, b) interpolée linéairement — comme le firmware — au temps `t`
+ * exprimé en index de mouvement fractionnaire. */
+export function stateAt(moves: GCodeMove[], t: number) {
+  const i = Math.max(0, Math.min(moves.length - 1, Math.floor(t)));
+  const a = moves[i];
+  const b = moves[Math.min(moves.length - 1, i + 1)];
+  const f = Math.max(0, Math.min(1, t - i));
   return {
-    kind,
-    kinematics,
-    kinematicsDeclared: declaredKinematics !== null,
-    moves: s.moves,
-    times,
-    ...computeBounds(s.moves, kind),
-    extrudingCount: s.extrudingCount,
-    lineStats,
-    generator: detectGenerator(s, kind),
-    printer: s.printer,
-    nonPlanar: placement.nonPlanar,
-    toolOriented: s.toolOriented,
-    bedCenter: placement.bedCenter,
-    conversion: s.conversion,
-    offPlate: { moves: Uint32Array.from(placement.offPlateMoves), traits: placement.offPlateTraits },
-    airContours: Uint32Array.from(airRanges),
-    markers: {
-      retraction: Uint32Array.from(s.retractionAt),
-      unretraction: Uint32Array.from(s.unretractionAt),
-      seam: Uint32Array.from(s.seamAt),
-    },
-    speedMmS,
-    accelMmS2,
-    nozzleTempC,
-    bedTempC: Float32Array.from(s.bedTemps),
-    fanPct,
-    layerHeightMm,
-    widthMm,
-    segLengthMm,
-    depositMm: Float32Array.from(s.deposits),
-    filamentDiameterMm: s.filamentDiameter,
-    layerIndex: Uint32Array.from(s.layerIndices),
-    layerMaxSpeedMmS,
-    ranges,
-    lineIndex: Uint32Array.from(s.lineIndices),
-    eDelta: Float64Array.from(s.eDeltas),
-    eAbsBefore: Float64Array.from(s.eAbsBefores),
-    hasEWord: Uint8Array.from(s.eWordFlags),
-    eRelative: Uint8Array.from(s.eRelFlags),
-    usesInches: s.usesInches,
+    x: a.x + (b.x - a.x) * f,
+    y: a.y + (b.y - a.y) * f,
+    z: a.z + (b.z - a.z) * f,
+    b: a.b + (b.b - a.b) * f,
+    c: a.c + (b.c - a.c) * f,
   };
+}
+
+
+/** Axe de l'outil (vecteur unitaire, repère G-code X/Y/Z, orienté de la buse vers le haut de la tête)
+ * au temps `t` d'un fichier à orientation d'outil : (cos C · sin β, sin C · sin β, cos β), β = `b`.
+ * β est interpolé linéairement et C par le plus court chemin angulaire (un C qui passe de +179° à
+ * −179° tourne de 2°, pas de 358°) : la rotation reste continue, sans passer par un axe nul même
+ * pour un demi-tour de C. */
+export function toolAxisAt(moves: GCodeMove[], t: number, out: { x: number; y: number; z: number }) {
+  const i = Math.max(0, Math.min(moves.length - 1, Math.floor(t)));
+  const a = moves[i];
+  const m = moves[Math.min(moves.length - 1, i + 1)];
+  const f = Math.max(0, Math.min(1, t - i));
+  const dc = ((((m.c - a.c) % 360) + 540) % 360) - 180;
+  const beta = (a.b + (m.b - a.b) * f) * DEG2RAD;
+  const gamma = (a.c + dc * f) * DEG2RAD;
+  out.x = Math.cos(gamma) * Math.sin(beta);
+  out.y = Math.sin(gamma) * Math.sin(beta);
+  out.z = Math.cos(beta);
+  return out;
 }

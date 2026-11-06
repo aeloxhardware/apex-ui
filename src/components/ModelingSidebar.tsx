@@ -1,114 +1,161 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import clsx from 'clsx';
 import { AnimatePresence } from 'framer-motion';
+import { ExtrudePanel } from './ExtrudePanel';
+import { SketchBar } from './ModelingSketchBar';
+import { ModelingPanel } from './ModelingPanel';
+import { ModelingToolbar } from './ModelingToolbar';
+import { LiquidGlassShadow } from './LiquidGlassMorph';
+import { showError, showSuccess } from '@/utils/toast';
+import type { Feature, FeatureKind, SketchEntityKind } from '@/modeling/types';
+import { useModelingMorph } from './useModelingMorph';
+import { useModelingSelection } from './useModelingSelection';
+import { useModelingTree } from './useModelingTree';
+import { useSketchState, useSketchEvents } from './modelingSketch';
+import { makeExtrudeConfirm, makeExtrudeCancel, makeToolClick } from './modelingActions';
 
-import styles from './ModelingSidebar.module.scss';
+import { emitApex } from '@/events/apexEvents';
 
+interface ModelingSidebarProps {
+  /**
+   * Signale une transition d'espace en cours entre Modélisation et la pilule/les panneaux de
+   * Prévisualisation, dans un sens ou dans l'autre :
+   *  - 'enter' : ce panneau — déjà affiché avec son contenu réel — part de la forme/position de la
+   *    pilule (ou des deux panneaux de Prévisualisation si `fromPreview`) et se déforme en un seul
+   *    geste vers sa forme normale.
+   *  - 'exit' : mouvement inverse — parti de sa forme normale, ce panneau se déforme vers la
+   *    pilule ou les panneaux de Prévisualisation, puis Index.tsx le démonte (`onDone`) et affiche
+   *    à la place les vrais panneaux slicer, déjà dans leur état final (cf. `initialPreviewActive`
+   *    de CategoriesSidebar).
+   *
+   * C'est ICI le même élément DOM, déjà monté avec son contenu réel, qui change de silhouette
+   * (`clip-path`, cf. useModelingMorph) — aucun raccord entre deux éléments distincts, donc aucun
+   * risque de clignotement. Reste monté pendant tout le morph (les effets de montage/démontage —
+   * restauration du mode 3D notamment — ne doivent avoir lieu qu'une fois).
+   */
+  morph?: { direction: 'enter' | 'exit'; fromPreview: boolean; onDone: () => void } | undefined;
+}
 
+/** Le viewport a besoin de connaître l'état initial dès le montage du panneau ; retour au slicer au démontage. */
+function useModelingModeEvents() {
+  useEffect(() => {
+    emitApex('apex-mode-changed', { mode: 'modeling' });
+    emitApex('apex-selection-mode-changed', { mode: 'body' });
+    return () => {
+      // Retour au slicer : le viewport doit restaurer plateau, boundary shader et gizmos.
+      emitApex('apex-mode-changed', { mode: 'slicer' });
+      emitApex('apex-tool-changed', { tool: 'select' });
+    };
+  }, []);
+}
 
-import { ExtrudePanel, type ExtrudeParams } from './ExtrudePanel';
-import { LiquidGlassShadow, type LiquidGlassShadowHandle } from './LiquidGlassMorph';
+/** Esquisse active : cf. la barre d'outils (icônes en cascade) et la largeur de la pilule (Sidebar). */
+function useSketchActiveEvent(sketchModeActive: boolean) {
+  useEffect(() => {
+    emitApex('apex-modeling-sketch-active', { active: sketchModeActive });
+    return () => {
+      emitApex('apex-modeling-sketch-active', { active: false });
+    };
+  }, [sketchModeActive]);
+}
 
-import { type Feature, type FeatureKind, type SelectionMode, type ExtrudeFeature, type SketchEntity, type SketchEntityKind, type SketchPlane, type SketchPlaneRef } from '@/modeling/types';
-import { useModelingMorph } from './modeling-sidebar/useModelingMorph';
-import { useModelTreeSync } from './modeling-sidebar/useModelTreeSync';
-import { useSelectionIndicator } from './modeling-sidebar/useSelectionIndicator';
-import { useSelectionMode } from './modeling-sidebar/useSelectionMode';
-import { useSketchPlane } from './modeling-sidebar/useSketchPlane';
-import { useExtrusion } from './modeling-sidebar/useExtrusion';
-import { useModelingTools } from './modeling-sidebar/useModelingTools';
-import { useFeatureActions } from './modeling-sidebar/useFeatureActions';
-import { ModelTreePanel } from './modeling-sidebar/ModelTreePanel';
-import { FeatureParamsPanel } from './modeling-sidebar/FeatureParamsPanel';
-import { ToolsToolbar } from './modeling-sidebar/ToolsToolbar';
-import { SketchBar } from './modeling-sidebar/SketchBar';
-import type { ModelNode, FloatingSketch, ModelingSidebarProps } from './modeling-sidebar/constants';
-
+/**
+ * Touche E : lance l'Extrusion (comme un clic sur l'outil). Une face déjà choisie dans la vue est reprise par
+ * l'outil (cf. `carriedFace` dans Viewport3D). Sans effet pendant la saisie de texte, avec un modificateur,
+ * en pleine esquisse, ou si l'Extrusion est déjà active.
+ */
+function useExtrudeShortcut(blocked: boolean, handleToolClick: (kind: FeatureKind) => void) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== 'e' || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+      if (blocked) return;
+      e.preventDefault();
+      handleToolClick('extrude');
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+}
 
 export const ModelingSidebar: React.FC<ModelingSidebarProps> = ({ morph }) => {
-  const [models, setModels] = useState<ModelNode[]>([]);
-  const [selectedModel, setSelectedModel] = useState<string | null>(null);
-  const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const tree = useModelingTree();
   const [activeTool, setActiveTool] = useState<FeatureKind | null>(null);
-  // Aucune forme n'est active à la création d'une esquisse : l'utilisateur choisit (pour l'instant
-  // seul le rectangle est disponible).
-  const [sketchEntity, setSketchEntity] = useState<SketchEntityKind | null>(null);
-  const [sketchPlaneChosen, setSketchPlaneChosen] = useState(false);
-  const sketchIdRef = useRef<string | null>(null);
-  // Esquisse « flottante » : tracée sans corps sélectionné, elle attend l'extrusion, qui crée le corps.
-  const floatingSketchRef = useRef<FloatingSketch | null>(null);
-  const [floatingSketchName, setFloatingSketchName] = useState<string | null>(null);
-  const [selectionMode, setSelectionMode] = useState<SelectionMode>('body');
+  const sketch = useSketchState();
+  const selection = useModelingSelection();
+  const { panelRef, shadowRef, stage, contentRevealed, contentLeaving } = useModelingMorph(morph);
+  const targetModel = tree.models.find((m) => m.name === tree.selectedModel) ?? null;
+  useModelingModeEvents();
+  useSketchEvents(tree, targetModel, sketch);
 
-  const segmentedRef = useRef<HTMLDivElement>(null);
-  const segmentRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
-  const [indicatorStyle, setIndicatorStyle] = useState<React.CSSProperties>({});
-  const { contentLeaving, stage, shadowRef, panelRef, contentRevealed } = useModelingMorph({ morph });
-  const {  } = useModelTreeSync({ setSelectedModel, setModels });
-  const {  } = useSelectionIndicator({ segmentedRef, segmentRefs, selectionMode, setIndicatorStyle });
-  const { leaveExtrudeSelectionMode, enterExtrudeSelectionMode, handleSelectionMode } = useSelectionMode({ models, setSelectionMode, selectionMode });
-  const { targetModel } = useSketchPlane({ models, selectedModel, sketchEntity, setSketchEntity, setSketchPlaneChosen, sketchIdRef, floatingSketchRef, setFloatingSketchName, setModels, setSelectedFeatureId, setExpanded });
-  const { handleExtrudeConfirm, handleExtrudeCancel } = useExtrusion({ targetModel, floatingSketchRef, models, setModels, setSelectedFeatureId, setExpanded, setSelectedModel, setFloatingSketchName, sketchIdRef, setActiveTool, leaveExtrudeSelectionMode });
-  const { sketchModeActive, handleToolClick, handleSketchEntity, handleFinishSketch } = useModelingTools({ activeTool, setActiveTool, leaveExtrudeSelectionMode, setSketchEntity, setSketchPlaneChosen, targetModel, enterExtrudeSelectionMode, setModels, setSelectedFeatureId, setExpanded, morph, contentLeaving, sketchIdRef, sketchPlaneChosen, sketchEntity });
-  const { selectModelInViewport, toggleExpand, toggleSuppress, deleteFeature, selectedFeature, updateFeature, toolbarSlot } = useFeatureActions({ setModels, setSelectedFeatureId, setSelectedModel, setExpanded, targetModel, selectedFeatureId });
+  const toolCtx = {
+    tree, targetModel, sketch, activeTool, setActiveTool,
+    enterExtrudeSelectionMode: selection.enterExtrudeSelectionMode,
+    leaveExtrudeSelectionMode: selection.leaveExtrudeSelectionMode,
+  };
+  const handleToolClick = makeToolClick(toolCtx);
+  const sketchModeActive = activeTool === 'sketch';
+  useSketchActiveEvent(sketchModeActive);
+  useExtrudeShortcut(!!morph || contentLeaving || activeTool === 'sketch' || activeTool === 'extrude', handleToolClick);
+
+  /** Termine l'esquisse : plus de forme active, le plan est abandonné, l'orbite est rendue. */
+  const handleFinishSketch = () => {
+    setActiveTool(null);
+    sketch.setSketchEntity(null);
+    sketch.setSketchPlaneChosen(false);
+    sketch.sketchIdRef.current = null;
+    emitApex('apex-sketch-tool', { entity: null, sketchId: null });
+    // Rend la vue d'avant l'outil Esquisse (doit partir AVANT le pick-cancel, qui efface l'instantané).
+    emitApex('apex-sketch-finished');
+    // Même signal que le retrait de l'outil : déverrouille l'orbite et désactive le tracé.
+    emitApex('apex-tool-changed', { tool: 'select' });
+    emitApex('apex-sketch-plane-pick-cancel');
+    showSuccess('Esquisse terminée.');
+  };
+
+  const handleSketchEntity = (kind: SketchEntityKind) => {
+    if (!sketch.sketchPlaneChosen) {
+      showError('Choisissez d\'abord un plan ou une face plane.');
+      return;
+    }
+    // Re-cliquer sur la forme active la désactive.
+    const next = sketch.sketchEntity === kind ? null : kind;
+    sketch.setSketchEntity(next);
+    emitApex('apex-sketch-tool', { entity: next, sketchId: sketch.sketchIdRef.current });
+  };
+
+  const selectedFeature: Feature | null =
+    targetModel?.features.find((f) => f.id === tree.selectedFeatureId) ?? null;
+
+  // Slot exposé par Sidebar (même conteneur physique que la barre d'outils slicer) : Sidebar est
+  // toujours monté en parallèle, donc le noeud existe déjà quand ce composant apparaît.
+  const [toolbarSlot, setToolbarSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    setToolbarSlot(document.getElementById('apex-modeling-toolbar-slot'));
+  }, []);
 
   return (
     <>
-      {/* Pendant le morph (cf. `morph`), l'ombre portée est un calque séparé qui épouse la même
-          silhouette animée que .panel — box-shadow ne suivrait pas un clip-path complexe, il
-          resterait un rectangle fixe pendant que le contenu change de forme. Composant purement
-          passif : pilotée par `shadowRef`, dans la MÊME boucle RAF que .panel (cf. le
-          useLayoutEffect plus haut), jamais par sa propre boucle indépendante. */}
+      {/* Pendant le morph, l'ombre portée est un calque séparé qui épouse la même silhouette animée
+          que .panel (box-shadow ne suivrait pas un clip-path complexe). Purement passif : piloté par
+          `shadowRef`, dans la MÊME boucle RAF que .panel (cf. useModelingMorph). */}
       {stage && (
-        <LiquidGlassShadow
-          left={stage.left}
-          top={stage.top}
-          width={stage.width}
-          height={stage.height}
-          shadowRef={shadowRef}
-        />
+        <LiquidGlassShadow left={stage.left} top={stage.top} width={stage.width} height={stage.height} shadowRef={shadowRef} />
       )}
 
-      {/* ---------- Panneau latéral : arborescence des corps ---------- */}
-      {/* Ni ce conteneur ni .panel ne sont des motion.div : Framer Motion pose un `transform`
-          inline sur tout ce qu'il anime, ce qui créerait un contexte d'empilement sur un ANCÊTRE
-          du panneau à `backdrop-filter` (cf. le commentaire de tête de LiquidGlassMorph.tsx). */}
-      <div
-        className={styles.container}
-        data-apex-chrome-panel
-        style={
-          stage
-            ? { position: 'fixed', left: stage.left, top: stage.top, width: stage.width, height: stage.height, maxHeight: 'none' }
-            : undefined
-        }
-      >
-        <div
-          ref={panelRef}
-          data-scroll-edge
-          data-apex-tooltip="Panneau Modélisation : liste des corps de la scène et mode de sélection (corps, face, arête ou sommet)."
-          className={clsx(styles.panel, { [styles.morphing]: !!stage })}
-        >
-          {/* Jamais visible pendant une déformation : apparaît en cascade (header, Sélection,
-              Corps) une fois un morph d'entrée terminé, disparaît de même dès le clic qui quitte
-              Modélisation (contentLeaving). Hors morph, `animate="visible"` sans délai. */}
-          <ModelTreePanel contentRevealed={contentRevealed} contentLeaving={contentLeaving} segmentedRef={segmentedRef} indicatorStyle={indicatorStyle} segmentRefs={segmentRefs} selectionMode={selectionMode} handleSelectionMode={handleSelectionMode} models={models} expanded={expanded} selectedModel={selectedModel} selectModelInViewport={selectModelInViewport} toggleExpand={toggleExpand} selectedFeatureId={selectedFeatureId} setSelectedFeatureId={setSelectedFeatureId} toggleSuppress={toggleSuppress} deleteFeature={deleteFeature} />
+      <ModelingPanel
+        stage={stage}
+        panelRef={panelRef}
+        contentVisible={contentRevealed && !contentLeaving}
+        tree={tree}
+        selection={selection}
+        selectedFeature={selectedFeature}
+        targetModel={targetModel}
+      />
 
-          {/* ---- Paramètres de la feature sélectionnée ---- */}
-          <FeatureParamsPanel selectedFeature={selectedFeature} targetModel={targetModel} updateFeature={updateFeature} />
-        </div>
-      </div>
-
-      {/* ---------- Boutons d'opérations CAD ----------
-          Injectés par portail dans le même conteneur physique que la barre d'outils slicer
-          (voir Sidebar.tsx : c'est LUI qui se vide/se déplace/se déforme entre les modes,
-          pas un composant séparé qui apparaît par-dessus) — ici on ne possède que la
-          logique (activeTool, handleToolClick, création de features), pas le conteneur. */}
       {toolbarSlot && createPortal(
-        // Infobulle de la barre elle-même (fond), les boutons gardant la leur. L'enveloppe remplit
-        // le conteneur porté, avec la même disposition que lui (cf. .modelingSlot dans Sidebar).
-        <ToolsToolbar sketchModeActive={sketchModeActive} activeTool={activeTool} handleToolClick={handleToolClick} />,
+        <ModelingToolbar activeTool={activeTool} sketchModeActive={sketchModeActive} handleToolClick={handleToolClick} />,
         toolbarSlot,
       )}
 
@@ -118,16 +165,16 @@ export const ModelingSidebar: React.FC<ModelingSidebarProps> = ({ morph }) => {
           <ExtrudePanel
             key="extrude-panel"
             sketchName={
-              targetModel?.features.filter((f) => f.kind === 'sketch').slice(-1)[0]?.name ?? floatingSketchName
+              targetModel?.features.filter((f) => f.kind === 'sketch').slice(-1)[0]?.name ?? sketch.floatingSketchName
             }
-            onConfirm={handleExtrudeConfirm}
-            onCancel={handleExtrudeCancel}
+            onConfirm={makeExtrudeConfirm(toolCtx)}
+            onCancel={makeExtrudeCancel(toolCtx)}
           />
         )}
       </AnimatePresence>
 
       {/* ---------- Petite barre des formes d'esquisse, juste sous la barre principale ---------- */}
-      <SketchBar activeTool={activeTool} sketchEntity={sketchEntity} handleSketchEntity={handleSketchEntity} handleFinishSketch={handleFinishSketch} />
+      <SketchBar activeTool={activeTool} sketchEntity={sketch.sketchEntity} handleSketchEntity={handleSketchEntity} handleFinishSketch={handleFinishSketch} />
     </>
   );
 };

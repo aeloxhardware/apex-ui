@@ -8,7 +8,32 @@ import aetheris4 from '../../profiles/Aelox Hardware/Aetheris-4.json';
 /** Profil de l'imprimante utilisée tant que le menu Imprimantes ne permet pas d'en choisir une autre. */
 export const DEFAULT_PRINTER_PROFILE: unknown = aetheris4;
 
-export interface ProfileRotaryAxis {
+/**
+ * Rayon du plateau (mm) lu dans le profil de l'imprimante : seule source, pour le viewport, l'analyseur
+ * G-code, l'arrangement et la validation. Le profil par défaut est embarqué : s'il n'a pas cette
+ * donnée, c'est une erreur de donnée qu'on veut voir tout de suite, pas une valeur à deviner.
+ */
+export const PLATE_RADIUS_MM: number = (() => {
+  const r = (DEFAULT_PRINTER_PROFILE as { apex?: { plate_radius_mm?: unknown } } | null)?.apex?.plate_radius_mm;
+  if (typeof r !== 'number' || !(r > 0)) throw new Error("Le profil d'imprimante par défaut n'indique pas `apex.plate_radius_mm`.");
+  return r;
+})();
+
+/** Nom de l'imprimante d'un profil (`apex.model`, sinon `printer_model`) ; `null` quand il n'en porte pas. */
+function printerName(profile: unknown): string | null {
+  const p = profile as { apex?: { model?: unknown }; printer_model?: unknown } | null;
+  const name = p?.apex?.model ?? p?.printer_model;
+  return typeof name === 'string' && name ? name : null;
+}
+
+/** Nom de l'imprimante active tant que le menu Imprimantes n'en a pas fait choisir une autre. */
+export const DEFAULT_PRINTER_NAME: string = (() => {
+  const name = printerName(DEFAULT_PRINTER_PROFILE);
+  if (!name) throw new Error("Le profil d'imprimante par défaut n'indique pas son nom (`apex.model`).");
+  return name;
+})();
+
+interface ProfileRotaryAxis {
   axis: string;
   role?: string;
   range_deg?: unknown;
@@ -16,13 +41,14 @@ export interface ProfileRotaryAxis {
   max_acceleration_deg_s2?: unknown;
 }
 
-export interface ProfileApexBlock {
+interface ProfileApexBlock {
   rotary_axes?: ProfileRotaryAxis[];
   pivot_distance_mm?: Record<string, unknown>;
   plate_radius_mm?: unknown;
   /** Identifiant du modèle 3D de la tête (`src/assets/models/<id>.glb`). */
   toolhead_model?: unknown;
   layer_height_limits_mm?: { min?: unknown; max?: unknown };
+  default_nozzle_profile?: { length_mm?: unknown; angle_deg?: unknown; outer_width_mm?: unknown } | null;
 }
 
 export interface MachineFacts {
@@ -35,6 +61,10 @@ export interface MachineFacts {
   layerMinMm: number | null;
   layerMaxMm: number | null;
   toolheadModel: string | null;
+  /** Buse par défaut de l'imprimante (`apex.default_nozzle_profile`). */
+  nozzleLengthMm: number | null;
+  nozzleAngleDeg: number | null;
+  nozzleOuterWidthMm: number | null;
 }
 
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
@@ -61,6 +91,9 @@ export function machineFacts(profile: unknown): MachineFacts {
     layerMinMm: num(apex.layer_height_limits_mm?.min),
     layerMaxMm: num(apex.layer_height_limits_mm?.max),
     toolheadModel: typeof apex.toolhead_model === 'string' && apex.toolhead_model ? apex.toolhead_model : null,
+    nozzleLengthMm: num(apex.default_nozzle_profile?.length_mm),
+    nozzleAngleDeg: num(apex.default_nozzle_profile?.angle_deg),
+    nozzleOuterWidthMm: num(apex.default_nozzle_profile?.outer_width_mm),
   };
 }
 

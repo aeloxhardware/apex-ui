@@ -9,7 +9,7 @@ import { useRef, useState } from 'react';
  *
  * @param contentRef Conteneur scrollable dont ce hook lit `scrollTop`/`scrollHeight`/`clientHeight`.
  */
-export function useExternalScrollThumb(contentRef: React.RefObject<HTMLElement>) {
+export function useExternalScrollThumb(contentRef: React.RefObject<HTMLElement | null>) {
   const [thumbHeight, setThumbHeight] = useState(40);
   const [thumbTop, setThumbTop] = useState(8);
   const [hasScroll, setHasScroll] = useState(false);

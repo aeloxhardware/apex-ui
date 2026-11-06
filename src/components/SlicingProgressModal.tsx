@@ -1,4 +1,4 @@
-import React, { useSyncExternalStore } from 'react';
+import React, { useEffect, useRef, useSyncExternalStore } from 'react';
 import styles from './SlicingProgressModal.module.scss';
 import { Check, Loader2, Play, X } from 'lucide-react';
 import { sliceController } from '@/utils/sliceController';
@@ -8,6 +8,10 @@ interface SlicingProgressModalProps {
   onClose: () => void;
   onFinished: () => void;
 }
+
+const SLIDE_MS = 550;
+const SLIDE_BUMP_PX = 5;
+const CASCADE_MS = 70;
 
 // L'avancement vient uniquement des lignes de progression du moteur (cf. utils/sliceController.ts) :
 // aucune minuterie ici.
@@ -23,8 +27,6 @@ export const SlicingProgressModal: React.FC<SlicingProgressModalProps> = ({ isOp
     onClose();
   };
 
-  if (!isOpen) return null;
-
   // État de chaque étape et avancement de sa barre : uniquement ce que le moteur a annoncé.
   const stepStatus = (index: number): 'done' | 'running' | 'pending' | 'error' => {
     if (isDone || index < slice.stepIndex) return 'done';
@@ -33,6 +35,41 @@ export const SlicingProgressModal: React.FC<SlicingProgressModalProps> = ({ isOp
     if (index === slice.stepIndex && slice.phase === 'failed' && slice.steps.length > 0) return 'error';
     return 'pending';
   };
+
+  const statuses = steps.map((_, index) => stepStatus(index));
+  const statusKey = statuses.join(',');
+
+  // Étapes qui s'enchaînent trop vite pour glisser (durée de la transition CSS) : une petite
+  // vague de SLIDE_BUMP_PX les traverse quand même, en cascade.
+  const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const prevStatuses = useRef<string[]>([]);
+  const runningSince = useRef<number[]>([]);
+  useEffect(() => {
+    const prev = prevStatuses.current;
+    const now = performance.now();
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let cascade = 0;
+    statuses.forEach((status, index) => {
+      const before = prev[index];
+      if (status === 'running' && before !== 'running') runningSince.current[index] = now;
+      if (status !== 'done' || before === undefined || before === 'done') return;
+      const tooFast = before === 'pending' || now - (runningSince.current[index] ?? now) < SLIDE_MS;
+      if (!tooFast || reduceMotion) return;
+      itemRefs.current[index]?.animate(
+        [
+          { transform: 'translateX(0)' },
+          { transform: `translateX(${SLIDE_BUMP_PX}px)`, offset: 0.4 },
+          { transform: 'translateX(0)' },
+        ],
+        { duration: SLIDE_MS, delay: cascade * CASCADE_MS, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+      );
+      cascade += 1;
+    });
+    prevStatuses.current = statuses;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- dépendances volontairement limitées : effet à déclenchement ciblé
+  }, [statusKey]);
+
+  if (!isOpen) return null;
 
   return (
     <div className={styles.backdrop}>
@@ -58,12 +95,13 @@ export const SlicingProgressModal: React.FC<SlicingProgressModalProps> = ({ isOp
           )}
           <div className={styles.stepList}>
             {steps.map((step, index) => {
-              const status = stepStatus(index);
+              const status = statuses[index];
               const fraction = status === 'done' ? 1 : status === 'running' ? slice.fraction : 0;
               return (
                 <div
                   key={step.slug}
-                  className={`${styles.stepItem} ${status === 'pending' ? styles.stepPending : ''}`}
+                  ref={(el) => { itemRefs.current[index] = el; }}
+                  className={`${styles.stepItem} ${status === 'pending' ? styles.stepPending : ''} ${status === 'running' ? styles.stepActive : ''}`}
                 >
                   <span
                     className={`${styles.stepIcon} ${

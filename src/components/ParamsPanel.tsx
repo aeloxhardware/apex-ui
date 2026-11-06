@@ -24,6 +24,7 @@ import { START_PAGES, setStartPage, useStartPage } from '@/utils/startPagePrefs'
 import clsx from 'clsx';
 import styles from './ParamsPanel.module.scss';
 
+import { emitApex } from '@/events/apexEvents';
 const UI_NEUTRAL_TOOLTIP = {
   title: 'Apex Neutral',
   desc: "Adapte l'échelle à la résolution de la fenêtre pour afficher la même quantité d'éléments que sur un écran 2K (2560 × 1440). Le curseur d'échelle se multiplie à ce facteur.",
@@ -39,27 +40,64 @@ const COLOR_BY_DEFER_TOOLTIP = {
   desc: "Sur un très gros fichier, recalcule la coloration du tracé une image après le changement de mode plutôt que dans le même instant, pour ne jamais bloquer le clic. Sans effet visible sur un fichier de taille courante.",
 };
 
-/**
- * Espace Paramètres : le Viewport3D est entièrement démonté (cf. Index.tsx), donc ce panneau
- * est tout ce qui s'affiche sous la barre d'onglets et la barre fichier/son.
- */
-export const ParamsPanel: React.FC = () => {
-  // Miroir React du singleton localStorage (cf. utils/gcodeColorByPrefs.ts, même patron que
-  // utils/uiSound.ts) : ce panneau n'est pas la seule source de vérité, il ne fait que refléter et
-  // modifier l'état partagé, que gcodeLayer.ts lit directement au moment de recolorer.
-  const [colorByDeferred, setColorByDeferredState] = useState(isColorByDeferred);
-  useEffect(() => subscribeColorByDeferred(setColorByDeferredState), []);
-  const [devMode, setDevModeState] = useState(isDevModeEnabled);
-  useEffect(() => subscribeDevMode(setDevModeState), []);
-  const [editJournal, setEditJournalState] = useState(isEditJournalEnabled);
-  useEffect(() => subscribeEditJournal(setEditJournalState), []);
+/** Échelle de l'interface, Apex Neutral et interface à plat au prochain lancement. */
+const DisplaySection: React.FC = () => {
+  const [, forceRender] = useState(0);
+  useEffect(() => subscribeUiScale(() => forceRender((n) => n + 1)), []);
+  const uiScale = getUiScale();
+  const uiNeutral = isUiNeutral();
+  // Interface du PROCHAIN lancement (lue une seule fois au lancement, cf. utils/interfaceMode.ts) :
+  // le réglage est mémorisé tout de suite, la session en cours ne change pas.
+  const [classicNext, setClassicNext] = useState(() => getStoredInterfaceMode() === 'classic');
+  return (
+  <section className={styles.section}>
+    <h3 className={styles.sectionTitle}>Affichage</h3>
+    <div className={styles.sliderRow}>
+      <ApexSlider
+        label="Échelle de l'interface"
+        value={uiScale}
+        onChange={setUiScale}
+        min={UI_SCALE_MIN}
+        max={UI_SCALE_MAX}
+        step={UI_SCALE_STEP}
+        defaultValue={1}
+        format={(v) => `${Math.round(v * 100)} %`}
+      />
+    </div>
+    <label
+      className={styles.checkboxRow}
+      onMouseEnter={() => emitApex('apex-set-tooltip', UI_NEUTRAL_TOOLTIP)}
+      onMouseLeave={() => emitApex('apex-reset-tooltip')}
+    >
+      <input
+        type="checkbox"
+        className={styles.checkbox}
+        checked={uiNeutral}
+        onChange={(e) => setUiNeutral(e.target.checked)}
+      />
+      <span>Apex Neutral</span>
+    </label>
+    <label className={styles.checkboxRow}>
+      <input
+        type="checkbox"
+        className={styles.checkbox}
+        checked={classicNext}
+        onChange={(e) => {
+          setClassicNext(e.target.checked);
+          setStoredInterfaceMode(e.target.checked ? 'classic' : 'liquid');
+        }}
+      />
+      <span>Interface à plat au prochain lancement (noir et blanc, sans verre, flou, transparence, sons ni animations)</span>
+    </label>
+    {(classicNext ? 'classic' : 'liquid') !== getLaunchInterfaceMode() && (
+      <p className={styles.subtitle}>Pris en compte au prochain lancement de l'application.</p>
+    )}
+  </section>
+  );
+};
 
-  // Désinstallation : proposée seulement dans l'application installée (désinstalleur à côté de l'exe).
-  const [canUninstall, setCanUninstall] = useState(false);
-  useEffect(() => {
-    void window.apexDesktop?.canUninstall?.().then(setCanUninstall).catch(() => setCanUninstall(false));
-  }, []);
-
+/** Page de démarrage, avec pastille coulissante. */
+const StartPageSection: React.FC = () => {
   const startPage = useStartPage();
   // Pastille coulissante du sélecteur de page de démarrage (même technique que ModelingSidebar).
   const startBarRef = useRef<HTMLDivElement>(null);
@@ -83,15 +121,111 @@ export const ParamsPanel: React.FC = () => {
     observer.observe(bar);
     return () => observer.disconnect();
   }, [startPage]);
-  const [, forceRender] = useState(0);
-  useEffect(() => subscribeUiScale(() => forceRender((n) => n + 1)), []);
-  const uiScale = getUiScale();
-  const uiNeutral = isUiNeutral();
-  // Interface du PROCHAIN lancement (lue une seule fois au lancement, cf. utils/interfaceMode.ts) :
-  // le réglage est mémorisé tout de suite, la session en cours ne change pas.
-  const [classicNext, setClassicNext] = useState(() => getStoredInterfaceMode() === 'classic');
-
   return (
+  <section className={styles.section}>
+    <h3 className={styles.sectionTitle}>Page de démarrage</h3>
+    <div ref={startBarRef} className={styles.segmented}>
+      <div className={styles.segmentIndicator} style={startIndicator} />
+      {START_PAGES.map(({ id, label }) => {
+        // Modélisation n'existe qu'avec la valeur « dev » (cf. CLAUDE.md) : proposée grisée sinon.
+        const unavailable = id === 'modeling' && !isDevModeEnabled();
+        return (
+          <button
+            key={id}
+            type="button"
+            ref={(el) => { if (el) startButtonRefs.current.set(id, el); }}
+            className={clsx(styles.segmentButton, { [styles.active]: startPage === id })}
+            disabled={unavailable}
+            title={unavailable ? 'Arrive bientôt' : undefined}
+            onClick={() => setStartPage(id)}
+          >
+            {label}
+          </button>
+        );
+      })}
+    </div>
+    <p className={styles.subtitle}>Espace sur lequel l'application s'ouvre ; pris en compte au prochain lancement.</p>
+  </section>
+  );
+};
+
+/** Réglages de la prévisualisation G-code et du mode dev. */
+const PreviewSection: React.FC = () => {
+  // Miroir React du singleton localStorage (cf. utils/gcodeColorByPrefs.ts, même patron que
+  // utils/uiSound.ts) : ce panneau n'est pas la seule source de vérité, il ne fait que refléter et
+  // modifier l'état partagé, que gcodeLayer.ts lit directement au moment de recolorer.
+  const [colorByDeferred, setColorByDeferredState] = useState(isColorByDeferred);
+  useEffect(() => subscribeColorByDeferred(setColorByDeferredState), []);
+  const [devMode, setDevModeState] = useState(isDevModeEnabled);
+  useEffect(() => subscribeDevMode(setDevModeState), []);
+  const [editJournal, setEditJournalState] = useState(isEditJournalEnabled);
+  useEffect(() => subscribeEditJournal(setEditJournalState), []);
+  return (
+  <section className={styles.section}>
+    <h3 className={styles.sectionTitle}>Prévisualisation G-code</h3>
+    <label
+      className={styles.checkboxRow}
+      onMouseEnter={() => emitApex('apex-set-tooltip', COLOR_BY_DEFER_TOOLTIP)}
+      onMouseLeave={() => emitApex('apex-reset-tooltip')}
+    >
+      <input
+        type="checkbox"
+        className={styles.checkbox}
+        checked={colorByDeferred}
+        onChange={(e) => setColorByDeferred(e.target.checked)}
+      />
+      <span>Différer la coloration du tracé sur les très gros fichiers</span>
+    </label>
+    <label
+      className={styles.checkboxRow}
+      onMouseEnter={() => emitApex('apex-set-tooltip', EDIT_JOURNAL_TOOLTIP)}
+      onMouseLeave={() => emitApex('apex-reset-tooltip')}
+    >
+      <input
+        type="checkbox"
+        className={styles.checkbox}
+        checked={editJournal}
+        onChange={(e) => setEditJournalEnabled(e.target.checked)}
+      />
+      <span>Enregistrer l'historique des modifications dans le G-code</span>
+    </label>
+    <label className={styles.checkboxRow}>
+      <input
+        type="checkbox"
+        className={styles.checkbox}
+        checked={devMode}
+        onChange={(e) => setDevModeEnabled(e.target.checked)}
+      />
+      <span>Mode dev (onglet Dev et raccourcis du navigateur : Ctrl+R, F5, F12…)</span>
+    </label>
+  </section>
+  );
+};
+
+/** Désinstallation : proposée seulement dans l'application installée (désinstalleur à côté de l'exe). */
+const UninstallSection: React.FC = () => {
+  const [canUninstall, setCanUninstall] = useState(false);
+  useEffect(() => {
+    void window.apexDesktop?.canUninstall?.().then(setCanUninstall).catch(() => setCanUninstall(false));
+  }, []);
+  return (
+    canUninstall ? (
+      <section className={styles.section}>
+        <h3 className={styles.sectionTitle}>Application</h3>
+        <button type="button" className={styles.dangerButton} onClick={() => void window.apexDesktop?.uninstall?.()}>
+          Désinstaller Apex Slicer…
+        </button>
+        <p className={styles.subtitle}>Demande confirmation, puis l'autorisation administrateur, et ferme l'application.</p>
+      </section>
+    ) : null
+  );
+};
+
+/**
+ * Espace Paramètres : le Viewport3D est entièrement démonté (cf. Index.tsx), donc ce panneau
+ * est tout ce qui s'affiche sous la barre d'onglets et la barre fichier/son.
+ */
+export const ParamsPanel: React.FC = () => (
     <div className={styles.container}>
       <motion.div
         className={styles.panel}
@@ -103,113 +237,10 @@ export const ParamsPanel: React.FC = () => {
         <h2 className={styles.title}>Paramètres</h2>
         <p className={styles.subtitle}>Réglages généraux de l'application.</p>
 
-        <section className={styles.section}>
-          <h3 className={styles.sectionTitle}>Affichage</h3>
-          <div className={styles.sliderRow}>
-            <ApexSlider
-              label="Échelle de l'interface"
-              value={uiScale}
-              onChange={setUiScale}
-              min={UI_SCALE_MIN}
-              max={UI_SCALE_MAX}
-              step={UI_SCALE_STEP}
-              defaultValue={1}
-              format={(v) => `${Math.round(v * 100)} %`}
-            />
-          </div>
-          <label
-            className={styles.checkboxRow}
-            onMouseEnter={() => window.dispatchEvent(new CustomEvent('apex-set-tooltip', { detail: UI_NEUTRAL_TOOLTIP }))}
-            onMouseLeave={() => window.dispatchEvent(new CustomEvent('apex-reset-tooltip'))}
-          >
-            <input
-              type="checkbox"
-              className={styles.checkbox}
-              checked={uiNeutral}
-              onChange={(e) => setUiNeutral(e.target.checked)}
-            />
-            <span>Apex Neutral</span>
-          </label>
-          <label className={styles.checkboxRow}>
-            <input
-              type="checkbox"
-              className={styles.checkbox}
-              checked={classicNext}
-              onChange={(e) => {
-                setClassicNext(e.target.checked);
-                setStoredInterfaceMode(e.target.checked ? 'classic' : 'liquid');
-              }}
-            />
-            <span>Interface à plat au prochain lancement (noir et blanc, sans verre, flou, transparence, sons ni animations)</span>
-          </label>
-          {(classicNext ? 'classic' : 'liquid') !== getLaunchInterfaceMode() && (
-            <p className={styles.subtitle}>Pris en compte au prochain lancement de l'application.</p>
-          )}
-        </section>
 
-        <section className={styles.section}>
-          <h3 className={styles.sectionTitle}>Page de démarrage</h3>
-          <div ref={startBarRef} className={styles.segmented}>
-            <div className={styles.segmentIndicator} style={startIndicator} />
-            {START_PAGES.map(({ id, label }) => {
-              // Modélisation n'existe qu'avec la valeur « dev » (cf. CLAUDE.md) : proposée grisée sinon.
-              const unavailable = id === 'modeling' && !isDevModeEnabled();
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  ref={(el) => { if (el) startButtonRefs.current.set(id, el); }}
-                  className={clsx(styles.segmentButton, { [styles.active]: startPage === id })}
-                  disabled={unavailable}
-                  title={unavailable ? 'Arrive bientôt' : undefined}
-                  onClick={() => setStartPage(id)}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-          <p className={styles.subtitle}>Espace sur lequel l'application s'ouvre ; pris en compte au prochain lancement.</p>
-        </section>
-
-        <section className={styles.section}>
-          <h3 className={styles.sectionTitle}>Prévisualisation G-code</h3>
-          <label
-            className={styles.checkboxRow}
-            onMouseEnter={() => window.dispatchEvent(new CustomEvent('apex-set-tooltip', { detail: COLOR_BY_DEFER_TOOLTIP }))}
-            onMouseLeave={() => window.dispatchEvent(new CustomEvent('apex-reset-tooltip'))}
-          >
-            <input
-              type="checkbox"
-              className={styles.checkbox}
-              checked={colorByDeferred}
-              onChange={(e) => setColorByDeferred(e.target.checked)}
-            />
-            <span>Différer la coloration du tracé sur les très gros fichiers</span>
-          </label>
-          <label
-            className={styles.checkboxRow}
-            onMouseEnter={() => window.dispatchEvent(new CustomEvent('apex-set-tooltip', { detail: EDIT_JOURNAL_TOOLTIP }))}
-            onMouseLeave={() => window.dispatchEvent(new CustomEvent('apex-reset-tooltip'))}
-          >
-            <input
-              type="checkbox"
-              className={styles.checkbox}
-              checked={editJournal}
-              onChange={(e) => setEditJournalEnabled(e.target.checked)}
-            />
-            <span>Enregistrer l'historique des modifications dans le G-code</span>
-          </label>
-          <label className={styles.checkboxRow}>
-            <input
-              type="checkbox"
-              className={styles.checkbox}
-              checked={devMode}
-              onChange={(e) => setDevModeEnabled(e.target.checked)}
-            />
-            <span>Mode dev (onglet Dev et raccourcis du navigateur : Ctrl+R, F5, F12…)</span>
-          </label>
-        </section>
+        <DisplaySection />
+        <StartPageSection />
+        <PreviewSection />
 
         <section className={styles.section}>
           <h3 className={styles.sectionTitle}>Algorithme (avancé)</h3>
@@ -219,16 +250,7 @@ export const ParamsPanel: React.FC = () => {
           <EngineSettingsEditor />
         </section>
 
-        {canUninstall && (
-          <section className={styles.section}>
-            <h3 className={styles.sectionTitle}>Application</h3>
-            <button type="button" className={styles.dangerButton} onClick={() => void window.apexDesktop?.uninstall?.()}>
-              Désinstaller Apex Slicer…
-            </button>
-            <p className={styles.subtitle}>Demande confirmation, puis l'autorisation administrateur, et ferme l'application.</p>
-          </section>
-        )}
+        <UninstallSection />
       </motion.div>
     </div>
-  );
-};
+);

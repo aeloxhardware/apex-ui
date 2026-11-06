@@ -26,9 +26,9 @@ export interface ApexJournalEntry {
   before: number[];
   after: number[];
   /** Points dont le dépôt a été rogné par cette modification (sous-ensemble de `indices`). */
-  trimmed?: number[];
+  trimmed?: number[] | undefined;
   /** Identifiant du groupe : une validation et ses copies par symétrie s'annulent d'un coup. */
-  group?: string;
+  group?: string | undefined;
   /** Empreinte SHA-256 (hex) des valeurs après : contrôle du rejeu à la réouverture. */
   fingerprint: string;
 }
@@ -43,7 +43,7 @@ export interface ApexHeaderPayload {
   /** Tranché par le moteur Apex (modification en place permise). */
   sliced?: boolean;
   /** Métadonnées de tranchage, libres (écrites par le moteur). */
-  meta?: Record<string, unknown>;
+  meta?: Record<string, unknown> | undefined;
   journal?: ApexJournal;
 }
 

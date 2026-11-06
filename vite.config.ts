@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
@@ -89,6 +90,15 @@ export default defineConfig(() => ({
     port: 8080,
   },
   plugins: [react(), apexConvertDevServer(), apexProfilesDevServer()],
+  // Couverture : seuil plancher sur la logique testable (jamais baissé ; à relever à chaque progrès, cf. CLAUDE.md).
+  test: {
+    coverage: {
+      provider: "v8" as const,
+      include: ["src/utils/**", "src/modeling/**", "src/components/gcode*.ts", "src/components/edit-node/*.ts"],
+      exclude: ["**/*.test.ts", "**/*.test.tsx", "src/generated/**"],
+      thresholds: { lines: 40 },
+    },
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

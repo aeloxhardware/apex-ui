@@ -19,7 +19,7 @@ const AELOX_URL = 'https://aeloxhardware.com';
 
 const notifyHomeReady = () => window.dispatchEvent(new Event('apex-home-ready'));
 
-/** Fond de l'Accueil (remplace TopoBackground, plus coûteux en calcul). Assez léger pour rester animé même sur GPU faible. */
+/** Fond de l'Accueil (plus léger qu'un fond calculé en temps réel). Assez léger pour rester animé même sur GPU faible. */
 const HomeLightfall: React.FC = () => (
   <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', background: '#05070b' }}>
     <Lightfall dpr={1} onReady={notifyHomeReady} />

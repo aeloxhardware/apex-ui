@@ -23,8 +23,114 @@ const cascade = (i: number) => ({
 /** Bord droit du panneau de réglages de CategoriesSidebar (left 24 + largeur 320). */
 const MENU_RIGHT_EDGE = 24 + 320;
 
+/** Filtres posés par l'utilisateur, avec un historique (Ctrl+Z / Ctrl+Y) tant que la liste `open` reste ouverte. */
+function useFilterHistory(open: boolean) {
+  const [hist, setHist] = useState<{ filters: FilamentFilter[]; past: FilamentFilter[][]; future: FilamentFilter[][] }>(
+    { filters: NO_FILTERS, past: [], future: [] },
+  );
+  const histRef = useRef(hist);
+  histRef.current = hist;
+  const filters = hist.filters;
+  const commitFilters = (next: FilamentFilter[]) =>
+    setHist((h) => ({ filters: next, past: [...h.past, h.filters], future: [] }));
+  useEffect(() => {
+    if (open) return;
+    // Liste refermée : les filtres restent, mais on ne peut plus annuler / rétablir leurs modifications.
+    setHist((h) => ({ filters: h.filters, past: [], future: [] }));
+  }, [open]);
+
+  // Ctrl+Z / Ctrl+Y (ou Ctrl+Maj+Z) : annuler / rétablir l'ajout, le retrait ou le changement de mode d'un filtre.
+  // Dans le champ de recherche, tant qu'il contient du texte, ils gardent leur rôle de saisie.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const k = e.key.toLowerCase();
+      const redo = k === 'y' || (k === 'z' && e.shiftKey);
+      const undo = k === 'z' && !e.shiftKey;
+      if (!undo && !redo) return;
+      const t = e.target;
+      if (t instanceof HTMLInputElement && t.value) return;
+      const h = histRef.current;
+      if (undo ? h.past.length === 0 : h.future.length === 0) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      setHist(undo
+        ? { filters: h.past[h.past.length - 1], past: h.past.slice(0, -1), future: [h.filters, ...h.future] }
+        : { filters: h.future[0], past: [...h.past, h.filters], future: h.future.slice(1) });
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [open]);
+  return { filters, commitFilters };
+}
+
+/** Pastilles des filtres actifs : clic = inverser inclusif / exclusif, croix = supprimer. */
+const FilterChips: React.FC<{ filters: FilamentFilter[]; commitFilters: (next: FilamentFilter[]) => void }> = ({ filters, commitFilters }) => (
+    <div className={styles.chips}>
+      {filters.map((filter) => {
+        const exclude = filter.mode === 'exclude';
+        const Icon = exclude ? IconFilterX : IconFilterCheck;
+        return (
+          <span key={`${filter.kind}:${filter.value}`} className={exclude ? `${styles.chip} ${styles.chipExclude}` : styles.chip}>
+            <button
+              type="button"
+              className={styles.chipBody}
+              {...bottomTip(exclude ? 'Filtre exclusif' : 'Filtre inclusif', exclude
+                ? "Filtre exclusif masquant les éléments correspondant à ses critères. Cliquez pour le rendre inclusif. Cliquez sur la croix pour le supprimer."
+                : "Filtre inclusif n'affichant que les éléments correspondant à ses critères. Cliquez pour le rendre exclusif. Cliquez sur la croix pour le supprimer.")}
+              onClick={() => commitFilters(filters.map((x) => (x === filter ? { ...x, mode: exclude ? 'include' : 'exclude' } : x)))}
+            >
+              <Icon size={13} stroke={1.75} />
+              <span className={styles.chipLabel}>{filter.kind === 'brand' ? 'Marque' : 'Matériau'} : {filter.value}</span>
+            </button>
+            <button
+              type="button"
+              className={styles.chipClose}
+              aria-label="Supprimer le filtre"
+              {...bottomTip('Supprimer', 'Supprimer ce filtre.')}
+              onClick={() => commitFilters(filters.filter((x) => x !== filter))}
+            >
+              <X size={10} />
+            </button>
+          </span>
+        );
+      })}
+    </div>
+);
+
+/** Liste des filaments affichés (au plus `MAX_SHOWN`) ; un clic sélectionne et referme. */
+const FilamentList: React.FC<{
+  error: string | null;
+  shown: FilamentProfile[];
+  selectedKey: string;
+  onPick: (key: string) => void;
+}> = ({ error, shown, selectedKey, onPick }) => (
+  <ul className={styles.list}>
+    {error && <li className={styles.empty}>{error}</li>}
+    {!error && shown.length === 0 && <li className={styles.empty}>Aucun filament</li>}
+    {shown.map((f, i) => {
+      const key = filamentKey(f);
+      return (
+        <motion.li key={key} {...cascade(i + 1)}>
+          <button
+            type="button"
+            className={key === selectedKey ? `${styles.item} ${styles.itemActive}` : styles.item}
+            {...bottomTip(f.name, `Sélectionner ce filament${key === selectedKey ? ' (déjà sélectionné)' : ''} : ${[f.vendor, f.type].filter(Boolean).join(' · ')}.`)}
+            onClick={() => onPick(key)}
+          >
+            <span>{f.name}</span>
+            <span className={styles.itemMeta}>{[f.vendor, f.type].filter(Boolean).join(' · ')}</span>
+          </button>
+        </motion.li>
+      );
+    })}
+    {!error && shown.length === MAX_SHOWN && <li className={styles.empty}>Affinez la recherche pour voir la suite.</li>}
+  </ul>
+);
+
 /** Sélection du filament (Préparation), sous l'arborescence des modèles : catalogue des profils Orca. */
-export const FilamentSelector = React.forwardRef<HTMLDivElement, { motionProps: MotionProps }>(({ motionProps }, ref) => {
+export const FilamentSelector = React.forwardRef<HTMLDivElement, { motionProps: MotionProps }>(function FilamentSelector({ motionProps }, ref) {
   const [filaments, setFilaments] = useState<FilamentProfile[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [selectedKey, setSelectedKey] = useState(getSelectedFilamentKey);
@@ -39,15 +145,10 @@ export const FilamentSelector = React.forwardRef<HTMLDivElement, { motionProps: 
   const filterButtonRef = useRef<HTMLButtonElement | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterAnchor, setFilterAnchor] = useState({ left: 0, top: 0 });
+  // Liste refermée : le panneau de filtre se referme aussi.
+  useEffect(() => { if (!open) setFilterOpen(false); }, [open]);
   // Filtres posés par l'utilisateur, avec un historique (Ctrl+Z / Ctrl+Y) tant que la liste reste ouverte.
-  const [hist, setHist] = useState<{ filters: FilamentFilter[]; past: FilamentFilter[][]; future: FilamentFilter[][] }>(
-    { filters: NO_FILTERS, past: [], future: [] },
-  );
-  const histRef = useRef(hist);
-  histRef.current = hist;
-  const filters = hist.filters;
-  const commitFilters = (next: FilamentFilter[]) =>
-    setHist((h) => ({ filters: next, past: [...h.past, h.filters], future: [] }));
+  const { filters, commitFilters } = useFilterHistory(open);
   // Les calques `position: fixed` se repèrent sur la zone de l'interface (bandeau ancré au-dessus), pas sur la fenêtre.
   const zoneOrigin = () => (portalRoot === document.body ? { left: 0, top: 0 } : portalRoot.getBoundingClientRect());
 
@@ -77,36 +178,7 @@ export const FilamentSelector = React.forwardRef<HTMLDivElement, { motionProps: 
     return () => { window.removeEventListener('mousedown', onDown); window.removeEventListener('keydown', onKey); };
   }, [open, filterOpen]);
 
-  useEffect(() => {
-    if (open) return;
-    setFilterOpen(false);
-    // Liste refermée : les filtres restent, mais on ne peut plus annuler / rétablir leurs modifications.
-    setHist((h) => ({ filters: h.filters, past: [], future: [] }));
-  }, [open]);
 
-  // Ctrl+Z / Ctrl+Y (ou Ctrl+Maj+Z) : annuler / rétablir l'ajout, le retrait ou le changement de mode d'un filtre.
-  // Dans le champ de recherche, tant qu'il contient du texte, ils gardent leur rôle de saisie.
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (!(e.ctrlKey || e.metaKey)) return;
-      const k = e.key.toLowerCase();
-      const redo = k === 'y' || (k === 'z' && e.shiftKey);
-      const undo = k === 'z' && !e.shiftKey;
-      if (!undo && !redo) return;
-      const t = e.target;
-      if (t instanceof HTMLInputElement && t.value) return;
-      const h = histRef.current;
-      if (undo ? h.past.length === 0 : h.future.length === 0) return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      setHist(undo
-        ? { filters: h.past[h.past.length - 1], past: h.past.slice(0, -1), future: [h.filters, ...h.future] }
-        : { filters: h.future[0], past: [...h.past, h.filters], future: h.future.slice(1) });
-    };
-    window.addEventListener('keydown', onKey, true);
-    return () => window.removeEventListener('keydown', onKey, true);
-  }, [open]);
 
   const selected = filaments.find((f) => filamentKey(f) === selectedKey);
   const shown = useMemo(() => {
@@ -181,59 +253,8 @@ export const FilamentSelector = React.forwardRef<HTMLDivElement, { motionProps: 
             <IconFilterPlus size={16} stroke={1.75} />
           </button>
         </motion.div>
-        {filters.length > 0 && (
-          <div className={styles.chips}>
-            {filters.map((filter) => {
-              const exclude = filter.mode === 'exclude';
-              const Icon = exclude ? IconFilterX : IconFilterCheck;
-              return (
-                <span key={`${filter.kind}:${filter.value}`} className={exclude ? `${styles.chip} ${styles.chipExclude}` : styles.chip}>
-                  <button
-                    type="button"
-                    className={styles.chipBody}
-                    {...bottomTip(exclude ? 'Filtre exclusif' : 'Filtre inclusif', exclude
-                      ? "Filtre exclusif masquant les éléments correspondant à ses critères. Cliquez pour le rendre inclusif. Cliquez sur la croix pour le supprimer."
-                      : "Filtre inclusif n'affichant que les éléments correspondant à ses critères. Cliquez pour le rendre exclusif. Cliquez sur la croix pour le supprimer.")}
-                    onClick={() => commitFilters(filters.map((x) => (x === filter ? { ...x, mode: exclude ? 'include' : 'exclude' } : x)))}
-                  >
-                    <Icon size={13} stroke={1.75} />
-                    <span className={styles.chipLabel}>{filter.kind === 'brand' ? 'Marque' : 'Matériau'} : {filter.value}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.chipClose}
-                    aria-label="Supprimer le filtre"
-                    {...bottomTip('Supprimer', 'Supprimer ce filtre.')}
-                    onClick={() => commitFilters(filters.filter((x) => x !== filter))}
-                  >
-                    <X size={10} />
-                  </button>
-                </span>
-              );
-            })}
-          </div>
-        )}
-        <ul className={styles.list}>
-          {error && <li className={styles.empty}>{error}</li>}
-          {!error && shown.length === 0 && <li className={styles.empty}>Aucun filament</li>}
-          {shown.map((f, i) => {
-            const key = filamentKey(f);
-            return (
-              <motion.li key={key} {...cascade(i + 1)}>
-                <button
-                  type="button"
-                  className={key === selectedKey ? `${styles.item} ${styles.itemActive}` : styles.item}
-                  {...bottomTip(f.name, `Sélectionner ce filament${key === selectedKey ? ' (déjà sélectionné)' : ''} : ${[f.vendor, f.type].filter(Boolean).join(' · ')}.`)}
-                  onClick={() => { setSelectedFilamentKey(key); setOpen(false); setQuery(''); }}
-                >
-                  <span>{f.name}</span>
-                  <span className={styles.itemMeta}>{[f.vendor, f.type].filter(Boolean).join(' · ')}</span>
-                </button>
-              </motion.li>
-            );
-          })}
-          {!error && shown.length === MAX_SHOWN && <li className={styles.empty}>Affinez la recherche pour voir la suite.</li>}
-        </ul>
+        <FilterChips filters={filters} commitFilters={commitFilters} />
+        <FilamentList error={error} shown={shown} selectedKey={selectedKey} onPick={(key) => { setSelectedFilamentKey(key); setOpen(false); setQuery(''); }} />
       </GlassPanel>
       <FilamentFilterPanel
         ref={filterRef}

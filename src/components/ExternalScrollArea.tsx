@@ -11,7 +11,7 @@ const THUMB_MIN = 32;
 interface ExternalScrollAreaProps {
   children: React.ReactNode;
   /** Conteneur (doit être positionné par le parent : il remplit sa hauteur et ne rogne pas le curseur). */
-  className?: string;
+  className?: string | undefined;
   /** Contenu défilant (marges intérieures). */
   contentClassName?: string;
 }

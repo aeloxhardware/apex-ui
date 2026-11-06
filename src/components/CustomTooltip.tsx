@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { usePortalRoot } from '@/components/GpuWarningFrame';
 import styles from './Tooltip.module.scss';
 
+import { emitApex } from '@/events/apexEvents';
 interface CustomTooltipProps {
   content: string;
   description: string;
@@ -42,11 +43,7 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({
       setVisible(true);
     }, 200);
 
-    window.dispatchEvent(
-      new CustomEvent('apex-set-tooltip', {
-        detail: { title: content, desc: description }
-      })
-    );
+    emitApex('apex-set-tooltip', { title: content, desc: description });
   };
 
   // Conteneur : `mouseover` (qui remonte depuis les enfants) plutôt que `mouseenter`, pour distinguer
@@ -59,7 +56,7 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({
       return;
     }
     if (visible || timeoutRef.current) {
-      window.dispatchEvent(new CustomEvent('apex-set-tooltip', { detail: { title: content, desc: description } }));
+      emitApex('apex-set-tooltip', { title: content, desc: description });
       return;
     }
     handleMouseEnter();
@@ -71,7 +68,7 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({
       timeoutRef.current = null;
     }
     setVisible(false);
-    window.dispatchEvent(new CustomEvent('apex-reset-tooltip'));
+    emitApex('apex-reset-tooltip');
   };
 
   // Un clic est une intention d'action, pas un survol prolongé : sans ce reset, la bulle reste
@@ -83,7 +80,7 @@ export const CustomTooltip: React.FC<CustomTooltipProps> = ({
       timeoutRef.current = null;
     }
     setVisible(false);
-    window.dispatchEvent(new CustomEvent('apex-reset-tooltip'));
+    emitApex('apex-reset-tooltip');
   };
 
   return (

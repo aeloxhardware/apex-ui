@@ -6,8 +6,8 @@ export type ModelUnit = 'mm' | 'in';
 
 export const INCH_TO_MM = 25.4;
 /** Taille plausible d'un objet imprimé, en mm (plus petit : objet presque invisible ; plus grand : hors plateau). */
-export const SIZE_MIN_MM = 5;
-export const SIZE_MAX_MM = 1000;
+const SIZE_MIN_MM = 5;
+const SIZE_MAX_MM = 1000;
 
 /** Écart à la plage plausible, en mm (0 si la taille y est). */
 function outOfRange(sizeMm: number): number {

@@ -96,6 +96,112 @@ async function placeNodeAt(k) {
 
 const state = () => ev(`(() => { const s = window.__st; if (!s) return null; const c = { ...s }; delete c.validation; c.validation = s.validation ? { ...s.validation, normalIndices: s.validation.normalIndices.length, normalDeviation: s.validation.normalDeviation.length } : null; return JSON.stringify(c); })()`).then((s) => (s ? JSON.parse(s) : null));
 
+// Réglages du nœud pilotés par événements (scénario `full`).
+async function setInfl(patch) {
+  const st0 = await state();
+  const infl = { ...st0.influence, ...patch };
+  await ev(`window.dispatchEvent(new CustomEvent('apex-edit-influence', { detail: { influence: ${JSON.stringify(infl)} } }))`);
+  await sleep(900);
+}
+
+async function setDelta(values, commit, wait = 1500) {
+  await ev(`window.dispatchEvent(new CustomEvent('apex-edit-set-delta', { detail: { values: ${JSON.stringify(values)}, commit: ${commit} } }))`);
+  await sleep(wait);
+  return state();
+}
+
+/** Verrous de zone : poser un verrou par clic, puis les effacer. */
+async function fullLocks(n) {
+  let st;
+  const k2 = Math.floor(n * 0.3);
+  const p = JSON.parse(await ev(`JSON.stringify(window.__apexEdit.debugProjectMove(${k2}))`));
+  const rect = JSON.parse(await ev(`JSON.stringify(document.getElementById('babylon-canvas').getBoundingClientRect())`));
+  await ev(`window.dispatchEvent(new CustomEvent('apex-edit-lock-mode', { detail: { mode: 'lock', radiusMm: 2 } }))`);
+  await sleep(300);
+  await click(rect.left + p.x, rect.top + p.y);
+  await sleep(1500);
+  st = await state();
+  log('verrous : points =', st.locks, 'mode =', st.lockMode, 'message =', st.message);
+  await shot('f1_locks');
+  await ev(`window.dispatchEvent(new CustomEvent('apex-edit-lock-mode', { detail: { mode: null, radiusMm: 2 } }))`);
+  await ev(`window.dispatchEvent(new CustomEvent('apex-edit-clear-locks'))`);
+  await sleep(800);
+  st = await state();
+  log('verrous effacés : points =', st.locks);
+}
+
+/** ΔB, lissage de B, annulation. */
+async function fullDeltaB() {
+  let st;
+  await setInfl({ smoothB: 0.6, spatial: { enabled: true, radiusMm: 3, falloff: 'cubic' } });
+  st = await setDelta({ b: 8 }, false);
+  log('ΔB aperçu :', JSON.stringify(st.delta && { b: st.delta.b, z: st.delta.z }), 'points =', st.affected);
+  log('dernier glissement :', await ev(`(() => { const d = window.__apexEdit.debugLastDrag(); return JSON.stringify(d && { appliedAngleRad: d.appliedAngleRad, limitScale: d.limitScale, applied: Array.from(d.appliedTranslation), handle: Array.from(d.handle) }); })()`));
+  st = await setDelta({ b: 8 }, true, 2500);
+  log('ΔB validé : undo =', st.undoDepth, 'validation B =', st.validation && [st.validation.bRange, st.validation.bSpeed, st.validation.bAccel], 'msg =', st.message);
+  await shot('f2_deltaB');
+  await ev(`window.dispatchEvent(new CustomEvent('apex-edit-undo'))`);
+  await sleep(2000);
+  log('annulé : undo =', (await state()).undoDepth);
+  await setInfl({ smoothB: 0 });
+}
+
+/** Rognage : aperçu, validation, annulation. */
+async function fullTrim() {
+  let st;
+  await ev(`window.__apexEdit.toggleTrimming(1)`);
+  await sleep(500);
+  await setInfl({ trimLayers: 0, spatial: { enabled: true, radiusMm: 2, falloff: 'plateau' } });
+  st = await state();
+  log('rognage :', st.nodeTrimming, 'points touchés =', st.affected, 'msg =', st.message);
+  st = await setDelta({ z: 0.18 }, false, 2200);
+  log('rognage aperçu : z =', st.delta && st.delta.z.toFixed(3), 'rogné =', st.trimmed, 'épaisseur =', JSON.stringify(st.thickness && { min: st.thickness.min, max: st.thickness.max, bad: st.thickness.outOfBounds }));
+  await shot('f3_trim_preview');
+  st = await setDelta({ z: 0.18 }, true, 3000);
+  const trimmedMoves = await ev(`(window.__apexEdit.debugParsed().trimmedMoves || new Set()).size`);
+  log('rognage validé : undo =', st.undoDepth, 'mouvements rognés =', trimmedMoves, 'msg =', st.message);
+  await shot('f4_trim_done');
+  await ev(`window.dispatchEvent(new CustomEvent('apex-edit-undo'))`);
+  await sleep(2500);
+  log('rognage annulé : mouvements rognés =', await ev(`(window.__apexEdit.debugParsed().trimmedMoves || new Set()).size`), 'undo =', (await state()).undoDepth);
+  await ev(`window.__apexEdit.toggleTrimming(1)`);
+  await setInfl({ trimLayers: 1 });
+}
+
+/** Copier / coller et symétrie cyclique. */
+async function fullCopySymmetry() {
+  let st;
+  await setInfl({ spatial: { enabled: true, radiusMm: 2, falloff: 'cubic' } });
+  st = await setDelta({ z: 0.03, c: 0.5 }, false);
+  await ev(`window.dispatchEvent(new CustomEvent('apex-edit-copy'))`);
+  await sleep(300);
+  st = await state();
+  log('copie : canPaste =', st.canPaste, 'msg =', st.message);
+  await ev(`window.dispatchEvent(new CustomEvent('apex-edit-symmetry', { detail: { symmetry: { mode: 'cyclic', count: 2, mirrorDeg: 0 } } }))`);
+  await sleep(300);
+  st = await setDelta({ z: 0.03, c: 0.5 }, true, 3500);
+  log('symétrie cyclique : undo =', st.undoDepth, 'msg =', st.message);
+  await ev(`window.dispatchEvent(new CustomEvent('apex-edit-symmetry', { detail: { symmetry: { mode: 'none', count: 2, mirrorDeg: 0 } } }))`);
+  await ev(`window.dispatchEvent(new CustomEvent('apex-edit-paste'))`);
+  await sleep(3000);
+  st = await state();
+  log('collé : undo =', st.undoDepth, 'msg =', st.message);
+}
+
+/** Analyse du fichier : limites de B puis collisions. */
+async function fullAnalysis() {
+  let st;
+  await ev(`window.dispatchEvent(new CustomEvent('apex-edit-analyze', { detail: { collisions: false } }))`);
+  await sleep(2500);
+  st = await state();
+  log('analyse B :', st.message);
+  await ev(`window.dispatchEvent(new CustomEvent('apex-edit-analyze', { detail: { collisions: true } }))`);
+  await sleep(8000);
+  st = await state();
+  log('analyse + collisions :', st.message, JSON.stringify(st.validation && { part: st.validation.headPart, plate: st.validation.headPlate, poses: st.validation.posesTested }));
+  await shot('f5_analysis');
+}
+
 const scenarios = {
   // Accueil : page sans 3D, panneau « Merci à » à curseur externe, bibliothèque de sons.
   async home() {
@@ -466,97 +572,11 @@ const scenarios = {
     log('nœud posé au point', placed);
     await ev(`window.__apexEdit.togglePositionLock(1)`);
     await sleep(800);
-    const setInfl = async (patch) => {
-      const st0 = await state();
-      const infl = { ...st0.influence, ...patch };
-      await ev(`window.dispatchEvent(new CustomEvent('apex-edit-influence', { detail: { influence: ${JSON.stringify(infl)} } }))`);
-      await sleep(900);
-    };
-    const setDelta = async (values, commit, wait = 1500) => {
-      await ev(`window.dispatchEvent(new CustomEvent('apex-edit-set-delta', { detail: { values: ${JSON.stringify(values)}, commit: ${commit} } }))`);
-      await sleep(wait);
-      return state();
-    };
-    let st;
-
-    // --- verrous de zone -------------------------------------------------------------------------
-    {
-      const k2 = Math.floor(n * 0.3);
-      const p = JSON.parse(await ev(`JSON.stringify(window.__apexEdit.debugProjectMove(${k2}))`));
-      const rect = JSON.parse(await ev(`JSON.stringify(document.getElementById('babylon-canvas').getBoundingClientRect())`));
-      await ev(`window.dispatchEvent(new CustomEvent('apex-edit-lock-mode', { detail: { mode: 'lock', radiusMm: 2 } }))`);
-      await sleep(300);
-      await click(rect.left + p.x, rect.top + p.y);
-      await sleep(1500);
-      st = await state();
-      log('verrous : points =', st.locks, 'mode =', st.lockMode, 'message =', st.message);
-      await shot('f1_locks');
-      await ev(`window.dispatchEvent(new CustomEvent('apex-edit-lock-mode', { detail: { mode: null, radiusMm: 2 } }))`);
-      await ev(`window.dispatchEvent(new CustomEvent('apex-edit-clear-locks'))`);
-      await sleep(800);
-      st = await state();
-      log('verrous effacés : points =', st.locks);
-    }
-
-    // --- ΔB et lissage de B --------------------------------------------------------------------------
-    await setInfl({ smoothB: 0.6, spatial: { enabled: true, radiusMm: 3, falloff: 'cubic' } });
-    st = await setDelta({ b: 8 }, false);
-    log('ΔB aperçu :', JSON.stringify(st.delta && { b: st.delta.b, z: st.delta.z }), 'points =', st.affected);
-    log('dernier glissement :', await ev(`(() => { const d = window.__apexEdit.debugLastDrag(); return JSON.stringify(d && { appliedAngleRad: d.appliedAngleRad, limitScale: d.limitScale, applied: Array.from(d.appliedTranslation), handle: Array.from(d.handle) }); })()`));
-    st = await setDelta({ b: 8 }, true, 2500);
-    log('ΔB validé : undo =', st.undoDepth, 'validation B =', st.validation && [st.validation.bRange, st.validation.bSpeed, st.validation.bAccel], 'msg =', st.message);
-    await shot('f2_deltaB');
-    await ev(`window.dispatchEvent(new CustomEvent('apex-edit-undo'))`);
-    await sleep(2000);
-    log('annulé : undo =', (await state()).undoDepth);
-    await setInfl({ smoothB: 0 });
-
-    // --- rognage ----------------------------------------------------------------------------------------
-    await ev(`window.__apexEdit.toggleTrimming(1)`);
-    await sleep(500);
-    await setInfl({ trimLayers: 0, spatial: { enabled: true, radiusMm: 2, falloff: 'plateau' } });
-    st = await state();
-    log('rognage :', st.nodeTrimming, 'points touchés =', st.affected, 'msg =', st.message);
-    st = await setDelta({ z: 0.18 }, false, 2200);
-    log('rognage aperçu : z =', st.delta && st.delta.z.toFixed(3), 'rogné =', st.trimmed, 'épaisseur =', JSON.stringify(st.thickness && { min: st.thickness.min, max: st.thickness.max, bad: st.thickness.outOfBounds }));
-    await shot('f3_trim_preview');
-    st = await setDelta({ z: 0.18 }, true, 3000);
-    const trimmedMoves = await ev(`(window.__apexEdit.debugParsed().trimmedMoves || new Set()).size`);
-    log('rognage validé : undo =', st.undoDepth, 'mouvements rognés =', trimmedMoves, 'msg =', st.message);
-    await shot('f4_trim_done');
-    await ev(`window.dispatchEvent(new CustomEvent('apex-edit-undo'))`);
-    await sleep(2500);
-    log('rognage annulé : mouvements rognés =', await ev(`(window.__apexEdit.debugParsed().trimmedMoves || new Set()).size`), 'undo =', (await state()).undoDepth);
-    await ev(`window.__apexEdit.toggleTrimming(1)`);
-    await setInfl({ trimLayers: 1 });
-
-    // --- copier / coller + symétrie ------------------------------------------------------------------
-    await setInfl({ spatial: { enabled: true, radiusMm: 2, falloff: 'cubic' } });
-    st = await setDelta({ z: 0.03, c: 0.5 }, false);
-    await ev(`window.dispatchEvent(new CustomEvent('apex-edit-copy'))`);
-    await sleep(300);
-    st = await state();
-    log('copie : canPaste =', st.canPaste, 'msg =', st.message);
-    await ev(`window.dispatchEvent(new CustomEvent('apex-edit-symmetry', { detail: { symmetry: { mode: 'cyclic', count: 2, mirrorDeg: 0 } } }))`);
-    await sleep(300);
-    st = await setDelta({ z: 0.03, c: 0.5 }, true, 3500);
-    log('symétrie cyclique : undo =', st.undoDepth, 'msg =', st.message);
-    await ev(`window.dispatchEvent(new CustomEvent('apex-edit-symmetry', { detail: { symmetry: { mode: 'none', count: 2, mirrorDeg: 0 } } }))`);
-    await ev(`window.dispatchEvent(new CustomEvent('apex-edit-paste'))`);
-    await sleep(3000);
-    st = await state();
-    log('collé : undo =', st.undoDepth, 'msg =', st.message);
-
-    // --- analyse du fichier ----------------------------------------------------------------------------
-    await ev(`window.dispatchEvent(new CustomEvent('apex-edit-analyze', { detail: { collisions: false } }))`);
-    await sleep(2500);
-    st = await state();
-    log('analyse B :', st.message);
-    await ev(`window.dispatchEvent(new CustomEvent('apex-edit-analyze', { detail: { collisions: true } }))`);
-    await sleep(8000);
-    st = await state();
-    log('analyse + collisions :', st.message, JSON.stringify(st.validation && { part: st.validation.headPart, plate: st.validation.headPlate, poses: st.validation.posesTested }));
-    await shot('f5_analysis');
+    await fullLocks(n);
+    await fullDeltaB();
+    await fullTrim();
+    await fullCopySymmetry();
+    await fullAnalysis();
   },
 
   async basic() {

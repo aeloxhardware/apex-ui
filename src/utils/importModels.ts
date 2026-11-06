@@ -1,3 +1,4 @@
+import { emitApex } from '@/events/apexEvents';
 // Formats acceptés par l'import de modèles (sélecteurs de fichier, dépôt, Viewport3D `onImportModel`).
 export const MODEL_FILE_EXT = /\.(stl|glb|gltf)$/i;
 // Garde-fou : un import qui n'aboutit jamais ne doit pas bloquer les fichiers suivants.
@@ -18,7 +19,7 @@ export async function importModelsOneByOne(files: File[]) {
       };
       const timer = window.setTimeout(done, MODEL_IMPORT_TIMEOUT_MS);
       window.addEventListener('apex-import-model-settled', done);
-      window.dispatchEvent(new CustomEvent('apex-import-model', { detail: file }));
+      emitApex('apex-import-model', file);
     });
   }
 }

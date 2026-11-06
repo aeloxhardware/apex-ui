@@ -7,7 +7,7 @@ import React from 'react';
  * aux couleurs d'Apex), à droite. Le bandeau est la zone de glissement de la fenêtre (double-clic : agrandir /
  * restaurer, géré par Windows). Il occupe sa propre ligne : l'interface (GpuWarningFrame) est en dessous.
  */
-export const TITLE_BAR_HEIGHT = 32;
+const TITLE_BAR_HEIGHT = 32;
 
 export const TitleBar: React.FC = () => (
   <div

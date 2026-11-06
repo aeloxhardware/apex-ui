@@ -6,13 +6,13 @@
 // Le moteur d'Apex ne réalise que quatre motifs (`toolpath2d.infill_pattern`, voir `engineSettings.ts`). Tous les autres
 // restent proposés mais grisés, « Arrive bientôt », tant que le moteur ne les publie pas.
 
-export interface OrcaInfillPattern {
+interface OrcaInfillPattern {
   /** Clé de l'option Orca (`sparse_infill_pattern`). */
   key: string;
   label: string;
 }
 
-export const ORCA_INFILL_PATTERNS: OrcaInfillPattern[] = [
+const ORCA_INFILL_PATTERNS: OrcaInfillPattern[] = [
   { key: 'rectilinear', label: 'Rectilinéaire' },
   { key: 'alignedrectilinear', label: 'Rectilinéaire aligné' },
   { key: 'zigzag', label: 'Zigzag' },

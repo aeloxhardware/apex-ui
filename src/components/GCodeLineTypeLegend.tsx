@@ -5,11 +5,12 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useExternalScrollThumb } from '@/hooks/use-external-scroll-thumb';
 import { LINE_TYPES, type LineTypeId, type LineTypeVisibility } from './gcodeLineTypes';
 import type { ColorByMode, ColorByRange, ContinuousColorByMode } from './gcodeLayer';
-import { COLOR_BY_LABELS, COLOR_BY_UNITS, COLORMAP_STOPS_HEX, defaultColorByScope, type ColorByScope } from './gcodeColormap';
+import { COLOR_BY_LABELS, COLOR_BY_UNITS, COLORMAP_STOPS_HEX, type ColorByScope } from './gcodeColormap';
 import type { GCodeFileInfo } from '@/hooks/use-gcode-preview';
 import styles from './GCodeLineTypeLegend.module.scss';
 import { ExternalScrollArea } from './ExternalScrollArea';
 
+import { emitApex } from '@/events/apexEvents';
 interface GCodeLineTypeLegendProps {
   /** G-code chargé (statistiques par type de ligne), ou null : toutes les valeurs en « — ». */
   fileInfo: GCodeFileInfo | null;
@@ -107,8 +108,8 @@ const GCodeColorBySelector: React.FC<{ colorBy: ColorByMode; setColorBy: (mode: 
         <button
           type="button"
           className={styles.colorByTrigger}
-          onMouseEnter={() => window.dispatchEvent(new CustomEvent('apex-set-tooltip', { detail: COLOR_BY_TRIGGER_TOOLTIP }))}
-          onMouseLeave={() => window.dispatchEvent(new CustomEvent('apex-reset-tooltip'))}
+          onMouseEnter={() => emitApex('apex-set-tooltip', COLOR_BY_TRIGGER_TOOLTIP)}
+          onMouseLeave={() => emitApex('apex-reset-tooltip')}
         >
           <span>{activeLabel}</span>
           <svg className={styles.colorByChevron} width="8" height="5" viewBox="0 0 8 5" fill="none" aria-hidden>
@@ -121,7 +122,7 @@ const GCodeColorBySelector: React.FC<{ colorBy: ColorByMode; setColorBy: (mode: 
         align="start"
         sideOffset={6}
         collisionPadding={12}
-        onMouseEnter={() => window.dispatchEvent(new CustomEvent('apex-reset-tooltip'))}
+        onMouseEnter={() => emitApex('apex-reset-tooltip')}
       >
         <div ref={contentRef} className={styles.colorByMenuContent} onScroll={handleScroll}>
           <ul className={styles.itemsList}>
@@ -327,13 +328,11 @@ const GCodeGradientScale: React.FC<GCodeGradientScaleProps> = ({
       </div>
       <label
         className={styles.grayOutOfScopeRow}
-        onMouseEnter={() => window.dispatchEvent(new CustomEvent('apex-set-tooltip', {
-          detail: {
+        onMouseEnter={() => emitApex('apex-set-tooltip', {
             title: 'Hors-portée en gris',
             desc: 'Coché : les trajectoires en dehors de la portée choisie sont grisées. Décoché : elles prennent la couleur la plus proche de la rampe (bleu en dessous du minimum, rouge au-dessus du maximum).',
-          },
-        }))}
-        onMouseLeave={() => window.dispatchEvent(new CustomEvent('apex-reset-tooltip'))}
+          })}
+        onMouseLeave={() => emitApex('apex-reset-tooltip')}
       >
         <input
           type="checkbox"
@@ -391,13 +390,11 @@ const GCodeRenderPrecisionSlider: React.FC<{
   return (
     <div
       className={styles.precisionRow}
-      onMouseEnter={() => window.dispatchEvent(new CustomEvent('apex-set-tooltip', {
-        detail: {
+      onMouseEnter={() => emitApex('apex-set-tooltip', {
           title: 'Précision du rendu',
           desc: "Subdivise les mouvements pour que la couleur puisse changer plus finement le long du tracé — réduit l'effet de bandes visible sur les longs traits, au prix d'une géométrie plus lourde.",
-        },
-      }))}
-      onMouseLeave={() => window.dispatchEvent(new CustomEvent('apex-reset-tooltip'))}
+        })}
+      onMouseLeave={() => emitApex('apex-reset-tooltip')}
     >
       <div className={styles.precisionLabelRow}>
         <span className={styles.precisionLabel}>Précision du rendu</span>
@@ -425,6 +422,58 @@ const GCodeRenderPrecisionSlider: React.FC<{
   );
 };
 
+/** Lignes de la légende par type de ligne : durée, part, longueur, poids et case de visibilité. */
+const LineTypeRows: React.FC<{
+  fileInfo: GCodeFileInfo;
+  visibility: LineTypeVisibility;
+  onToggle: (id: LineTypeId, visible: boolean) => void;
+}> = ({ fileInfo, visibility, onToggle }) => {
+  const totalTime = fileInfo.totalTime ?? 0;
+  return (
+    <ExternalScrollArea className={styles.rowsArea} contentClassName={styles.rows}>
+      {LINE_TYPES.map((type) => {
+        const stat = fileInfo.lineStats[type.id];
+        const hasTime = !!stat && stat.time > 0;
+        const hasFilament = type.kind === 'extrusion' && !!stat && stat.filamentMm > 0;
+        const visible = visibility[type.id];
+        return (
+          <motion.label
+            key={type.id}
+            className={clsx(styles.grid, styles.row, { [styles.off]: !visible })}
+            variants={itemVariants}
+            onMouseEnter={() => emitApex('apex-set-tooltip', { title: type.label, desc: type.description })}
+            onMouseLeave={() => emitApex('apex-reset-tooltip')}
+          >
+            <span className={styles.name}>
+              <span className={styles.swatch} style={{ backgroundColor: type.color }} />
+              <span className={styles.label}>{type.label}</span>
+            </span>
+            <span className={clsx(styles.numeric, { [styles.dash]: !hasTime })}>
+              {hasTime ? formatDuration(stat.time) : DASH}
+            </span>
+            <span className={clsx(styles.numeric, { [styles.dash]: !hasTime })}>
+              {hasTime && totalTime > 0 ? `${formatNumber((stat.time / totalTime) * 100, 1)}%` : DASH}
+            </span>
+            <span className={clsx(styles.numeric, { [styles.dash]: !hasFilament })}>
+              {hasFilament ? `${formatNumber(stat.filamentMm / 1000, 2)} m` : DASH}
+            </span>
+            <span className={clsx(styles.numeric, { [styles.dash]: !hasFilament })}>
+              {hasFilament ? `${formatNumber(stat.massG, 2)} g` : DASH}
+            </span>
+            <input
+              type="checkbox"
+              className={styles.checkbox}
+              checked={visible}
+              onChange={(e) => onToggle(type.id, e.target.checked)}
+              aria-label={`Afficher : ${type.label}`}
+            />
+          </motion.label>
+        );
+      })}
+    </ExternalScrollArea>
+  );
+};
+
 /**
  * Légende de l'espace Prévisualisation, posée dans le panneau du haut de CategoriesSidebar : le
  * sélecteur « colorer par » en en-tête, puis le corps de la légende selon le mode actif —
@@ -435,7 +484,6 @@ export const GCodeLineTypeLegend = React.memo<GCodeLineTypeLegendProps>(({
   fileInfo, visibility, onToggle, colorBy, setColorBy, activeColorByScope, setColorByScope,
   renderPrecisionBounds, activeRenderPrecisionMm, setRenderPrecision, pickingPoint, onTogglePickPoint,
 }) => {
-  const totalTime = fileInfo?.totalTime ?? 0;
   const continuousMode = colorBy !== 'lineType' ? colorBy : null;
   const fileRange = continuousMode && fileInfo ? fileInfo.colorByRanges[continuousMode] : null;
 
@@ -453,49 +501,7 @@ export const GCodeLineTypeLegend = React.memo<GCodeLineTypeLegendProps>(({
           </motion.div>
 
           {fileInfo ? (
-            <ExternalScrollArea className={styles.rowsArea} contentClassName={styles.rows}>
-              {LINE_TYPES.map((type) => {
-                const stat = fileInfo.lineStats[type.id];
-                const hasTime = !!stat && stat.time > 0;
-                const hasFilament = type.kind === 'extrusion' && !!stat && stat.filamentMm > 0;
-                const visible = visibility[type.id];
-                return (
-                  <motion.label
-                    key={type.id}
-                    className={clsx(styles.grid, styles.row, { [styles.off]: !visible })}
-                    variants={itemVariants}
-                    onMouseEnter={() => window.dispatchEvent(new CustomEvent('apex-set-tooltip', {
-                      detail: { title: type.label, desc: type.description },
-                    }))}
-                    onMouseLeave={() => window.dispatchEvent(new CustomEvent('apex-reset-tooltip'))}
-                  >
-                    <span className={styles.name}>
-                      <span className={styles.swatch} style={{ backgroundColor: type.color }} />
-                      <span className={styles.label}>{type.label}</span>
-                    </span>
-                    <span className={clsx(styles.numeric, { [styles.dash]: !hasTime })}>
-                      {hasTime ? formatDuration(stat.time) : DASH}
-                    </span>
-                    <span className={clsx(styles.numeric, { [styles.dash]: !hasTime })}>
-                      {hasTime && totalTime > 0 ? `${formatNumber((stat.time / totalTime) * 100, 1)}%` : DASH}
-                    </span>
-                    <span className={clsx(styles.numeric, { [styles.dash]: !hasFilament })}>
-                      {hasFilament ? `${formatNumber(stat.filamentMm / 1000, 2)} m` : DASH}
-                    </span>
-                    <span className={clsx(styles.numeric, { [styles.dash]: !hasFilament })}>
-                      {hasFilament ? `${formatNumber(stat.massG, 2)} g` : DASH}
-                    </span>
-                    <input
-                      type="checkbox"
-                      className={styles.checkbox}
-                      checked={visible}
-                      onChange={(e) => onToggle(type.id, e.target.checked)}
-                      aria-label={`Afficher : ${type.label}`}
-                    />
-                  </motion.label>
-                );
-              })}
-            </ExternalScrollArea>
+            <LineTypeRows fileInfo={fileInfo} visibility={visibility} onToggle={onToggle} />
           ) : (
             <motion.p className={styles.gradientEmpty} variants={itemVariants}>
               Aucun G-code chargé.
@@ -530,13 +536,11 @@ export const GCodeLineTypeLegend = React.memo<GCodeLineTypeLegendProps>(({
         disabled={!fileInfo}
         aria-pressed={pickingPoint}
         onClick={onTogglePickPoint}
-        onMouseEnter={() => window.dispatchEvent(new CustomEvent('apex-set-tooltip', {
-          detail: {
+        onMouseEnter={() => emitApex('apex-set-tooltip', {
             title: 'Sélectionner un point de trajectoire à visualiser',
             desc: "Cliquez sur un point de la trajectoire, sur le modèle : la lecture saute à l'instant où la tête l'imprime. Échap pour annuler.",
-          },
-        }))}
-        onMouseLeave={() => window.dispatchEvent(new CustomEvent('apex-reset-tooltip'))}
+          })}
+        onMouseLeave={() => emitApex('apex-reset-tooltip')}
       >
         {pickingPoint ? 'Cliquez un point sur le modèle…' : 'Sélectionner un point de trajectoire à visualiser'}
       </motion.button>

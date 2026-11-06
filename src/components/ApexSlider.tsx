@@ -3,11 +3,12 @@ import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import styles from './ApexSlider.module.scss';
 
+import { emitApex } from '@/events/apexEvents';
 // Curseur unique d'Apex, sur le modèle du curseur de vitesse de Prévisualisation (piste fendue
 // autour d'une poignée en verre, valeur cyan). Tout curseur de réglage doit l'utiliser : ne pas
 // recréer d'<input type="range"> ni de piste dédiée.
 
-export interface ApexSliderTooltip {
+interface ApexSliderTooltip {
   title: string;
   desc: string;
 }
@@ -18,22 +19,22 @@ export interface ApexSliderProps {
   min: number;
   max: number;
   /** `log` exige min > 0 : chaque ordre de grandeur occupe une portion égale de la piste. */
-  scale?: 'linear' | 'log';
+  scale?: 'linear' | 'log' | undefined;
   /** Arrondi de la valeur (souris, clavier). */
-  step?: number;
+  step?: number | undefined;
   /** Valeurs aimantées : le curseur s'y arrête à proximité, pour pouvoir y revenir exactement. */
   snapPoints?: number[];
   /** Valeur de retour au double-clic sur la piste. */
-  defaultValue?: number;
+  defaultValue?: number | undefined;
   /** Texte affiché à droite de la piste. */
   format: (value: number) => string;
   /** Libellé affiché à gauche de la piste. */
   label?: string;
-  ariaLabel?: string;
+  ariaLabel?: string | undefined;
   tooltip?: ApexSliderTooltip;
   /** Apparition en trois temps, `delayS` secondes après le montage (à n'utiliser que dans une cascade). */
   intro?: { delayS: number };
-  className?: string;
+  className?: string | undefined;
 }
 
 // Décalage d'aimantation et pas du clavier, en fraction de la piste (0 à 1).
@@ -106,8 +107,8 @@ export const ApexSlider: React.FC<ApexSliderProps> = ({
   return (
     <div
       className={clsx(styles.root, className)}
-      onMouseEnter={() => tooltip && window.dispatchEvent(new CustomEvent('apex-set-tooltip', { detail: tooltip }))}
-      onMouseLeave={() => tooltip && window.dispatchEvent(new CustomEvent('apex-reset-tooltip'))}
+      onMouseEnter={() => tooltip && emitApex('apex-set-tooltip', tooltip)}
+      onMouseLeave={() => tooltip && emitApex('apex-reset-tooltip')}
     >
       {label && <span className={styles.label}>{label}</span>}
       <div

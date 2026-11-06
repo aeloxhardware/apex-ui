@@ -8,7 +8,7 @@ import registry from './engineSettings.json';
 import help from './engineSettingsHelp.json';
 import { DEFAULT_LAYER_LIMITS } from '@/utils/layerLimits';
 
-export type EngineSettingLevel = 'user' | 'advanced' | 'developer';
+type EngineSettingLevel = 'user' | 'advanced' | 'developer';
 export type EngineSettingValue = number | boolean | string | null;
 
 export interface EngineSetting {
@@ -35,7 +35,7 @@ export const ENGINE_SETTINGS = registry as EngineSetting[];
  * 2026-10-28). Les faits chiffrés viennent du moteur ; ce qu'il n'a pas mesuré est dit tel quel.
  */
 export interface EngineSettingHelp { what: string; effect?: string; caution?: string }
-export const helpOf = (setting: EngineSetting): EngineSettingHelp | undefined => (help as Record<string, EngineSettingHelp>)[setting.path];
+const helpOf = (setting: EngineSetting): EngineSettingHelp | undefined => (help as Record<string, EngineSettingHelp>)[setting.path];
 
 export const getEngineSetting = (path: string): EngineSetting | undefined => ENGINE_SETTINGS.find((s) => s.path === path);
 
@@ -93,7 +93,7 @@ export const ENGINE_SETTING_CATEGORIES = [
  * Valeurs choisies par l'utilisateur pour l'application, différentes du défaut du moteur (décisions du 2026-10-27/28) :
  * le panneau les montre comme valeur courante, à côté du défaut du moteur.
  */
-export const ENGINE_SETTING_APP_DEFAULTS: Record<string, EngineSettingValue> = {
+const ENGINE_SETTING_APP_DEFAULTS: Record<string, EngineSettingValue> = {
   'field_solver.heat_method_time_factor': 300000,
   // TetraNet par défaut (2026-10-28) : seul mailleur dont le refus « surface incohérente » (R-016) est exploitable.
   'mesher': 'tetranet',
@@ -113,7 +113,7 @@ export function boundsOf(setting: EngineSetting): { min: number; max: number | n
 }
 
 /** Mise en conformité d'une valeur saisie : bornes, entier, fenêtre impaire ; `undefined` si inutilisable. */
-export function normalizeValue(setting: EngineSetting, raw: unknown): EngineSettingValue | undefined {
+function normalizeValue(setting: EngineSetting, raw: unknown): EngineSettingValue | undefined {
   if (setting.type === 'boolean') return typeof raw === 'boolean' ? raw : undefined;
   if (setting.type === 'string') return typeof raw === 'string' && (!setting.enum || setting.enum.includes(raw)) ? raw : undefined;
   if (raw === null) return setting.type === 'number|null' ? null : undefined;
@@ -186,7 +186,6 @@ export function isEngineSettingModified(setting: EngineSetting): boolean {
   return setting.path in overrides;
 }
 
-export function getShowAdvancedSettings() { return showAdvanced; }
 export function setShowAdvancedSettings(next: boolean) {
   showAdvanced = next;
   try { localStorage.setItem(ADVANCED_KEY, String(next)); } catch { /* localStorage indisponible */ }
@@ -194,7 +193,7 @@ export function setShowAdvancedSettings(next: boolean) {
   listeners.forEach((l) => l());
 }
 
-export function subscribeEngineSettings(listener: () => void) {
+function subscribeEngineSettings(listener: () => void) {
   listeners.add(listener);
   return () => { listeners.delete(listener); };
 }

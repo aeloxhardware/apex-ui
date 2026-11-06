@@ -136,7 +136,7 @@ export const TopRightMenu: React.FC = () => {
       setNow(0, 0, restWidth);
     });
     // `x`, `y`, `width` sont des MotionValue stables : seul le changement d'espace compte.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- dépendances volontairement limitées : effet à déclenchement ciblé
   }, [previewActive]);
 
   return (

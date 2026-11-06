@@ -13,7 +13,7 @@ polyfillCountryFlagEmojis("Twemoji Country Flags", flagFontUrl);
 createRoot(document.getElementById("root")!).render(<App />);
 
 // Écran de démarrage (application de bureau) : annoncé « prêt » au premier rendu de l'espace de départ,
-// viewport 3D (`apex-viewport-ready`, cf. Viewport3D) ou Accueil (`apex-home-ready`, cf. TopoBackground) ;
+// viewport 3D (`apex-viewport-ready`, cf. Viewport3D) ou Accueil (`apex-home-ready`, cf. HomePanel) ;
 // garde-fou si aucun des deux n'arrive.
 let appReadySent = false;
 const sendAppReady = () => {

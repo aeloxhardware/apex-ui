@@ -60,7 +60,7 @@ export interface OrcaScaleGizmoOptions {
   /** Appelé après chaque pas de mise à l'échelle, le changement étant déjà appliqué au maillage. */
   onScaled: (mesh: BABYLON.AbstractMesh) => void;
   /** Appelé quand le glissement se termine. */
-  onDragEnd?: () => void;
+  onDragEnd?: (() => void) | undefined;
 }
 
 /** Boîte du maillage, dans son propre repère : centre, axes unitaires, demi-tailles, rotation. */

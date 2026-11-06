@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import clsx from 'clsx';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { hideBottomTip, showBottomTip } from './bottomTooltip';
@@ -29,8 +29,8 @@ export function GlassSelect<T extends string>({
   options: readonly GlassSelectOption<T>[];
   onChange: (value: T) => void;
   disabled?: boolean;
-  className?: string;
-  ariaLabel?: string;
+  className?: string | undefined;
+  ariaLabel?: string | undefined;
   onPointerEnter?: () => void;
   onPointerLeave?: () => void;
 }) {

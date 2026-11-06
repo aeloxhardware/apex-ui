@@ -45,11 +45,11 @@ export const EngineSettingsPanel: React.FC = () => {
       </CustomTooltip>
       {isAeolis && (
         <>
-          <CustomTooltip content="Angle de la buse" description="Pente maximale, depuis l'horizontale, de la surface déjà imprimée autour de la pointe de la buse (0° : épaule plate, 90° : aiguille). Détermine ce que la tête peut atteindre sans toucher la matière voisine : Element Aeolis ne garde le tranchage « surface en hauteur » que si les couches respectent cette limite. Par défaut 10° (très bas, pour ne pas casser une imprimante à conduits de ventilation serrés) ; à relever pour une tête dégagée.">
+          <CustomTooltip content="Angle maximum buse-paroi" description="Pente maximale, depuis l'horizontale, de la surface déjà imprimée autour de la pointe de la buse (0° : épaule plate, 90° : aiguille). Détermine ce que la tête peut atteindre sans toucher la matière voisine : Element Aeolis ne garde le tranchage « surface en hauteur » que si les couches respectent cette limite. Par défaut 10° (très bas, pour ne pas casser une imprimante à conduits de ventilation serrés) ; à relever pour une tête dégagée.">
             <div className={styles.settingRow}>
-              <span className={styles.selectorLabel}>Angle de la buse</span>
+              <span className={styles.selectorLabel}>Angle maximum buse-paroi</span>
               <ApexNumberField className={styles.settingField} value={nozzle.angleDeg} onChange={(v) => setAeolisNozzle({ angleDeg: v ?? undefined })}
-                min={AEOLIS_NOZZLE_BOUNDS.angleDeg.min} max={AEOLIS_NOZZLE_BOUNDS.angleDeg.max} step={AEOLIS_NOZZLE_BOUNDS.angleDeg.step} suffix="°" ariaLabel="Angle de la buse" />
+                min={AEOLIS_NOZZLE_BOUNDS.angleDeg.min} max={AEOLIS_NOZZLE_BOUNDS.angleDeg.max} step={AEOLIS_NOZZLE_BOUNDS.angleDeg.step} suffix="°" ariaLabel="Angle maximum buse-paroi" />
             </div>
           </CustomTooltip>
           <CustomTooltip content="Longueur de la buse" description="Longueur maximale atteignable par la buse : longueur de buse sous le conduit de ventilation, c'est-à-dire le dénivelé maximal toléré entre la pointe et la matière voisine plus haute. Avec l'angle de la buse, elle borne les couches qu'Element Aeolis peut trancher en surface en hauteur ; au-delà, le moteur passe au tranchage général. Par défaut 2 mm.">

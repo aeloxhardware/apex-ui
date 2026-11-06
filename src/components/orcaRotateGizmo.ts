@@ -31,7 +31,7 @@ export interface OrcaRotateGizmoOptions {
   /** Appelé après chaque pas de rotation, le mouvement étant déjà appliqué au maillage. */
   onRotated: (mesh: BABYLON.AbstractMesh) => void;
   /** Appelé quand le glissement se termine. */
-  onDragEnd?: () => void;
+  onDragEnd?: (() => void) | undefined;
 }
 
 interface Ring {
@@ -215,7 +215,7 @@ export class OrcaRotateGizmo {
       };
       draw();
       // La police est servie par l'application : si elle n'est pas encore chargée, on redessine après.
-      void document.fonts?.load(`bold 44px ${LETTER_FONT}`).then(draw, () => undefined);
+      void document.fonts?.load(`bold 44px ${LETTER_FONT}`).then(draw, (): void => undefined);
       const mat = new BABYLON.StandardMaterial(`orcaRotateLetterMat${index}`, uscene);
       mat.diffuseTexture = texture;
       mat.useAlphaFromDiffuseTexture = true;

@@ -6,6 +6,7 @@ import type { ConversionMode } from './gcodeLayer';
 import type { ConversionState } from '@/hooks/use-gcode-preview';
 import styles from './GCodeConversionCard.module.scss';
 
+import { emitApex } from '@/events/apexEvents';
 interface ConversionSource {
   name: string;
   nonPlanar: boolean;
@@ -46,8 +47,8 @@ const PAD_Y = 10;
 const RESIZE_TRANSITION = { duration: 0.32, ease: [0.4, 0, 0.2, 1] as const };
 
 const setTooltip = (title: string, desc: string) =>
-  window.dispatchEvent(new CustomEvent('apex-set-tooltip', { detail: { title, desc } }));
-const resetTooltip = () => window.dispatchEvent(new CustomEvent('apex-reset-tooltip'));
+  emitApex('apex-set-tooltip', { title, desc });
+const resetTooltip = () => emitApex('apex-reset-tooltip');
 
 /**
  * Carte de conversion 3 axes → polaire de l'espace Prévisualisation, sous le panneau du bas de

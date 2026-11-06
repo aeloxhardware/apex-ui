@@ -1,20 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { importModelsOneByOne } from '@/utils/importModels';
 import { Viewport3D } from '@/components/Viewport3D';
-import { EditionPanel } from '@/components/edit-node/EditionPanel';
-import { setPreviewTab, usePreviewTab } from '@/components/PreviewUpperTabs';
-import { formatGeneratorLabel } from '@/components/gcodeGenerator';
-import { COLOR_BY_LABELS } from '@/components/gcodeColormap';
-import { LINE_TYPES } from '@/components/gcodeLineTypes';
-import type { ColorByMode } from '@/components/gcodeParse';
-import { GCODE_ACCEPT, GCODE_SPEED_OPTIONS, useGCodePreview } from '@/hooks/use-gcode-preview';
+import { usePreviewTab } from '@/components/PreviewUpperTabs';
+import { useGCodePreview } from '@/hooks/use-gcode-preview';
 import { APP_TAGLINE_DEV, APP_TAGLINE_PREVIEW, setDevModeEnabled, useDevMode } from '@/utils/devModePrefs';
 import { isEditJournalEnabled, setEditJournalEnabled, subscribeEditJournal } from '@/utils/editJournalPrefs';
-import { getLaunchInterfaceMode, relaunchApp, setStoredInterfaceMode } from '@/utils/interfaceMode';
+import { getLaunchInterfaceMode, getStoredInterfaceMode, relaunchApp, setStoredInterfaceMode } from '@/utils/interfaceMode';
 import { getStartPage } from '@/utils/startPagePrefs';
 import { setPlateShaded, usePlateShaded } from '@/utils/plateShadingPrefs';
 import { removeNotification, subscribeToNotifications, type NotificationItem } from '@/utils/notificationStore';
 import { FlatUi } from './FlatUi';
+import { Check, Section, PrepPanel, PreviewPanel, VIEWS, emit } from './ClassicPanels';
 import styles from './ClassicApp.module.scss';
 
 /**
@@ -36,39 +31,43 @@ const ALL_TABS: { id: Tab; label: string; devOnly?: boolean }[] = [
   { id: 'params', label: 'Paramètres' },
 ];
 
-const TOOLS = [
-  { id: 'select', label: 'Sélection' },
-  { id: 'move', label: 'Déplacement' },
-  { id: 'rotate', label: 'Rotation' },
-  { id: 'scale', label: 'Échelle' },
-];
-
-const VIEWS = [
-  { id: 'top', label: 'Dessus' },
-  { id: 'front', label: 'Face' },
-  { id: 'right', label: 'Droite' },
-  { id: 'left', label: 'Gauche' },
-  { id: 'back', label: 'Arrière' },
-  { id: 'bottom', label: 'Dessous' },
-];
-
-const emit = (name: string, detail?: unknown) => window.dispatchEvent(new CustomEvent(name, { detail }));
-const fmtTime = (s: number) => `${Math.floor(s / 3600)} h ${String(Math.floor((s % 3600) / 60)).padStart(2, '0')} min ${String(Math.round(s % 60)).padStart(2, '0')} s`;
-const num = (v: number | undefined, digits = 2) => (v === undefined || !Number.isFinite(v) ? '-' : v.toFixed(digits));
-
-const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-  <section className={styles.section}>
-    <h3>{title}</h3>
-    {children}
-  </section>
+/** Accueil : présentation et promesse. */
+const HomePage: React.FC<{ devMode: boolean }> = ({ devMode }) => (
+    <div className={styles.page}>
+      <Section title="Apex Studio">
+        <p>{devMode ? APP_TAGLINE_DEV : APP_TAGLINE_PREVIEW}</p>
+        <p>Aelox Hardware</p>
+      </Section>
+      <Section title="Promesse">
+        <p>
+          Ce logiciel, ainsi que toutes ses versions, y compris les versions futures, sont et resteront gratuits et open-source,
+          pour tout le monde et pour toujours, sous licence AGPL3. Cette promesse est verrouillée dans les statuts d&apos;Aelox Hardware.
+        </p>
+      </Section>
+    </div>
 );
 
-const Check: React.FC<{ checked: boolean; onChange: (v: boolean) => void; children: React.ReactNode }> = ({ checked, onChange, children }) => (
-  <label className={styles.check}>
-    <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
-    <span>{children}</span>
-  </label>
-);
+/** Paramètres : interface au prochain lancement, journal des modifications, mode dev. */
+const ParamsPage: React.FC<{ devMode: boolean; editJournal: boolean }> = ({ devMode, editJournal }) => {
+  const [classicNext, setClassicNext] = useState(() => getStoredInterfaceMode() === 'classic');
+  return (
+    <div className={styles.page}>
+      <Section title="Interface">
+        <Check checked={classicNext} onChange={(v) => { setClassicNext(v); setStoredInterfaceMode(v ? 'classic' : 'liquid'); }}>
+          Interface classique (noir et blanc, sans effets) au prochain lancement
+        </Check>
+        <p className={styles.note}>
+          {classicNext ? 'Interface classique au prochain lancement.' : 'Interface LiquidGlass au prochain lancement.'}{' '}
+          {(classicNext ? 'classic' : 'liquid') !== getLaunchInterfaceMode() && <button type="button" onClick={relaunchApp}>Relancer maintenant</button>}
+        </p>
+      </Section>
+      <Section title="Prévisualisation G-code">
+        <Check checked={editJournal} onChange={setEditJournalEnabled}>Enregistrer l&apos;historique des modifications dans le G-code</Check>
+        <Check checked={devMode} onChange={setDevModeEnabled}>Mode dev (onglets Préparation, Modélisation et Dev, raccourcis du navigateur)</Check>
+      </Section>
+    </div>
+  );
+};
 
 const ClassicApp: React.FC = () => {
   const devMode = useDevMode();
@@ -79,7 +78,7 @@ const ClassicApp: React.FC = () => {
   });
   const [tool, setTool] = useState('select');
   const [messages, setMessages] = useState<NotificationItem[]>([]);
-  const [model, setModel] = useState<{ name: string; dimensions?: { x: number; y: number; z: number } } | null>(null);
+  const [model, setModel] = useState<{ name: string; dimensions?: { x: number; y: number; z: number } | undefined } | null>(null);
   const [viewportUsed, setViewportUsed] = useState(false);
   const previewActive = tab === 'preview';
   const gp = useGCodePreview(previewActive);
@@ -88,7 +87,6 @@ const ClassicApp: React.FC = () => {
   const importRef = useRef<HTMLInputElement>(null);
   const [dropOffPlate, setDropOffPlate] = useState(false);
   const [editJournal, setEditJournal] = useState(isEditJournalEnabled);
-  const [classicNext, setClassicNext] = useState(getLaunchInterfaceMode() === 'classic');
 
   useEffect(() => subscribeEditJournal(setEditJournal), []);
   useEffect(() => subscribeToNotifications((items) => setMessages(items)), []);
@@ -127,9 +125,6 @@ const ClassicApp: React.FC = () => {
     }
   }, [tab]);
 
-  const info = gp.fileInfo;
-  const generatorRow = formatGeneratorLabel(info?.generator ?? null, 'classic');
-  const cur = gp.current;
 
   return (
     <div className={styles.root}>
@@ -147,38 +142,9 @@ const ClassicApp: React.FC = () => {
       </header>
 
       <div className={styles.body}>
-        {tab === 'home' && (
-          <div className={styles.page}>
-            <Section title="Apex Studio">
-              <p>{devMode ? APP_TAGLINE_DEV : APP_TAGLINE_PREVIEW}</p>
-              <p>Aelox Hardware</p>
-            </Section>
-            <Section title="Promesse">
-              <p>
-                Ce logiciel, ainsi que toutes ses versions, y compris les versions futures, sont et resteront gratuits et open-source,
-                pour tout le monde et pour toujours, sous licence AGPL3. Cette promesse est verrouillée dans les statuts d&apos;Aelox Hardware.
-              </p>
-            </Section>
-          </div>
-        )}
+        {tab === 'home' && <HomePage devMode={devMode} />}
 
-        {tab === 'params' && (
-          <div className={styles.page}>
-            <Section title="Interface">
-              <Check checked={classicNext} onChange={(v) => { setClassicNext(v); setStoredInterfaceMode(v ? 'classic' : 'liquid'); }}>
-                Interface classique (noir et blanc, sans effets) au prochain lancement
-              </Check>
-              <p className={styles.note}>
-                {classicNext ? 'Interface classique au prochain lancement.' : 'Interface LiquidGlass au prochain lancement.'}{' '}
-                {(classicNext ? 'classic' : 'liquid') !== getLaunchInterfaceMode() && <button type="button" onClick={relaunchApp}>Relancer maintenant</button>}
-              </p>
-            </Section>
-            <Section title="Prévisualisation G-code">
-              <Check checked={editJournal} onChange={setEditJournalEnabled}>Enregistrer l&apos;historique des modifications dans le G-code</Check>
-              <Check checked={devMode} onChange={setDevModeEnabled}>Mode dev (onglets Préparation, Modélisation et Dev, raccourcis du navigateur)</Check>
-            </Section>
-          </div>
-        )}
+        {tab === 'params' && <ParamsPage devMode={devMode} editJournal={editJournal} />}
 
         {(tab === 'modeling' || tab === 'dev') && (
           <div className={styles.page}>
@@ -191,157 +157,9 @@ const ClassicApp: React.FC = () => {
         {(viewportUsed || showViewport) && (
           <div className={`${styles.workspace} ${showViewport ? '' : styles.hidden}`}>
             <aside className={styles.side}>
-              {tab === 'prep' && (
-                <>
-                  <Section title="Modèle">
-                    <button type="button" onClick={() => importRef.current?.click()}>Importer un modèle (STL, GLB)…</button>
-                    <input
-                      ref={importRef}
-                      type="file"
-                      accept=".stl,.glb,.gltf"
-                      multiple
-                      hidden
-                      onChange={(e) => { if (e.target.files?.length) void importModelsOneByOne(Array.from(e.target.files)); e.target.value = ''; }}
-                    />
-                    <div className={styles.row}>
-                      <button type="button" onClick={() => emit('apex-select-all-models')}>Tout sélectionner</button>
-                      <button type="button" onClick={() => emit('apex-arrange-models')}>Disposer automatiquement</button>
-                      <button type="button" onClick={() => emit('apex-delete-all-models')}>Tout supprimer</button>
-                    </div>
-                    <table>
-                      <tbody>
-                        <tr><th>Nom</th><td>{model?.name ?? 'Aucun modèle sur le plateau'}</td></tr>
-                        {model?.dimensions && (
-                          <tr><th>Dimensions</th><td>{num(model.dimensions.x, 1)} × {num(model.dimensions.z, 1)} × {num(model.dimensions.y, 1)} mm</td></tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </Section>
-                  <Section title="Outils">
-                    <div className={styles.row}>
-                      {TOOLS.map((t) => (
-                        <button key={t.id} type="button" className={tool === t.id ? styles.active : ''} onClick={() => { setTool(t.id); emit('apex-tool-changed', { tool: t.id }); }}>{t.label}</button>
-                      ))}
-                    </div>
-                  </Section>
-                </>
-              )}
+              {tab === 'prep' && <PrepPanel model={model} tool={tool} setTool={setTool} importRef={importRef} />}
 
-              {tab === 'preview' && (
-                <>
-                  <div className={styles.row}>
-                    <button type="button" className={previewTab !== 'edition' ? styles.active : ''} onClick={() => setPreviewTab('coloration')}>Coloration</button>
-                    <button type="button" className={previewTab === 'edition' ? styles.active : ''} onClick={() => setPreviewTab('edition')}>Édition</button>
-                  </div>
-
-                  {previewTab === 'edition' ? (
-                    <div className={styles.edition}><EditionPanel /></div>
-                  ) : (
-                    <>
-                      <Section title="Fichier G-code">
-                        <button type="button" onClick={gp.openFilePicker} disabled={gp.isLoading}>{gp.isLoading ? 'Chargement…' : 'Ouvrir un G-code…'}</button>
-                        {!info && <p className={styles.note}>Aucun G-code chargé : ouvrez-en un, ou déposez-le sur la fenêtre ({GCODE_ACCEPT}).</p>}
-                        {info && (
-                          <table>
-                            <tbody>
-                              <tr><th>Nom</th><td>{info.name}</td></tr>
-                              <tr><th>Type</th><td>{info.kind === 'polar' ? 'Polaire (4 axes)' : 'Cartésien (3 axes)'}</td></tr>
-                              <tr><th>{generatorRow.label}</th><td>{generatorRow.value}</td></tr>
-                              <tr><th>Imprimante</th><td>{info.printer ?? '-'}</td></tr>
-                              <tr><th>Mouvements</th><td>{info.moves} (dont {info.extruding} en extrusion)</td></tr>
-                              <tr><th>Durée</th><td>{fmtTime(info.totalTime)}</td></tr>
-                              <tr><th>Z</th><td>{num(info.minZ)} à {num(info.maxZ)} mm</td></tr>
-                              <tr><th>C</th><td>{num(info.minC, 1)} à {num(info.maxC, 1)}°</td></tr>
-                            </tbody>
-                          </table>
-                        )}
-                      </Section>
-
-                      {info && (
-                        <>
-                          <Section title="Lecture">
-                            <div className={styles.row}>
-                              <button type="button" onClick={gp.togglePlay}>{gp.isPlaying ? 'Pause' : 'Lecture'}</button>
-                              <select value={gp.speed} onChange={(e) => gp.setSpeed(Number(e.target.value))}>
-                                {GCODE_SPEED_OPTIONS.map((s) => <option key={s} value={s}>{s}×</option>)}
-                              </select>
-                            </div>
-                            <input
-                              type="range"
-                              className={styles.wide}
-                              min={0}
-                              max={Math.max(1, gp.lastIndex)}
-                              step={1}
-                              value={Math.min(gp.t, gp.lastIndex)}
-                              onChange={(e) => gp.seek(Number(e.target.value))}
-                            />
-                            <table>
-                              <tbody>
-                                <tr><th>Mouvement</th><td>{Math.round(gp.t)} / {gp.lastIndex}</td></tr>
-                                <tr><th>X / Y</th><td>{num(cur?.x)} / {num(cur?.y)} mm</td></tr>
-                                <tr><th>Z</th><td>{num(cur?.z)} mm</td></tr>
-                                <tr><th>B / C</th><td>{num(cur?.b, 1)}° / {num(cur?.c, 1)}°</td></tr>
-                              </tbody>
-                            </table>
-                            <Check checked={gp.showFullHead} onChange={gp.setShowFullHead}>Afficher la tête d&apos;outil complète</Check>
-                          </Section>
-
-                          <Section title="Coloration">
-                            <select value={gp.colorBy} onChange={(e) => gp.setColorBy(e.target.value as ColorByMode)}>
-                              <option value="lineType">Type de ligne</option>
-                              {Object.entries(COLOR_BY_LABELS).map(([mode, label]) => <option key={mode} value={mode}>{label}</option>)}
-                            </select>
-                          </Section>
-
-                          <Section title="Types de ligne">
-                            <table>
-                              <thead><tr><th /><th>Type</th><th>Durée</th><th>Filament</th><th>Masse</th></tr></thead>
-                              <tbody>
-                                {LINE_TYPES.map((lt) => {
-                                  const st = info.lineStats[lt.id];
-                                  return (
-                                    <tr key={lt.id}>
-                                      <td><input type="checkbox" checked={gp.lineVisibility[lt.id]} onChange={(e) => gp.setLineVisible(lt.id, e.target.checked)} /></td>
-                                      <td><span className={styles.swatch} style={{ background: lt.color }} /> {lt.label}</td>
-                                      <td>{st ? fmtTime(st.time) : '-'}</td>
-                                      <td>{st ? `${num(st.filamentMm / 1000)} m` : '-'}</td>
-                                      <td>{st ? `${num(st.massG)} g` : '-'}</td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          </Section>
-
-                          {gp.conversionAvailable && gp.conversionSource && (
-                            <Section title="Conversion polaire">
-                              <p className={styles.note}>
-                                G-code 3 axes{gp.conversionSource.nonPlanar ? ' non plan' : ''} : convertissable pour l&apos;Apex.
-                              </p>
-                              {gp.conversionSource.offPlateTraits > 0 && (
-                                <Check checked={dropOffPlate} onChange={setDropOffPlate}>
-                                  Supprimer les {gp.conversionSource.offPlateTraits} traits hors plateau
-                                </Check>
-                              )}
-                              <div className={styles.row}>
-                                <button type="button" disabled={gp.conversion.status === 'running'} onClick={() => gp.convert('polar', dropOffPlate)}>Convertir (polaire)</button>
-                                <button type="button" disabled={gp.conversion.status === 'running'} onClick={() => gp.convert('dynamic', dropOffPlate)}>Convertir (angle dynamique)</button>
-                              </div>
-                              {gp.conversion.status === 'running' && <p>Conversion : {Math.round(gp.conversion.progress)} %</p>}
-                              {gp.conversion.error && <p>Erreur : {gp.conversion.error}</p>}
-                            </Section>
-                          )}
-
-                          <Section title="Export">
-                            <button type="button" disabled={!gp.canExport} onClick={gp.exportGCode}>Exporter le G-code</button>
-                            {!gp.canExport && <p className={styles.note}>Seul un G-code polaire s&apos;exporte pour l&apos;Apex.</p>}
-                          </Section>
-                        </>
-                      )}
-                    </>
-                  )}
-                </>
-              )}
+              {tab === 'preview' && <PreviewPanel gp={gp} previewTab={previewTab} dropOffPlate={dropOffPlate} setDropOffPlate={setDropOffPlate} />}
 
               <Section title="Vue">
                 <div className={styles.row}>

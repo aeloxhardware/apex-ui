@@ -37,10 +37,10 @@ export interface EditInfluence {
   combine: 'product' | 'max';
   /** Poignées du nœud (repère du noyau), 4 valeurs par poignée : dx, dy, dz, portée (mm). La
    * portée 3D dans la direction u vaut max(spatial.radiusMm, max portée·max(0, u·dir)^netteté). */
-  directions?: Float64Array;
+  directions?: Float64Array | undefined;
   directionSharpness?: number;
   /** Poignées verrouillées (ancrages, repère du noyau), 4 valeurs : x, y, z, rayon (mm). */
-  anchors?: Float64Array;
+  anchors?: Float64Array | undefined;
   /** Recalcul de E des segments touchés : désactivé, ou automatique (volume conservé : longueur ×
    * épaisseur) ; le facteur amplifie la correction, E × (1 + facteur × (rapport − 1)). */
   extrusion?: { mode: 'off' | 'auto'; factor: number };
@@ -49,13 +49,13 @@ export interface EditInfluence {
   keepShape?: boolean;
   /** Sens du glissement (repère du noyau) : le long de l'empilement, les poids se répartissent selon
    * la marge d'épaisseur des couches (cf. edit_kernel.hpp). */
-  dragDirection?: Float64Array;
+  dragDirection?: Float64Array | undefined;
   /** Lissage automatique de B après déformation : 0 = aucun, 1 = fort. */
   smoothB?: number;
   smoothBIterations?: number;
   /** Rognage : seules la couche du nœud et `layers` couches de chaque côté se déforment ; la matière
    * des autres couches que la déformation envahit est rognée (extrusion supprimée). */
-  trim?: { enabled: boolean; layers: number; clearanceMm?: number };
+  trim?: { enabled: boolean; layers: number; clearanceMm?: number | undefined } | undefined;
   /** Barrière d'influence : ne déforme que les points du même type de ligne que le nœud. */
   typeBarrier?: boolean;
   /** Re-tranchage : au-delà de l'épaisseur maximale, des couches sont interpolées (insérées dans le
@@ -74,7 +74,7 @@ export interface EditHistoryEntry {
   before: Float64Array;
   after: Float64Array;
   /** Points rognés par cette modification (sous-ensemble de `indices`). */
-  trimmed?: Uint32Array;
+  trimmed?: Uint32Array | undefined;
 }
 
 export interface EditKernelParams {
@@ -100,12 +100,12 @@ export interface EditMoves {
   e?: Float64Array;
   extruding: Uint8Array;
   /** Temps machine cumulé à l'arrivée de chaque mouvement (s) : vitesse et accélération de B. */
-  times?: Float64Array;
+  times?: Float64Array | undefined;
   /** Type de ligne de chaque mouvement (indice) : barrière d'influence aux changements de type. */
   types?: Uint8Array;
   /** Modèle de tête échantillonné (repère de la tête, pointe à l'origine), 3 valeurs par point :
    * contrôle des collisions. */
-  headSamples?: Float32Array;
+  headSamples?: Float32Array | undefined;
 }
 
 export interface EditLoadStats {
@@ -231,7 +231,7 @@ export interface EditDragResult {
   /** EDIT_VALUES_PER_POINT valeurs par point de `affected`. */
   deformed?: Float64Array;
   /** Dépôts que la déformation en cours rognerait (rognage actif), indices croissants. */
-  trimmed?: Uint32Array;
+  trimmed?: Uint32Array | undefined;
   /** Déplacements à vide touchés (option `travel`) : indices et pointes déformées (repère du noyau). */
   travelIndices?: Uint32Array;
   travelTips?: Float32Array;
@@ -265,7 +265,7 @@ export interface EditChange {
   undoDepth: number;
   redoDepth: number;
   /** Dépôts rognés (`trimState` vrai) ou rétablis par une annulation (faux) : sous-ensemble de `indices`. */
-  trimmed?: Uint32Array;
+  trimmed?: Uint32Array | undefined;
   trimState?: boolean;
 }
 
@@ -395,7 +395,7 @@ class EditKernelClient {
   commit(finalTransform?: EditTransform): Promise<EditChange> {
     this.queuedDrag?.resolve(null);
     this.queuedDrag = null;
-    if (finalTransform) void this.call('drag', finalTransform, {}).catch(() => undefined);
+    if (finalTransform) void this.call('drag', finalTransform, {}).catch((): void => undefined);
     return this.call('commit');
   }
 

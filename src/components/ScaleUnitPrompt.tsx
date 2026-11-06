@@ -1,4 +1,3 @@
-import React from 'react';
 import { INCH_TO_MM, type ModelUnit } from '@/utils/modelUnit';
 import styles from './ScaleUnitPrompt.module.scss';
 

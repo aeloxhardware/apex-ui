@@ -8,10 +8,6 @@ import { setPanPerspective } from '@/utils/panPerspectivePrefs';
 
 let active = false;
 
-export function isModelingSpace(): boolean {
-  return active;
-}
-
 export function setModelingSpace(next: boolean) {
   if (next === active) return;
   active = next;

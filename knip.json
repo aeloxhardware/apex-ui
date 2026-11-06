@@ -1,0 +1,10 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "src/main.tsx", "src/lab/**/*.{ts,tsx}", "electron/*.cjs", "scripts/**/*.cjs", "native/*.cjs", "installer/*.cjs",
+    "vite*.config.ts", "src/**/*.test.{ts,tsx}", "src/workers/*.ts"
+  ],
+  "project": ["src/**/*.{ts,tsx}", "electron/**/*.cjs", "scripts/**/*.cjs"],
+  "ignore": ["src/generated/**", "src/hooks/use-mobile.tsx", "src/hooks/use-toast.ts", "src/components/ui/**", "icons-main/**", "slicer_engine/**"],
+  "ignoreDependencies": []
+}

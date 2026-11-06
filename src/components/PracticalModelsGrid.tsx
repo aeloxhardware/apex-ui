@@ -15,7 +15,7 @@ export interface PracticalModel {
   url: string;
 }
 
-export const PRACTICAL_MODELS: PracticalModel[] = Object.entries(urls)
+const PRACTICAL_MODELS: PracticalModel[] = Object.entries(urls)
   .map(([path, url]) => {
     const fileName = path.slice(path.lastIndexOf('/') + 1);
     return { fileName, label: fileName.replace(/\.stl$/i, '').replace(/[_-]+/g, ' '), url };
@@ -72,7 +72,7 @@ const getThumbnail = (model: PracticalModel): Promise<string> => {
 
 /** Lance le dessin des miniatures sans attendre l'ouverture du sous-menu (appelé à l'ouverture du menu contextuel). */
 export const prewarmPracticalModels = () => {
-  for (const model of PRACTICAL_MODELS) void getThumbnail(model).catch(() => undefined);
+  for (const model of PRACTICAL_MODELS) void getThumbnail(model).catch((): void => undefined);
 };
 
 /** Récupère le fichier du modèle pour l'importer comme un fichier choisi par l'utilisateur, sous le nom donné. */
@@ -121,7 +121,7 @@ function useCascade(count: number): number {
     const ready = new Array<boolean>(count).fill(false);
     PRACTICAL_MODELS.forEach((model, i) => {
       // Une miniature en échec compte comme prête : la cascade continue sans elle.
-      getThumbnail(model).catch(() => undefined).then(() => { ready[i] = true; });
+      getThumbnail(model).catch((): void => undefined).then(() => { ready[i] = true; });
     });
     let next = 0;
     let last = performance.now() - GAP_MS;

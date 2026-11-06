@@ -1,28 +1,48 @@
-import { useCustomScrollbar } from './categories-sidebar/useCustomScrollbar';
 import React, { useRef, useState, useEffect } from 'react';
-
-import { AnimatePresence } from 'framer-motion';
-
-
-
-
-
-import { getEngineSetting, useEngineSettings } from '@/utils/engineSettings';
-import { LiquidGlassMorph, GLASS_BLUR_PX, PREVIEW_GLASS_BLUR_PX } from './LiquidGlassMorph';
-
+import { useEngineSettings } from '@/utils/engineSettings';
 import { showSuccess } from '@/utils/toast';
-
-import { PANEL_LEFT, PILL_TOP, PREVIEW_W, previewGeometry, TAB_MORPH_MS } from '@/utils/spaceMorphGeometry';
-
 import { usePreviewPanelVars } from '@/hooks/use-preview-panel-vars';
-import { usePreviewMorph } from './categories-sidebar/usePreviewMorph';
-import { CategoriesPill } from './categories-sidebar/CategoriesPill';
-import { PreviewPanels } from './categories-sidebar/PreviewPanels';
-import { CategoryMenuPanel } from './categories-sidebar/CategoryMenuPanel';
-import { PatternPopup } from './categories-sidebar/PatternPopup';
-import { MENU_W, MENU_STAGE_H, MENU_MORPH_MS, PREVIEW_MORPH_MS, CATEGORIES } from './categories-sidebar/constants';
-import type { CategoryItem, CategoriesSidebarProps } from './categories-sidebar/constants';
-export type { CategoryItem } from './categories-sidebar/constants';
+import { useExternalScrollThumb } from '@/hooks/use-external-scroll-thumb';
+import { CATEGORIES, type CategoryItem } from './categoriesData';
+import { usePreviewSpace, useModelTreeOverflow, type MorphPhase } from './categoriesPreviewState';
+import { CategoryPill, PreviewPanels, CategoryMenu } from './CategoriesPanels';
+import { CategoryGlassMorphs } from './CategoryGlassMorphs';
+
+interface CategoriesSidebarProps {
+  activeCategory: string | null;
+  onSelectCategory: (catId: string | null) => void;
+  /**
+   * Vrai quand ce composant est remonté directement dans l'espace Prévisualisation — après un
+   * morph de sortie de Modélisation joué par ModelingSidebar lui-même (cf. son prop `morph`) — au
+   * lieu d'y entrer par la mitose normale (pilule → panneaux). Les deux panneaux réels doivent
+   * alors être affichés tels quels dès le premier rendu, sans aucune animation ici : le morph a
+   * déjà eu lieu visuellement, ailleurs.
+   */
+  initialPreviewActive?: boolean;
+  /**
+   * Vrai dès le CLIC vers Modélisation (cf. apex-entering-modeling dans Index.tsx), ~900ms avant
+   * que ce composant ne soit démonté sous le rideau. Le contenu qui n'a pas sa place dans
+   * Modélisation disparaît en fondu-glissement : les icônes de la pilule (en cascade) et le panneau
+   * du bas de Prévisualisation — jamais la forme qui va se déformer (pilule ou panneau du haut),
+   * reprise telle quelle par ModelingSidebar.
+   */
+  leavingToModeling?: boolean;
+  /**
+   * Vrai quand ce composant est remonté à la fin d'un morph de sortie de Modélisation (lu une seule
+   * fois, au montage) : la pilule apparaît directement opaque (ModelingSidebar vient d'en prendre la
+   * forme) et seules ses icônes apparaissent, en cascade.
+   */
+  arrivingFromModeling?: boolean;
+  /** Contenu du panneau du haut de Prévisualisation (légende des types de ligne). */
+  previewUpperContent?: React.ReactNode;
+  /** Contenu posé en haut du panneau du bas de Prévisualisation (informations G-code). */
+  previewLowerHeader?: React.ReactNode;
+  /** Contenu posé au bas du panneau du bas de Prévisualisation (ex. sélecteur de vitesse). */
+  previewLowerContent?: React.ReactNode;
+  /** Élément à positionnement propre sous les deux panneaux (carte de conversion G-code), monté et
+   * estompé avec eux. */
+  previewBelowContent?: React.ReactNode;
+}
 
 export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
   activeCategory,
@@ -38,17 +58,27 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
   usePreviewPanelVars();
   const iconRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
   const categoriesToolbarRef = useRef<HTMLDivElement>(null);
-
-  const { contentRef, thumbHeight, thumbTop, hasScroll, isDragging, handleScroll, handleMouseDown } = useCustomScrollbar();
-  const {
-    contentRef: patternContentRef, thumbHeight: patternThumbHeight, thumbTop: patternThumbTop, hasScroll: hasPatternScroll,
-    isDragging: isPatternDragging, handleScroll: handlePatternScroll, handleMouseDown: handlePatternMouseDown,
-  } = useCustomScrollbar();
-
+  const contentRef = useRef<HTMLDivElement>(null);
+  const patternContentRef = useRef<HTMLDivElement>(null);
+  const thumb = useExternalScrollThumb(contentRef);
+  const patternThumb = useExternalScrollThumb(patternContentRef);
 
   useEngineSettings(); // le motif choisi (liste de droite) vient du réglage du moteur
   const [isPatternPopupOpen, setIsPatternPopupOpen] = useState(false);
-  const { morphPhase, previewActive, setMorphPhase, modelTreeOverflow, previewPanelsBorn, previewMorphPhase, wasArrivingFromModeling, enteringPreview, previewPathAt, previewActiveRef, setPreviewActive, setPreviewPanelsBorn, setPreviewMorphPhase, tabMorph, tabPathAt, setEditionLayout, setLowerKey, setTabMorph, editionLayout, tab, lowerKey, lowerRef, wasInitialPreviewActive, menuPathAt, menuContainerRef } = usePreviewMorph({ initialPreviewActive, arrivingFromModeling, onSelectCategory, leavingToModeling });
+  // Figés au montage, jamais réévalués : `initialPreviewActive` (la PROP) suit isPreviewActive en direct côté
+  // Index.tsx ; si le JSX réagissait à la prop plutôt qu'à cette valeur figée, le panneau du bas basculerait
+  // EN PLEINE mitose (changement de `key`, démontage/remontage) : le clignotement observé.
+  const [wasInitialPreviewActive] = useState(initialPreviewActive);
+  const [wasArrivingFromModeling] = useState(arrivingFromModeling);
+
+  // Morphing « verre liquide » du menu de catégorie (cf. LiquidGlassMorph) : les vrais éléments restent montés
+  // mais sans fond (classe .morphing). 'dividing' : la pilule enfante le panneau ; 'merging' : il se refond.
+  const [morphPhase, setMorphPhase] = useState<MorphPhase>(null);
+  const menuContainerRef = useRef<HTMLDivElement>(null);
+  const space = usePreviewSpace({ initialPreviewActive, leavingToModeling, onSelectCategory, setMorphPhase });
+  const { previewActive } = space;
+  const modelTreeOverflow = useModelTreeOverflow();
+
 
   const handleCategoryClick = (cat: CategoryItem) => {
     if (cat.disabled) {
@@ -86,129 +116,47 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
 
   useEffect(() => {
     if (activeCategory) {
-      setTimeout(handleScroll, 50);
+      setTimeout(thumb.handleScroll, 50);
     } else {
       setIsPatternPopupOpen(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- dépendances volontairement limitées : effet à déclenchement ciblé
   }, [activeCategory]);
 
   useEffect(() => {
     if (isPatternPopupOpen) {
-      setTimeout(handlePatternScroll, 50);
+      setTimeout(patternThumb.handleScroll, 50);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- dépendances volontairement limitées : effet à déclenchement ciblé
   }, [isPatternPopupOpen]);
 
-  const activeCatData = CATEGORIES.find(c => c.id === activeCategory);
-  const patternSetting = getEngineSetting('toolpath2d.infill_pattern');
-
-  const previewGeo = previewGeometry(window.innerHeight);
 
   return (
     <>
-      <CategoriesPill modelTreeOverflow={modelTreeOverflow} previewActive={previewActive} previewPanelsBorn={previewPanelsBorn} previewMorphPhase={previewMorphPhase} categoriesToolbarRef={categoriesToolbarRef} morphPhase={morphPhase} handleCategoriesWheel={handleCategoriesWheel} wasArrivingFromModeling={wasArrivingFromModeling} leavingToModeling={leavingToModeling} enteringPreview={enteringPreview} activeCategory={activeCategory} iconRefs={iconRefs} handleCategoryClick={handleCategoryClick} />
+      <CategoryPill
+        modelTreeOverflow={modelTreeOverflow} space={space} morphPhase={morphPhase}
+        wasArrivingFromModeling={wasArrivingFromModeling} leavingToModeling={leavingToModeling}
+        activeCategory={activeCategory} onCategoryClick={handleCategoryClick} iconRefs={iconRefs}
+        toolbarRef={categoriesToolbarRef} onWheel={handleCategoriesWheel}
+      />
+      <CategoryGlassMorphs
+        space={space} morphPhase={morphPhase} setMorphPhase={setMorphPhase} menuContainerRef={menuContainerRef}
+        modelTreeOverflow={modelTreeOverflow} onSelectCategory={onSelectCategory}
+      />
 
-      {/* Prévisualisation : la pilule s'étire en panneau du haut puis celui-ci enfante le panneau
-          du bas ('forward'), ou l'inverse à la sortie ('reverse', même timeline jouée à l'envers).
-          Le verre animé part/finit exactement sur la géométrie de la pilule et des deux panneaux
-          ci-dessous, qui le remplacent une fois l'animation terminée. */}
-      {previewMorphPhase && (
-        <LiquidGlassMorph
-          key={previewMorphPhase}
-          left={PANEL_LEFT}
-          top={PILL_TOP + previewGeo.upper.y}
-          width={PREVIEW_W}
-          height={previewGeo.stageH - previewGeo.upper.y}
-          duration={PREVIEW_MORPH_MS}
-          pathAt={previewPathAt}
-          reverse={previewMorphPhase === 'reverse'}
-          // Le flou passe de celui de la pilule à celui, plus fort, des panneaux de Prévisualisation.
-          blur={[GLASS_BLUR_PX, PREVIEW_GLASS_BLUR_PX]}
-          onDone={() => {
-            if (previewMorphPhase === 'reverse') {
-              previewActiveRef.current = false;
-              setPreviewActive(false);
-              setPreviewPanelsBorn(false);
-              // La pilule a repris sa forme : les éléments voisins (ModelStatusBox) peuvent revenir.
-              window.dispatchEvent(new CustomEvent('apex-preview-morph-done'));
-            } else {
-              setPreviewPanelsBorn(true);
-            }
-            setPreviewMorphPhase(null);
-          }}
-        />
-      )}
+      <PreviewPanels
+        space={space} leavingToModeling={leavingToModeling} wasInitialPreviewActive={wasInitialPreviewActive}
+        previewUpperContent={previewUpperContent} previewLowerHeader={previewLowerHeader}
+        previewLowerContent={previewLowerContent} previewBelowContent={previewBelowContent}
+      />
 
-      {/* Changement d'onglet (Coloration ↔ Édition) : le verre fusionne le panneau du bas dans celui du haut
-          puis l'agrandit ('absorb'), ou l'inverse ('release', même timeline à l'envers). */}
-      {(tabMorph === 'absorb' || tabMorph === 'release') && (
-        <LiquidGlassMorph
-          key={`tab-${tabMorph}`}
-          left={PANEL_LEFT}
-          top={PILL_TOP + previewGeo.upper.y}
-          width={PREVIEW_W}
-          height={previewGeo.stageH - previewGeo.upper.y}
-          duration={TAB_MORPH_MS}
-          pathAt={tabPathAt}
-          reverse={tabMorph === 'release'}
-          blur={[PREVIEW_GLASS_BLUR_PX, PREVIEW_GLASS_BLUR_PX]}
-          onDone={() => {
-            if (tabMorph === 'absorb') {
-              setEditionLayout(true);
-            } else {
-              setEditionLayout(false);
-              setLowerKey((k) => k + 1);
-            }
-            setTabMorph(null);
-          }}
-        />
-      )}
 
-      {/* Panneaux de Prévisualisation, nés de la mitose : contenu à brancher plus tard. Pas
-          d'animation d'entrée/sortie propre en temps normal — leur verre est identique à la
-          dernière image du morphing ; ils s'effacent (.morphing) dès que la fusion inverse démarre,
-          plutôt que de se démonter d'un coup. Exceptions, symétriques, jamais de refusion avec le
-          panneau du haut (qui, lui, se transforme ailleurs — cf. ModelingSidebar) : le panneau du
-          bas joue son propre fondu-glissement piloté directement par `animate` (JAMAIS par `exit` —
-          `leavingToModeling` devient vrai dès le CLIC, ~900ms avant que ce composant ne démonte
-          réellement à `onCovered` sous le rideau ; un `exit` ne jouerait qu'à ce moment bien trop
-          tardif, invisible). Toujours le MÊME élément (jamais de changement de `key`/type), pour
-          qu'`animate` puisse réagir à `leavingToModeling` sans jamais démonter/remonter. */}
-      {previewActive && previewPanelsBorn && (
-        <PreviewPanels key="preview-panels" previewMorphPhase={previewMorphPhase} tabMorph={tabMorph} editionLayout={editionLayout} previewUpperContent={previewUpperContent} tab={tab} leavingToModeling={leavingToModeling} lowerKey={lowerKey} lowerRef={lowerRef} wasInitialPreviewActive={wasInitialPreviewActive} previewLowerHeader={previewLowerHeader} previewLowerContent={previewLowerContent} previewBelowContent={previewBelowContent} />
-      )}
-
-      {/* Menu de catégorie : la pilule enfante le panneau (ouverture) ou le réabsorbe (fermeture,
-          même timeline jouée à l'envers). */}
-      {morphPhase && (
-        <LiquidGlassMorph
-          key={morphPhase}
-          left={PANEL_LEFT}
-          top={PILL_TOP + modelTreeOverflow}
-          width={MENU_W}
-          height={MENU_STAGE_H}
-          duration={MENU_MORPH_MS}
-          pathAt={menuPathAt}
-          reverse={morphPhase === 'merging'}
-          onDone={() => {
-            if (morphPhase === 'merging') onSelectCategory(null);
-            setMorphPhase(null);
-          }}
-        />
-      )}
-
-      <AnimatePresence>
-        {activeCatData && !activeCatData.disabled && !previewActive && (
-          <>
-            {/* Toujours ouvert/fermé par un morphing : pas d'animation d'entrée ni de sortie
-                propre, le verre animé en tient lieu (.morphing masque le fond de ce panneau et
-                estompe son contenu pendant ce temps). */}
-            <CategoryMenuPanel menuContainerRef={menuContainerRef} morphPhase={morphPhase} modelTreeOverflow={modelTreeOverflow} contentRef={contentRef} handleScroll={handleScroll} activeCatData={activeCatData} setIsPatternPopupOpen={setIsPatternPopupOpen} hasScroll={hasScroll} isDragging={isDragging} handleMouseDown={handleMouseDown} thumbHeight={thumbHeight} thumbTop={thumbTop} />
-
-            {/* Pattern popup window next to the menu */}
-            <PatternPopup isPatternPopupOpen={isPatternPopupOpen} patternContentRef={patternContentRef} handlePatternScroll={handlePatternScroll} patternSetting={patternSetting} setIsPatternPopupOpen={setIsPatternPopupOpen} hasPatternScroll={hasPatternScroll} isPatternDragging={isPatternDragging} handlePatternMouseDown={handlePatternMouseDown} patternThumbHeight={patternThumbHeight} patternThumbTop={patternThumbTop} />
-          </>
-        )}
-      </AnimatePresence>
+      <CategoryMenu
+        activeCatData={CATEGORIES.find((c) => c.id === activeCategory)} previewActive={previewActive}
+        menuContainerRef={menuContainerRef} morphPhase={morphPhase} modelTreeOverflow={modelTreeOverflow}
+        contentRef={contentRef} thumb={thumb} patternContentRef={patternContentRef} patternThumb={patternThumb}
+        isPatternPopupOpen={isPatternPopupOpen} setIsPatternPopupOpen={setIsPatternPopupOpen}
+      />
     </>
   );
 };

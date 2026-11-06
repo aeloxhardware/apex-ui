@@ -94,42 +94,16 @@ function insertedLines(parsed: ParsedGCode, range: InsertedRange, host: string, 
   return out;
 }
 
-export function writeEditedGCode(text: string, parsed: ParsedGCode): GCodeWriteResult {
-  const edited = parsed.editedMoves;
-  const blocks = parsed.insertedBlocks ?? [];
-  if ((!edited || edited.size === 0) && blocks.length === 0) return { ok: true, text, changedLines: 0 };
-  if (parsed.kind !== 'polar') return { ok: false, error: "Seuls les G-code polaires de l'Apex peuvent être réécrits." };
-  if (parsed.usesInches) return { ok: false, error: 'Fichier en pouces (G20) : réécriture non prise en charge.' };
-
+/** Réécrit les mouvements modifiés de `lines` ; renvoie les G92 de recalage (ligne → texte) à insérer après elles. */
+function rewriteEditedMoves(parsed: ParsedGCode, lines: string[], order: number[]): Map<number, string> {
   const { moves, lineIndex, eDelta, eAbsBefore, hasEWord, eRelative } = parsed;
   const isInserted = (k: number) => lineIndex[k] === INSERTED_LINE;
-  // Mouvements d'origine seulement : les mouvements insérés n'ont pas de ligne à réécrire.
-  const order = [...(edited ?? [])].filter((k) => !isInserted(k)).sort((a, b) => a - b);
-  // Une ligne réécrite ne doit porter qu'un seul mouvement (pas d'arc découpé).
-  const sharesLine = (k: number) => {
-    const line = lineIndex[k];
-    return (k > 0 && lineIndex[k - 1] === line) || (k + 1 < moves.length && lineIndex[k + 1] === line);
-  };
-  for (const k of order) {
-    if (sharesLine(k)) return { ok: false, error: `Ligne ${lineIndex[k] + 1} : plusieurs mouvements, réécriture impossible.` };
-  }
-  // Plages insérées : chacune entre devant un mouvement d'origine (son « hôte »), seul sur sa ligne.
-  const blockByLine = new Map<number, InsertedRange>();
-  for (const range of blocks) {
-    const host = range.at + range.count;
-    if (host >= moves.length || isInserted(host)) return { ok: false, error: `Insertion invalide avant le mouvement ${host}.` };
-    if (sharesLine(host)) return { ok: false, error: `Ligne ${lineIndex[host] + 1} : plusieurs mouvements, insertion impossible.` };
-    if (!eRelative[host] && !Number.isFinite(eAbsBefore[host])) return { ok: false, error: `Extrudeur inconnu avant le mouvement ${host}.` };
-    blockByLine.set(lineIndex[host], range);
-  }
   // Premier mouvement d'origine après k (les plages insérées sont sautées) : c'est lui qu'attend la suite du fichier.
   const nextOriginal = (k: number) => {
     let j = k + 1;
     while (j < moves.length && isInserted(j)) j++;
     return j;
   };
-
-  const lines = text.split('\n');
   const after = new Map<number, string>(); // ligne → G92 à insérer après elle
   // Position absolue (nouvelle) de l'extrudeur dans la suite de mouvements modifiés consécutifs en
   // cours ; NaN tant qu'aucun E n'y a été réécrit (les mouvements sans E ne la changent pas).
@@ -159,7 +133,12 @@ export function writeEditedGCode(text: string, parsed: ParsedGCode): GCodeWriteR
       after.set(ln, `G92 E${format(expected, E_DIGITS)} ; apex: recalage de l'extrudeur apres modification`);
     }
   }
+  return after;
+}
 
+/** Assemble le fichier : plages insérées devant leur hôte, G92 de recalage après les lignes réécrites. */
+function emitLines(parsed: ParsedGCode, text: string, lines: string[], blockByLine: Map<number, InsertedRange>, after: Map<number, string>): string[] {
+  const { eAbsBefore, eRelative } = parsed;
   const out: string[] = [];
   const eol = text.includes('\r\n') ? '\r' : '';
   let lastFeed: string | null = null;
@@ -177,6 +156,40 @@ export function writeEditedGCode(text: string, parsed: ParsedGCode): GCodeWriteR
     const g92 = after.get(ln);
     if (g92) out.push(g92 + eol);
   }
+  return out;
+}
+
+export function writeEditedGCode(text: string, parsed: ParsedGCode): GCodeWriteResult {
+  const edited = parsed.editedMoves;
+  const blocks = parsed.insertedBlocks ?? [];
+  if ((!edited || edited.size === 0) && blocks.length === 0) return { ok: true, text, changedLines: 0 };
+  if (parsed.kind !== 'polar') return { ok: false, error: "Seuls les G-code polaires de l'Apex peuvent être réécrits." };
+  if (parsed.usesInches) return { ok: false, error: 'Fichier en pouces (G20) : réécriture non prise en charge.' };
+
+  const { moves, lineIndex, eAbsBefore, eRelative } = parsed;
+  const isInserted = (k: number) => lineIndex[k] === INSERTED_LINE;
+  // Mouvements d'origine seulement : les mouvements insérés n'ont pas de ligne à réécrire.
+  const order = [...(edited ?? [])].filter((k) => !isInserted(k)).sort((a, b) => a - b);
+  // Une ligne réécrite ne doit porter qu'un seul mouvement (pas d'arc découpé).
+  const sharesLine = (k: number) => {
+    const line = lineIndex[k];
+    return (k > 0 && lineIndex[k - 1] === line) || (k + 1 < moves.length && lineIndex[k + 1] === line);
+  };
+  for (const k of order) {
+    if (sharesLine(k)) return { ok: false, error: `Ligne ${lineIndex[k] + 1} : plusieurs mouvements, réécriture impossible.` };
+  }
+  // Plages insérées : chacune entre devant un mouvement d'origine (son « hôte »), seul sur sa ligne.
+  const blockByLine = new Map<number, InsertedRange>();
+  for (const range of blocks) {
+    const host = range.at + range.count;
+    if (host >= moves.length || isInserted(host)) return { ok: false, error: `Insertion invalide avant le mouvement ${host}.` };
+    if (sharesLine(host)) return { ok: false, error: `Ligne ${lineIndex[host] + 1} : plusieurs mouvements, insertion impossible.` };
+    if (!eRelative[host] && !Number.isFinite(eAbsBefore[host])) return { ok: false, error: `Extrudeur inconnu avant le mouvement ${host}.` };
+    blockByLine.set(lineIndex[host], range);
+  }
+  const lines = text.split('\n');
+  const after = rewriteEditedMoves(parsed, lines, order);
+  const out = emitLines(parsed, text, lines, blockByLine, after);
   return { ok: true, text: out.join('\n'), changedLines: order.length + blocks.length };
 }
 

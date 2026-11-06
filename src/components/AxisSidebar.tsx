@@ -7,6 +7,7 @@ import { PAN_PERSPECTIVE_EVENT, readPanPerspective, setPanPerspective } from '@/
 import { hideBottomTip, showBottomTip } from './edit-node/bottomTooltip';
 import type { ParsedGCode } from './gcodeLayer';
 
+import { emitApex } from '@/events/apexEvents';
 type AxisMode = '3-axes' | '5-axes';
 
 export const AxisSidebar: React.FC = () => {
@@ -33,23 +34,23 @@ export const AxisSidebar: React.FC = () => {
     title: 'Perspective en translation',
     desc: panPerspective
       ? 'Activée : déplacer la vue (bouton du milieu) déplace la caméra, les objets changent d’angle comme dans la réalité. Cliquer pour la désactiver.'
-      : 'Désactivée : vue orthographique, sans perspective (comme Fusion 360). Déplacer la vue (bouton du milieu) fait glisser l’image, la molette change l’échelle vers le curseur, et un plan vu de face ou de côté s’aligne exactement (vu de côté, le plateau n’est qu’un trait). Cliquer pour l’activer.',
+      : 'Désactivée : vue orthographique, sans perspective. Déplacer la vue (bouton du milieu) fait glisser l’image, la molette change l’échelle vers le curseur, et un plan vu de face ou de côté s’aligne exactement (vu de côté, le plateau n’est qu’un trait). Cliquer pour l’activer.',
   };
   const switchHovered = useRef(false);
   useEffect(() => {
     if (switchHovered.current) showBottomTip(switchTip);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- dépendances volontairement limitées : effet à déclenchement ciblé
   }, [panPerspective]);
 
   const handleSelect = (mode: AxisMode) => {
     setAxisMode(mode);
     showSuccess(`Mode d'impression configuré : ${mode === '3-axes' ? '3 Axes Standard' : '5 Axes Avancé'}`);
-    window.dispatchEvent(new CustomEvent('apex-axis-changed', { detail: { mode } }));
+    emitApex('apex-axis-changed', { mode });
   };
 
   useEffect(() => {
     // Notify initial state on mount
-    window.dispatchEvent(new CustomEvent('apex-axis-changed', { detail: { mode: '5-axes' } }));
+    emitApex('apex-axis-changed', { mode: '5-axes' });
   }, []);
 
   // Bascule automatique sur le type de G-code chargé en Prévisualisation : cartésien → 3 axes,
@@ -62,7 +63,7 @@ export const AxisSidebar: React.FC = () => {
       if (mode === axisModeRef.current) return;
       setAxisMode(mode);
       showSuccess(`G-code ${mode === '3-axes' ? '3 axes' : '5 axes'} détecté : mode ${mode === '3-axes' ? '3 AXES' : '5 AXES'} activé.`);
-      window.dispatchEvent(new CustomEvent('apex-axis-changed', { detail: { mode } }));
+      emitApex('apex-axis-changed', { mode });
     };
     window.addEventListener('apex-gcode-loaded', onGCodeLoaded);
     return () => window.removeEventListener('apex-gcode-loaded', onGCodeLoaded);

@@ -12,7 +12,7 @@ export const TILE_ANIM_MS = 260;
 /** Le flou seul est entièrement installé avant la première tuile. */
 export const BLUR_MS = 320;
 
-export type VeilDirection = 'in' | 'out';
+type VeilDirection = 'in' | 'out';
 /** `start` : instant de départ en temps époque (`veilNow()`), commun au Worker et au thread principal. */
 export interface VeilClock {
   dir: VeilDirection;
@@ -28,7 +28,7 @@ export const veilState: { clock: VeilClock | null } = { clock: null };
 // cubic-bezier(0.16, 1, 0.3, 1) — la courbe qu'utilisaient les tuiles sous framer-motion.
 const BX1 = 0.16, BY1 = 1, BX2 = 0.3, BY2 = 1;
 const bez = (a: number, b: number, t: number) => 3 * a * (1 - t) * (1 - t) * t + 3 * b * (1 - t) * t * t + t * t * t;
-export function ease(x: number): number {
+function ease(x: number): number {
   if (x <= 0) return 0;
   if (x >= 1) return 1;
   let lo = 0, hi = 1;

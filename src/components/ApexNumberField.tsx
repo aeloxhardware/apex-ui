@@ -12,17 +12,17 @@ export interface ApexNumberFieldProps {
   /** `null` : aucune valeur (champ vide, seulement si `nullable`). */
   value: number | null;
   onChange: (value: number | null) => void;
-  min?: number;
-  max?: number;
+  min?: number | undefined;
+  max?: number | undefined;
   /** Pas des flèches et du clavier (défaut 1). */
-  step?: number;
+  step?: number | undefined;
   /** Un champ vidé donne `null` au lieu de revenir à la valeur précédente. */
   nullable?: boolean;
-  placeholder?: string;
+  placeholder?: string | undefined;
   /** Unité affichée à droite de la valeur (hors saisie). */
-  suffix?: string;
-  ariaLabel?: string;
-  className?: string;
+  suffix?: string | undefined;
+  ariaLabel?: string | undefined;
+  className?: string | undefined;
 }
 
 const REPEAT_DELAY_MS = 400;
