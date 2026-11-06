@@ -32,18 +32,6 @@ html[data-ui-flat] *::after {
   background-image: none !important;
 }
 
-/* Curseurs de glissière et cases : aucune forme arrondie, noir et blanc. */
-html[data-ui-flat] input[type='range']::-webkit-slider-thumb {
-  border-radius: 0 !important;
-  background: #fff !important;
-  border: 1px solid #000 !important;
-  box-shadow: none !important;
-}
-html[data-ui-flat] input[type='range']::-webkit-slider-runnable-track {
-  border-radius: 0 !important;
-  background: #fff !important;
-}
-
 html[data-ui-flat] :focus-visible {
   outline: 2px solid #fff !important;
   outline-offset: 1px;
@@ -62,3 +50,10 @@ html[data-ui-flat] [role='tab']:hover *,
 html[data-ui-flat] [role='button']:hover * {
   color: #000 !important;
 }
+
+/* Curseur ApexSlider (même composant que l'interface principale) : piste scindée et poignée, noir et blanc. */
+html[data-ui-flat] [data-apex-slider='fill'] { background: #fff !important; }
+html[data-ui-flat] [data-apex-slider='remainder'] { background: #666 !important; }
+html[data-ui-flat] [data-apex-slider='handle'] { background: #fff !important; border: 1px solid #000 !important; }
+html[data-ui-flat] [role='slider'] { background: transparent !important; }
+html[data-ui-flat] [data-apex-slider='text'] { color: #fff !important; }

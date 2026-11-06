@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Box, ChevronRight, Eye, EyeOff, Trash2 } from 'lucide-react';
 import styles from './ModelingSidebar.module.scss';
 import { ExternalScrollArea } from './ExternalScrollArea';
+import { CustomTooltip } from './CustomTooltip';
 import { FEATURE_ICONS, type ModelNode } from './modelingData';
 
 export interface ModelTreeProps {
@@ -88,20 +89,32 @@ return (
                                     >
                                       <Icon className={clsx('w-3 h-3', styles.nodeIcon)} />
                                       <span className={styles.nodeName}>{feature.name}</span>
-                                      <button
-                                        className={styles.nodeAction}
-                                        title={feature.suppressed ? 'Réactiver' : 'Supprimer du calcul'}
-                                        onClick={(e) => { e.stopPropagation(); toggleSuppress(model.id, feature.id); }}
+                                      <CustomTooltip
+                                        inline
+                                        content={feature.suppressed ? 'Réactiver' : 'Supprimer du calcul'}
+                                        description={feature.suppressed
+                                          ? "Remet cette opération dans le calcul du modèle : elle s'applique de nouveau à la forme."
+                                          : "Retire temporairement cette opération du calcul du modèle sans l'effacer : on peut la réactiver ensuite."}
                                       >
-                                        {feature.suppressed ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                                      </button>
-                                      <button
-                                        className={styles.nodeAction}
-                                        title="Supprimer"
-                                        onClick={(e) => { e.stopPropagation(); deleteFeature(model.id, feature.id); }}
+                                        <button
+                                          className={styles.nodeAction}
+                                          onClick={(e) => { e.stopPropagation(); toggleSuppress(model.id, feature.id); }}
+                                        >
+                                          {feature.suppressed ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                                        </button>
+                                      </CustomTooltip>
+                                      <CustomTooltip
+                                        inline
+                                        content="Supprimer"
+                                        description="Efface définitivement cette opération de l'arbre de modélisation."
                                       >
-                                        <Trash2 className="w-3 h-3" />
-                                      </button>
+                                        <button
+                                          className={styles.nodeAction}
+                                          onClick={(e) => { e.stopPropagation(); deleteFeature(model.id, feature.id); }}
+                                        >
+                                          <Trash2 className="w-3 h-3" />
+                                        </button>
+                                      </CustomTooltip>
                                     </div>
                                   </li>
                                 );

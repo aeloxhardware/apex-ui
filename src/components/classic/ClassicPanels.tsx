@@ -1,3 +1,4 @@
+import { ApexSlider } from '@/components/ApexSlider';
 import React from 'react';
 import { importModelsOneByOne } from '@/utils/importModels';
 import { EditionPanel } from '@/components/edit-node/EditionPanel';
@@ -121,14 +122,15 @@ const PlaybackSection: React.FC<{ gp: GCodePreview }> = ({ gp }) => {
           {GCODE_SPEED_OPTIONS.map((s) => <option key={s} value={s}>{s}×</option>)}
         </select>
       </div>
-      <input
-        type="range"
+      <ApexSlider
         className={styles.wide}
         min={0}
         max={Math.max(1, gp.lastIndex)}
         step={1}
         value={Math.min(gp.t, gp.lastIndex)}
-        onChange={(e) => gp.seek(Number(e.target.value))}
+        onChange={gp.seek}
+        format={(v) => String(Math.round(v))}
+        ariaLabel="Position de lecture"
       />
       <table>
         <tbody>

@@ -4,6 +4,7 @@ import clsx from 'clsx';
 import styles from './ApexSlider.module.scss';
 
 import { emitApex } from '@/events/apexEvents';
+import { isFlatUi } from '@/utils/interfaceMode';
 // Curseur unique d'Apex, sur le modèle du curseur de vitesse de Prévisualisation (piste fendue
 // autour d'une poignée en verre, valeur cyan). Tout curseur de réglage doit l'utiliser : ne pas
 // recréer d'<input type="range"> ni de piste dédiée.
@@ -110,7 +111,7 @@ export const ApexSlider: React.FC<ApexSliderProps> = ({
       onMouseEnter={() => tooltip && emitApex('apex-set-tooltip', tooltip)}
       onMouseLeave={() => tooltip && emitApex('apex-reset-tooltip')}
     >
-      {label && <span className={styles.label}>{label}</span>}
+      {label && <span className={styles.label} data-apex-slider="text">{label}</span>}
       <div
         ref={trackRef}
         className={styles.track}
@@ -131,40 +132,60 @@ export const ApexSlider: React.FC<ApexSliderProps> = ({
         aria-valuenow={value}
         aria-valuetext={format(value)}
       >
-        {/* Animation de MONTAGE seule (`initial` figé quand il y a une intro, absent sinon) : la
-            valeur cible suit ensuite 1:1 sans rejouer les phases. */}
-        <motion.div
-          className={styles.trackFill}
-          initial={intro ? { opacity: 0, right: 'calc(100% + var(--handle-gap))' } : false}
-          animate={{ opacity: 1, right: `calc(${100 - ratio * 100}% + var(--handle-gap))` }}
-          transition={playIntro ? {
-            opacity: { duration: INTRO_LINE_APPEAR_S, delay: lineDelay },
-            right: { duration: INTRO_GLIDE_S, delay: glideDelay, ease: INTRO_GLIDE_EASE },
-          } : follow}
-        />
-        <motion.div
-          className={styles.trackRemainder}
-          initial={intro ? { opacity: 0, left: 'var(--handle-gap)' } : false}
-          animate={{ opacity: 1, left: `calc(${ratio * 100}% + var(--handle-gap))` }}
-          transition={playIntro ? {
-            opacity: { duration: INTRO_LINE_APPEAR_S, delay: lineDelay },
-            left: { duration: INTRO_GLIDE_S, delay: glideDelay, ease: INTRO_GLIDE_EASE },
-          } : follow}
-        />
-        {/* La poignée n'existe pas avant son instant d'intro (opacité 0), puis apparaît d'un coup. */}
-        <motion.div
-          className={styles.trackHandle}
-          data-ui-sound
-          initial={intro ? { opacity: 0, left: '0%' } : false}
-          animate={{ opacity: 1, left: `${ratio * 100}%` }}
-          transition={playIntro ? {
-            opacity: { duration: 0, delay: handleDelay },
-            left: { duration: INTRO_GLIDE_S, delay: glideDelay, ease: INTRO_GLIDE_EASE },
-          } : follow}
-          onAnimationComplete={() => setIntroDone(true)}
-        />
+        {isFlatUi() ? (
+          // Interface classique : mêmes éléments (piste scindée, poignée), posés sans aucune animation ;
+          // flat.css les met en noir et blanc par les attributs data-apex-slider.
+          <>
+            <div
+              className={styles.trackFill}
+              data-apex-slider="fill"
+              style={{ right: `calc(${100 - ratio * 100}% + var(--handle-gap))` }}
+            />
+            <div
+              className={styles.trackRemainder}
+              data-apex-slider="remainder"
+              style={{ left: `calc(${ratio * 100}% + var(--handle-gap))` }}
+            />
+            <div className={styles.trackHandle} data-apex-slider="handle" style={{ left: `${ratio * 100}%` }} />
+          </>
+        ) : (
+          <>
+            {/* Animation de MONTAGE seule (`initial` figé quand il y a une intro, absent sinon) : la
+                valeur cible suit ensuite 1:1 sans rejouer les phases. */}
+            <motion.div
+              className={styles.trackFill}
+              initial={intro ? { opacity: 0, right: 'calc(100% + var(--handle-gap))' } : false}
+              animate={{ opacity: 1, right: `calc(${100 - ratio * 100}% + var(--handle-gap))` }}
+              transition={playIntro ? {
+                opacity: { duration: INTRO_LINE_APPEAR_S, delay: lineDelay },
+                right: { duration: INTRO_GLIDE_S, delay: glideDelay, ease: INTRO_GLIDE_EASE },
+              } : follow}
+            />
+            <motion.div
+              className={styles.trackRemainder}
+              initial={intro ? { opacity: 0, left: 'var(--handle-gap)' } : false}
+              animate={{ opacity: 1, left: `calc(${ratio * 100}% + var(--handle-gap))` }}
+              transition={playIntro ? {
+                opacity: { duration: INTRO_LINE_APPEAR_S, delay: lineDelay },
+                left: { duration: INTRO_GLIDE_S, delay: glideDelay, ease: INTRO_GLIDE_EASE },
+              } : follow}
+            />
+            {/* La poignée n'existe pas avant son instant d'intro (opacité 0), puis apparaît d'un coup. */}
+            <motion.div
+              className={styles.trackHandle}
+              data-ui-sound
+              initial={intro ? { opacity: 0, left: '0%' } : false}
+              animate={{ opacity: 1, left: `${ratio * 100}%` }}
+              transition={playIntro ? {
+                opacity: { duration: 0, delay: handleDelay },
+                left: { duration: INTRO_GLIDE_S, delay: glideDelay, ease: INTRO_GLIDE_EASE },
+              } : follow}
+              onAnimationComplete={() => setIntroDone(true)}
+            />
+          </>
+        )}
       </div>
-      <span className={styles.value}>{format(value)}</span>
+      <span className={styles.value} data-apex-slider="text">{format(value)}</span>
     </div>
   );
 };
