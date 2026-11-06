@@ -1,18 +1,18 @@
 import React, { useMemo, useState } from 'react';
 import styles from './EditionPanel.module.scss';
 
-export const fmtSigned = (v: number, digits: number) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(digits)}`;
+const fmtSigned = (v: number, digits: number) => `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(digits)}`;
 export const fmtMm = (v: number) => v.toFixed(3).replace('.', ',');
 
 /** Champ numérique : texte libre pendant la saisie, valeur du noyau sinon ; Entrée valide, Tab applique l'aperçu. */
 export const NumberField: React.FC<{
   value: number | undefined;
   digits: number;
-  className?: string;
+  className?: string | undefined;
   disabled?: boolean;
-  min?: number;
-  max?: number;
-  step?: number;
+  min?: number | undefined;
+  max?: number | undefined;
+  step?: number | undefined;
   ariaLabel: string;
   signed?: boolean;
   onCommit: (value: number, enter: boolean) => void;

@@ -57,7 +57,7 @@ export function parseKinematicsHeader(text: string): Kinematics | null {
 }
 
 /** Pointe de buse (R, Z) depuis les valeurs firmware (X = R du pivot, Z, B en radians du fichier). */
-export function tipFromFirmware(k: Kinematics, r: number, z: number, bFileRad: number, out: { r: number; z: number }) {
+function tipFromFirmware(k: Kinematics, r: number, z: number, bFileRad: number, out: { r: number; z: number }) {
   const b = k.bSign * bFileRad;
   out.r = r - k.tiltSign * k.pivotToTip * Math.sin(b);
   out.z = z - k.pivotToTip * (Math.cos(b) - (k.zReference === 'tip' ? 1 : 0));

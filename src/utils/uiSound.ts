@@ -56,7 +56,7 @@ export function isUiSoundMuted() {
   return muted;
 }
 
-export function setUiSoundMuted(next: boolean) {
+function setUiSoundMuted(next: boolean) {
   muted = next;
   try {
     localStorage.setItem(MUTE_STORAGE_KEY, String(next));

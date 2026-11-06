@@ -5,6 +5,7 @@ import { GCODE_SPEED_OPTIONS } from '@/hooks/use-gcode-preview';
 import { ApexSlider } from './ApexSlider';
 import styles from './GCodeSpeedSelector.module.scss';
 
+import { emitApex } from '@/events/apexEvents';
 interface GCodeSpeedSelectorProps {
   /** Multiplicateur du temps machine réel (cf. GCODE_SPEED_OPTIONS). */
   speed: number;
@@ -80,8 +81,8 @@ export const GCodeSpeedSelector: React.FC<GCodeSpeedSelectorProps> = ({
     <motion.label
       className={styles.checkboxRow}
       variants={revealItemVariants}
-      onMouseEnter={() => window.dispatchEvent(new CustomEvent('apex-set-tooltip', { detail: HEAD_TOOLTIP }))}
-      onMouseLeave={() => window.dispatchEvent(new CustomEvent('apex-reset-tooltip'))}
+      onMouseEnter={() => emitApex('apex-set-tooltip', HEAD_TOOLTIP)}
+      onMouseLeave={() => emitApex('apex-reset-tooltip')}
     >
       <input
         type="checkbox"
@@ -117,8 +118,8 @@ export const GCodeSpeedSelector: React.FC<GCodeSpeedSelectorProps> = ({
             aria-checked={speed === option}
             className={clsx(styles.segment, { [styles.active]: speed === option })}
             onClick={() => setSpeed(option)}
-            onMouseEnter={() => window.dispatchEvent(new CustomEvent('apex-set-tooltip', { detail: SEGMENT_TOOLTIP }))}
-            onMouseLeave={() => window.dispatchEvent(new CustomEvent('apex-reset-tooltip'))}
+            onMouseEnter={() => emitApex('apex-set-tooltip', SEGMENT_TOOLTIP)}
+            onMouseLeave={() => emitApex('apex-reset-tooltip')}
           >
             {option}×
           </button>

@@ -30,7 +30,7 @@ export interface LineTypeStat {
   massG: number;
 }
 
-export type MarkerTypeId = Extract<LineTypeId, 'retraction' | 'unretraction' | 'seam'>;
+type MarkerTypeId = Extract<LineTypeId, 'retraction' | 'unretraction' | 'seam'>;
 
 /**
  * Critères de coloration continus du calque (cf. gcodeColormap.ts) — tous dérivés de données par
@@ -143,12 +143,12 @@ export interface ParsedGCode {
   usesInches: boolean;
   /** Mouvements modifiés par l'onglet Édition depuis le chargement (positions dans `moves`,
    * extrusion dans `eDelta`) : les lignes à réécrire à l'enregistrement. */
-  editedMoves?: Set<number>;
+  editedMoves?: Set<number> | undefined;
   /** Plages de mouvements insérées par l'édition (couches interpolées), par indice croissant : sans ligne dans
    * le texte d'origine (`lineIndex` = INSERTED_LINE), elles sont écrites par gcodeWriter.ts. */
   insertedBlocks?: InsertedRange[];
   /** Mouvements dont le dépôt a été rogné par l'édition (rognage) : ils ne déposent plus. */
-  trimmedMoves?: Set<number>;
+  trimmedMoves?: Set<number> | undefined;
   /** Cinématique pivot/pointe du fichier : celle de la ligne `; apex_kinematics` (R-007), sinon `LEGACY_KINEMATICS`. */
   kinematics: Kinematics;
   /** Vrai si le fichier déclare sa cinématique (sinon `kinematics` est la valeur supposée des anciens fichiers). */

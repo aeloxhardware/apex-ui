@@ -12,6 +12,7 @@ import {
   subscribePreviewZoomPrefs,
 } from '@/utils/previewZoomPrefs';
 
+import { emitApex } from '@/events/apexEvents';
 export type PreviewTabId = 'coloration' | 'edition' | 'fonction';
 
 export const PREVIEW_TABS: { id: PreviewTabId; label: string; description: string; icon: React.ReactNode }[] = [
@@ -27,7 +28,7 @@ let currentTab: PreviewTabId = 'coloration';
 export const getPreviewTab = () => currentTab;
 export const setPreviewTab = (tab: PreviewTabId) => {
   currentTab = tab;
-  window.dispatchEvent(new CustomEvent('apex-preview-tab-changed', { detail: { tab } }));
+  emitApex('apex-preview-tab-changed', { tab });
 };
 
 /** Onglet courant de Prévisualisation, tenu à jour par l'événement. */
@@ -52,8 +53,8 @@ const ZoomPanel: React.FC = () => {
   return (
     <div
       className={styles.zoomPanel}
-      onMouseEnter={() => window.dispatchEvent(new CustomEvent('apex-set-tooltip', { detail: ZOOM_TOOLTIP }))}
-      onMouseLeave={() => window.dispatchEvent(new CustomEvent('apex-reset-tooltip'))}
+      onMouseEnter={() => emitApex('apex-set-tooltip', ZOOM_TOOLTIP)}
+      onMouseLeave={() => emitApex('apex-reset-tooltip')}
     >
       <div className={styles.zoomTitle}>Zoom de la molette</div>
       <label className={styles.zoomRow}>

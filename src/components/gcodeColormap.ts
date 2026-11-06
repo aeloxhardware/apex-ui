@@ -17,7 +17,7 @@ const STOPS = COLORMAP_STOPS_HEX.map((hex) => BABYLON.Color3.FromHexString(hex))
 /** Ramène `value` dans [0, 1] par rapport à `range` (bornes min/max seulement — accepte aussi bien
  * un `ColorByRange` complet qu'un `ColorByScope`) ; 0.5 si l'intervalle est vide (min === max)
  * plutôt qu'une division par zéro. */
-export function normalize(value: number, range: { min: number; max: number }): number {
+function normalize(value: number, range: { min: number; max: number }): number {
   const span = range.max - range.min;
   if (!(span > 1e-9)) return 0.5;
   return Math.max(0, Math.min(1, (value - range.min) / span));
@@ -49,7 +49,7 @@ export function defaultColorByScope(range: ColorByRange): ColorByScope {
 
 /** Couleur de la rampe à la fraction `t` ∈ [0, 1], écrite dans `out` (pas d'allocation par appel —
  * important pour le tronçon vivant, recalculé chaque image). */
-export function colormapAt(t: number, out: BABYLON.Color3): BABYLON.Color3 {
+function colormapAt(t: number, out: BABYLON.Color3): BABYLON.Color3 {
   const clamped = Math.max(0, Math.min(1, t));
   const span = (STOPS.length - 1) * clamped;
   const i = Math.min(STOPS.length - 2, Math.floor(span));
@@ -94,7 +94,7 @@ export const COLOR_BY_LABELS: Record<ContinuousColorByMode, string> = {
  * dans `parseGCode` (débit volumétrique, pression d'extrusion, vitesse relative de couche), à
  * partir de `depositMm`/`filamentDiameterMm` qu'il expose pour cette seule raison : rester
  * fidèle au calcul source plutôt que ré-estimer un ratio approximatif ici. */
-export function valueForMode(mode: ContinuousColorByMode, k: number, parsed: ParsedGCode): number {
+function valueForMode(mode: ContinuousColorByMode, k: number, parsed: ParsedGCode): number {
   const mv: GCodeMove = parsed.moves[k];
   switch (mode) {
     case 'speed': return parsed.speedMmS[k];

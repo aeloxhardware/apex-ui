@@ -5,7 +5,7 @@
  * Le moteur de tranchage (groupes « Moteur · … ») vient de CITATION_ENGINE.md, dans le dossier parent
  * de ce dépôt : licences relevées le 2026-10-07 dans les métadonnées des paquets du moteur.
  */
-export interface CreditEntry {
+interface CreditEntry {
   name: string;
   /** Auteur ou projet. */
   by: string;
@@ -67,6 +67,34 @@ export const CREDITS: CreditGroup[] = [
     ],
   },
   {
+    title: 'Icônes',
+    entries: [
+      {
+        name: 'Heroicons',
+        flag: '🇺🇸', by: 'Tailwind Labs',
+        license: 'MIT',
+        use: 'Icône « rectangle-group » du bouton Auto-disposition de la barre d’outils.',
+        url: 'https://github.com/tailwindlabs/heroicons',
+        citation: 'Tailwind Labs. Heroicons [logiciel]. https://github.com/tailwindlabs/heroicons. Licence MIT.',
+        obligation: 'La notice de licence MIT reste jointe aux distributions (docs/THIRD_PARTY_LICENSES.md).',
+      },
+    ],
+  },
+  {
+    title: 'Assistant',
+    entries: [
+      {
+        name: 'Thinking Orbs',
+        flag: '🌍', by: 'yogesharc',
+        license: 'MIT',
+        use: 'Orbe « reasoning » de l’Assistant (laboratoire src/lab/assistant), rendu dans le verre Liquid Glass.',
+        url: 'https://github.com/yogesharc/thinking-orbs',
+        citation: 'yogesharc. Thinking Orbs [logiciel]. https://github.com/yogesharc/thinking-orbs. Licence MIT.',
+        obligation: 'La notice de licence MIT reste jointe aux distributions (docs/THIRD_PARTY_LICENSES.md).',
+      },
+    ],
+  },
+  {
     title: 'Moteur 3D et application',
     entries: [
       { name: 'Babylon.js', flag: '🇺🇸', by: 'Microsoft et la communauté Babylon.js', license: 'Apache 2.0', use: 'Vue 3D, chargement des modèles, rendu du tracé.' },
@@ -113,7 +141,7 @@ export const CREDITS: CreditGroup[] = [
         name: 'OrcaSlicer — disposition automatique',
         flag: '🌍', by: 'SoftFever et les contributeurs d’OrcaSlicer, d’après PrusaSlicer (Prusa Research) et libnest2d (Tamás Mészáros)',
         license: 'AGPL-3.0',
-        use: 'Disposition automatique des modèles : empreinte convexe gonflée de l’écart, tri du plus grand au plus petit, rotations de 0°, 45°, 90° et 135° à partir de l’angle de la boîte d’aire minimale, placement par polygones de non-recouvrement, fonction objectif distance au tas / distance au centre / densité, recentrage final. Réimplémentation en TypeScript (utils/orcaArrange.ts) ; le terme d’alignement et les contraintes de température, d’extrudeur et d’impression séquentielle ne sont pas repris.',
+        use: 'Disposition automatique des modèles, relue dans le code d’Orca le 2026-11-06 : empreinte convexe gonflée de l’écart, tri du plus grand au plus petit, rotations de 0°, 45°, 90° et 135° à partir de l’angle de la boîte d’aire minimale, option « Aligner sur l’axe Y » (axe principal des moments d’ordre 2), première pièce dans le coin du plateau puis placement par polygones de non-recouvrement, fonction objectif d’AutoArranger (distance au tas, densité, alignement sur les copies de même aire, grandes et petites pièces), pièces fixes, plateau rond par cercle englobant, recentrage final. Réimplémentation en TypeScript (utils/orcaArrange.ts) ; l’optimiseur NLopt est remplacé par un échantillonnage des arêtes, et les contraintes de température, d’extrudeur, d’impression séquentielle, les zones interdites et les plateaux multiples ne sont pas repris.',
         url: 'https://github.com/OrcaSlicer/OrcaSlicer',
         citation: 'OrcaSlicer, src/slic3r/GUI/Jobs/ArrangeJob.cpp et src/libslic3r/Arrange.cpp [logiciel]. https://github.com/OrcaSlicer/OrcaSlicer. Licence AGPL-3.0. Placeur NFP : libnest2d, T. Mészáros, https://github.com/tamasmeszaros/libnest2d.',
         obligation: 'Le code dérivé garde la notice AGPL-3.0 et l’attribution aux auteurs d’OrcaSlicer, PrusaSlicer et libnest2d.',

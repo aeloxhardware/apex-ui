@@ -23,14 +23,14 @@ export const MODEL_TREE_PILL_GAP = 12;
 // Prévisualisation : panneau du haut sur toute la hauteur disponible, panneau du bas de hauteur
 // fixe, le tout s'arrêtant à 236px du bas de l'écran (au-dessus de la barre d'aide).
 export const PREVIEW_W = 440;
-export const PREVIEW_R = 20;
-export const PREVIEW_GAP = 16;
-export const PREVIEW_LOWER_H = 250;
-export const PREVIEW_BOTTOM_MARGIN = 236;
-export const PREVIEW_UPPER_MIN_H = 120;
+const PREVIEW_R = 20;
+const PREVIEW_GAP = 16;
+const PREVIEW_LOWER_H = 250;
+const PREVIEW_BOTTOM_MARGIN = 236;
+const PREVIEW_UPPER_MIN_H = 120;
 
 // Le plus petit des deux panneaux est agrandi de ce facteur (l'autre garde sa hauteur de base).
-export const PREVIEW_SMALLER_SCALE = 1.3 * 0.85;
+const PREVIEW_SMALLER_SCALE = 1.3 * 0.85;
 
 export const previewPanelHeights = (viewportH: number) => {
   const baseUpper = Math.max(
@@ -60,13 +60,13 @@ export const previewGeometry = (viewportH: number) => {
 export const previewTabLayout = { edition: false };
 
 /** Panneau du haut agrandi à la surface des deux panneaux et de l'espace qui les sépare. */
-export const previewExpandedUpper = (viewportH: number): GlassRect => {
+const previewExpandedUpper = (viewportH: number): GlassRect => {
   const { upper, lower } = previewGeometry(viewportH);
   return { ...upper, h: lower.y + lower.h - upper.y };
 };
 
 /** Forme réelle du panneau du haut (agrandie en mode Édition). */
-export const previewUpperRect = (viewportH: number): GlassRect =>
+const previewUpperRect = (viewportH: number): GlassRect =>
   previewTabLayout.edition ? previewExpandedUpper(viewportH) : previewGeometry(viewportH).upper;
 
 // Cascade de disparition des éléments du panneau du bas (un par un, du haut vers le bas), puis fusion
@@ -74,9 +74,9 @@ export const previewUpperRect = (viewportH: number): GlassRect =>
 // agrandissement du panneau du haut — la même gestuelle que lors des changements d'espace.
 export const TAB_CASCADE_STAGGER_MS = 45;
 export const TAB_CASCADE_FADE_MS = 220;
-export const TAB_MERGE_MS = 700;
-export const TAB_HOLD_MS = 90;
-export const TAB_EXPAND_MS = 520;
+const TAB_MERGE_MS = 700;
+const TAB_HOLD_MS = 90;
+const TAB_EXPAND_MS = 520;
 export const TAB_MORPH_MS = TAB_MERGE_MS + TAB_HOLD_MS + TAB_EXPAND_MS;
 
 /**
@@ -98,15 +98,15 @@ export const tabMorphPathAt = (viewportH: number, t: number, dx: number, dy: num
 // .panel width 268 / border-radius 18, mêmes background/backdrop-filter/box-shadow que le verre
 // animé — la bascule finale doit donc être invisible). Repère relatif à PILL_TOP (212) : le
 // panneau commence 116px plus haut que la pilule.
-export const MODELING_W = 268;
-export const MODELING_R = 18;
-export const MODELING_TOP = 96;
-export const MODELING_Y = MODELING_TOP - PILL_TOP;
-export const MODELING_BOTTOM_MARGIN = 96;
+const MODELING_W = 268;
+const MODELING_R = 18;
+const MODELING_TOP = 96;
+const MODELING_Y = MODELING_TOP - PILL_TOP;
+const MODELING_BOTTOM_MARGIN = 96;
 // Hauteur fixe du panneau, plafonnée par la place disponible entre MODELING_TOP et
 // MODELING_BOTTOM_MARGIN sur les petits écrans. Doit rester alignée sur `.container` dans
 // ModelingSidebar.module.scss (height / max-height).
-export const MODELING_H = 712;
+const MODELING_H = 712;
 
 // Durée des fondus-glissements des éléments qui n'ont pas leur place dans l'espace d'arrivée
 // (ModelStatusBox, panneau du bas de Prévisualisation, icônes de la pilule, contenu du panneau
@@ -114,15 +114,14 @@ export const MODELING_H = 712;
 // ~900ms avant que le rideau ne soit refermé et que la déformation ne commence (`onCovered`) : ils
 // ont donc largement fini quand la forme commence à bouger, sans temps mort dans le morph lui-même.
 export const ELEMENTS_FADE_MS = 260;
-export const FROM_PREVIEW_FADE_MS = ELEMENTS_FADE_MS;
 
 // Durée de la déformation seule : depuis/vers la pilule (Préparation), ou depuis/vers le panneau du
 // haut de Prévisualisation (fromPreview — le panneau du bas n'en fait jamais partie, il disparaît
 // séparément, sans jamais fusionner avec celui du haut).
-export const MODELING_MORPH_MS = 550;
-export const MODELING_MORPH_FROM_PREVIEW_MS = 480;
+const MODELING_MORPH_MS = 550;
+const MODELING_MORPH_FROM_PREVIEW_MS = 480;
 
-export const modelingGeometry = (viewportH: number): GlassRect => ({
+const modelingGeometry = (viewportH: number): GlassRect => ({
   x: 0,
   y: MODELING_Y,
   w: MODELING_W,

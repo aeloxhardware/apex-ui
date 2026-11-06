@@ -30,7 +30,7 @@ export type LineTypeId =
  * - `move` : déplacement sans dépôt (ligne), avec durée seulement ;
  * - `marker` : événement ponctuel (sphère), sans longueur ni poids.
  */
-export type LineTypeKind = 'extrusion' | 'move' | 'marker';
+type LineTypeKind = 'extrusion' | 'move' | 'marker';
 
 export interface LineTypeInfo {
   id: LineTypeId;

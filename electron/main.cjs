@@ -116,10 +116,9 @@ function launchUiArgument() {
   return value === 'liquid' || value === 'classic' ? [`--apex-ui=${value}`] : [];
 }
 
-function createWindow() {
-  const splash = createSplash();
-  const splashShownAt = Date.now();
-  const win = new BrowserWindow({
+/** Fenêtre principale, cachée tant que le splash est à l'écran. */
+function newMainWindow() {
+  return new BrowserWindow({
     show: false,
     width: 1440,
     height: 900,
@@ -145,10 +144,10 @@ function createWindow() {
       ],
     },
   });
+}
 
-  // Lancement agrandi (animations natives de Windows pour agrandir / restaurer ensuite).
-  win.maximize();
-
+/** Splash : étapes affichées, révélation de la fenêtre quand l'interface est prête, fermeture jamais directe. */
+function wireSplash(win, splash, splashShownAt) {
   // Étape affichée sur la carte de démarrage.
   const setStatus = (text) => {
     if (splash.isDestroyed()) return;
@@ -200,6 +199,16 @@ function createWindow() {
     ipcMain.removeListener('apex:app-status', onStatus);
     if (!splash.isDestroyed()) splash.close();
   });
+}
+
+function createWindow() {
+  const splash = createSplash();
+  const splashShownAt = Date.now();
+  const win = newMainWindow();
+
+  // Lancement agrandi (animations natives de Windows pour agrandir / restaurer ensuite).
+  win.maximize();
+  wireSplash(win, splash, splashShownAt);
 
   // Alt sert de modificateur (poignées du nœud d'édition : Alt + glisser) : relâcher Alt ne doit
   // pas faire surgir la barre de menu masquée (autoHideMenuBar).

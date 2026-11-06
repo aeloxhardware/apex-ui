@@ -5,6 +5,7 @@ import {
   MousePointerSquareDashed,
 } from 'lucide-react';
 import styles from './ModelingSidebar.module.scss';
+import { ApexNumberField } from './ApexNumberField';
 import {
   type Feature,
   type SketchPlane,
@@ -63,15 +64,7 @@ export const FeatureParams: React.FC<FeatureParamsProps> = ({ selectedFeature, t
                   <>
                     <div className={styles.paramRow}>
                       <span className={styles.paramLabel}>Distance (mm)</span>
-                      <input
-                        type="number"
-                        className={styles.paramInput}
-                        value={selectedFeature.distance}
-                        step={0.5}
-                        onChange={(e) =>
-                          updateFeature(targetModel.id, selectedFeature.id, { distance: Number(e.target.value) })
-                        }
-                      />
+                      <ApexNumberField value={selectedFeature.distance} step={0.5} onChange={(v) => v !== null && updateFeature(targetModel.id, selectedFeature.id, { distance: v })} />
                     </div>
                     <div className={styles.paramRow}>
                       <label className={styles.paramToggle}>
@@ -91,64 +84,30 @@ export const FeatureParams: React.FC<FeatureParamsProps> = ({ selectedFeature, t
                 {selectedFeature.kind === 'revolve' && (
                   <div className={styles.paramRow}>
                     <span className={styles.paramLabel}>Angle (°)</span>
-                    <input
-                      type="number"
-                      className={styles.paramInput}
-                      value={selectedFeature.angle}
-                      min={1}
-                      max={360}
-                      onChange={(e) =>
-                        updateFeature(targetModel.id, selectedFeature.id, { angle: Number(e.target.value) })
-                      }
-                    />
+                    <ApexNumberField value={selectedFeature.angle} min={1} max={360} onChange={(v) => v !== null && updateFeature(targetModel.id, selectedFeature.id, { angle: v })} />
                   </div>
                 )}
 
                 {selectedFeature.kind === 'fillet' && (
                   <div className={styles.paramRow}>
                     <span className={styles.paramLabel}>Rayon (mm)</span>
-                    <input
-                      type="number"
-                      className={styles.paramInput}
-                      value={selectedFeature.radius}
-                      step={0.5}
-                      min={0.1}
-                      onChange={(e) =>
-                        updateFeature(targetModel.id, selectedFeature.id, { radius: Number(e.target.value) })
-                      }
-                    />
+                    <ApexNumberField value={selectedFeature.radius} step={0.5} min={0.1} onChange={(v) => v !== null && updateFeature(targetModel.id, selectedFeature.id, { radius: v })} />
                   </div>
                 )}
 
                 {selectedFeature.kind === 'chamfer' && (
                   <div className={styles.paramRow}>
                     <span className={styles.paramLabel}>Distance (mm)</span>
-                    <input
-                      type="number"
-                      className={styles.paramInput}
-                      value={selectedFeature.distance}
-                      step={0.5}
-                      min={0.1}
-                      onChange={(e) =>
-                        updateFeature(targetModel.id, selectedFeature.id, { distance: Number(e.target.value) })
-                      }
-                    />
+                    <ApexNumberField value={selectedFeature.distance} step={0.5} min={0.1} onChange={(v) => v !== null && updateFeature(targetModel.id, selectedFeature.id, { distance: v })} />
                   </div>
                 )}
 
                 {selectedFeature.kind === 'mirror' && (
                   <div className={styles.paramRow}>
                     <span className={styles.paramLabel}>Centre X</span>
-                    <input
-                      type="number"
-                      className={styles.paramInput}
-                      value={selectedFeature.center.x}
-                      onChange={(e) =>
-                        updateFeature(targetModel.id, selectedFeature.id, {
-                          center: { ...selectedFeature.center, x: Number(e.target.value) },
-                        })
-                      }
-                    />
+                    <ApexNumberField value={selectedFeature.center.x} onChange={(v) => v !== null && updateFeature(targetModel.id, selectedFeature.id, {
+                          center: { ...selectedFeature.center, x: v },
+                        })} />
                   </div>
                 )}
 

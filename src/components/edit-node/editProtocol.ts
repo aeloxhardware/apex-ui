@@ -1,6 +1,6 @@
 import type { EditInfluence } from '@/utils/editKernelClient';
 import { DEFAULT_MACHINE_LIMITS, type MachineLimits } from '@/utils/machineLimits';
-import { DEFAULT_LAYER_LIMITS, type LayerLimits } from '@/utils/layerLimits';
+import type { LayerLimits } from '@/utils/layerLimits';
 
 /**
  * Événements entre le panneau Édition (PreviewUpperTabs) et le contrôleur d'édition de la vue 3D
@@ -162,7 +162,7 @@ export const EDIT_ANALYZE_EVENT = 'apex-edit-analyze'; // { collisions }
 
 export const DEFAULT_EDIT_SYMMETRY: EditSymmetry = { mode: 'none', count: 2, mirrorDeg: 0 };
 export const DEFAULT_LOCK_RADIUS_MM = 2;
-export { DEFAULT_MACHINE_LIMITS, DEFAULT_LAYER_LIMITS };
+export { DEFAULT_MACHINE_LIMITS };
 
 /** Panneau → lecteur de G-code (use-gcode-preview, qui détient le texte et le fichier) :
  * enregistrer le G-code modifié, en place (`inplace`) ou en copie (`copy`). */

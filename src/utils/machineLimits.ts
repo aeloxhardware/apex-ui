@@ -23,12 +23,18 @@ export interface MachineLimits {
 
 const FACTS = machineFacts(DEFAULT_PRINTER_PROFILE);
 
+/** Donnée de machine du profil par défaut (embarqué) : absente, c'est une erreur de donnée, jamais une valeur à deviner. */
+function fromProfile<T>(value: T | null | undefined, name: string): T {
+  if (value === null || value === undefined) throw new Error(`Le profil d'imprimante par défaut n'indique pas ${name}.`);
+  return value;
+}
+
 export const DEFAULT_MACHINE_LIMITS: MachineLimits = {
-  bMinDeg: FACTS.bRangeDeg?.[0] ?? 0,
-  bMaxDeg: FACTS.bRangeDeg?.[1] ?? 185,
-  bSpeedDegS: FACTS.bSpeedDegS ?? 1666.7,
-  bAccelDegS2: FACTS.bAccelDegS2 ?? 1300,
-  plateRadiusMm: FACTS.plateRadiusMm ?? PLATE_RADIUS_MM,
+  bMinDeg: fromProfile(FACTS.bRangeDeg?.[0], 'la plage de B'),
+  bMaxDeg: fromProfile(FACTS.bRangeDeg?.[1], 'la plage de B'),
+  bSpeedDegS: fromProfile(FACTS.bSpeedDegS, 'la vitesse maximale de B'),
+  bAccelDegS2: fromProfile(FACTS.bAccelDegS2, "l'accélération maximale de B"),
+  plateRadiusMm: PLATE_RADIUS_MM,
   collisionMarginMm: 1,
   nozzleToleranceMm: 0.18,
   bodyToleranceMm: 0.7,

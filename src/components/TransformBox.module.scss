@@ -27,19 +27,26 @@
 
 .row {
   display: flex;
-  gap: 8px;
+  gap: 14px;
 }
 
 .cell {
   display: flex;
   align-items: center;
-  gap: 5px;
-  width: 128px;
+  gap: 6px;
+  width: 140px;
+
+  // Le champ numérique (flèches comprises) rétrécit au lieu de déborder sur la lettre de la colonne suivante.
+  > :last-child {
+    flex: 1 1 0;
+    min-width: 0;
+  }
 }
 
 .letter {
   flex: 0 0 auto;
-  width: 10px;
+  width: 12px;
+  line-height: 1;
   font-size: 12px;
   font-weight: 700;
   text-align: center;

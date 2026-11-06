@@ -27,7 +27,9 @@ describe('gizmo de rotation (Orca)', () => {
     scene.dispose();
     engine.dispose();
   });
+});
 
+describe('gizmo de rotation (Orca) : rotation', () => {
   it('fait tourner le modèle autour de son centre, dans le sens du pointeur', () => {
     const engine = new BABYLON.NullEngine();
     const scene = new BABYLON.Scene(engine);
@@ -83,7 +85,9 @@ describe('gizmo de rotation (Orca)', () => {
     scene.dispose();
     engine.dispose();
   });
+});
 
+describe('gizmo de rotation (Orca) : poignées', () => {
   it('place une poignée par axe, à des endroits distincts et sur son anneau', () => {
     const engine = new BABYLON.NullEngine();
     const scene = new BABYLON.Scene(engine);

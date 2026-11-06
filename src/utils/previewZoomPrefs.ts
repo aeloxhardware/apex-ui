@@ -11,10 +11,10 @@
 
 export const PREVIEW_ZOOM_SPEED_MIN = 0.25;
 export const PREVIEW_ZOOM_SPEED_MAX = 4;
-export const PREVIEW_ZOOM_REF_DISTANCE_MM = 300;
-export const PREVIEW_ZOOM_EXPONENT = 0.5;
+const PREVIEW_ZOOM_REF_DISTANCE_MM = 300;
+const PREVIEW_ZOOM_EXPONENT = 0.5;
 /** Plancher de la distance prise en compte : évite un pas quasi nul au contact de la pièce. */
-export const PREVIEW_ZOOM_MIN_DISTANCE_MM = 5;
+const PREVIEW_ZOOM_MIN_DISTANCE_MM = 5;
 
 export interface PreviewZoomPrefs {
   auto: boolean;

@@ -1,0 +1,68 @@
+// Menu de l'Auto-disposition, sous la barre d'outils : même verre sombre que le menu contextuel du plateau.
+.menu {
+  position: fixed;
+  transform: translateX(-50%);
+  z-index: 10000;
+  min-width: 260px;
+  padding: 6px;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: rgba(20, 22, 30, 0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.45), 0 4px 16px 0 rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  user-select: none;
+
+  &:hover {
+    color: rgba(255, 255, 255, 1);
+    background: rgba(255, 255, 255, 0.08);
+  }
+}
+
+.action {
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-weight: 600;
+  color: #67e8f9;
+}
+
+.field {
+  width: 96px;
+  flex: 0 0 auto;
+}
+
+// Même vocabulaire que ParamsPanel.module.scss (.checkbox) : cyan pour l'état coché.
+.checkbox {
+  appearance: none;
+  flex: 0 0 auto;
+  order: 2;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+
+  &:checked {
+    background: #22d3ee;
+    border-color: #22d3ee;
+  }
+}

@@ -64,6 +64,9 @@ Thanks to the following resources and inspirations:
 - [Orca Slicer](https://github.com/OrcaSlicer/OrcaSlicer) & [Bambu Studio](https://github.com/bambulab/BambuStudio)
 - [Ultimaker Cura](https://github.com/Ultimaker/CuraEngine)
 - [Iyinchao's work](https://github.com/iyinchao/liquid-glass-studio)
+- [yogesharc](https://github.com/yogesharc/thinking-orbs) and his Thinking Orbs (MIT), used for the Assistant's orb
+
+Licences of every direct dependency (generated from the installed packages): [docs/THIRD_PARTY_LICENSES.md](docs/THIRD_PARTY_LICENSES.md).
 
 ## License
 

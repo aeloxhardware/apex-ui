@@ -8,7 +8,7 @@
 export const APEX_SIGNATURE_LINE = '; 85Ejj-sV6dI-NXTGl-JiodA-0b8aZ';
 
 /** Nombre de lignes de tête où la signature est cherchée. */
-export const APEX_SIGNATURE_SCAN_LINES = 40;
+const APEX_SIGNATURE_SCAN_LINES = 40;
 
 /** Vrai si la ligne exacte de signature figure dans les 40 premières lignes (un `\r` final est ignoré). */
 export function hasApexSignature(text: string): boolean {

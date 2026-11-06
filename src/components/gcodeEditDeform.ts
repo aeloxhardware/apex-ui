@@ -38,8 +38,8 @@ export const EDIT_SLIDE_KIND = 'apexEditSlide';
 export const EDIT_AXIS_KIND = 'apexEditAxis';
 
 /** Teinte de l'influence (violet) et opacité maximale du mélange. */
-export const EDIT_TINT = new BABYLON.Color3(0.62, 0.32, 1.0);
-export const EDIT_TINT_MAX = 0.65;
+const EDIT_TINT = new BABYLON.Color3(0.62, 0.32, 1.0);
+const EDIT_TINT_MAX = 0.65;
 
 /**
  * État partagé par tous les matériaux de cordon, repère du plateau Babylon :
@@ -56,6 +56,90 @@ export const editDeformState = {
   /** Teinte de l'influence affichée (0 : masquée). */
   tint: 1,
 };
+
+/** Morceaux GLSL du vertex shader : déformation des sommets selon leur poids d'édition. */
+function vertexCustomCode(): { [pointName: string]: string } {
+  return {
+    CUSTOM_VERTEX_DEFINITIONS: `#ifdef APEX_EDIT_DEFORM
+      attribute float ${EDIT_WEIGHT_KIND};
+      #ifdef APEX_EDIT_SLIDE
+        attribute vec3 ${EDIT_SLIDE_KIND};
+        attribute vec3 ${EDIT_AXIS_KIND};
+      #endif
+      varying float vApexEditWeight;
+      flat varying float vApexEditFlags;
+      vec3 apexEditRotate(vec3 v, vec3 k, float a) {
+        float c = cos(a), s = sin(a);
+        return v * c + cross(k, v) * s + k * dot(k, v) * (1.0 - c);
+      }
+      // Valeur d'attribut = poids (dans [0, 1]) + 2 x drapeaux. Les drapeaux sont en flat : interpolés,
+      // leurs bits se mélangeraient (une valeur entre 0 et 4 passerait par 1 et 2 = alertes).
+      float apexEditWeightOf(float raw) { return raw - 2.0 * floor(raw * 0.5); }
+    #endif`,
+    CUSTOM_VERTEX_UPDATE_POSITION: `#ifdef APEX_EDIT_DEFORM
+      {
+        float apexW = apexEditWeightOf(${EDIT_WEIGHT_KIND});
+        vApexEditFlags = floor(${EDIT_WEIGHT_KIND} * 0.5);
+        float apexA = apexW * apexEditAxisAngle.w;
+        // Rotation, puis glissement des coques sur leur paroi (au prorata de la normale).
+        vec3 apexD = apexEditPivot + apexEditRotate(positionUpdated - apexEditPivot, apexEditAxisAngle.xyz, apexA)
+          - positionUpdated;
+        vec3 apexT = apexW * apexEditTranslation;
+        #ifdef APEX_EDIT_SLIDE
+          float apexL = length(${EDIT_SLIDE_KIND});
+          float apexShell = min(apexL, 1.0);
+          vec3 apexN = apexL > 1e-4 ? ${EDIT_SLIDE_KIND} / apexL : vec3(0.0);
+          apexD -= dot(apexD, apexN) * apexN * apexShell;
+          if (dot(apexEditStackAxis, apexEditStackAxis) > 0.5) {
+            // Empilement : le long de l'axe du point ; latéral pour l'intérieur seulement.
+            float apexTau = dot(apexEditTranslation, apexEditStackAxis);
+            vec3 apexLat = apexEditTranslation - apexTau * apexEditStackAxis;
+            float apexAL = length(${EDIT_AXIS_KIND});
+            vec3 apexAxis = apexAL > 1e-6 ? ${EDIT_AXIS_KIND} / apexAL : apexEditStackAxis;
+            apexD += apexW * (apexTau * apexAxis + (1.0 - apexShell) * apexLat);
+          } else {
+            apexD += apexT - dot(apexT, apexN) * apexN * apexShell;
+          }
+        #else
+          apexD += apexT;
+        #endif
+        positionUpdated += apexD;
+        vApexEditWeight = apexW;
+      }
+    #endif`,
+    CUSTOM_VERTEX_UPDATE_NORMAL: `#ifdef APEX_EDIT_DEFORM
+      normalUpdated = apexEditRotate(normalUpdated, apexEditAxisAngle.xyz, apexEditWeightOf(${EDIT_WEIGHT_KIND}) * apexEditAxisAngle.w);
+    #endif`,
+  };
+}
+
+/** Morceaux GLSL du fragment shader : teinte d'édition et hachures des drapeaux. */
+function fragmentCustomCode(): { [pointName: string]: string } {
+  return {
+    CUSTOM_FRAGMENT_DEFINITIONS: `#ifdef APEX_EDIT_DEFORM
+      varying float vApexEditWeight;
+      flat varying float vApexEditFlags;
+      bool apexEditFlag(float bit) { return mod(floor(vApexEditFlags / bit + 0.01), 2.0) > 0.5; }
+    #endif`,
+    CUSTOM_FRAGMENT_BEFORE_FRAGCOLOR: `#ifdef APEX_EDIT_DEFORM
+      color.rgb = mix(color.rgb, apexEditTint.rgb, clamp(vApexEditWeight, 0.0, 1.0) * apexEditTint.a);
+      if (vApexEditFlags > 0.5) {
+        // Hachures larges (période d'environ 1,3 mm) : plus fines, elles battraient avec l'empilement des couches.
+        float apexStripe = step(0.5, fract((vPositionW.x + vPositionW.y + vPositionW.z) * 0.75));
+        // Épaisseur de couche modifiée : plus fine (bleu), plus épaisse (orange), hors bornes (rouge hachuré).
+        if (apexEditFlag(16.0)) color.rgb = mix(color.rgb, vec3(0.22, 0.58, 1.0), 0.6);
+        if (apexEditFlag(32.0)) color.rgb = mix(color.rgb, vec3(1.0, 0.62, 0.16), 0.6);
+        if (apexEditFlag(64.0)) color.rgb = mix(color.rgb, mix(vec3(0.55, 0.05, 0.04), vec3(1.0, 0.18, 0.1), apexStripe), 0.85);
+        // Matière verrouillée : gris hachuré.
+        if (apexEditFlag(4.0)) color.rgb = mix(color.rgb, mix(vec3(0.26, 0.27, 0.30), vec3(0.62, 0.63, 0.67), apexStripe), 0.88);
+        // Dépôt qui serait rogné : rouge sombre hachuré.
+        if (apexEditFlag(8.0)) color.rgb = mix(color.rgb, mix(vec3(0.30, 0.03, 0.03), vec3(0.85, 0.12, 0.08), apexStripe), 0.75);
+        // Alertes (limites de la machine, collision) : rouge vif, réservé à cet usage.
+        if (apexEditFlag(1.0) || apexEditFlag(2.0)) color.rgb = mix(color.rgb, vec3(1.0, 0.05, 0.05), 0.93);
+      }
+    #endif`,
+  };
+}
 
 class EditDeformPlugin extends BABYLON.MaterialPluginBase {
   constructor(material: BABYLON.Material) {
@@ -112,86 +196,8 @@ class EditDeformPlugin extends BABYLON.MaterialPluginBase {
   }
 
   getCustomCode(shaderType: string): { [pointName: string]: string } | null {
-    if (shaderType === 'vertex') {
-      return {
-        CUSTOM_VERTEX_DEFINITIONS: `#ifdef APEX_EDIT_DEFORM
-          attribute float ${EDIT_WEIGHT_KIND};
-          #ifdef APEX_EDIT_SLIDE
-            attribute vec3 ${EDIT_SLIDE_KIND};
-            attribute vec3 ${EDIT_AXIS_KIND};
-          #endif
-          varying float vApexEditWeight;
-          flat varying float vApexEditFlags;
-          vec3 apexEditRotate(vec3 v, vec3 k, float a) {
-            float c = cos(a), s = sin(a);
-            return v * c + cross(k, v) * s + k * dot(k, v) * (1.0 - c);
-          }
-          // Valeur d'attribut = poids (dans [0, 1]) + 2 x drapeaux. Les drapeaux sont en flat : interpolés,
-          // leurs bits se mélangeraient (une valeur entre 0 et 4 passerait par 1 et 2 = alertes).
-          float apexEditWeightOf(float raw) { return raw - 2.0 * floor(raw * 0.5); }
-        #endif`,
-        CUSTOM_VERTEX_UPDATE_POSITION: `#ifdef APEX_EDIT_DEFORM
-          {
-            float apexW = apexEditWeightOf(${EDIT_WEIGHT_KIND});
-            vApexEditFlags = floor(${EDIT_WEIGHT_KIND} * 0.5);
-            float apexA = apexW * apexEditAxisAngle.w;
-            // Rotation, puis glissement des coques sur leur paroi (au prorata de la normale).
-            vec3 apexD = apexEditPivot + apexEditRotate(positionUpdated - apexEditPivot, apexEditAxisAngle.xyz, apexA)
-              - positionUpdated;
-            vec3 apexT = apexW * apexEditTranslation;
-            #ifdef APEX_EDIT_SLIDE
-              float apexL = length(${EDIT_SLIDE_KIND});
-              float apexShell = min(apexL, 1.0);
-              vec3 apexN = apexL > 1e-4 ? ${EDIT_SLIDE_KIND} / apexL : vec3(0.0);
-              apexD -= dot(apexD, apexN) * apexN * apexShell;
-              if (dot(apexEditStackAxis, apexEditStackAxis) > 0.5) {
-                // Empilement : le long de l'axe du point ; latéral pour l'intérieur seulement.
-                float apexTau = dot(apexEditTranslation, apexEditStackAxis);
-                vec3 apexLat = apexEditTranslation - apexTau * apexEditStackAxis;
-                float apexAL = length(${EDIT_AXIS_KIND});
-                vec3 apexAxis = apexAL > 1e-6 ? ${EDIT_AXIS_KIND} / apexAL : apexEditStackAxis;
-                apexD += apexW * (apexTau * apexAxis + (1.0 - apexShell) * apexLat);
-              } else {
-                apexD += apexT - dot(apexT, apexN) * apexN * apexShell;
-              }
-            #else
-              apexD += apexT;
-            #endif
-            positionUpdated += apexD;
-            vApexEditWeight = apexW;
-          }
-        #endif`,
-        CUSTOM_VERTEX_UPDATE_NORMAL: `#ifdef APEX_EDIT_DEFORM
-          normalUpdated = apexEditRotate(normalUpdated, apexEditAxisAngle.xyz, apexEditWeightOf(${EDIT_WEIGHT_KIND}) * apexEditAxisAngle.w);
-        #endif`,
-      };
-    }
-    if (shaderType === 'fragment') {
-      return {
-        CUSTOM_FRAGMENT_DEFINITIONS: `#ifdef APEX_EDIT_DEFORM
-          varying float vApexEditWeight;
-          flat varying float vApexEditFlags;
-          bool apexEditFlag(float bit) { return mod(floor(vApexEditFlags / bit + 0.01), 2.0) > 0.5; }
-        #endif`,
-        CUSTOM_FRAGMENT_BEFORE_FRAGCOLOR: `#ifdef APEX_EDIT_DEFORM
-          color.rgb = mix(color.rgb, apexEditTint.rgb, clamp(vApexEditWeight, 0.0, 1.0) * apexEditTint.a);
-          if (vApexEditFlags > 0.5) {
-            // Hachures larges (période d'environ 1,3 mm) : plus fines, elles battraient avec l'empilement des couches.
-            float apexStripe = step(0.5, fract((vPositionW.x + vPositionW.y + vPositionW.z) * 0.75));
-            // Épaisseur de couche modifiée : plus fine (bleu), plus épaisse (orange), hors bornes (rouge hachuré).
-            if (apexEditFlag(16.0)) color.rgb = mix(color.rgb, vec3(0.22, 0.58, 1.0), 0.6);
-            if (apexEditFlag(32.0)) color.rgb = mix(color.rgb, vec3(1.0, 0.62, 0.16), 0.6);
-            if (apexEditFlag(64.0)) color.rgb = mix(color.rgb, mix(vec3(0.55, 0.05, 0.04), vec3(1.0, 0.18, 0.1), apexStripe), 0.85);
-            // Matière verrouillée : gris hachuré.
-            if (apexEditFlag(4.0)) color.rgb = mix(color.rgb, mix(vec3(0.26, 0.27, 0.30), vec3(0.62, 0.63, 0.67), apexStripe), 0.88);
-            // Dépôt qui serait rogné : rouge sombre hachuré.
-            if (apexEditFlag(8.0)) color.rgb = mix(color.rgb, mix(vec3(0.30, 0.03, 0.03), vec3(0.85, 0.12, 0.08), apexStripe), 0.75);
-            // Alertes (limites de la machine, collision) : rouge vif, réservé à cet usage.
-            if (apexEditFlag(1.0) || apexEditFlag(2.0)) color.rgb = mix(color.rgb, vec3(1.0, 0.05, 0.05), 0.93);
-          }
-        #endif`,
-      };
-    }
+    if (shaderType === 'vertex') return vertexCustomCode();
+    if (shaderType === 'fragment') return fragmentCustomCode();
     return null;
   }
 }

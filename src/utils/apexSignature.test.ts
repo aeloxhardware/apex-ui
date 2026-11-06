@@ -160,6 +160,9 @@ describe('recette : cinq G-code', () => {
     expect(formatGeneratorLabel(await generatorOf(text)).value).toBe('Apex Slicer (version illisible)');
   });
 
+});
+
+describe('recette : cinq G-code (blocs absents, altérés ou étrangers)', () => {
   it('4 ter. signature sans aucun bloc : version illisible', async () => {
     expect(formatGeneratorLabel(await generatorOf(`${APEX_SIGNATURE_LINE}\n${ORCA}`)).value)
       .toBe('Apex Slicer (version illisible)');

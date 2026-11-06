@@ -204,35 +204,3 @@ export function mitosisPath(A: GlassRect, Bfinal: GlassRect, t: number, dx = 0, 
   return b.toString();
 }
 
-// Jalon de fusePath, en fraction de sa durée : au-delà, A et B ne font plus qu'une seule forme.
-const FUSE_JOIN = 0.45;
-
-/**
- * Fusion directe de deux rectangles disjoints (A au-dessus, B en dessous — la géométrie de
- * Prévisualisation) vers un seul rectangle cible (le panneau Modélisation), en un seul geste :
- * A et B se rapprochent en développant un col qui s'épaissit jusqu'à les souder (mitosisPath vu
- * de la fin vers le début, mais A et B sont ici fixes plutôt que d'être l'état initial figé d'une
- * division), puis la forme unique résultante se déplace/se redimensionne vers la cible.
- */
-export function fusePath(A: GlassRect, B: GlassRect, target: GlassRect, t: number, dx = 0, dy = 0) {
-  const tt = clamp01(t);
-  if (tt < FUSE_JOIN) {
-    // Rejoue mitosisPath(A, B, ·) à l'envers : de "A et B bien séparés" (t local = 1, leur état de
-    // repos habituel) jusqu'à leur tout premier instant (t local = NECK_START), où le col est déjà
-    // large (a ≈ aMax) et l'écart nul (g = 0) — la forme la plus proche d'un seul rectangle plein
-    // que mitosisPath produise avec A et B à leurs positions données.
-    const local = lerp(1, NECK_START, ease.inOutSine(tt / FUSE_JOIN));
-    return mitosisPath(A, B, local, dx, dy);
-  }
-  // A et B, désormais quasi soudés (le col de la fin du rapprochement ci-dessus est déjà presque
-  // aussi large que les rectangles eux-mêmes), s'étirent vers la cible — même formule que
-  // stretchPath, à partir de l'enveloppe A∪B.
-  const from: GlassRect = {
-    x: Math.min(A.x, B.x),
-    y: A.y,
-    w: Math.max(A.x + A.w, B.x + B.w) - Math.min(A.x, B.x),
-    h: B.y + B.h - A.y,
-    r: Math.min(cornerRadius(A), cornerRadius(B)),
-  };
-  return stretchPath(from, target, (tt - FUSE_JOIN) / (1 - FUSE_JOIN), dx, dy);
-}

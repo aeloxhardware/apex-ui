@@ -67,7 +67,7 @@ export const SELECTION_MODES: { mode: SelectionMode; label: string; enabled: boo
 // qu'UNE FOIS la déformation entièrement terminée, jamais pendant qu'elle est encore en cours (même
 // proche de la fin, la silhouette peut encore être trop étroite/basse pour l'accueillir proprement).
 export const CONTENT_REVEAL_THRESHOLD = 1;
-export const CONTENT_STAGGER_MS = 0.09;
+const CONTENT_STAGGER_MS = 0.09;
 
 // Cascade dans les deux sens, toujours du haut vers le bas (header, Sélection, Corps) : apparition
 // à la fin d'un morph d'entrée, disparition dès le clic qui quitte Modélisation.

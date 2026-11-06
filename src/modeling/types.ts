@@ -6,7 +6,7 @@
  * l'arbre entier — c'est ce qui rend le système paramétrique plutôt qu'une géométrie figée.
  */
 
-export type Vec2 = { x: number; y: number };
+type Vec2 = { x: number; y: number };
 export type Vec3 = { x: number; y: number; z: number };
 
 /**
@@ -67,7 +67,7 @@ interface FeatureBase {
   error?: string;
 }
 
-export interface SketchFeature extends FeatureBase {
+interface SketchFeature extends FeatureBase {
   kind: 'sketch';
   planeRef: SketchPlaneRef;
   entities: SketchEntity[];
@@ -81,13 +81,13 @@ export interface ExtrudeFeature extends FeatureBase {
   symmetric: boolean;
   /** Réglages du panneau Extrusion (le kernel ne s'en sert pas encore : seule « Nouveau corps » existe). */
   /** Face plane d'un modèle extrudée directement (sans esquisse) : `sketchId` est alors vide. */
-  faceRef?: { origin: Vec3; normal: Vec3; modelName?: string };
+  faceRef?: { origin: Vec3; normal: Vec3; modelName?: string | undefined };
   bodyType?: 'solid' | 'surface';
   startFrom?: 'profile' | 'offset';
   operation?: 'new-body' | 'join' | 'cut' | 'intersect';
 }
 
-export interface RevolveFeature extends FeatureBase {
+interface RevolveFeature extends FeatureBase {
   kind: 'revolve';
   sketchId: string;
   axis: Vec3;
@@ -95,20 +95,20 @@ export interface RevolveFeature extends FeatureBase {
   angle: number;
 }
 
-export interface FilletFeature extends FeatureBase {
+interface FilletFeature extends FeatureBase {
   kind: 'fillet';
   /** Identifiants de faces/arêtes CAD stables (voir `faceGroups` renvoyé par le kernel). */
   targetIds: string[];
   radius: number;
 }
 
-export interface ChamferFeature extends FeatureBase {
+interface ChamferFeature extends FeatureBase {
   kind: 'chamfer';
   targetIds: string[];
   distance: number;
 }
 
-export interface MirrorFeature extends FeatureBase {
+interface MirrorFeature extends FeatureBase {
   kind: 'mirror';
   /** Symétrie centrale : chaque point P devient 2*center - P. */
   center: Vec3;
@@ -122,35 +122,8 @@ export type Feature =
   | ChamferFeature
   | MirrorFeature;
 
-export type FeatureTree = Feature[];
-
 /** Granularité de sélection dans le viewport en mode modélisation. */
 export type SelectionMode = 'body' | 'face' | 'edge' | 'vertex';
-
-/** Outil actif du mode modélisation. */
-export type ModelingTool =
-  | 'sketch'
-  | 'extrude'
-  | 'revolve'
-  | 'fillet'
-  | 'chamfer'
-  | 'mirror';
-
-/**
- * Maillage renvoyé par le kernel CAD. Volontairement sérialisable : le worker ne doit
- * jamais renvoyer d'objet OCCT, uniquement des buffers transférables.
- */
-export interface CadMeshPayload {
-  vertices: Float32Array;
-  indices: Uint32Array;
-  normals: Float32Array;
-  /**
-   * Mappe des plages de triangles vers un identifiant de face CAD stable. C'est ce qui
-   * permet de dire « congé sur CETTE face » de façon persistante entre deux régénérations,
-   * là où `scene.pick` ne renvoie qu'un faceId de triangle.
-   */
-  faceGroups: { faceId: string; start: number; count: number }[];
-}
 
 let idCounter = 0;
 /** Identifiants courts et stables pour les nœuds de l'arbre (pas besoin d'UUID ici). */

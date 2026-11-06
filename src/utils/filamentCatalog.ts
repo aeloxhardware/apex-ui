@@ -19,7 +19,7 @@ export interface FilamentProfile {
 
 export const FILAMENT_CHANGED_EVENT = 'apex-filament-changed';
 const STORAGE_KEY = 'apex.filament';
-export const DEFAULT_FILAMENT_KEY = 'OrcaFilamentLibrary|Generic PLA';
+const DEFAULT_FILAMENT_KEY = 'OrcaFilamentLibrary|Generic PLA';
 
 export const filamentKey = (f: Pick<FilamentProfile, 'vendor' | 'name'>) => `${f.vendor}|${f.name}`;
 

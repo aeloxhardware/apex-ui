@@ -14,7 +14,7 @@ import {
  * synchronisé. Libellé, bornes et infobulle viennent du moteur. Un réglage énuméré (motif de remplissage) ouvre
  * sa liste de choix par `onOpenChoices`.
  */
-export const EngineItemRow: React.FC<{ path: string; onOpenChoices?: () => void }> = ({ path, onOpenChoices }) => {
+export const EngineItemRow: React.FC<{ path: string; onOpenChoices?: (() => void) | undefined }> = ({ path, onOpenChoices }) => {
   useEngineSettings(); // re-rendu à chaque changement d'un réglage
   const setting = getEngineSetting(path);
   if (!setting) return null;

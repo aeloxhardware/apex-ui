@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FilamentSelector } from './FilamentSelector';
 import { ELEMENTS_FADE_MS, MODEL_TREE_TOP, MODEL_TREE_PILL_GAP, PILL_TOP } from '@/utils/spaceMorphGeometry';
 
+import { emitApex } from '@/events/apexEvents';
 interface SubMeshItem {
   id: string;
   name: string;
@@ -27,19 +28,14 @@ interface ModelStatusBoxProps {
   startsInPreview?: boolean;
 }
 
-export const ModelStatusBox: React.FC<ModelStatusBoxProps> = ({ startsInPreview = false }) => {
-  const [models, setModels] = useState<ModelItem[]>([]);
-  const [selectedModelName, setSelectedModelName] = useState<string | null>(null);
-  const [selectedModelNames, setSelectedModelNames] = useState<Set<string>>(new Set());
-  const [expandedModels, setExpandedModels] = useState<Record<string, boolean>>({});
+/** Visibilité du panneau : il s'escamote en Prévisualisation et en Modélisation (cf. événements `apex-*`). */
+function usePanelVisibility(startsInPreview: boolean) {
   const [previewActive, setPreviewActive] = useState(startsInPreview);
   // Le mode modélisation a sa propre arborescence (les corps) : celle des modèles importés
   // ferait doublon, on l'escamote comme en mode Prévisualisation.
   const [modelingActive, setModelingActive] = useState(false);
   // Vrai dès le clic vers Prévisualisation : sortie rapide (ELEMENTS_FADE_MS) plutôt que 0,9 s.
   const [enteringPreview, setEnteringPreview] = useState(false);
-  const toolbarRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let fallbackTimer: number | undefined;
@@ -91,6 +87,14 @@ export const ModelStatusBox: React.FC<ModelStatusBoxProps> = ({ startsInPreview 
       window.removeEventListener('apex-entering-preview', handleEnteringPreview);
     };
   }, []);
+  return { previewActive, modelingActive, enteringPreview };
+}
+
+/** Modèles du plateau (arborescence) et sélection, suivis par événements. */
+function useModelList() {
+  const [models, setModels] = useState<ModelItem[]>([]);
+  const [selectedModelName, setSelectedModelName] = useState<string | null>(null);
+  const [selectedModelNames, setSelectedModelNames] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const handleMeshSelected = (e: CustomEvent<{ name: string | null; names?: string[]; subMeshes?: SubMeshItem[] }>) => {
@@ -151,6 +155,17 @@ export const ModelStatusBox: React.FC<ModelStatusBoxProps> = ({ startsInPreview 
       window.removeEventListener('apex-mesh-deleted', handleMeshDeleted as EventListener);
     };
   }, [selectedModelName]);
+  return { models, selectedModelName, setSelectedModelName, selectedModelNames };
+}
+
+/** Arborescence des modèles : sélection au clic (Ctrl = additif), dépliage de leurs éléments. */
+const ModelTree: React.FC<{
+  models: ModelItem[];
+  selectedModelNames: Set<string>;
+  onSelect: (name: string) => void;
+  expandedModels: Record<string, boolean>;
+  setExpandedModels: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+}> = ({ models, selectedModelNames, onSelect, expandedModels, setExpandedModels }) => {
 
   const toggleExpand = (modelName: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -159,6 +174,94 @@ export const ModelStatusBox: React.FC<ModelStatusBoxProps> = ({ startsInPreview 
       [modelName]: !prev[modelName]
     }));
   };
+
+  return (
+    <ExternalScrollArea className={styles.scrollArea} contentClassName={styles.content}>
+      {models.length === 0 ? (
+        <motion.div 
+          initial={{ opacity: 0 }} 
+          animate={{ opacity: 1 }} 
+          exit={{ opacity: 0 }} 
+          className={styles.emptyText}
+        >
+          Aucun modèle sur le plateau
+        </motion.div>
+      ) : (
+        <ul className={styles.treeList}>
+          <AnimatePresence>
+            {models.map((model, index) => {
+              const isSelected = selectedModelNames.has(model.name);
+              const isExpanded = !!expandedModels[model.name];
+              const isFirst = index === 0;
+              const isLast = index === models.length - 1;
+              return (
+                <motion.li
+                  key={model.id}
+                  className={`${styles.treeNode} ${isFirst ? styles.treeNodeFirst : ''} ${isLast ? styles.treeNodeLast : ''}`}
+                  initial={{ opacity: 0, height: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, height: 'auto', scale: 1 }}
+                  exit={{ opacity: 0, height: 0, scale: 0.9, marginBottom: 0 }}
+                  transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                >
+                  <div 
+                    className={`${styles.nodeRow} ${isSelected ? styles.selectedNode : ''}`}
+                    onClick={(e) => {
+                      onSelect(model.name);
+                      emitApex('apex-select-model', { name: model.name, additive: e.ctrlKey || e.metaKey });
+                    }}
+                  >
+                    <button 
+                      className="bg-transparent border-none cursor-pointer p-0 flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
+                      onClick={(e) => toggleExpand(model.name, e)}
+                    >
+                      <ChevronRight 
+                        size={14} 
+                        className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} 
+                      />
+                    </button>
+                    <Box size={14} className="text-[#00f0ff] ml-1" />
+                    <span className={styles.nodeName}>{model.name}</span>
+                  </div>
+                  <AnimatePresence>
+                    {isExpanded && model.children && model.children.length > 0 && (
+                      <motion.ul 
+                        className={styles.childList}
+                        // Marges animées avec la hauteur (et non fixées en CSS) : sinon elles
+                        // subsistent à hauteur 0 puis disparaissent d'un coup au démontage.
+                        initial={{ opacity: 0, height: 0, marginTop: 0, marginBottom: 0 }}
+                        animate={{ opacity: 1, height: 'auto', marginTop: 2, marginBottom: 6 }}
+                        exit={{ opacity: 0, height: 0, marginTop: 0, marginBottom: 0 }}
+                        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                      >
+                        {model.children.map(child => (
+                          <li key={child.id} className={styles.childRow}>
+                            <span 
+                              className="w-2.5 h-2.5 rounded-full shrink-0 mr-1.5 shadow-sm" 
+                              style={{ backgroundColor: child.color }} 
+                            />
+                            <span className={styles.childName}>{child.name}</span>
+                          </li>
+                        ))}
+                      </motion.ul>
+                    )}
+                  </AnimatePresence>
+                </motion.li>
+              );
+            })}
+          </AnimatePresence>
+        </ul>
+      )}
+    </ExternalScrollArea>
+  );
+};
+
+export const ModelStatusBox: React.FC<ModelStatusBoxProps> = ({ startsInPreview = false }) => {
+  const { models, setSelectedModelName, selectedModelNames } = useModelList();
+  const { previewActive, modelingActive, enteringPreview } = usePanelVisibility(startsInPreview);
+  // Dépliages conservés quand le panneau est escamoté (Prévisualisation, Modélisation).
+  const [expandedModels, setExpandedModels] = useState<Record<string, boolean>>({});
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Ce panneau grandit avec l'arborescence (dépliage d'un modèle) : la pilule Qualité/Solidité/
   // Vitesse (CategoriesSidebar), positionnée juste en-dessous, doit alors être repoussée d'autant
@@ -169,20 +272,20 @@ export const ModelStatusBox: React.FC<ModelStatusBoxProps> = ({ startsInPreview 
     // Colonne entière (arborescence + carte Filament dessous) : la pilule se place sous la carte du bas.
     const el = containerRef.current;
     if (!el || previewActive || modelingActive) {
-      window.dispatchEvent(new CustomEvent('apex-model-tree-resized', { detail: { overflow: 0 } }));
+      emitApex('apex-model-tree-resized', { overflow: 0 });
       return;
     }
     const notify = () => {
       const requiredTop = MODEL_TREE_TOP + el.offsetHeight + MODEL_TREE_PILL_GAP;
       const overflow = Math.max(0, requiredTop - PILL_TOP);
-      window.dispatchEvent(new CustomEvent('apex-model-tree-resized', { detail: { overflow } }));
+      emitApex('apex-model-tree-resized', { overflow });
     };
     const observer = new ResizeObserver(notify);
     observer.observe(el);
     notify();
     return () => {
       observer.disconnect();
-      window.dispatchEvent(new CustomEvent('apex-model-tree-resized', { detail: { overflow: 0 } }));
+      emitApex('apex-model-tree-resized', { overflow: 0 });
     };
   }, [previewActive, modelingActive]);
 
@@ -219,84 +322,7 @@ export const ModelStatusBox: React.FC<ModelStatusBoxProps> = ({ startsInPreview 
               x: { duration: 0.9, ease: 'easeInOut' },
             }}
           >
-        <ExternalScrollArea className={styles.scrollArea} contentClassName={styles.content}>
-          {models.length === 0 ? (
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }} 
-              className={styles.emptyText}
-            >
-              Aucun modèle sur le plateau
-            </motion.div>
-          ) : (
-            <ul className={styles.treeList}>
-              <AnimatePresence>
-                {models.map((model, index) => {
-                  const isSelected = selectedModelNames.has(model.name);
-                  const isExpanded = !!expandedModels[model.name];
-                  const isFirst = index === 0;
-                  const isLast = index === models.length - 1;
-                  return (
-                    <motion.li
-                      key={model.id}
-                      className={`${styles.treeNode} ${isFirst ? styles.treeNodeFirst : ''} ${isLast ? styles.treeNodeLast : ''}`}
-                      initial={{ opacity: 0, height: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, height: 'auto', scale: 1 }}
-                      exit={{ opacity: 0, height: 0, scale: 0.9, marginBottom: 0 }}
-                      transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-                    >
-                      <div 
-                        className={`${styles.nodeRow} ${isSelected ? styles.selectedNode : ''}`}
-                        onClick={(e) => {
-                          setSelectedModelName(model.name);
-                          window.dispatchEvent(new CustomEvent('apex-select-model', {
-                            detail: { name: model.name, additive: e.ctrlKey || e.metaKey }
-                          }));
-                        }}
-                      >
-                        <button 
-                          className="bg-transparent border-none cursor-pointer p-0 flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
-                          onClick={(e) => toggleExpand(model.name, e)}
-                        >
-                          <ChevronRight 
-                            size={14} 
-                            className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} 
-                          />
-                        </button>
-                        <Box size={14} className="text-[#00f0ff] ml-1" />
-                        <span className={styles.nodeName}>{model.name}</span>
-                      </div>
-                      <AnimatePresence>
-                        {isExpanded && model.children && model.children.length > 0 && (
-                          <motion.ul 
-                            className={styles.childList}
-                            // Marges animées avec la hauteur (et non fixées en CSS) : sinon elles
-                            // subsistent à hauteur 0 puis disparaissent d'un coup au démontage.
-                            initial={{ opacity: 0, height: 0, marginTop: 0, marginBottom: 0 }}
-                            animate={{ opacity: 1, height: 'auto', marginTop: 2, marginBottom: 6 }}
-                            exit={{ opacity: 0, height: 0, marginTop: 0, marginBottom: 0 }}
-                            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                          >
-                            {model.children.map(child => (
-                              <li key={child.id} className={styles.childRow}>
-                                <span 
-                                  className="w-2.5 h-2.5 rounded-full shrink-0 mr-1.5 shadow-sm" 
-                                  style={{ backgroundColor: child.color }} 
-                                />
-                                <span className={styles.childName}>{child.name}</span>
-                              </li>
-                            ))}
-                          </motion.ul>
-                        )}
-                      </AnimatePresence>
-                    </motion.li>
-                  );
-                })}
-              </AnimatePresence>
-            </ul>
-          )}
-        </ExternalScrollArea>
+        <ModelTree models={models} selectedModelNames={selectedModelNames} onSelect={setSelectedModelName} expandedModels={expandedModels} setExpandedModels={setExpandedModels} />
           </motion.div>
         )}
         {!previewActive && !modelingActive && (

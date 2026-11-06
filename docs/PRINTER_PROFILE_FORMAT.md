@@ -11,7 +11,10 @@ bloc `apex` pour ce qu'Orca ne connaît pas. `null` = inconnu : on ne devine pas
 Bloc `apex` (toutes imprimantes) : `manufacturer`, `model`, `catalog_path`, `orca_source` (null si aucun
 profil Orca), `axes_count`, `kinematics` (ex. `["X","Z","B","C"]`), `kinematics_preview` (`type` : structure
 de la cinématique pour l'aperçu, `image`), `motherboard`, `motors` et `drivers` (un par axe),
-`default_nozzle_profile` (`diameter_mm`, `profile_id` : voir la roadmap, profils de buse),
+`default_nozzle_profile` (`diameter_mm`, `profile_id`, et la géométrie de la buse propre à l'imprimante :
+`length_mm` longueur de buse sous le conduit de ventilation, `angle_deg` angle maximum buse-paroi, `outer_width_mm` largeur
+extérieure entre le bord du trou de la buse et le bout de sa face plate ; `null`/« Inconnu » = non mesuré, le moteur garde alors
+ses défauts ; seuls la longueur et l'angle sont envoyés au moteur, la largeur extérieure est pour l'instant informative),
 `auto_leveling.tool`.
 
 `toolhead_model` : identifiant du modèle 3D de la tête (`src/assets/models/<identifiant>.glb`), lié au profil et non

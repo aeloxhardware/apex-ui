@@ -8,11 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import styles from './ExtrudePanel.module.scss';
 import type { Vec3 } from '@/modeling/types';
 
-export type ExtrudeBodyType = 'solid' | 'surface';
-export type ExtrudeStart = 'profile' | 'offset';
-export type ExtrudeDirection = 'one' | 'symmetric';
-export type ExtrudeExtent = 'distance';
-export type ExtrudeOperation = 'new-body' | 'join' | 'cut' | 'intersect';
+import { emitApex } from '@/events/apexEvents';
+type ExtrudeBodyType = 'solid' | 'surface';
+type ExtrudeStart = 'profile' | 'offset';
+type ExtrudeDirection = 'one' | 'symmetric';
+type ExtrudeExtent = 'distance';
+type ExtrudeOperation = 'new-body' | 'join' | 'cut' | 'intersect';
 
 export interface ExtrudeParams {
   bodyType: ExtrudeBodyType;
@@ -22,7 +23,7 @@ export interface ExtrudeParams {
   distance: number;
   operation: ExtrudeOperation;
   /** Face choisie dans la vue 3D (profil d'esquisse ou face d'un modèle), si elle l'est. */
-  face?: { kind: 'sketch' | 'mesh'; modelName: string | null; origin: Vec3; normal: Vec3 } | null;
+  face?: { kind: 'sketch' | 'mesh'; modelName: string | null | undefined; origin: Vec3; normal: Vec3 } | null | undefined;
 }
 
 interface ExtrudePanelProps {
@@ -79,6 +80,25 @@ function Dropdown<T extends string>({ label, value, onChange, options, tip }: Dr
   );
 }
 
+const NoFaceNotice: React.FC = () => (
+  // L'enveloppe du tooltip est l'élément de la grille : c'est elle qui doit occuper les deux
+  // colonnes (sinon le bandeau n'en prend qu'une et décale toutes les lignes suivantes).
+  <CustomTooltip
+    content="Aucune face sélectionnée"
+    description="Sélectionnez une face plane ou un profil d'esquisse dans la vue 3D : une flèche apparaît alors, à tirer pour régler la distance."
+    wrapperStyle={{ gridColumn: '1 / -1' }}
+  >
+    <p
+      style={{
+        width: '100%', margin: 0, padding: '6px 10px', borderRadius: 10,
+        background: 'rgba(255, 69, 58, 0.14)', color: '#ff7a70', fontSize: 12,
+      }}
+    >
+      Sélectionnez une face (ou un profil d'esquisse) dans la vue 3D.
+    </p>
+  </CustomTooltip>
+);
+
 export const ExtrudePanel: React.FC<ExtrudePanelProps> = ({ sketchName, onConfirm, onCancel }) => {
   const [startFrom, setStartFrom] = useState<ExtrudeStart>('profile');
   const [direction, setDirection] = useState<ExtrudeDirection>('one');
@@ -110,7 +130,7 @@ export const ExtrudePanel: React.FC<ExtrudePanelProps> = ({ sketchName, onConfir
   }, []);
   // Distance saisie au clavier : la flèche et l'aperçu suivent.
   useEffect(() => {
-    if (distanceValid) window.dispatchEvent(new CustomEvent('apex-extrude-set-distance', { detail: { distance } }));
+    if (distanceValid) emitApex('apex-extrude-set-distance', { distance });
   }, [distance, distanceValid]);
   const canConfirm = (hasSketch || face !== null) && distanceValid;
 
@@ -142,24 +162,7 @@ export const ExtrudePanel: React.FC<ExtrudePanelProps> = ({ sketchName, onConfir
       </div>
 
       <div className={styles.rows}>
-        {!hasSketch && face === null && (
-          // L'enveloppe du tooltip est l'élément de la grille : c'est elle qui doit occuper les deux
-          // colonnes (sinon le bandeau n'en prend qu'une et décale toutes les lignes suivantes).
-          <CustomTooltip
-            content="Aucune face sélectionnée"
-            description="Sélectionnez une face plane ou un profil d'esquisse dans la vue 3D : une flèche apparaît alors, à tirer pour régler la distance."
-            wrapperStyle={{ gridColumn: '1 / -1' }}
-          >
-            <p
-              style={{
-                width: '100%', margin: 0, padding: '6px 10px', borderRadius: 10,
-                background: 'rgba(255, 69, 58, 0.14)', color: '#ff7a70', fontSize: 12,
-              }}
-            >
-              Sélectionnez une face (ou un profil d'esquisse) dans la vue 3D.
-            </p>
-          </CustomTooltip>
-        )}
+        {!hasSketch && face === null && <NoFaceNotice />}
 
         <span className={styles.label}>Démarrer</span>
         <Dropdown<ExtrudeStart>

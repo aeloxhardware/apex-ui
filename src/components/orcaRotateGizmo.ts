@@ -31,7 +31,7 @@ export interface OrcaRotateGizmoOptions {
   /** Appelé après chaque pas de rotation, le mouvement étant déjà appliqué au maillage. */
   onRotated: (mesh: BABYLON.AbstractMesh) => void;
   /** Appelé quand le glissement se termine. */
-  onDragEnd?: () => void;
+  onDragEnd?: (() => void) | undefined;
 }
 
 interface Ring {

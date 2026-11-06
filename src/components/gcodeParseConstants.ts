@@ -25,8 +25,8 @@ export function nozzleTip(r: number, z: number, bRad: number, out: { r: number; 
 }
 
 // Points réutilisés par `moveLength` pour éviter une allocation par mouvement (appelé O(n)).
-export const moveLengthTipA = { r: 0, z: 0 };
-export const moveLengthTipB = { r: 0, z: 0 };
+const moveLengthTipA = { r: 0, z: 0 };
+const moveLengthTipB = { r: 0, z: 0 };
 
 /** Longueur (mm) parcourue par la pointe de buse entre les mouvements `a` et `b` : corde cartésienne
  * directe, ou longueur de l'arc réellement décrit en (R, C, Z) pour le polaire (même formule que la

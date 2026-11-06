@@ -107,3 +107,114 @@ describe('editKernelClient : protocole avec le noyau', () => {
     await expect(done).resolves.toEqual({ committed: true });
   });
 });
+
+describe('editKernelClient : ouverture, annulation, erreurs', () => {
+  let env: ReturnType<typeof setup>;
+  beforeEach(() => { env = setup(); });
+  afterEach(() => { env.channel.port1.close(); env.channel.port2.close(); vi.unstubAllGlobals(); vi.useRealTimers(); });
+
+  it('open() est idempotent : un seul canal, un seul appel au processus', async () => {
+    let opened = 0;
+    const w = (globalThis as unknown as { window: { apexDesktop: { openEditChannel: () => void } } }).window;
+    const original = w.apexDesktop.openEditChannel;
+    w.apexDesktop.openEditChannel = () => { opened++; original(); };
+    const kernel = await freshClient();
+    const [a, b] = await Promise.all([kernel.open(), kernel.open()]);
+    expect([a, b]).toEqual([true, true]);
+    expect(await kernel.open()).toBe(true);
+    expect(opened).toBe(1);
+  });
+
+  it('sans réponse du processus, open() vaut faux au bout du délai et peut être retenté', async () => {
+    const w = (globalThis as unknown as { window: { apexDesktop: { openEditChannel: () => void } } }).window;
+    let calls = 0;
+    w.apexDesktop.openEditChannel = () => { calls++; }; // le processus ne répond jamais
+    const kernel = await freshClient();
+    vi.useFakeTimers();
+    const first = kernel.open();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(await first).toBe(false);
+    const retry = kernel.open();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(await retry).toBe(false);
+    expect(calls).toBe(2);
+  });
+
+  it('les réponses hors ordre rejoignent chacune leur requête (par id)', async () => {
+    const kernel = await freshClient();
+    await kernel.open();
+    const first = kernel.nearest(0, 0, 0, 1);
+    const second = kernel.lockedIndices();
+    await env.flush();
+    expect(env.received.map((m) => m.op)).toEqual(['nearest', 'lockedIndices']);
+    expect(env.received[0].id).not.toBe(env.received[1].id);
+    env.reply(env.received[1].id, { result: 'B' });
+    env.reply(env.received[0].id, { result: 7 });
+    await expect(first).resolves.toBe(7);
+    await expect(second).resolves.toBe('B');
+  });
+
+  it('une réponse à un id inconnu est ignorée', async () => {
+    const kernel = await freshClient();
+    await kernel.open();
+    env.reply(9999, { result: 1 });
+    const p = kernel.redo();
+    await env.flush();
+    env.reply(env.received[0].id, { result: 'ok' });
+    await expect(p).resolves.toBe('ok');
+  });
+});
+
+describe('editKernelClient : annulation et erreurs de glissement', () => {
+  let env: ReturnType<typeof setup>;
+  beforeEach(() => { env = setup(); });
+  afterEach(() => { env.channel.port1.close(); env.channel.port2.close(); vi.unstubAllGlobals(); });
+
+  it('cancel() écarte le glissement en attente (null) puis demande l\'annulation au noyau', async () => {
+    const kernel = await freshClient();
+    await kernel.open();
+    const t = (x: number) => ({ translation: [x, 0, 0] }) as never;
+    const inFlight = kernel.drag(t(1));
+    const waiting = kernel.drag(t(2));
+    const cancelled = kernel.cancel();
+    await env.flush();
+    await expect(waiting).resolves.toBeNull();
+    expect(env.received.map((m) => m.op)).toEqual(['drag', 'cancel']);
+    env.reply(env.received[0].id, { result: null });
+    env.reply(env.received[1].id, { result: undefined });
+    await inFlight;
+    await expect(cancelled).resolves.toBeUndefined();
+    await env.flush();
+    expect(env.received).toHaveLength(2); // rien d'autre n'est parti derrière
+  });
+
+  it('une erreur du noyau sur un glissement rejette sa promesse et le suivant part quand même', async () => {
+    const kernel = await freshClient();
+    await kernel.open();
+    const t = (x: number) => ({ translation: [x, 0, 0] }) as never;
+    const a = kernel.drag(t(1));
+    const b = kernel.drag(t(2));
+    await env.flush();
+    env.reply(env.received[0].id, { error: 'noyau occupé' });
+    await expect(a).rejects.toThrow('noyau occupé');
+    await env.flush();
+    expect(env.received.map((m) => m.args[0])).toEqual([t(1), t(2)]);
+    env.reply(env.received[1].id, { result: { ok: 2 } });
+    await expect(b).resolves.toEqual({ ok: 2 });
+  });
+
+  it('transmet les arguments de lockRegion, setLocked et restoreHistory tels quels', async () => {
+    const kernel = await freshClient();
+    await kernel.open();
+    const indices = new Uint32Array([3, 4]);
+    void kernel.lockRegion(5, 2.5, true);
+    void kernel.setLocked(indices, false);
+    void kernel.restoreHistory({ undo: [], redo: [] });
+    await env.flush();
+    expect(env.received.map((m) => [m.op, m.args])).toEqual([
+      ['lockRegion', [5, 2.5, true]],
+      ['setLocked', [indices, false]],
+      ['restoreHistory', [{ undo: [], redo: [] }]],
+    ]);
+  });
+});

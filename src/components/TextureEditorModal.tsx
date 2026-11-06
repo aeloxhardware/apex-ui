@@ -4,6 +4,7 @@ import { Palette, X, Check, Info } from 'lucide-react';
 import { showSuccess } from '@/utils/toast';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import { emitApex } from '@/events/apexEvents';
 interface TextureItem {
   id: string;
   name: string;
@@ -108,6 +109,92 @@ const getClosestColorName = (hex: string): string => {
   return closestName;
 };
 
+/** Panneau latéral : couleur dominante de la texture choisie et filament proche. */
+const TextureDetailsPanel: React.FC<{ texture: TextureItem }> = ({ texture }) => (
+        <motion.div 
+          className={styles.sidePanel}
+          initial={{ opacity: 0, scale: 0.95, x: -15 }}
+          animate={{ opacity: 1, scale: 1, x: 0 }}
+          exit={{ opacity: 0, scale: 0.95, x: -15 }}
+          transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <div className={styles.header}>
+            <div className={styles.headerTitle}>
+              <Info size={16} className="text-[#00f0ff]" />
+              <span>Détails & Filament</span>
+            </div>
+          </div>
+
+          <div className={styles.content}>
+            <div className={styles.section}>
+              <span className={styles.sectionLabel}>Couleur dominante :</span>
+              <div className="flex items-center gap-3 mt-2 bg-neutral-900/60 p-3 rounded-lg">
+                <div 
+                  className="w-8 h-8 rounded-full shrink-0 shadow-md border border-white/20"
+                  style={{ backgroundColor: texture.color }}
+                />
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold text-white font-orbitron">
+                    {getClosestColorName(texture.color)}
+                  </span>
+                  <span className="text-[10px] text-neutral-400 font-mono">
+                    {texture.color.toUpperCase()}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.section}>
+              <span className={styles.sectionLabel}>Numéro de Filament :</span>
+              <div className="flex flex-col gap-1 mt-1 bg-neutral-900/40 p-3 rounded-lg border border-white/5">
+                <span className="text-xs font-medium text-amber-400">Filament #AMS-01 (Proche)</span>
+                <span className="text-[10px] text-neutral-400 leading-relaxed">
+                  Fonctionnalité en cours d'implémentation pour l'attribution automatique des bobines multi-matériaux.
+                </span>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+);
+
+/** Grille des textures du modèle sélectionné ; un clic sélectionne ou désélectionne. */
+const TextureGrid: React.FC<{
+  textures: TextureItem[];
+  selected: string | null;
+  onPick: (name: string) => void;
+}> = ({ textures, selected, onPick }) => (
+    <div className={styles.textureGrid}>
+      {textures.length === 0 ? (
+        <div className="text-xs text-neutral-500 py-4 text-center">Aucun modèle sélectionné</div>
+      ) : (
+        textures.map(tex => {
+          const isSelected = selected === tex.name;
+          return (
+            <div 
+              key={tex.id}
+              className={styles.textureCard}
+              style={isSelected ? {
+                backgroundColor: `${tex.color}22`,
+                boxShadow: `0 0 16px ${tex.color}55`
+              } : {}}
+              onClick={() => onPick(tex.name)}
+            >
+              <span 
+                className="w-3.5 h-3.5 rounded-full shrink-0 shadow-sm" 
+                style={{ backgroundColor: tex.color || '#00f0ff' }} 
+              />
+              <div className={styles.cardInfo}>
+                <span className={styles.cardName}>{tex.name}</span>
+                <span className={styles.cardMeta}>{tex.type} • {tex.res}</span>
+              </div>
+              {isSelected && <Check size={14} style={{ color: tex.color }} className="ml-auto" />}
+            </div>
+          );
+        })
+      )}
+    </div>
+);
+
 export const TextureEditorModal: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [textures, setTextures] = useState<TextureItem[]>([]);
@@ -117,7 +204,7 @@ export const TextureEditorModal: React.FC = () => {
     const handleToolChanged = (e: CustomEvent<{ tool: string }>) => {
       if (e.detail?.tool === 'texture') {
         setIsOpen(true);
-        window.dispatchEvent(new CustomEvent('apex-request-textures'));
+        emitApex('apex-request-textures');
       } else {
         setIsOpen(false);
       }
@@ -135,7 +222,7 @@ export const TextureEditorModal: React.FC = () => {
 
     const handleMeshSelected = (e: CustomEvent<{ name: string | null; subMeshes: { id: string; name: string; color: string }[] }>) => {
       if (e.detail?.name) {
-        window.dispatchEvent(new CustomEvent('apex-request-textures'));
+        emitApex('apex-request-textures');
       } else {
         setTextures([]);
         setSelectedTexture(null);
@@ -184,7 +271,7 @@ export const TextureEditorModal: React.FC = () => {
                 className={styles.closeBtn} 
                 onClick={() => {
                   setIsOpen(false);
-                  window.dispatchEvent(new CustomEvent('apex-tool-changed', { detail: { tool: 'select' } }));
+                  emitApex('apex-tool-changed', { tool: 'select' });
                 }}
               >
                 <X size={14} />
@@ -194,36 +281,7 @@ export const TextureEditorModal: React.FC = () => {
             <div className={styles.content}>
               <div className={styles.section}>
                 <span className={styles.sectionLabel}>Textures récupérées du modèle :</span>
-                <div className={styles.textureGrid}>
-                  {textures.length === 0 ? (
-                    <div className="text-xs text-neutral-500 py-4 text-center">Aucun modèle sélectionné</div>
-                  ) : (
-                    textures.map(tex => {
-                      const isSelected = selectedTexture === tex.name;
-                      return (
-                        <div 
-                          key={tex.id}
-                          className={styles.textureCard}
-                          style={isSelected ? {
-                            backgroundColor: `${tex.color}22`,
-                            boxShadow: `0 0 16px ${tex.color}55`
-                          } : {}}
-                          onClick={() => handleCardClick(tex.name)}
-                        >
-                          <span 
-                            className="w-3.5 h-3.5 rounded-full shrink-0 shadow-sm" 
-                            style={{ backgroundColor: tex.color || '#00f0ff' }} 
-                          />
-                          <div className={styles.cardInfo}>
-                            <span className={styles.cardName}>{tex.name}</span>
-                            <span className={styles.cardMeta}>{tex.type} • {tex.res}</span>
-                          </div>
-                          {isSelected && <Check size={14} style={{ color: tex.color }} className="ml-auto" />}
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
+                <TextureGrid textures={textures} selected={selectedTexture} onPick={handleCardClick} />
               </div>
 
               <button 
@@ -240,50 +298,7 @@ export const TextureEditorModal: React.FC = () => {
           {/* Panneau latéral de détails s'ouvrant à droite si une texture est sélectionnée */}
           <AnimatePresence>
             {currentTexObj && (
-              <motion.div 
-                className={styles.sidePanel}
-                initial={{ opacity: 0, scale: 0.95, x: -15 }}
-                animate={{ opacity: 1, scale: 1, x: 0 }}
-                exit={{ opacity: 0, scale: 0.95, x: -15 }}
-                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              >
-                <div className={styles.header}>
-                  <div className={styles.headerTitle}>
-                    <Info size={16} className="text-[#00f0ff]" />
-                    <span>Détails & Filament</span>
-                  </div>
-                </div>
-
-                <div className={styles.content}>
-                  <div className={styles.section}>
-                    <span className={styles.sectionLabel}>Couleur dominante :</span>
-                    <div className="flex items-center gap-3 mt-2 bg-neutral-900/60 p-3 rounded-lg">
-                      <div 
-                        className="w-8 h-8 rounded-full shrink-0 shadow-md border border-white/20"
-                        style={{ backgroundColor: currentTexObj.color }}
-                      />
-                      <div className="flex flex-col">
-                        <span className="text-xs font-bold text-white font-orbitron">
-                          {getClosestColorName(currentTexObj.color)}
-                        </span>
-                        <span className="text-[10px] text-neutral-400 font-mono">
-                          {currentTexObj.color.toUpperCase()}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className={styles.section}>
-                    <span className={styles.sectionLabel}>Numéro de Filament :</span>
-                    <div className="flex flex-col gap-1 mt-1 bg-neutral-900/40 p-3 rounded-lg border border-white/5">
-                      <span className="text-xs font-medium text-amber-400">Filament #AMS-01 (Proche)</span>
-                      <span className="text-[10px] text-neutral-400 leading-relaxed">
-                        Fonctionnalité en cours d'implémentation pour l'attribution automatique des bobines multi-matériaux.
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
+              <TextureDetailsPanel texture={currentTexObj} />
             )}
           </AnimatePresence>
         </div>

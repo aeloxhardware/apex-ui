@@ -61,7 +61,7 @@ function gcodeRows(g: GCodeHover): [string, string][] {
  * Infobulle de survol du viewport. Préparation : le modèle du plateau sous le curseur.
  * Prévisualisation : le mouvement du G-code sous le curseur (`gcodeName` : fichier chargé).
  */
-export const ModelHoverTooltip: React.FC<{ gcodeName?: string | null }> = ({ gcodeName }) => {
+export const ModelHoverTooltip: React.FC<{ gcodeName?: string | null | undefined }> = ({ gcodeName }) => {
   const [info, setInfo] = useState<HoverInfo>(EMPTY);
 
   useEffect(() => {

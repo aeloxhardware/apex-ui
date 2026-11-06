@@ -15,7 +15,7 @@ export interface PracticalModel {
   url: string;
 }
 
-export const PRACTICAL_MODELS: PracticalModel[] = Object.entries(urls)
+const PRACTICAL_MODELS: PracticalModel[] = Object.entries(urls)
   .map(([path, url]) => {
     const fileName = path.slice(path.lastIndexOf('/') + 1);
     return { fileName, label: fileName.replace(/\.stl$/i, '').replace(/[_-]+/g, ' '), url };

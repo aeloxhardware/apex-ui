@@ -15,12 +15,13 @@ const MAX_LEADERS = 6;
 const CARD_WIDTH_PX = 250;
 const CARD_OFFSET_PX = { x: 70, y: -90 };
 const RED = '#ff0000';
+const SVG_NS = 'http://www.w3.org/2000/svg';
 const PULSE_STYLE_ID = 'apex-air-pulse-style';
 
 /** Demande de suppression (écoutée par use-gcode-preview.ts). */
 export const AIR_CONTOURS_REMOVE_EVENT = 'apex-air-contours-remove';
 
-export const AIR_CONTOUR_TOOLTIP =
+const AIR_CONTOUR_TOOLTIP =
   "Le fork de PrusaSlicer ayant généré ce G-Code est connu pour buggé et génère des trajectoires dans l'air pouvant engendrer des collisions. Apex peut tenter de les supprimer.";
 
 interface Options {
@@ -32,16 +33,8 @@ interface Options {
   isPreviewActive: () => boolean;
 }
 
-export function createAirContourCallout({ scene, engine, camera, canvas, layer, isPreviewActive }: Options) {
-  const host = canvas.parentElement;
-  const flat = isFlatUi();
-  const root = document.createElement('div');
-  root.style.cssText = 'position:absolute;inset:0;pointer-events:none;overflow:hidden;display:none;z-index:5;';
-  const svgNs = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(svgNs, 'svg');
-  svg.setAttribute('width', '100%');
-  svg.setAttribute('height', '100%');
-  svg.style.cssText = 'position:absolute;inset:0;overflow:visible;';
+/** Carte (texte, bouton de suppression, croix de fermeture) ; l'interface classique n'a ni flou, ni ombre, ni animation. */
+function buildCard(flat: boolean) {
   const card = document.createElement('div');
   card.setAttribute('data-apex-tooltip', AIR_CONTOUR_TOOLTIP);
   card.style.cssText = [
@@ -86,17 +79,15 @@ export function createAirContourCallout({ scene, engine, camera, canvas, layer, 
   ].join('');
   remove.addEventListener('click', () => window.dispatchEvent(new CustomEvent(AIR_CONTOURS_REMOVE_EVENT)));
   card.append(title, body, remove, close);
-  root.append(svg, card);
-  host?.appendChild(root);
+  return { card, title, close };
+}
 
-  let anchors: BABYLON.Vector3[] = [];
-  let dismissed = false;
-  let typeVisible = true;
-  const lines: SVGGElement[] = [];
+/** Projette un point local du plateau en pixels CSS du canevas (vue × projection de la caméra de la vue). */
+function createProjector({ engine, camera, canvas, layer }: Pick<Options, 'engine' | 'camera' | 'canvas' | 'layer'>) {
   const scratchWorld = new BABYLON.Vector3();
   const scratchTransform = new BABYLON.Matrix();
 
-  const project = (local: BABYLON.Vector3) => {
+  return (local: BABYLON.Vector3) => {
     BABYLON.Vector3.TransformCoordinatesToRef(local, layer.getPlateWorldMatrix(), scratchWorld);
     // Vue × projection de la caméra de la vue (cf. gcodeEditController.project).
     camera.getViewMatrix().multiplyToRef(camera.getProjectionMatrix(), scratchTransform);
@@ -105,23 +96,56 @@ export function createAirContourCallout({ scene, engine, camera, canvas, layer, 
     const s = canvas.clientWidth / Math.max(1, engine.getRenderWidth());
     return { x: p.x * s, y: p.y * s, z: p.z };
   };
+}
 
-  const rebuildLines = () => {
-    for (const g of lines) g.remove();
-    lines.length = 0;
-    for (let i = 0; i < anchors.length; i++) {
-      const g = document.createElementNS(svgNs, 'g');
-      const line = document.createElementNS(svgNs, 'line');
-      line.setAttribute('stroke', RED);
-      line.setAttribute('stroke-width', '1.5');
-      const dot = document.createElementNS(svgNs, 'circle');
-      dot.setAttribute('r', '4');
-      dot.setAttribute('fill', RED);
-      g.append(line, dot);
-      svg.appendChild(g);
-      lines.push(g);
-    }
-  };
+/** Un trait (avec point) par ancre, redessiné dans le calque SVG. */
+function rebuildLeaders(svg: SVGSVGElement, lines: SVGGElement[], count: number) {
+  for (const g of lines) g.remove();
+  lines.length = 0;
+  for (let i = 0; i < count; i++) {
+    const g = document.createElementNS(SVG_NS, 'g');
+    const line = document.createElementNS(SVG_NS, 'line');
+    line.setAttribute('stroke', RED);
+    line.setAttribute('stroke-width', '1.5');
+    const dot = document.createElementNS(SVG_NS, 'circle');
+    dot.setAttribute('r', '4');
+    dot.setAttribute('fill', RED);
+    g.append(line, dot);
+    svg.appendChild(g);
+    lines.push(g);
+  }
+}
+
+/** Ancres : milieu de chaque contour (au plus `MAX_LEADERS`, les plus longs d'abord), et leur nombre. */
+function anchorsOf(parsed: ParsedGCode | null, layer: GCodeLayer): { anchors: BABYLON.Vector3[]; count: number } {
+  const ranges = parsed?.airContours;
+  if (!parsed || !ranges || !ranges.length) return { anchors: [], count: 0 };
+  const list: { mid: number; len: number }[] = [];
+  for (let r = 0; r < ranges.length; r += 2) list.push({ mid: (ranges[r] + ranges[r + 1]) >> 1, len: ranges[r + 1] - ranges[r] });
+  list.sort((a, b) => b.len - a.len);
+  return { anchors: list.slice(0, MAX_LEADERS).map(({ mid }) => layer.getMoveTip(mid, new BABYLON.Vector3()).clone()), count: ranges.length / 2 };
+}
+
+export function createAirContourCallout({ scene, engine, camera, canvas, layer, isPreviewActive }: Options) {
+  const host = canvas.parentElement;
+  const flat = isFlatUi();
+  const root = document.createElement('div');
+  root.style.cssText = 'position:absolute;inset:0;pointer-events:none;overflow:hidden;display:none;z-index:5;';
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('width', '100%');
+  svg.setAttribute('height', '100%');
+  svg.style.cssText = 'position:absolute;inset:0;overflow:visible;';
+  const { card, title, close } = buildCard(flat);
+  root.append(svg, card);
+  host?.appendChild(root);
+
+  let anchors: BABYLON.Vector3[] = [];
+  let dismissed = false;
+  let typeVisible = true;
+  const lines: SVGGElement[] = [];
+  const project = createProjector({ engine, camera, canvas, layer });
+
+  const rebuildLines = () => rebuildLeaders(svg, lines, anchors.length);
 
   const show = () => root.style.display = anchors.length && !dismissed && typeVisible && isPreviewActive() ? 'block' : 'none';
 
@@ -150,18 +174,11 @@ export function createAirContourCallout({ scene, engine, camera, canvas, layer, 
   const observer = scene.onAfterRenderObservable.add(place);
   close.addEventListener('click', () => { dismissed = true; show(); });
 
-  /** Ancres : milieu de chaque contour (au plus `MAX_LEADERS`, les plus longs d'abord). */
   const setParsed = (parsed: ParsedGCode | null) => {
-    anchors = [];
+    const found = anchorsOf(parsed, layer);
+    anchors = found.anchors;
     dismissed = false;
-    const ranges = parsed?.airContours;
-    if (parsed && ranges && ranges.length) {
-      const list: { mid: number; len: number }[] = [];
-      for (let r = 0; r < ranges.length; r += 2) list.push({ mid: (ranges[r] + ranges[r + 1]) >> 1, len: ranges[r + 1] - ranges[r] });
-      list.sort((a, b) => b.len - a.len);
-      anchors = list.slice(0, MAX_LEADERS).map(({ mid }) => layer.getMoveTip(mid, new BABYLON.Vector3()).clone());
-      title.textContent = `${ranges.length / 2} contour${ranges.length > 2 ? 's' : ''} dans l'air détecté${ranges.length > 2 ? 's' : ''}`;
-    }
+    if (found.count) title.textContent = `${found.count} contour${found.count > 1 ? 's' : ''} dans l'air détecté${found.count > 1 ? 's' : ''}`;
     rebuildLines();
     show();
   };

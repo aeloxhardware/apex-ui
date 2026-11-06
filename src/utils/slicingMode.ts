@@ -19,7 +19,7 @@ export const SLICING_MODES = [
 ];
 
 // Element Arva (SLICING_MODES[0]) redeviendra le défaut des 3 axes quand il sera implémenté.
-export const DEFAULT_SLICING_MODE: Record<AxisMode, string> = { '3-axes': SLICING_MODES[2], '5-axes': SLICING_MODES[1] };
+const DEFAULT_SLICING_MODE: Record<AxisMode, string> = { '3-axes': SLICING_MODES[2], '5-axes': SLICING_MODES[1] };
 
 // Logo de l'algorithme de chaque mode (monochrome : à afficher en masque, couleur du texte).
 export const SLICING_MODE_LOGOS: Record<string, string> = {

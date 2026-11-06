@@ -1,3 +1,4 @@
+import { emitApex } from '@/events/apexEvents';
 /**
  * Infobulle de bas d'écran (TopRightMenu écoute `apex-set-tooltip` / `apex-reset-tooltip`), pour
  * les composants de l'édition par nœuds. Les textes du nœud, du « + », du cadenas et des poignées
@@ -9,9 +10,9 @@ export interface BottomTip {
 }
 
 export const showBottomTip = (tip: BottomTip) =>
-  window.dispatchEvent(new CustomEvent('apex-set-tooltip', { detail: tip }));
+  emitApex('apex-set-tooltip', tip);
 
-export const hideBottomTip = () => window.dispatchEvent(new CustomEvent('apex-reset-tooltip'));
+export const hideBottomTip = () => emitApex('apex-reset-tooltip');
 
 /** Gestionnaires de survol à étaler sur un élément. */
 export const bottomTip = (title: string, desc: string) => ({

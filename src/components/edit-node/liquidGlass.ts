@@ -33,7 +33,7 @@
  */
 
 /** Traction d'une poignée sur le verre : le bord s'étire vers elle. */
-export interface GlassPull {
+interface GlassPull {
   /** Direction unitaire, repère écran (y vers le bas). */
   dx: number;
   dy: number;
@@ -51,9 +51,9 @@ export interface GlassLens {
   strength: number;
   pulls?: GlassPull[];
   /** Portée de fusion avec les lentilles voisines, px CSS (absent : réglage global). */
-  mergePx?: number;
+  mergePx?: number | undefined;
   /** Rotation des reflets, en radians, sens horaire (animation de chargement). */
-  glareTurn?: number;
+  glareTurn?: number | undefined;
   /** Rectangle arrondi (demi-côtés et rayon de coin, px CSS) au lieu d'un cercle ; `radius` ne sert alors qu'à l'épaisseur du verre. */
   box?: { halfW: number; halfH: number; corner: number };
 }
@@ -114,7 +114,7 @@ export const DEFAULT_GLASS: GlassParams = {
   edgeShadeWidthPx: 7,
 };
 
-export const MAX_LENSES = 8;
+const MAX_LENSES = 8;
 export const MAX_PULLS = 10;
 const MAX_BLUR_TAPS = 32;
 
@@ -537,18 +537,10 @@ export class LiquidGlassRenderer {
     gl.clear(gl.COLOR_BUFFER_BIT);
   }
 
-  render(lenses: GlassLens[], dpr: number, params: GlassParams = DEFAULT_GLASS) {
+  /** Flou du fond : vertical vers a, horizontal vers b. */
+  private blurBackground(a: Target, b: Target, blurPx: number, dpr: number) {
     const gl = this.gl;
-    if (!this.ready() || !this.targets || this.width === 0) return;
-    const [a, b] = this.targets;
-    if (this.overlay && !lenses.some((l) => l.strength > 0 && l.radius > 0)) {
-      this.clear();
-      return;
-    }
-    gl.viewport(0, 0, this.width, this.height);
-
-    // Flou du fond : vertical vers a, horizontal vers b.
-    const { taps, weights, stride } = gaussianWeights(params.blurPx * dpr);
+    const { taps, weights, stride } = gaussianWeights(blurPx * dpr);
     gl.useProgram(this.blur);
     gl.uniform1i(gl.getUniformLocation(this.blur, 'u_tex'), 0);
     gl.uniform1i(gl.getUniformLocation(this.blur, 'u_taps'), taps);
@@ -562,28 +554,10 @@ export class LiquidGlassRenderer {
     gl.bindTexture(gl.TEXTURE_2D, a.texture);
     gl.uniform2f(gl.getUniformLocation(this.blur, 'u_step'), stride / this.width, 0);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  }
 
-    // Passe principale vers l'écran.
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    const visible = lenses.filter((l) => l.strength > 0 && l.radius > 0);
-    if (visible.length === 0) {
-      gl.useProgram(this.copy);
-      gl.bindTexture(gl.TEXTURE_2D, this.bgTexture);
-      gl.uniform1i(gl.getUniformLocation(this.copy, 'u_tex'), 0);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-      return;
-    }
-    const p = this.main;
-    gl.useProgram(p);
-    const u = (name: string) => gl.getUniformLocation(p, name);
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.bgTexture);
-    gl.uniform1i(u('u_bg'), 0);
-    gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, b.texture);
-    gl.uniform1i(u('u_blurredBg'), 1);
-    gl.activeTexture(gl.TEXTURE0);
-
+  /** Range les lentilles visibles dans les tampons d'uniformes ; renvoie leur nombre. */
+  private packLenses(visible: GlassLens[], dpr: number): number {
     const count = Math.min(MAX_LENSES, visible.length);
     for (let i = 0; i < count; i++) {
       const l = visible[i];
@@ -605,11 +579,12 @@ export class LiquidGlassRenderer {
         this.pullData[o + 3] = 0;
       }
     }
-    gl.uniform4fv(u('u_lenses'), this.lensData);
-    gl.uniform4fv(u('u_pulls'), this.pullData);
-    gl.uniform1fv(u('u_lensMerge'), this.mergeData);
-    gl.uniform1fv(u('u_lensGlare'), this.glareData);
-    gl.uniform4fv(u('u_lensBox'), this.boxData);
+    return count;
+  }
+
+  /** Uniformes du verre (ombre, réfraction, reflets, ombrage de bord). */
+  private setGlassUniforms(u: (name: string) => WebGLUniformLocation | null, params: GlassParams, dpr: number, count: number) {
+    const gl = this.gl;
     gl.uniform1f(u('u_shadowOpacity'), params.shadowOpacity);
     gl.uniform1f(u('u_shadowOffset'), params.shadowOffsetPx * dpr);
     gl.uniform1f(u('u_shadowBlur'), params.shadowBlurPx * dpr);
@@ -633,6 +608,48 @@ export class LiquidGlassRenderer {
     gl.uniform1f(u('u_glareAngle'), (params.glareAngle * Math.PI) / 180);
     gl.uniform1f(u('u_edgeShade'), params.edgeShade);
     gl.uniform1f(u('u_edgeShadeWidth'), params.edgeShadeWidthPx * dpr);
+  }
+
+  render(lenses: GlassLens[], dpr: number, params: GlassParams = DEFAULT_GLASS) {
+    const gl = this.gl;
+    if (!this.ready() || !this.targets || this.width === 0) return;
+    const [a, b] = this.targets;
+    if (this.overlay && !lenses.some((l) => l.strength > 0 && l.radius > 0)) {
+      this.clear();
+      return;
+    }
+    gl.viewport(0, 0, this.width, this.height);
+
+    this.blurBackground(a, b, params.blurPx, dpr);
+
+    // Passe principale vers l'écran.
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    const visible = lenses.filter((l) => l.strength > 0 && l.radius > 0);
+    if (visible.length === 0) {
+      gl.useProgram(this.copy);
+      gl.bindTexture(gl.TEXTURE_2D, this.bgTexture);
+      gl.uniform1i(gl.getUniformLocation(this.copy, 'u_tex'), 0);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      return;
+    }
+    const p = this.main;
+    gl.useProgram(p);
+    const u = (name: string) => gl.getUniformLocation(p, name);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.bgTexture);
+    gl.uniform1i(u('u_bg'), 0);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, b.texture);
+    gl.uniform1i(u('u_blurredBg'), 1);
+    gl.activeTexture(gl.TEXTURE0);
+
+    const count = this.packLenses(visible, dpr);
+    gl.uniform4fv(u('u_lenses'), this.lensData);
+    gl.uniform4fv(u('u_pulls'), this.pullData);
+    gl.uniform1fv(u('u_lensMerge'), this.mergeData);
+    gl.uniform1fv(u('u_lensGlare'), this.glareData);
+    gl.uniform4fv(u('u_lensBox'), this.boxData);
+    this.setGlassUniforms(u, params, dpr, count);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
 }

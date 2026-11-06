@@ -222,6 +222,17 @@ $element-blur: blur(4px);
   font-variant-numeric: tabular-nums;
 }
 
+// ApexNumberField dans un <fieldset> : sert seulement à désactiver la saisie et les flèches d'un coup.
+.numField {
+  display: inline-flex;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+
+  &:disabled { opacity: 0.45; }
+}
+
 // Listes déroulantes : GlassSelect (style propre), seule la largeur minimale est fixée ici.
 .select {
   min-width: 78px;

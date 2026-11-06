@@ -54,7 +54,7 @@ const trackStyles = (ratio: number) => ({
  * de lecture n'a rien à piloter et reste masquée comme le reste du contenu ci-dessus.
  *
  * Glissement-fondu depuis le bas de l'écran à l'entrée dans l'espace, et inverse à la sortie —
- * comme le panneau du bas de CategoriesSidebar (cf. FROM_PREVIEW_FADE_MS), mais vertical plutôt
+ * comme le panneau du bas de CategoriesSidebar (cf. ELEMENTS_FADE_MS), mais vertical plutôt
  * qu'horizontal puisque cette barre vient du bord bas de l'écran plutôt que du bord gauche.
  * Retardée (CURTAIN_REVEAL_MS) pour apparaître en tout dernier, une fois le rideau levé et le
  * reste de la séquence terminé — jamais à la sortie de l'espace, où elle disparaît normalement.

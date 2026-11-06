@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import type { MotionStyle } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { GlassPanel } from './GlassPanel';
 import { ExternalScrollArea } from './ExternalScrollArea';
@@ -69,28 +70,8 @@ const TITLE_TIPS: Record<Step['kind'], string> = {
 
 const toggle = (list: string[], value: string) => (list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
 
-/**
- * Panneau de filtre du sélecteur de filament, ouvert sur le côté de la liste : « Par marque », « Par matériau »
- * (familles, puis cases à cocher des variantes : PC → PC, PC-CF, PC-GF…), « Pour vous » (pas encore disponible).
- * Les cases sont un brouillon ; « OK » l'applique à la liste.
- */
-export const FilamentFilterPanel = React.forwardRef<HTMLDivElement, {
-  open: boolean;
-  style: React.CSSProperties;
-  filaments: FilamentProfile[];
-  applied: FilamentFilter[];
-  onApply: (filters: FilamentFilter[]) => void;
-  /** Retour depuis l'écran principal : referme le panneau (sans appliquer le brouillon). */
-  onClose: () => void;
-}>(({ open, style, filaments, applied, onApply, onClose }, ref) => {
-  const [step, setStep] = useState<Step>({ kind: 'mode' });
-  const [draft, setDraft] = useState<Draft>(() => draftFrom(applied));
-
-  // À chaque ouverture : retour au choix du mode, brouillon = filtres actuellement appliqués.
-  useEffect(() => {
-    if (open) { setStep({ kind: 'mode' }); setDraft(draftFrom(applied)); }
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
-
+/** Marques (avec Aelox Hardware toujours présente) et familles de matériaux du catalogue, avec leurs effectifs. */
+function useFilterOptions(filaments: FilamentProfile[]) {
   // Aelox Hardware (éditeur d'Apex) figure toujours dans les marques, même sans profil au catalogue Orca pour l'instant.
   const brands = useMemo(() => {
     const counted = sortedCounts(filaments.map((f) => f.vendor));
@@ -109,6 +90,87 @@ export const FilamentFilterPanel = React.forwardRef<HTMLDivElement, {
       .map(([family, types]) => ({ family, count: types.length, variants: sortedCounts(types) }))
       .sort((a, b) => (a.family === OTHER_FAMILY ? 1 : b.family === OTHER_FAMILY ? -1 : b.count - a.count));
   }, [filaments]);
+  return { brands, families };
+}
+
+type FilterOptions = ReturnType<typeof useFilterOptions>;
+
+/** Contenu défilant du panneau selon l'écran : choix du mode, marques, familles ou variantes. */
+const FilterBody: React.FC<{
+  step: Step;
+  setStep: (step: Step) => void;
+  draft: Draft;
+  setDraft: React.Dispatch<React.SetStateAction<Draft>>;
+  brands: FilterOptions['brands'];
+  families: FilterOptions['families'];
+}> = ({ step, setStep, draft, setDraft, brands, families }) => (
+  <>
+      {step.kind === 'mode' && (
+        <>
+          <button type="button" className={styles.row} onClick={() => setStep({ kind: 'brands' })} {...bottomTip('Par marque', 'Ne montrer que les filaments de certaines marques.')}>
+            <span>Par marque</span><ChevronRight size={14} />
+          </button>
+          <button type="button" className={styles.row} onClick={() => setStep({ kind: 'families' })} {...bottomTip('Par matériau', 'Ne montrer que certains matériaux (PLA, PETG, PC et leurs variantes chargées…).')}>
+            <span>Par matériau</span><ChevronRight size={14} />
+          </button>
+          <button type="button" className={`${styles.row} ${styles.disabled}`} aria-disabled {...bottomTip('Pour vous', "Sélection selon vos habitudes d'impression : arrive bientôt.")}>
+            <span>Pour vous</span><span className={styles.meta}>Bientôt</span>
+          </button>
+        </>
+      )}
+
+      {step.kind === 'brands' && brands.map(([brand, count]) => (
+        <label key={brand} className={styles.check} {...bottomTip(brand, `${plural(count, 'profil')} de la marque ${brand}. Cochez pour l'ajouter au filtre, décochez pour le retirer.`)}>
+          <ApexCheckbox checked={draft.brands.includes(brand)} onChange={() => setDraft((d) => ({ ...d, brands: toggle(d.brands, brand) }))} />
+          <span className={styles.checkLabel}>{brand}</span>
+          <span className={styles.meta}>{count}</span>
+        </label>
+      ))}
+
+      {step.kind === 'families' && families.map(({ family, count, variants }) => {
+        const chosen = variants.filter(([type]) => draft.types.includes(type)).length;
+        return (
+          <button key={family} type="button" className={styles.row} onClick={() => setStep({ kind: 'variants', family })} {...bottomTip(family, `${plural(count, 'profil')} de la famille ${family}. Cliquez pour choisir ses variantes (cases à cocher).`)}>
+            <span>{family}</span>
+            <span className={styles.meta}>{chosen > 0 ? `${chosen} coché${chosen > 1 ? 's' : ''} · ` : ''}{count}</span>
+            <ChevronRight size={14} />
+          </button>
+        );
+      })}
+
+      {step.kind === 'variants' && families.find((f) => f.family === step.family)?.variants.map(([type, count]) => (
+        <label key={type} className={styles.check} {...bottomTip(type, `${plural(count, 'profil')} de type ${type}. Cochez pour l'ajouter au filtre, décochez pour le retirer.`)}>
+          <ApexCheckbox checked={draft.types.includes(type)} onChange={() => setDraft((d) => ({ ...d, types: toggle(d.types, type) }))} />
+          <span className={styles.checkLabel}>{type}</span>
+          <span className={styles.meta}>{count}</span>
+        </label>
+      ))}
+  </>
+);
+
+/**
+ * Panneau de filtre du sélecteur de filament, ouvert sur le côté de la liste : « Par marque », « Par matériau »
+ * (familles, puis cases à cocher des variantes : PC → PC, PC-CF, PC-GF…), « Pour vous » (pas encore disponible).
+ * Les cases sont un brouillon ; « OK » l'applique à la liste.
+ */
+export const FilamentFilterPanel = React.forwardRef<HTMLDivElement, {
+  open: boolean;
+  style: MotionStyle;
+  filaments: FilamentProfile[];
+  applied: FilamentFilter[];
+  onApply: (filters: FilamentFilter[]) => void;
+  /** Retour depuis l'écran principal : referme le panneau (sans appliquer le brouillon). */
+  onClose: () => void;
+}>(({ open, style, filaments, applied, onApply, onClose }, ref) => {
+  const [step, setStep] = useState<Step>({ kind: 'mode' });
+  const [draft, setDraft] = useState<Draft>(() => draftFrom(applied));
+
+  // À chaque ouverture : retour au choix du mode, brouillon = filtres actuellement appliqués.
+  useEffect(() => {
+    if (open) { setStep({ kind: 'mode' }); setDraft(draftFrom(applied)); }
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps -- dépendances volontairement limitées : effet à déclenchement ciblé
+
+  const { brands, families } = useFilterOptions(filaments);
 
   const title = step.kind === 'mode' ? 'Filtrer'
     : step.kind === 'brands' ? 'Par marque'
@@ -152,46 +214,7 @@ export const FilamentFilterPanel = React.forwardRef<HTMLDivElement, {
 
       {/* Curseur flottant par défaut (ExternalScrollArea), dessiné hors du panneau (data-scroll-edge). */}
       <ExternalScrollArea className={styles.scrollArea} contentClassName={styles.body}>
-        {step.kind === 'mode' && (
-          <>
-            <button type="button" className={styles.row} onClick={() => setStep({ kind: 'brands' })} {...bottomTip('Par marque', 'Ne montrer que les filaments de certaines marques.')}>
-              <span>Par marque</span><ChevronRight size={14} />
-            </button>
-            <button type="button" className={styles.row} onClick={() => setStep({ kind: 'families' })} {...bottomTip('Par matériau', 'Ne montrer que certains matériaux (PLA, PETG, PC et leurs variantes chargées…).')}>
-              <span>Par matériau</span><ChevronRight size={14} />
-            </button>
-            <button type="button" className={`${styles.row} ${styles.disabled}`} aria-disabled {...bottomTip('Pour vous', "Sélection selon vos habitudes d'impression : arrive bientôt.")}>
-              <span>Pour vous</span><span className={styles.meta}>Bientôt</span>
-            </button>
-          </>
-        )}
-
-        {step.kind === 'brands' && brands.map(([brand, count]) => (
-          <label key={brand} className={styles.check} {...bottomTip(brand, `${plural(count, 'profil')} de la marque ${brand}. Cochez pour l'ajouter au filtre, décochez pour le retirer.`)}>
-            <ApexCheckbox checked={draft.brands.includes(brand)} onChange={() => setDraft((d) => ({ ...d, brands: toggle(d.brands, brand) }))} />
-            <span className={styles.checkLabel}>{brand}</span>
-            <span className={styles.meta}>{count}</span>
-          </label>
-        ))}
-
-        {step.kind === 'families' && families.map(({ family, count, variants }) => {
-          const chosen = variants.filter(([type]) => draft.types.includes(type)).length;
-          return (
-            <button key={family} type="button" className={styles.row} onClick={() => setStep({ kind: 'variants', family })} {...bottomTip(family, `${plural(count, 'profil')} de la famille ${family}. Cliquez pour choisir ses variantes (cases à cocher).`)}>
-              <span>{family}</span>
-              <span className={styles.meta}>{chosen > 0 ? `${chosen} coché${chosen > 1 ? 's' : ''} · ` : ''}{count}</span>
-              <ChevronRight size={14} />
-            </button>
-          );
-        })}
-
-        {step.kind === 'variants' && families.find((f) => f.family === step.family)?.variants.map(([type, count]) => (
-          <label key={type} className={styles.check} {...bottomTip(type, `${plural(count, 'profil')} de type ${type}. Cochez pour l'ajouter au filtre, décochez pour le retirer.`)}>
-            <ApexCheckbox checked={draft.types.includes(type)} onChange={() => setDraft((d) => ({ ...d, types: toggle(d.types, type) }))} />
-            <span className={styles.checkLabel}>{type}</span>
-            <span className={styles.meta}>{count}</span>
-          </label>
-        ))}
+        <FilterBody step={step} setStep={setStep} draft={draft} setDraft={setDraft} brands={brands} families={families} />
       </ExternalScrollArea>
 
       <button

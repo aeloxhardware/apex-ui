@@ -67,7 +67,7 @@ function effectiveZoom(): number {
   return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom));
 }
 
-export function applyUiScale() {
+function applyUiScale() {
   const zoom = effectiveZoom();
   if (Math.abs(zoom - appliedZoom) < 0.001) return;
   appliedZoom = zoom;

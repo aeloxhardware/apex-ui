@@ -85,7 +85,7 @@ interface ProfileColumnProps {
   title: string;
   folder: ProfileFolder;
   openFolder?: string;
-  activePrinterPath?: string;
+  activePrinterPath?: string | undefined;
   selectedPrinter: string;
   collapsing?: boolean;
   onOpenFolder: (name: string) => void;
@@ -151,7 +151,7 @@ const ProfileColumn: React.FC<ProfileColumnProps> = ({
   return (
     <motion.div
       className={isFirst ? styles.fusionMenuContainer : styles.patternPopup}
-      style={isFirst ? undefined : { left: columnLeft(index) }}
+      style={isFirst ? {} : { left: columnLeft(index) }}
       initial={isFirst ? { opacity: 0, scale: 0.95, x: -15, y: 20 } : { opacity: 0, scale: 0.95, x: -15 }}
       animate={collapsing
         ? { opacity: 0, x: -20, transition: { opacity: { duration: 0.2, ease: 'linear' }, x: { duration: 0.2, ease: 'easeInOut' } } }
@@ -236,6 +236,78 @@ const ProfileColumn: React.FC<ProfileColumnProps> = ({
     </motion.div>
   );
 };
+
+/** Bandeau du chemin d'accès, avec retour en arrière et fermeture. */
+const PrinterBreadcrumb: React.FC<{
+  width: number;
+  collapsing: boolean;
+  titlePath: string;
+  canGoBack: boolean;
+  onBack: () => void;
+  onCloseAll: () => void;
+}> = ({ width, collapsing, titlePath, canGoBack, onBack, onCloseAll }) => (
+  <motion.div
+    className={styles.fusionTitleContainer}
+    style={{ width }}
+    data-apex-chrome-panel
+    data-apex-tooltip="Catalogue des profils d'imprimante : parcourez les fabricants et choisissez votre machine."
+    initial={{ opacity: 0, scale: 0.95, x: -10, y: -20 }}
+    animate={collapsing
+      ? { opacity: 0, y: 20, transition: { opacity: { duration: 0.2, ease: 'linear' }, y: { duration: 0.2, ease: 'easeInOut' } } }
+      : { opacity: 1, scale: 1, x: 0, y: 0, transition: { duration: 0.25, ease: [0.16, 1, 0.3, 1] } }}
+    exit={{ opacity: 0, scale: 0.95, x: -10, y: -20 }}
+    transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+  >
+    <div className={styles.tabButtonsContainer}>
+      <div className={styles.activeTabTitle}>
+        <Printer size={14} className="mr-1.5 inline text-[#00f0ff] shrink-0" />
+        <span className="truncate">{titlePath}</span>
+      </div>
+    </div>
+    <div className="flex items-center space-x-1 shrink-0">
+      <CustomTooltip content="Retour en arrière" description="Revenir au menu précédent dans la hiérarchie des profils d'imprimante.">
+        <button
+          className={styles.fusionCloseBtn}
+          onClick={onBack}
+          disabled={!canGoBack}
+          style={!canGoBack ? { opacity: 0.3, cursor: 'not-allowed' } : {}}
+        >
+          <ArrowLeft size={16} />
+        </button>
+      </CustomTooltip>
+
+      <CustomTooltip content="Fermer le menu" description="Fermer complètement le panneau de configuration des imprimantes.">
+        <button
+          className={styles.fusionCloseBtn}
+          onClick={onCloseAll}
+        >
+          <X size={16} />
+        </button>
+      </CustomTooltip>
+    </div>
+  </motion.div>
+);
+
+/** Colonne d'attente : « Chargement… » ou l'erreur de lecture des profils. */
+const ProfilesLoading: React.FC<{ scanError: string | null }> = ({ scanError }) => (
+  <motion.div
+    className={styles.fusionMenuContainer}
+    initial={{ opacity: 0, scale: 0.95, x: -15, y: 20 }}
+    animate={{ ...enterAnimation, y: 0 }}
+    exit={{ opacity: 0, scale: 0.95, x: -15, y: 20 }}
+  >
+    <div className={styles.fusionMenuContent}>
+      <div className={styles.sectionGroup}>
+        <h4 className={styles.sectionTitle}>Fabricants</h4>
+        <ul className={styles.itemsList}>
+          <li className={styles.itemName} style={{ opacity: 0.6, padding: '6px 10px' }}>
+            {scanError ? `Profils illisibles : ${scanError}` : 'Chargement…'}
+          </li>
+        </ul>
+      </div>
+    </div>
+  </motion.div>
+);
 
 interface PrinterConfigSidebarProps {
   isOpen: boolean;
@@ -342,69 +414,16 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
     <AnimatePresence>
       {isOpen && (
         <>
-          <motion.div
-            className={styles.fusionTitleContainer}
-            style={{ width: COLUMN_WIDTH + (Math.max(slotCount, 1) - 1) * (COLUMN_WIDTH + COLUMN_GAP) }}
-            data-apex-chrome-panel
-            data-apex-tooltip="Catalogue des profils d'imprimante : parcourez les fabricants et choisissez votre machine."
-            initial={{ opacity: 0, scale: 0.95, x: -10, y: -20 }}
-            animate={breadcrumbCollapsing
-              ? { opacity: 0, y: 20, transition: { opacity: { duration: 0.2, ease: 'linear' }, y: { duration: 0.2, ease: 'easeInOut' } } }
-              : { opacity: 1, scale: 1, x: 0, y: 0, transition: { duration: 0.25, ease: [0.16, 1, 0.3, 1] } }}
-            exit={{ opacity: 0, scale: 0.95, x: -10, y: -20 }}
-            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          >
-            <div className={styles.tabButtonsContainer}>
-              <div className={styles.activeTabTitle}>
-                <Printer size={14} className="mr-1.5 inline text-[#00f0ff] shrink-0" />
-                <span className="truncate">{titlePath}</span>
-              </div>
-            </div>
-            <div className="flex items-center space-x-1 shrink-0">
-              <CustomTooltip content="Retour en arrière" description="Revenir au menu précédent dans la hiérarchie des profils d'imprimante.">
-                <button
-                  className={styles.fusionCloseBtn}
-                  onClick={goBack}
-                  disabled={!canGoBack}
-                  style={!canGoBack ? { opacity: 0.3, cursor: 'not-allowed' } : {}}
-                >
-                  <ArrowLeft size={16} />
-                </button>
-              </CustomTooltip>
+          <PrinterBreadcrumb
+            width={COLUMN_WIDTH + (Math.max(slotCount, 1) - 1) * (COLUMN_WIDTH + COLUMN_GAP)}
+            collapsing={breadcrumbCollapsing}
+            titlePath={titlePath}
+            canGoBack={canGoBack}
+            onBack={goBack}
+            onCloseAll={() => { setActivePrinter(null); onClose(); }}
+          />
 
-              <CustomTooltip content="Fermer le menu" description="Fermer complètement le panneau de configuration des imprimantes.">
-                <button
-                  className={styles.fusionCloseBtn}
-                  onClick={() => {
-                    setActivePrinter(null);
-                    onClose();
-                  }}
-                >
-                  <X size={16} />
-                </button>
-              </CustomTooltip>
-            </div>
-          </motion.div>
-
-          {!tree && (
-            <motion.div
-              className={styles.fusionMenuContainer}
-              initial={{ opacity: 0, scale: 0.95, x: -15, y: 20 }}
-              animate={{ ...enterAnimation, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, x: -15, y: 20 }}
-            >
-              <div className={styles.fusionMenuContent}>
-                <div className={styles.sectionGroup}>
-                  <h4 className={styles.sectionTitle}>Fabricants</h4>
-                  <ul className={styles.itemsList}>
-                    <li className={styles.itemName} style={{ opacity: 0.6, padding: '6px 10px' }}>
-                      {scanError ? `Profils illisibles : ${scanError}` : 'Chargement…'}
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </motion.div>
-          )}
+          {!tree && <ProfilesLoading scanError={scanError} />}
 
           <AnimatePresence>
           {chain.map((folder, depth) => (

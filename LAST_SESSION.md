@@ -6,6 +6,44 @@ doute, `CLAUDE.md` fait foi, ce fichier raconte le chemin.
 
 ---
 
+## >>> SESSION DU 2026-11-04 : découpe des limites dures (R-029/R-030/R-031) <<<
+
+**Fait (non commité, tests/tsc/lint/check-limits verts, jamais lancé dans Electron)** :
+- Les 3 fichiers > 800 lignes sont découpés : `Viewport3D.tsx` 6 414 → 713 (`src/components/viewport/`),
+  `gcodeLayer.ts` 1 447 → 120 (`gcodeLayerParts/`), `gcodeEditController.ts` 1 793 → 76
+  (`edit-node/controllerParts/`). Chaque fermeture géante est devenue des `setupXxx(st)` ≤ 80 lignes ;
+  l'état partagé passe par un objet `st` (`*State.ts`). Ordre d'initialisation vérifié par
+  `src/components/initOrder.test.ts`.
+- Logique pure extraite et testée : `gcodeLayerGeometry`, `meshFeatureEdges`, `editJournal`,
+  `viewport/{freeSpot,gridLabelLogic,cameraAngles,modelNaming}`, `gcodeLayerParts/{editWeightMath,pickGridMath}`.
+- Dette : 52 → 39 fonctions > limite (le dernier relevé), 0 fichier > 800, 0 signature > 8 params.
+  Tests 86 → 193. `check-limits.cjs` a une option `--file <chemin>`.
+
+**À faire par l'utilisateur** : valider dans Electron (import STL/GLB, sélection rectangle, boîte/pyramide/
+esquisse/extrusion, grille, aperçu G-code, mode Édition poser/glisser/valider/annuler/rouvrir, fermeture
+sans erreur console). `apexVersion` + `RELEASES.md` non bumpés (suivent `apex/VERSION` du moteur).
+
+**MISE À JOUR 2026-11-05 (séquentiel, sans agents)** : erreur de type `useModelingMorph.ts` corrigée ; 25 fonctions
+réglées (39 → 14), `pnpm typecheck`, 193 tests, `check-limits` verts (jamais lancé dans Electron). Faites : sliceController.start,
+gcodeWriter, orcaArrange, gcodeEditDeform, apexSignature.test, GlassPanelBackdrop, liquidGlass.render, AssistantLab,
+gcodeAirContours, electron/main createWindow, e2e full, orcaRotateGizmo.test, GCodeLineTypeLegend, FilamentFilterPanel,
+airContourCallout, TextureEditorModal, ParamsPanel, PrinterConfigSidebar, FilamentSelector, SpaceTransitionOverlay (x2),
+ModelStatusBox, ClassicApp (via `classic/ClassicPanels.tsx`), Handle (`editNodeParts.tsx`), EditNode.
+
+**FINI 2026-11-05 : dette de limites à 0** (0 fichier > 800, 0 fonction > limite, 0 signature > 8 params ; typecheck, 193 tests,
+lint 0 erreur). Les 14 dernières ont été découpées en séquentiel : NotificationStack, Lightfall (`lightfallEngine.ts`, `lightfallGl.ts`),
+Index, EditionPanel (`EditionPanelSections.tsx`), parseGCode (`gcodeParseState/Line/Post.ts`, vérifié identique à l'original sur 4 fichiers
+et 3 G-code synthétiques), useGCodePreview (`gcodePreviewSession.ts`), Viewport3D (`viewport/ViewportContextMenu|Overlays.tsx`),
+ModelingSidebar (`ModelingPanel|Toolbar`, `modelingActions|Sketch.ts`), CategoriesSidebar (`CategoriesPanels`, `CategoryGlassMorphs`,
+`categoriesPreviewState`), Sidebar (`SidebarParts`, `sidebarHooks`, `sidebarTransitions`).
+
+**À FAIRE PAR L'UTILISATEUR : valider dans Electron.** Zones à risque (refactors UI non testés automatiquement) : rideau de transition
+d'espace, bascule Préparation/Prévisualisation/Modélisation, pile de notifications (molette), fond Lightfall de l'Accueil, panneau Édition,
+liste de modèles (dépliages), menu contextuel du viewport, morphs du panneau de catégories, onglets du haut, raccourcis M/R/S/T, filtre de filaments.
+Rien n'est commité ni poussé (pas de dépôt git ici). `apexVersion` + `RELEASES.md` non bumpés.
+
+---
+
 ## >>> REPRENDRE ICI <<<
 
 **Branche courante : `agent/edit-node`** (créée depuis `wip-2026-09-30`, poussée sur

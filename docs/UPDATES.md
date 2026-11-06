@@ -57,3 +57,7 @@ Electron réel** (voir « Reste à faire »).
   sans lui, le premier passage recalcule les SHA-256 de ce qui est installé (plus long) et ne retire aucun fichier obsolète.
 - macOS / Linux : non pris en charge (le code s'arrête hors Windows).
 - Texte de la boîte : « Apex Studio » est le nom employé par l'utilisateur ; l'application s'appelle « Apex Slicer » ailleurs.
+
+## Résumé (ex-CLAUDE.md, 2026-11-04)
+
+At every launch of the installed app (Windows, production build) `electron/update-flow.cjs` checks the latest GitHub **release** of `aeloxhardware/apex` and installs a newer one without asking (liquid-glass dialog « APEX / MISE À JOUR » with progress, no veil), downloading only the changed files (manifest of SHA-256, assets named by hash), with a signed manifest (Ed25519, public key `electron/update-public-key.pem`, private key kept outside the repos in `~/.apex/`). Running files are renamed to `.old`, replaced, then the app relaunches. Everything (behaviour, publishing, what is left to do): `docs/UPDATES.md`; shared rules: `apex/integration/RULES.md` §4.4. Pure logic in `electron/updater.cjs` (tested by `electron/updater.test.ts`), publishing scripts in `scripts/update/`.

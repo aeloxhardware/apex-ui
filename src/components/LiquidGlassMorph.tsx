@@ -17,13 +17,13 @@ import styles from './LiquidGlassMorph.module.scss';
  * repère de la boîte (left, top), décalée de (dx, dy).
  */
 
-export interface LiquidGlassMorphTimingProps {
+interface LiquidGlassMorphTimingProps {
   /** Durée totale en ms. */
   duration: number;
   pathAt: (t: number, dx: number, dy: number) => string;
   /** Joue la timeline de t = 1 vers t = 0 (fusion plutôt que division, par exemple). */
   reverse?: boolean;
-  onDone?: () => void;
+  onDone?: (() => void) | undefined;
 }
 
 interface LiquidGlassMorphProps extends LiquidGlassMorphTimingProps {
@@ -134,7 +134,7 @@ export function applyLiquidGlassShadow(
  * l'élément clippé, jamais depuis une boucle séparée (qui dériverait de quelques millisecondes
  * d'une frame à l'autre, rendant les deux silhouettes visibles décalées l'une de l'autre).
  */
-export function useLiquidGlassClip(
+function useLiquidGlassClip(
   ref: React.RefObject<HTMLElement | null>,
   { duration, pathAt, reverse = false, onDone }: LiquidGlassMorphTimingProps,
   deps: React.DependencyList,
@@ -164,7 +164,7 @@ export function useLiquidGlassClip(
       else onDoneRef.current?.();
     });
     return () => cancelAnimationFrame(raf);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- dépendances volontairement limitées : effet à déclenchement ciblé
   }, [duration, reverse, ...deps]);
 }
 

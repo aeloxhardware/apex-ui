@@ -25,7 +25,7 @@ jobs:
       - name: Types
         run: pnpm typecheck
       - name: Tests
-        run: pnpm test
+        run: pnpm test:coverage
       - name: Contrat moteur (schéma et vecteurs)
         env:
           APEX_ENGINE_DIR: ${{ github.workspace }}/slicer_engine

@@ -11,7 +11,7 @@ import { LINE_TYPES, type LineTypeId } from '@/components/gcodeLineTypes';
 const TYPE_IDS: LineTypeId[] = LINE_TYPES.map((t) => t.id);
 const TYPE_INDEX = new Map<LineTypeId, number>(TYPE_IDS.map((id, i) => [id, i]));
 
-export interface PackedMoves {
+interface PackedMoves {
   x: Float64Array;
   y: Float64Array;
   z: Float64Array;

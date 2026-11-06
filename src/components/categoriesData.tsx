@@ -7,7 +7,7 @@ import {
   Terminal} from 'lucide-react';
 
 // Icône personnalisée "Supports" : barres verticales évoquant une structure de support
-export const SupportsIcon = () => (
+const SupportsIcon = () => (
   <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
     <path d="M6 4v16M10.5 4v16M15 4v16M19 4v16" />
   </svg>
@@ -27,7 +27,7 @@ export interface CategoryItem {
   }[];
 }
 
-export const DESC_ORCA = 'Réglage d’OrcaSlicer, pas encore pris en charge par le moteur d’Apex.';
+const DESC_ORCA = 'Réglage d’OrcaSlicer, pas encore pris en charge par le moteur d’Apex.';
 
 export const CATEGORIES: CategoryItem[] = [
   {

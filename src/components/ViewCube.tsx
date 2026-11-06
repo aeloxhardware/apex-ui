@@ -3,6 +3,7 @@ import styles from './ViewCube.module.scss';
 import { CustomTooltip } from './CustomTooltip';
 import { showSuccess } from '@/utils/toast';
 
+import { emitApex } from '@/events/apexEvents';
 // Extrémités des axes en coordonnées 3D unitaires, projetées ensuite en 2D selon alpha/beta caméra
 const AXES: { key: string; label: string; color: string; dir: [number, number, number]; alpha: number; beta: number }[] = [
   { key: 'x+', label: 'X', color: '#ff3b3b', dir: [1, 0, 0], alpha: Math.PI / 2, beta: Math.PI / 2 },
@@ -69,7 +70,7 @@ export const ViewCube: React.FC = () => {
   const triggerView = (key: string, label: string, alpha: number, beta: number) => {
     lastClickedKeyRef.current = key;
     lastClickedAnglesRef.current = { alpha, beta, at: performance.now() };
-    window.dispatchEvent(new CustomEvent('apex-set-camera-custom', { detail: { alpha, beta } }));
+    emitApex('apex-set-camera-custom', { alpha, beta });
     showSuccess(`Vue orientée : ${label}`);
   };
 

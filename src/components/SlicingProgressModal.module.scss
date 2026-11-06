@@ -193,6 +193,20 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  transform: translateX(0);
+  transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+// L'étape en cours glisse légèrement vers la droite, puis reprend sa place quand elle se termine.
+.stepActive {
+  transform: translateX(10px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stepItem {
+    transition: none;
+  }
 }
 
 .stepBody {

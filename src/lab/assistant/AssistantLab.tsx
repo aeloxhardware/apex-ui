@@ -65,6 +65,48 @@ function drawChecker(ctx: CanvasRenderingContext2D, w: number, h: number) {
   }
 }
 
+/**
+ * Ressort du rond (idée de Liquid Glass Studio : le verre suit le pointeur par un ressort et
+ * s'étire selon sa vitesse). Le rond est attiré vers le pointeur sans le suivre vraiment ; sa
+ * vitesse allonge le bord dans le sens du mouvement (GlassPull), puis il se resserre.
+ */
+function createPointerSpring(lab: HTMLElement, orb: HTMLElement, pull: HTMLElement) {
+  const pointer = { x: 0, y: 0, inside: false };
+  const spring = { x: 0, y: 0, vx: 0, vy: 0 };
+  const onMove = (e: PointerEvent) => {
+    const r = lab.getBoundingClientRect();
+    pointer.x = e.clientX - (r.left + r.width / 2);
+    pointer.y = e.clientY - (r.top + r.height / 2);
+    pointer.inside = true;
+  };
+  const onLeave = () => { pointer.inside = false; };
+  lab.addEventListener('pointermove', onMove);
+  lab.addEventListener('pointerleave', onLeave);
+  let last = performance.now();
+
+  const step = (now: number) => {
+    const dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    const tx = pointer.inside ? Math.max(-PULL_MAX_PX, Math.min(PULL_MAX_PX, pointer.x * PULL_RATIO)) : 0;
+    const ty = pointer.inside ? Math.max(-PULL_MAX_PX, Math.min(PULL_MAX_PX, pointer.y * PULL_RATIO)) : 0;
+    spring.vx += ((tx - spring.x) * SPRING_STIFFNESS - spring.vx * SPRING_DAMPING) * dt;
+    spring.vy += ((ty - spring.y) * SPRING_STIFFNESS - spring.vy * SPRING_DAMPING) * dt;
+    spring.x += spring.vx * dt;
+    spring.y += spring.vy * dt;
+    orb.style.transform = `translate(calc(-50% + ${spring.x.toFixed(2)}px), calc(-50% + ${spring.y.toFixed(2)}px))`;
+    const speed = Math.hypot(spring.vx, spring.vy);
+    const stretch = Math.min(STRETCH_MAX, speed * STRETCH_PER_PX_S);
+    pull.setAttribute(GLASS_PULL_ATTR, speed > 1e-3 ? `${spring.vx / speed},${spring.vy / speed},${stretch.toFixed(4)}` : '0,0,0');
+  };
+  return {
+    step,
+    dispose() {
+      lab.removeEventListener('pointermove', onMove);
+      lab.removeEventListener('pointerleave', onLeave);
+    },
+  };
+}
+
 export default function AssistantLab() {
   const labRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -106,45 +148,15 @@ export default function AssistantLab() {
     observer.observe(lab);
     resize();
 
-    // Ressort du rond (idée de Liquid Glass Studio : le verre suit le pointeur par un ressort et
-    // s'étire selon sa vitesse). Le rond est attiré vers le pointeur sans le suivre vraiment ; sa
-    // vitesse allonge le bord dans le sens du mouvement (GlassPull), puis il se resserre.
     const orb = orbRef.current!;
-    const pull = pullRef.current!;
-    const pointer = { x: 0, y: 0, inside: false };
-    const spring = { x: 0, y: 0, vx: 0, vy: 0 };
-    const onMove = (e: PointerEvent) => {
-      const r = lab.getBoundingClientRect();
-      pointer.x = e.clientX - (r.left + r.width / 2);
-      pointer.y = e.clientY - (r.top + r.height / 2);
-      pointer.inside = true;
-    };
-    const onLeave = () => { pointer.inside = false; };
-    lab.addEventListener('pointermove', onMove);
-    lab.addEventListener('pointerleave', onLeave);
-    let last = performance.now();
-
-    const stepSpring = (now: number) => {
-      const dt = Math.min(0.05, (now - last) / 1000);
-      last = now;
-      const tx = pointer.inside ? Math.max(-PULL_MAX_PX, Math.min(PULL_MAX_PX, pointer.x * PULL_RATIO)) : 0;
-      const ty = pointer.inside ? Math.max(-PULL_MAX_PX, Math.min(PULL_MAX_PX, pointer.y * PULL_RATIO)) : 0;
-      spring.vx += ((tx - spring.x) * SPRING_STIFFNESS - spring.vx * SPRING_DAMPING) * dt;
-      spring.vy += ((ty - spring.y) * SPRING_STIFFNESS - spring.vy * SPRING_DAMPING) * dt;
-      spring.x += spring.vx * dt;
-      spring.y += spring.vy * dt;
-      orb.style.transform = `translate(calc(-50% + ${spring.x.toFixed(2)}px), calc(-50% + ${spring.y.toFixed(2)}px))`;
-      const speed = Math.hypot(spring.vx, spring.vy);
-      const stretch = Math.min(STRETCH_MAX, speed * STRETCH_PER_PX_S);
-      pull.setAttribute(GLASS_PULL_ATTR, speed > 1e-3 ? `${spring.vx / speed},${spring.vy / speed},${stretch.toFixed(4)}` : '0,0,0');
-    };
+    const spring = createPointerSpring(lab, orb, pullRef.current!);
 
     const loop = (now: number) => {
       if (renderer.failed) {
         setGlassError('compilation des shaders impossible (voir la console)');
         return;
       }
-      stepSpring(now);
+      spring.step(now);
       GLASS.thickness = REF_THICKNESS_PX / Math.max(orb.offsetWidth / 2, 1);
       if (renderer.ready()) {
         if (bgPending) {
@@ -159,8 +171,7 @@ export default function AssistantLab() {
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
-      lab.removeEventListener('pointermove', onMove);
-      lab.removeEventListener('pointerleave', onLeave);
+      spring.dispose();
     };
   }, []);
 

@@ -4,6 +4,7 @@ import { Play, Download } from 'lucide-react';
 import styles from './SliceSidebar.module.scss';
 import { CustomTooltip } from './CustomTooltip';
 
+import { emitApex } from '@/events/apexEvents';
 interface SliceSidebarProps {
   onSlice?: () => void;
   /** Espace Prévisualisation : le bouton exporte le G-code affiché au lieu de lancer le slicing. */
@@ -12,7 +13,7 @@ interface SliceSidebarProps {
     onExport: () => void;
     /** Pourquoi l'export est indisponible (tooltip). */
     reason: string;
-  };
+  } | undefined;
 }
 
 export const SliceSidebar: React.FC<SliceSidebarProps> = ({ onSlice, previewExport }) => {
@@ -21,7 +22,7 @@ export const SliceSidebar: React.FC<SliceSidebarProps> = ({ onSlice, previewExpo
   // SLICE tranche tous les modèles du plateau, pas la sélection : le bouton suit la liste réelle des
   // modèles (réponse de Viewport3D à `apex-request-slice-models`), jamais la sélection.
   useEffect(() => {
-    const refresh = () => window.dispatchEvent(new CustomEvent('apex-request-slice-models'));
+    const refresh = () => emitApex('apex-request-slice-models');
     const handleModelList = (e: CustomEvent<{ names?: string[] }>) => {
       setHasModels((e.detail?.names?.length ?? 0) > 0);
     };

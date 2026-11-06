@@ -11,14 +11,14 @@ import type { LineTypeId } from './gcodeLineTypes';
 /** Hauteur sous laquelle le plateau tient lieu d'appui. */
 const PLATE_Z_MM = 0.6;
 /** Écart vertical maximal entre un point de paroi et la matière qui le porte. */
-export const SUPPORT_GAP_MM = 1.0;
+const SUPPORT_GAP_MM = 1.0;
 /** Pas d'échantillonnage le long des cordons et taille des cases de la grille d'appui. */
 const SAMPLE_STEP_MM = 0.5;
 const CELL_MM = 1;
 /** Part de la longueur d'un tronçon sans appui à partir de laquelle il est jugé en l'air. */
-export const AIR_FRACTION = 0.9;
+const AIR_FRACTION = 0.9;
 /** Longueur minimale d'une paroi en l'air (en dessous : amorce, couture, pas un contour). */
-export const AIR_MIN_LENGTH_MM = 3;
+const AIR_MIN_LENGTH_MM = 3;
 
 /** Écart maximal entre la fin d'un tronçon de paroi et le départ du suivant pour les rattacher. */
 const CHAIN_GAP_MM = 3;
@@ -39,8 +39,8 @@ export interface AirRun {
 
 const cellKey = (ix: number, iy: number) => (ix + 32768) * 65536 + (iy + 32768);
 
-/** Parois en l'air, dans l'ordre du fichier. `moves[k]` est l'arrivée du segment k − 1 → k. */
-export function findAirContours(moves: readonly AirMove[]): AirRun[] {
+/** Grille de la matière déjà déposée (hauteurs par case de `CELL_MM`) : sert à savoir si un point est porté. */
+function createSupportGrid() {
   const grid = new Map<number, number[]>();
   const add = (x: number, y: number, z: number) => {
     const key = cellKey(Math.floor(x / CELL_MM), Math.floor(y / CELL_MM));
@@ -59,6 +59,29 @@ export function findAirContours(moves: readonly AirMove[]): AirRun[] {
     }
     return false;
   };
+  return { add, supported };
+}
+
+/** Points (x, y, z à plat) échantillonnés le long des mouvements start..end − 1, et longueur totale. */
+function sampleRun(moves: readonly AirMove[], start: number, end: number): { samples: number[]; length: number } {
+  const samples: number[] = [];
+  let length = 0;
+  for (let i = start; i < end; i++) {
+    const a = moves[i - 1], b = moves[i];
+    const len = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
+    const n = Math.max(1, Math.ceil(len / SAMPLE_STEP_MM));
+    for (let u = 1; u <= n; u++) {
+      const f = u / n;
+      samples.push(a.x + f * (b.x - a.x), a.y + f * (b.y - a.y), a.z + f * (b.z - a.z));
+    }
+    length += len;
+  }
+  return { samples, length };
+}
+
+/** Parois en l'air, dans l'ordre du fichier. `moves[k]` est l'arrivée du segment k − 1 → k. */
+export function findAirContours(moves: readonly AirMove[]): AirRun[] {
+  const { add, supported } = createSupportGrid();
 
   const result: AirRun[] = [];
   // Le contour en l'air est émis en une multitude de tronçons de quelques dixièmes de mm séparés par de
@@ -93,18 +116,7 @@ export function findAirContours(moves: readonly AirMove[]): AirRun[] {
     const start = k;
     const type = moves[k].type;
     while (k < moves.length && moves[k].extruding && moves[k].type === type) k++;
-    const samples: number[] = [];
-    let length = 0;
-    for (let i = start; i < k; i++) {
-      const a = moves[i - 1], b = moves[i];
-      const len = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
-      const n = Math.max(1, Math.ceil(len / SAMPLE_STEP_MM));
-      for (let u = 1; u <= n; u++) {
-        const f = u / n;
-        samples.push(a.x + f * (b.x - a.x), a.y + f * (b.y - a.y), a.z + f * (b.z - a.z));
-      }
-      length += len;
-    }
+    const { samples, length } = sampleRun(moves, start, k);
     let fraction = 0;
     if (WALL_TYPES.has(type)) {
       let unsupported = 0;

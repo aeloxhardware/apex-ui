@@ -29,8 +29,8 @@ export function GlassSelect<T extends string>({
   options: readonly GlassSelectOption<T>[];
   onChange: (value: T) => void;
   disabled?: boolean;
-  className?: string;
-  ariaLabel?: string;
+  className?: string | undefined;
+  ariaLabel?: string | undefined;
   onPointerEnter?: () => void;
   onPointerLeave?: () => void;
 }) {

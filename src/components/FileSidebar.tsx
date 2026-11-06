@@ -1,8 +1,10 @@
+import { DEFAULT_PRINTER_NAME } from '@/utils/machineProfile';
 import React from 'react';
 import clsx from 'clsx';
 import { FolderOpen, Save, Printer, Volume2, VolumeX } from 'lucide-react';
 import styles from './FileSidebar.module.scss';
 import { CustomTooltip } from './CustomTooltip';
+import { ArrangeMenu } from './ArrangeMenu';
 import { useUiSoundMuted } from '@/hooks/use-ui-sounds';
 
 interface FileSidebarProps {
@@ -22,7 +24,7 @@ export const FileSidebar: React.FC<FileSidebarProps> = ({
   onOpenSettings,
   onOpenPrinterConfig,
   showPrinterButton = true,
-  selectedPrinter = 'Prusa MK4',
+  selectedPrinter = DEFAULT_PRINTER_NAME,
   selectedFilament = 'PLA Premium 1.75mm',
 }) => {
   const [soundMuted, toggleSoundMuted] = useUiSoundMuted();
@@ -64,6 +66,8 @@ export const FileSidebar: React.FC<FileSidebarProps> = ({
 
         <div className={clsx(styles.printerGroup, { [styles.printerGroupHidden]: !showPrinterButton })} aria-hidden={!showPrinterButton}>
           <div className={styles.separator} />
+
+          <ArrangeMenu tabIndex={showPrinterButton ? 0 : -1} />
 
           <CustomTooltip content="Configuration Imprimante & Filament" description={`Imprimante active : ${selectedPrinter} | Filament sélectionné : ${selectedFilament}. Cliquez pour modifier.`}>
             <button

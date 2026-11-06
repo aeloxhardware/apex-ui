@@ -41,7 +41,61 @@ function paintSpaceVeilTiles(ctx: CanvasRenderingContext2D, s: DOMRect, dpr: num
 
 /** Événement posé par Viewport3D juste après chaque rendu de la scène : le verre se dessine alors
  * dans la MÊME image, sans retard d'une image sur la scène qu'il réfracte. */
-export const SCENE_RENDERED_EVENT = 'apex-scene-rendered';
+const SCENE_RENDERED_EVENT = 'apex-scene-rendered';
+
+/**
+ * Le calque épouse le canevas 3D : même repère que la texture réfractée. `position: fixed` se repère
+ * sur la zone de l'interface (bandeau ancré au-dessus, cf. GpuWarningFrame), pas sur la fenêtre.
+ */
+function placeOverlay(canvas: HTMLCanvasElement, s: DOMRect, portalRoot: HTMLElement) {
+  const origin = portalRoot === document.body ? null : portalRoot.getBoundingClientRect();
+  canvas.style.left = `${s.left - (origin?.left ?? 0)}px`;
+  canvas.style.top = `${s.top - (origin?.top ?? 0)}px`;
+  canvas.style.width = `${s.width}px`;
+  canvas.style.height = `${s.height}px`;
+}
+
+/**
+ * La scène est transparente (fond de page en CSS derrière) : on la pose sur ce fond, sinon le verre
+ * réfracterait du noir ; rideau de changement d'espace : flou de la scène puis tuiles par-dessus.
+ */
+function paintFlatBackground(flat: HTMLCanvasElement, scene: HTMLCanvasElement, s: DOMRect, dpr: number) {
+  if (flat.width !== scene.width || flat.height !== scene.height) {
+    flat.width = scene.width;
+    flat.height = scene.height;
+  }
+  const ctx = flat.getContext('2d')!;
+  ctx.fillStyle = pageBackground(scene);
+  ctx.fillRect(0, 0, flat.width, flat.height);
+  const blur = veilBlurPx();
+  if (blur > 0.1) ctx.filter = `blur(${blur * dpr}px)`;
+  ctx.drawImage(scene, 0, 0);
+  ctx.filter = 'none';
+  paintSpaceVeilTiles(ctx, s, dpr);
+}
+
+/**
+ * Sans scène 3D (espace Accueil, fond statique) aucun rendu ne nous réveille : on suit le panneau
+ * (animation d'entrée, redimensionnement) et on ne redessine que s'il a changé. Renvoie l'arrêt.
+ */
+function watchPanelWithoutScene(targetRef: React.RefObject<HTMLElement | null>, frame: () => void): () => void {
+  let sig = '';
+  let settle = 0;
+  const watch = () => {
+    raf = requestAnimationFrame(watch);
+    if (document.getElementById('babylon-canvas')) return;
+    const el = targetRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const next = `${r.left}|${r.top}|${r.width}|${r.height}|${getComputedStyle(el).opacity}`;
+    if (next !== sig) { sig = next; settle = 30; }
+    // Fond animé (relief topographique de l'Accueil) : le verre en réfracte une copie, à rafraîchir
+    // à chaque image sinon il montre un fond périmé dès que le panneau cesse de bouger.
+    if (settle > 0 || document.getElementById('home-background') || document.getElementById('topo-background')) { settle = Math.max(0, settle - 1); frame(); }
+  };
+  let raf = requestAnimationFrame(watch);
+  return () => cancelAnimationFrame(raf);
+}
 
 /**
  * Verre « Liquid Glass » (celui du nœud d'édition) sous un panneau rectangulaire : le panneau lui-même
@@ -110,31 +164,11 @@ export function GlassPanelBackdrop({
         if (shown) { renderer.clear(); shown = false; }
         return;
       }
-      // Le calque épouse le canevas 3D : même repère que la texture réfractée.
-      // `position: fixed` se repère sur la zone de l'interface (bandeau ancré au-dessus, cf. GpuWarningFrame), pas sur la fenêtre.
-      const origin = portalRoot === document.body ? null : portalRoot.getBoundingClientRect();
-      canvas.style.left = `${s.left - (origin?.left ?? 0)}px`;
-      canvas.style.top = `${s.top - (origin?.top ?? 0)}px`;
-      canvas.style.width = `${s.width}px`;
-      canvas.style.height = `${s.height}px`;
+      placeOverlay(canvas, s, portalRoot);
       renderer.resize(scene.width, scene.height);
-      // La scène est transparente (fond de page en CSS derrière) : on la pose sur ce fond, sinon le
-      // verre réfracterait du noir.
       const flat = (flatRef.current ??= document.createElement('canvas'));
-      if (flat.width !== scene.width || flat.height !== scene.height) {
-        flat.width = scene.width;
-        flat.height = scene.height;
-      }
-      const ctx = flat.getContext('2d')!;
       const dpr = scene.width / Math.max(1, s.width);
-      ctx.fillStyle = pageBackground(scene);
-      ctx.fillRect(0, 0, flat.width, flat.height);
-      // Rideau de changement d'espace : flou de la scène puis tuiles par-dessus (cf. paintSpaceVeilTiles).
-      const blur = veilBlurPx();
-      if (blur > 0.1) ctx.filter = `blur(${blur * dpr}px)`;
-      ctx.drawImage(scene, 0, 0);
-      ctx.filter = 'none';
-      paintSpaceVeilTiles(ctx, s, dpr);
+      paintFlatBackground(flat, scene, s, dpr);
       renderer.setBackground(flat);
       renderer.render([{
         x: r.left - s.left + r.width / 2,
@@ -148,26 +182,9 @@ export function GlassPanelBackdrop({
       shown = true;
     };
     window.addEventListener(SCENE_RENDERED_EVENT, frame);
-    // Sans scène 3D (espace Accueil, fond statique) aucun rendu ne nous réveille : on suit le panneau
-    // (animation d'entrée, redimensionnement) et on ne redessine que s'il a changé.
-    let raf = 0;
-    let sig = '';
-    let settle = 0;
-    const watch = () => {
-      raf = requestAnimationFrame(watch);
-      if (document.getElementById('babylon-canvas')) return;
-      const el = targetRef.current;
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      const next = `${r.left}|${r.top}|${r.width}|${r.height}|${getComputedStyle(el).opacity}`;
-      if (next !== sig) { sig = next; settle = 30; }
-      // Fond animé (relief topographique de l'Accueil) : le verre en réfracte une copie, à rafraîchir
-      // à chaque image sinon il montre un fond périmé dès que le panneau cesse de bouger.
-      if (settle > 0 || document.getElementById('home-background') || document.getElementById('topo-background')) { settle = Math.max(0, settle - 1); frame(); }
-    };
-    raf = requestAnimationFrame(watch);
+    const stopWatching = watchPanelWithoutScene(targetRef, frame);
     return () => {
-      cancelAnimationFrame(raf);
+      stopWatching();
       window.removeEventListener(SCENE_RENDERED_EVENT, frame);
     };
   }, [targetRef, corner, enabled, warp, blurPx, whiteRim, distortion, dispersion, portalRoot]);

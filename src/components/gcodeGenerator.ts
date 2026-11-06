@@ -21,10 +21,10 @@ export interface GCodeGenerator {
    * lu tel quel dans le bloc chiffré (« 0.2.3.0.3.0.0.221 »), null s'il est inconnu ou absent ;
    * `prerelease` la lettre de maturité (« alpha »). `unreadable` : bloc absent, tronqué ou illisible.
    */
-  apex?: { version: string | null; prerelease: string | null; unreadable?: boolean; meta?: Record<string, unknown> };
+  apex?: { version: string | null; prerelease: string | null; unreadable?: boolean | undefined; meta?: Record<string, unknown> | undefined } | undefined;
 }
 
-export const APEX_SLICER_NAME = 'Apex Slicer';
+const APEX_SLICER_NAME = 'Apex Slicer';
 
 /** « alpha-0.2.3.0.3.0.0.221 » → { prerelease: 'alpha', version: '0.2.3.0.3.0.0.221' } ; null si inexploitable (« unknown »…). */
 export function parseApexVersion(raw: unknown): { version: string; prerelease: string | null } | null {
@@ -37,7 +37,7 @@ export function parseApexVersion(raw: unknown): { version: string; prerelease: s
  * Générateur d'un fichier portant la signature Apex. `header` : bloc d'en-tête déchiffré, ou null s'il
  * est absent, tronqué ou illisible.
  */
-export function apexGenerator(header: { meta?: Record<string, unknown> } | null): GCodeGenerator {
+export function apexGenerator(header: { meta?: Record<string, unknown> | undefined } | null): GCodeGenerator {
   if (!header) return { name: APEX_SLICER_NAME, inferred: false, apex: { version: null, prerelease: null, unreadable: true } };
   const v = parseApexVersion(header.meta?.apex_version);
   return {
@@ -55,7 +55,7 @@ export function apexGenerator(header: { meta?: Record<string, unknown> } | null)
 export function resolveGenerator(
   text: string,
   parsed: GCodeGenerator | null,
-  header: { meta?: Record<string, unknown> } | null,
+  header: { meta?: Record<string, unknown> | undefined } | null,
 ): GCodeGenerator | null {
   return hasApexSignature(text) ? apexGenerator(header) : parsed;
 }

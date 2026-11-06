@@ -21,7 +21,7 @@ const mainStep = (name: string) => window.apexDesktop?.shutdownStep?.(name) ?? P
 const CURTAIN_WAIT_MS = 4500;
 
 /** Nom de l'OS pour les messages : fourni par le processus principal, sinon déduit du navigateur. */
-export function osName(): string {
+function osName(): string {
   const fromMain = window.apexDesktop?.osName;
   if (fromMain) return fromMain;
   const ua = navigator.userAgent;

@@ -28,11 +28,11 @@ Hard limits (no exception without a written decision from the user):
    function with more than 8 parameters.** A check script (`scripts/check-limits.cjs`, wired into
    `pnpm lint` and CI) fails on any new violation.
 2. **Ratchet**: a file already over the limit may only shrink. Touching it means splitting it in
-   the same pass. `scripts/limits-baseline.json` lists the remaining debt (never grows). Files still
-   over 800 lines, in order: `Viewport3D.tsx` (6 497 lines, one component — split into scene,
-   interaction, G-code layer, gizmo and context-menu modules/hooks), `gcodeLayer.ts` (1 894),
-   `gcodeEditController.ts` (1 852); plus 52 functions over the limit (`pnpm lint`
-   → `node scripts/check-limits.cjs --report`).
+   the same pass. `scripts/limits-baseline.json` lists the remaining debt (never grows). No file is
+   over 800 lines any more (`Viewport3D.tsx`, `gcodeLayer.ts` and `gcodeEditController.ts` were split
+   into `viewport/`, `gcodeLayerParts/` and `edit-node/controllerParts/`, see `docs/ARCHITECTURE.md`);
+   no function is over the limit any more (debt 0; `pnpm lint`
+   → `node scripts/check-limits.cjs --report`). The split is not yet validated in Electron.
 3. **TypeScript strict, no exceptions for new code**: `strict`, `noImplicitAny`, `noUnusedLocals`,
    `noUnusedParameters` are turned on progressively (`noImplicitAny` first, then per-directory),
    never turned back off. No new `any`, `@ts-ignore` or `eslint-disable` without a comment giving the reason.
@@ -49,6 +49,36 @@ Hard limits (no exception without a written decision from the user):
    code, no `*_local_*` copy of the project beside the repository.
 9. **One documentation source**: this file stays short (rules and architecture); history lives in
    `RELEASES.md`.
+
+## Quality gate (permanent, user decision 2026-11-05)
+
+Beyond the size limits above, these constraints are **definitive** (same status as the hard limits: only a written decision
+by the user lifts them). They are enforced by `pnpm lint` (→ `scripts/check-quality.cjs`) and CI, against
+`scripts/quality-baseline.json`, a ratchet that **may only go down** (`pnpm quality:update` tightens it, never loosens it;
+`pnpm quality:report` prints the totals). A new file or a touched file must not add a violation; touching a file listed in
+the baseline means leaving it better (split, simplify, format it).
+
+1. **Complexity**: cyclomatic ≤ 10, cognitive ≤ 15, nesting ≤ 3 per function (`eslint.quality.config.js`).
+2. **Types**: no `!` non-null assertion, no `any`, no `@ts-*` comment; `strict` everywhere (`tsconfig.json` too). Target: enable
+   `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes` (the number of errors under each is in the baseline).
+3. **Architecture** (`.dependency-cruiser.cjs`): no import cycle; `src/utils` and `src/modeling` never import from
+   `components`, `hooks` or `pages`; nothing in `components`/`hooks` imports `pages`; the generated `components/ui` kit does
+   not import Apex code; production code never imports a test. Known debt: the G-code core (`gcode*.ts`) lives in
+   `components/` although `utils` depends on it — move it to `src/gcode/`.
+4. **Typed event bus**: every `apex-*` event is declared in `src/events/apexEvents.ts` (name → `detail` type) and used through
+   `emitApex` / `onApex`. A raw `new CustomEvent('apex-…')` or `addEventListener('apex-…')` elsewhere is a violation
+   (ADR 0001). Emitters are migrated; listeners are the remaining debt.
+5. **No dead code**: `knip` (`knip.json`) must not report unused files, exports, types or duplicates beyond the baseline.
+6. **Workarounds**: `// WORKAROUND(APEX-123, revue 2027-02-01): …` with an identifier and a review date; an overdue date, a
+   malformed tag, an untracked `TODO/FIXME/HACK`, or an `eslint-disable` without a reason (`-- reason`) fails the gate.
+7. **Tests**: line coverage floor on the testable logic (`vite.config.ts` → `test.coverage.thresholds`, raise it, never lower it);
+   a bug fix comes with a test that fails before it; refactors of the parser/writer/edit kernel are protected by the golden
+   tests (`gcodeParse.golden.test.ts`: update the digests only with an explanation).
+8. **Formatting**: Prettier (`.prettierrc.json`). New files must be formatted; existing files are listed in the baseline and
+   formatted when touched (never in bulk: re-wrapping lines breaks the size limits and `initOrder.test.ts`).
+9. **Decisions are written**: any structural decision gets a one-page ADR in `docs/adr/`.
+
+`pnpm verify` runs everything CI runs (lint + quality, type-check, tests with coverage, schema/vectors/licences checks).
 
 Definition of done: lint, type-check, `pnpm test` and `schema:check` pass; `check-limits` reports no
 regression; the area touched is left better than it was found (debt shrinks at every pass); version
@@ -72,36 +102,10 @@ pnpm preview       # preview the production build
 Tests: `pnpm test` (vitest, `src/**/*.test.ts`; first ones in `src/utils/apexSignature.test.ts`).
 
 ## Architecture
-
-### Global event bus, not shared state
-
-There is no state management library and no shared React context between the sidebar/panel components and the 3D viewport. Instead, `Viewport3D.tsx` and every panel component communicate exclusively through `window.dispatchEvent(new CustomEvent(...))` / `window.addEventListener(...)`, using a fixed set of `apex-*` event names, e.g.:
-
-- `apex-tool-changed` — Sidebar → Viewport3D (select/move/rotate/scale/delete tool switch)
-- `apex-mesh-selected`, `apex-mesh-deleted` — Viewport3D → ModelStatusBox, SliceSidebar, SliceModal, TextureEditorModal
-- `apex-model-hover` — Viewport3D → ModelHoverTooltip
-- `apex-import-model` — Sidebar → Viewport3D; Viewport3D → ModelStatusBox/SliceSidebar
-- `apex-camera-updated` — Viewport3D → ViewCube (camera orientation sync)
-- `apex-set-camera-view`, `apex-set-camera-custom`, `apex-reset-camera`, `apex-fit-screen` — panels/ViewCube → Viewport3D
-- `apex-axis-changed` — AxisSidebar → SliceModal
-- `apex-request-textures`, `apex-textures-loaded` — TextureEditorModal ↔ Viewport3D
-- `apex-set-tooltip`, `apex-reset-tooltip` — CustomTooltip → TopRightMenu
-
-When adding a feature that needs to move data between the viewport and any panel, follow this pattern rather than introducing prop drilling, context, or a store. When adding a new event, grep for `apex-` across `src/components` first to check whether an existing event already carries the needed data.
-
-### Viewport3D is a self-contained Babylon.js engine
-
-`src/components/Viewport3D.tsx` owns the entire Babylon.js lifecycle in a single `useLayoutEffect`: engine/scene/camera creation, the printer build-volume boundary (custom GLSL shader material defined inline via `BABYLON.Effect.ShadersStore`, radius/height constants at the top of the file), mesh import (`babylonjs-loaders` for GLB/STL), gizmo-based move/rotate/scale tools, mesh picking/highlighting, and hover/selection broadcasting. It holds all Babylon state in refs (`engineRef`, `sceneRef`, `cameraRef`, `gizmoManagerRef`, `modelsRef`, `selectedMeshesRef`) rather than React state, since Babylon objects are mutable and not meant to trigger re-renders. React state is only used for the few bits that need to affect JSX (e.g. `selectedMeshName`).
-
-Camera conventions (user's decisions, 2026-10-06): panning (middle button) is a **lens shift** added to the projection matrix (`camera.getProjectionMatrix` is wrapped), not a camera move, so objects are seen from the same angle whatever the translation; preset views and entering Modélisation reset it. **Perspective switch off (AxisSidebar) = orthographic camera (user, 2026-10-28, "comme Fusion360")**: window = `radius·tan(fov/2)`, negative near plane, wheel is multiplicative toward the cursor (`orthoActive` in `Viewport3D.tsx`). Wheel zoom is toward the cursor; its step is a fixed distance (≈30 mm per notch) outside Modélisation and a percentage inside it.
-
-### Component/style structure
-
-- `src/pages/Index.tsx` is the single page and composes every top-level panel; routing lives in `src/App.tsx` (React Router, per AI_RULES.md keep routes there).
-- Feature panels (`Sidebar`, `FileSidebar`, `CategoriesSidebar`, `PrinterConfigSidebar`, `SliceSidebar`, `SliceModal`, `TextureEditorModal`, `AxisSidebar`, `TopRightMenu`, `ViewCube`, `ModelStatusBox`, `ModelHoverTooltip`) each pair with a `*.module.scss` file for custom styling (glassmorphism panels, custom sliders/drag handles) — Tailwind is used for layout/spacing, SCSS modules for bespoke visual treatment that Tailwind utilities don't cover.
-- `src/components/ui/*` is generated shadcn/ui code — per AI_RULES.md, don't edit these directly; wrap or compose new components instead.
-- Path alias `@/*` maps to `src/*` (configured in both `vite.config.ts` and `tsconfig.json`); shadcn aliases (`@/components`, `@/lib`, `@/hooks`, `@/components/ui`) are defined in `components.json`.
-- Toast notifications go through `src/utils/toast.ts` (`showSuccess`/`showError` wrapping `sonner`), not direct `sonner` calls.
+Détail (liste des événements `apex-*`, cycle de vie Babylon, conventions caméra, structure des composants/styles) : [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — **à lire avant de toucher au viewport ou d'ajouter un événement.**
+- **Bus d'événements global, pas d'état partagé** : aucun store ni contexte entre les panneaux et `Viewport3D.tsx` ; ils communiquent par `window.dispatchEvent(new CustomEvent('apex-*'))`. Avant d'ajouter un événement, `grep apex-` dans `src/components`.
+- **`Viewport3D.tsx` possède tout le cycle de vie Babylon.js** ; l'état Babylon vit dans des refs, pas dans l'état React.
+- Chaque panneau a son `*.module.scss` (Tailwind pour la mise en page) ; `src/components/ui/*` est du shadcn généré, à ne pas éditer ; routes dans `src/App.tsx` ; alias `@/*` → `src/*` ; toasts via `src/utils/toast.ts`.
 
 ## Conventions from AI_RULES.md
 
@@ -117,25 +121,16 @@ Camera conventions (user's decisions, 2026-10-06): panning (middle button) is a 
 Détail : [`docs/EDITION_GCODE.md`](docs/EDITION_GCODE.md) — Édition du G-code par poignées (conception, noyau C++, validation, journal chiffré, rognage, re-tranchage). **À lire avant de toucher à `src/components/edit-node/`, `gcodeLayer.ts`, `gcodeEditController.ts` ou `native/`.**
 
 ### Dev value (user's rule, 2026-10-08)
-The app has a **"dev" value** (`src/utils/devModePrefs.ts`, toggle in Paramètres, relayed to Electron via `apex:set-dev-mode`). Disabled: the Dev tab is hidden from the toolbar and browser shortcuts (Ctrl+R, Ctrl+Shift+R, F5, F12, …) do nothing (blocked in `electron/main.cjs`, `isBrowserShortcut`).
-- Disabled also means a **preview build**: Accueil/logo tooltip text replaced (`APP_TAGLINE_PREVIEW`), Modélisation / Dev spaces hidden (Préparation stays available, user 2026-10-31), Prévisualisation's "Fonction" icon greyed and inactive with the tooltip "Arrive bientôt", and a diagonal transparent "BETA" watermark over the whole screen (`BetaWatermark.tsx`).
-- It also shows a small white centred notice: "Préversion <version> – Fournie en l'état pour test. Aelox Hardware ne saurait se tenir responsable de quelconque perte de données."
+Détail : [`docs/DEV_MODE.md`](docs/DEV_MODE.md) (`src/utils/devModePrefs.ts` ; désactivée = préversion : onglet Dev, raccourcis navigateur, espaces Modélisation/Dev masqués, filigrane « BETA », avis de préversion).
 - **ALWAYS enabled unless the user says otherwise** (development, tests, e2e). Default = `import.meta.env.DEV`.
 - **ALWAYS disabled for app releases** (exe/dmg/msi/AppImage builds). Before any release build, check that it ships disabled (production build default; no forced `true`, no stale stored value).
 
 ### Versioning (user's decision, 2026-10-08)
+Détail et définition de chaque niveau : [`docs/VERSIONING.md`](docs/VERSIONING.md).
+
 **Single version number in the shared repository (user's decision, 2026-10-26).** The Apex application (engine + interface) has **one** version number, kept in the shared repository **`aeloxhardware/apex`**: `VERSION` (source of truth) and `VERSIONS.md` (log). It changes with every version of the engine **and** of the interface. **On every version change made here**, also update `VERSION` and `VERSIONS.md` in `apex` (pull its latest state first: the engine may have changed the number in the meantime), and keep `apexVersion` in `package.json` equal to `apex/VERSION`. `RELEASES.md` below keeps the detail of the interface's changes. Format, levels and conflict rule: `apex/integration/RULES.md`, §9 (same scheme as below, now applied to the whole application). Engine and interface are developed separately, one session per repository: `apex/integration/RULES.md` (rules and contract) and `apex/integration/REQUESTS.md` (open requests, read at session start).
 
 Format `<préversion>-<public>.<global>.<majeur>.<moyen>.<mineur>.<add-ins>.<correctif>.<builds>`, e.g. `alpha-0.2.1.2.1.1.1.221`. Single source: `apexVersion` in `package.json` (injected as `__APEX_VERSION__` by Vite, shown on the splash and the preview notice). `version` (semver, required by npm/electron-builder) = `<public>.<global>.<majeur>`, here `0.2.1`: keep it in sync.
-- **Préversion letter** (`alpha`, then beta…): maturity.
-- **Public**: public release number of the software, 0 while in pre-release.
-- **Global**: refactor of the whole software. 0 = initial version (never seen by Claude), 1 = LiquidGlass v1 without workspaces, 2 = the current one.
-- **Majeur**: new workspace, new engine, important new feature. 1 = the new Édition mode of the Prévisualisation space.
-- **Moyen**: fairly important new features. Currently 2: LiquidGlass splash screen and LiquidGlass bottom-of-screen tooltip.
-- **Mineur**: noteworthy new feature, e.g. choosing whether handles influence nodes.
-- **Add-ins**: a button, a small thing. Counting rule not settled (1 by default): count as it goes.
-- **Correctif**: fix of a bug in an existing feature (1 by default).
-- **Builds**: total builds since the last *compiled version made public* (e.g. the last working GitHub Release, not the last commit), up to the current one; every app launch counts, even for a trivial fix (221 by default).
 - Bumping a level: the levels to its right restart (Builds excepted: it only restarts at a new public compiled version). Not yet defined: reset values to the right (0 or 1) — ask if it comes up.
 - **`RELEASES.md`** (repo root) tracks the history of every software version (by version number; NOT a mirror of GitHub Releases, which only matter for the Builds counter) and states the current one. Update it with every version change, in the same commit.
 - **Version as finely as possible: at every change made**, not only at releases. Each change bumps the right level (Add-ins for a button/small thing, Correctif for a bug fix, Mineur/Moyen/Majeur/Global above), updates `apexVersion` (+ `version` in `package.json`) and `RELEASES.md`. Builds counts every build/launch since the last compiled version made public.
@@ -157,4 +152,4 @@ Adding/removing points on a segment with resampling (23 is rejected, 24 redraw/r
 Détail : [`docs/ROADMAP_UI.md`](docs/ROADMAP_UI.md) — Feuille de route de l'interface (arrangement Orca, crédits à compléter…).
 
 ### Automatic update (user, 2026-10-31)
-At every launch of the installed app (Windows, production build) `electron/update-flow.cjs` checks the latest GitHub **release** of `aeloxhardware/apex` and installs a newer one without asking (liquid-glass dialog « APEX / MISE À JOUR » with progress, no veil), downloading only the changed files (manifest of SHA-256, assets named by hash), with a signed manifest (Ed25519, public key `electron/update-public-key.pem`, private key kept outside the repos in `~/.apex/`). Running files are renamed to `.old`, replaced, then the app relaunches. Everything (behaviour, publishing, what is left to do): `docs/UPDATES.md`; shared rules: `apex/integration/RULES.md` §4.4. Pure logic in `electron/updater.cjs` (tested by `electron/updater.test.ts`), publishing scripts in `scripts/update/`.
+Au lancement de l'app installée (Windows, build de production), `electron/update-flow.cjs` installe sans demander une release plus récente de `aeloxhardware/apex` (manifeste SHA-256 signé Ed25519). Tout : `docs/UPDATES.md` ; règles partagées : `apex/integration/RULES.md` §4.4.

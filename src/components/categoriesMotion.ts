@@ -23,8 +23,8 @@ export const PREVIEW_MORPH_MS = PREVIEW_STRETCH_MS + PREVIEW_HOLD_MS + PREVIEW_D
 // à la cascade du contenu du panneau Modélisation (cf. CONTENT_STAGGER_MS dans ModelingSidebar.tsx).
 // Avec ~8 catégories et 30ms de décalage, la cascade dure ~370ms : largement terminée avant que la
 // déformation ne commence (`onCovered`, ~900ms après le clic).
-export const PILL_ICON_STAGGER_MS = 0.07;
-export const PILL_ICON_FADE_MS = 0.24;
+const PILL_ICON_STAGGER_MS = 0.07;
+const PILL_ICON_FADE_MS = 0.24;
 
 export const pillIconsContainerVariants = {
   visible: { transition: { staggerChildren: PILL_ICON_STAGGER_MS } },

@@ -7,9 +7,15 @@ const fs = require('node:fs');
 const os = require('node:os');
 const { spawn, execFile } = require('node:child_process');
 
-/** Dossier du moteur : APEX_ENGINE_DIR, sinon le dépôt voisin `slicer_engine` (développement). */
+/** Dossier du moteur : APEX_ENGINE_DIR, sinon le dépôt voisin `slicer_engine` (développement) : à côté du
+ * dossier du projet (`slicer_ux/`) ou dans celui-ci, selon l'agencement du poste. */
 function engineDir() {
-  return process.env.APEX_ENGINE_DIR || path.join(__dirname, '..', '..', 'slicer_engine');
+  if (process.env.APEX_ENGINE_DIR) return process.env.APEX_ENGINE_DIR;
+  const candidates = [
+    path.join(__dirname, '..', '..', '..', 'slicer_engine'),
+    path.join(__dirname, '..', '..', 'slicer_engine'),
+  ];
+  return candidates.find((dir) => fs.existsSync(path.join(dir, 'main.py'))) ?? candidates[1];
 }
 
 /**
@@ -55,7 +61,7 @@ let nativeChecked = null;
 function requireNative({ command, args, cwd }) {
   if (nativeChecked) return nativeChecked;
   nativeChecked = new Promise((resolve, reject) => {
-    const code = "import sys; sys.path.insert(0, '.'); from core import _cpp; print('NATIVE' if _cpp.enabled() else 'OFF:' + str(_cpp.load_error()))";
+    const code = "import sys; sys.path.insert(0, '.'); from core import _cpp; from core.runtime import configure_from_environment; configure_from_environment(); print('NATIVE' if _cpp.enabled() else 'OFF:' + str(_cpp.load_error()))";
     const py = args.length ? [command, ['-c', code]] : null;  // exécutable natif livré : le noyau y est intégré
     if (!py) return resolve(true);
     execFile(py[0], py[1], { cwd, env: childEnv(cwd), windowsHide: true }, (err, stdout, stderr) => {

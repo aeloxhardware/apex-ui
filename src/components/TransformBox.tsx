@@ -4,13 +4,14 @@ import { ApexNumberField } from './ApexNumberField';
 import { bottomTip } from './edit-node/bottomTooltip';
 import styles from './TransformBox.module.scss';
 
+import { emitApex } from '@/events/apexEvents';
 /**
  * Boîte de saisie des valeurs exactes des outils Déplacer / Pivoter / Mettre à l'échelle, sous la barre d'outils.
  * Elle ne touche pas à la scène : l'état du modèle actif arrive de Viewport3D par `apex-transform-state`, une valeur
  * saisie repart par `apex-transform-set`. Axes de l'imprimante (Z vertical) ; lettres colorées comme les gizmos
  * (X rouge, Y vert, Z bleu ; A, B, C = rotations autour de X, Y, Z).
  */
-export type TransformTool = 'move' | 'rotate' | 'scale';
+type TransformTool = 'move' | 'rotate' | 'scale';
 type Axis = 'x' | 'y' | 'z';
 type Vec = Record<Axis, number>;
 
@@ -27,7 +28,7 @@ const ZERO: Vec = { x: 0, y: 0, z: 0 };
 
 const round = (v: number) => Math.round(v * 100) / 100;
 
-export const requestTransformState = () => window.dispatchEvent(new CustomEvent('apex-transform-request'));
+const requestTransformState = () => emitApex('apex-transform-request');
 
 interface RowProps {
   letters: [string, string, string];
@@ -36,7 +37,7 @@ interface RowProps {
   title: string;
   desc: string;
   step: number;
-  min?: number;
+  min?: number | undefined;
   onChange: (axis: Axis, value: number) => void;
 }
 
@@ -58,7 +59,7 @@ const Row: React.FC<RowProps> = ({ letters, values, unit, title, desc, step, min
   </div>
 );
 
-export const TransformBox: React.FC<{ tool: TransformTool }> = ({ tool }) => {
+const TransformBox: React.FC<{ tool: TransformTool }> = ({ tool }) => {
   const [state, setState] = useState<TransformState>({ position: ZERO, rotation: ZERO, size: ZERO, scale: ZERO });
   const [hasModel, setHasModel] = useState(false);
   const [keepProportions, setKeepProportions] = useState(true);
@@ -83,7 +84,7 @@ export const TransformBox: React.FC<{ tool: TransformTool }> = ({ tool }) => {
   }, [tool]);
 
   const send = (kind: 'position' | 'rotation' | 'size' | 'scale') => (axis: Axis, value: number) =>
-    window.dispatchEvent(new CustomEvent('apex-transform-set', { detail: { kind, axis, value, keepProportions } }));
+    emitApex('apex-transform-set', { kind, axis, value, keepProportions });
 
   return (
     <div className={clsx(styles.box, !hasModel && styles.disabled)} {...bottomTip(

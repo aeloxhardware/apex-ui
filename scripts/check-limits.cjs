@@ -100,6 +100,15 @@ for (const [k, v] of Object.entries(current)) {
 }
 const fixed = Object.keys(baseline).filter((k) => !(k in current));
 
+// --file <chemin> : dépassements courants d'un fichier (et de ses dossiers frères non), lecture seule,
+// indépendante du cliquet — pour travailler à plusieurs sur des fichiers différents sans toucher la baseline.
+if (mode === '--file') {
+  const target = (process.argv[3] || '').replace(/\\/g, '/');
+  const mine = Object.entries(current).filter(([k]) => k.split('::')[0].endsWith(':' + target));
+  if (!mine.length) { console.log(`${target} : aucun dépassement`); process.exit(0); }
+  mine.forEach(([k, v]) => console.log(`${k.split('::')[1]} = ${v} (limite ${limitOf(k, v)})`));
+  process.exit(1);
+}
 if (mode === '--report') {
   const by = (p) => Object.keys(current).filter((k) => k.startsWith(p)).length;
   console.log(`fichiers > ${MAX_FILE} : ${by('file:')}\nfonctions > limite : ${by('fn:')}\nsignatures > ${MAX_PARAMS} : ${by('params:')}`);

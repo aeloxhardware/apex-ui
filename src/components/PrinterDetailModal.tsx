@@ -16,7 +16,7 @@ interface PrinterDetailModalProps {
 interface InfoRow {
   label: string;
   value: string;
-  tone?: 'yes' | 'no';
+  tone?: 'yes' | 'no' | undefined;
 }
 
 /** Aplatit un JSON quelconque en lignes « clé : valeur » (profil sans bloc `apex`, ex. ancien format). */
@@ -65,6 +65,16 @@ function areaLabel(area: unknown): string | null {
   return `${+w.toFixed(1)} × ${+h.toFixed(1)} mm`;
 }
 
+/** Géométrie de la buse propre à l'imprimante (`apex.default_nozzle_profile`) ; « — » quand le profil ne la donne pas. */
+function nozzleGeometryRows(nozzle: Json): [string, string | null][] {
+  const withUnit = (v: unknown, unit: string) => (text(v) ? `${text(v)} ${unit}` : null);
+  return [
+    ['Longueur de buse', withUnit(nozzle.length_mm, 'mm')],
+    ['Angle maximum buse-paroi', withUnit(nozzle.angle_deg, '°')],
+    ['Largeur extérieure de buse', withUnit(nozzle.outer_width_mm, 'mm')],
+  ];
+}
+
 /** Résumé lisible d'un profil : les champs propres à Apex (bloc `apex`) et les principaux champs Orca. */
 function summaryRows(data: Json): InfoRow[] {
   const apex = obj(data.apex);
@@ -76,6 +86,7 @@ function summaryRows(data: Json): InfoRow[] {
     ['Structure', text(data.printer_structure) ?? text(obj(apex.kinematics_preview).type)],
     ["Volume d'impression", text(apex.build_volume_label) ?? ([areaLabel(data.printable_area), text(data.printable_height) && `${text(data.printable_height)} (H) mm`].filter(Boolean).join(' × ') || null)],
     ['Buse par défaut', nozzle.diameter_mm != null ? `${nozzle.diameter_mm} mm` : null],
+    ...nozzleGeometryRows(nozzle),
     ['Carte mère', text(apex.motherboard)],
     ['Drivers', uniqueValues(apex.drivers)],
     ['Moteurs', uniqueValues(apex.motors)],

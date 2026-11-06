@@ -46,7 +46,7 @@ export function setStartPage(next: StartPage) {
   listeners.forEach((listener) => listener(startPage));
 }
 
-export function subscribeStartPage(listener: (page: StartPage) => void) {
+function subscribeStartPage(listener: (page: StartPage) => void) {
   listeners.add(listener);
   return () => { listeners.delete(listener); };
 }

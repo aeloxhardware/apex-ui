@@ -26,7 +26,7 @@ function apexBlock({ manufacturer, model, trail, orca }) {
     motherboard: null,
     motors: { X: null, Y: null, Z: null, E: null },
     drivers: { X: null, Y: null, Z: null, E: null },
-    default_nozzle_profile: orca ? { diameter_mm: Number.isFinite(nozzle) ? nozzle : null, profile_id: null } : null,
+    default_nozzle_profile: orca ? { diameter_mm: Number.isFinite(nozzle) ? nozzle : null, profile_id: null, length_mm: null, angle_deg: null, outer_width_mm: null } : null,
     auto_leveling: { tool: null },
     ...(orca ? { nonplanar: { max_angle_deg: null, max_distance_mm: null } } : {}),
   };
@@ -69,7 +69,7 @@ function aetheris() {
       motherboard: null,
       motors: { R: null, C: null, Z: null, B: null, E: null },
       drivers: { R: null, C: null, Z: null, B: null, E: null },
-      default_nozzle_profile: { diameter_mm: null, profile_id: null },
+      default_nozzle_profile: { diameter_mm: null, profile_id: null, length_mm: null, angle_deg: null, outer_width_mm: null },
     },
   };
 }
