@@ -598,14 +598,19 @@ const scenarios = {
   },
 };
 
+// Le splash (electron/splash.html) est lui aussi une BrowserWindow : seul le premier chargement de la fenêtre
+// principale déclenche le scénario et la mise à la taille de l'écran.
+const isSplash = (w) => w.webContents.getURL().includes('splash.html');
+
 app.on('browser-window-created', (_e, w) => {
-  win = w;
   w.webContents.on('console-message', (e) => {
     const m = String(e.message ?? '');
     const lvl = e.level;
     if ((lvl === 'error' || lvl === 3 || /Uncaught|TypeError|shader|WebGL/i.test(m)) && !/Security|DevTools|Autofill/i.test(m)) log('CONSOLE', lvl, m.slice(0, 400));
   });
-  w.webContents.once('did-finish-load', async () => {
+  w.webContents.on('did-finish-load', async () => {
+    if (isSplash(w) || win) return;
+    win = w;
     try {
       const d = screen.getPrimaryDisplay().size;
       w.setBounds({ x: 0, y: 0, width: d.width, height: d.height });
