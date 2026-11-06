@@ -237,7 +237,7 @@ export interface Step10Params {
   reorientation_samples_per_axis?: number;
 }
 
-/** Step6Params(nozzle_width: 'float' = 0.4, wall_count: 'int' = 2, infill_density: 'float' = 0.2, infill_pattern: 'InfillPattern' = <InfillPattern.CROSSED_ZIGZAG: 'crossed_zigzag'>, bridge_contour_ratio_threshold: 'float' = 0.05, bridge_anchor_extra_walls: 'int' = 2, degenerate_area_ratio: 'float' = 1e-06, out_of_plane_interpolation_power: 'float | None' = None, split_rings_into_runs: 'bool' = False, split_open_polylines: 'bool' = False, continuous_rings: 'bool' = False, run_split_min_amplitude: 'f */
+/** Step6Params(native_fill: 'bool' = True, native_layer: 'bool' = True, nozzle_width: 'float' = 0.4, wall_count: 'int' = 2, infill_density: 'float' = 0.2, infill_pattern: 'InfillPattern' = <InfillPattern.CROSSED_ZIGZAG: 'crossed_zigzag'>, bridge_contour_ratio_threshold: 'float' = 0.05, bridge_anchor_extra_walls: 'int' = 2, degenerate_area_ratio: 'float' = 1e-06, out_of_plane_interpolation_power: 'float | None' = None, split_rings_into_runs: 'bool' = False, split_open_polylines: 'bool' = False, cont */
 export interface Step6Params {
   bridge_anchor_extra_walls?: number;
   bridge_contour_ratio_threshold?: number;
@@ -245,6 +245,8 @@ export interface Step6Params {
   degenerate_area_ratio?: number;
   infill_density?: number;
   infill_pattern?: "lines" | "grid" | "crossed_zigzag" | "oscillating_spiral";
+  native_fill?: boolean;
+  native_layer?: boolean;
   nozzle_width?: number;
   out_of_plane_interpolation_power?: number | null;
   run_split_min_amplitude?: number;
@@ -269,7 +271,7 @@ export interface Step7Params {
   surface_color_distance?: number;
 }
 
-/** Step8Params(ik_samples_per_axis: 'int' = 10, ik_refine_iterations: 'int' = 8, ik_refine_step_multiplier: 'float' = 0.5, singularity_radius_epsilon: 'float' = 0.001, travel_feedrate: 'float' = 0.0, default_feedrate: 'float' = 1000.0, max_unreachable_angular_error_deg: 'float' = 5.0, clamp_angle_rates: 'bool' = False, free_axis_median_window: 'int' = 9, per_point_normal: 'bool' = True, per_point_normal_nodal: 'bool' = False) */
+/** Step8Params(native_grid_fallback: 'bool' = True, ik_samples_per_axis: 'int' = 10, ik_refine_iterations: 'int' = 8, ik_refine_step_multiplier: 'float' = 0.5, singularity_radius_epsilon: 'float' = 0.001, travel_feedrate: 'float' = 0.0, default_feedrate: 'float' = 1000.0, max_unreachable_angular_error_deg: 'float' = 5.0, clamp_angle_rates: 'bool' = False, free_axis_median_window: 'int' = 9, per_point_normal: 'bool' = True, per_point_normal_nodal: 'bool' = False) */
 export interface Step8Params {
   clamp_angle_rates?: boolean;
   default_feedrate?: number;
@@ -278,6 +280,7 @@ export interface Step8Params {
   ik_refine_step_multiplier?: number;
   ik_samples_per_axis?: number;
   max_unreachable_angular_error_deg?: number;
+  native_grid_fallback?: boolean;
   per_point_normal?: boolean;
   per_point_normal_nodal?: boolean;
   singularity_radius_epsilon?: number;
