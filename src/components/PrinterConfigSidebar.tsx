@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Printer, Check, ChevronRight, ArrowLeft, X } from 'lucide-react';
 import { CustomTooltip } from './CustomTooltip';
 import styles from './PrinterConfigSidebar.module.scss';
-import { showSuccess } from '@/utils/toast';
 import { PrinterDetailModal } from './PrinterDetailModal';
 import { scanProfiles, type ProfileFolder } from '@/utils/printerProfiles';
 
@@ -384,7 +383,6 @@ export const PrinterConfigSidebar: React.FC<PrinterConfigSidebarProps> = ({
 
   const handleSelectPrinter = (name: string) => {
     onSelectPrinter(name, activePrinter?.path);
-    showSuccess(`Imprimante active : ${name}`);
     runClosingSequence();
   };
 

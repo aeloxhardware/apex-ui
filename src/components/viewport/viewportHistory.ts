@@ -13,7 +13,6 @@
 import type * as BABYLON from 'babylonjs';
 import { emitApex, onApex } from '@/events/apexEvents';
 import { isPreviewSpace } from '@/utils/previewSpace';
-import { showSuccess } from '@/utils/toast';
 import { applyPose, capturePose, poseChanged, type Pose } from './viewportPoses';
 import { clearSelection, describeSubMeshes } from './viewportSelectionActions';
 import type { ViewportState } from './viewportState';
@@ -175,7 +174,6 @@ export function removeModels(st: ViewportState, meshes: BABYLON.AbstractMesh[]) 
   if (present.length === 0) return;
   hide(st, present);
   pushEntry(st, { kind: 'delete', meshes: present });
-  showSuccess(present.length > 1 ? `${present.length} modèles supprimés.` : 'Modèle supprimé.');
 }
 
 /** Historique d'un ou plusieurs modèles déjà posés sur le plateau (import, collage) : Ctrl+Z les retire. */

@@ -2,15 +2,16 @@
 // posée sous la barre d'outils du bas, même verre que les barres.
 
 .box {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 50%;
+  // Positionnée par TransformBox.tsx (top/left) sous la barre d'outils.
+  position: fixed;
+  z-index: 1001;
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
   gap: 6px;
   padding: 8px 10px;
   border-radius: 14px;
+  // Même verre que la barre d'outils (Sidebar.module.scss, .toolbar).
   background: rgba(10, 15, 26, 0.25);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
@@ -20,9 +21,13 @@
   transition: opacity 0.2s ease;
 }
 
+// Sans modèle, seul le contenu s'estompe : une opacité sur la boîte elle-même estomperait aussi son verre et son flou.
 .disabled {
-  opacity: 0.45;
   pointer-events: none;
+
+  > * {
+    opacity: 0.45;
+  }
 }
 
 .row {
@@ -34,20 +39,24 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  width: 140px;
+  width: 168px;
 
   // Le champ numérique (flèches comprises) rétrécit au lieu de déborder sur la lettre de la colonne suivante.
   > :last-child {
     flex: 1 1 0;
     min-width: 0;
+
+    input {
+      font-size: 14px;
+    }
   }
 }
 
 .letter {
   flex: 0 0 auto;
-  width: 12px;
+  width: 14px;
   line-height: 1;
-  font-size: 12px;
+  font-size: 14.5px;
   font-weight: 700;
   text-align: center;
 }
@@ -57,7 +66,7 @@
   align-items: center;
   gap: 6px;
   color: rgba(255, 255, 255, 0.8);
-  font-size: 12px;
+  font-size: 14px;
   cursor: pointer;
   user-select: none;
 

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { showSuccess } from '@/utils/toast';
 import {
   stateAt,
   timeAtIndex,
@@ -13,7 +12,7 @@ import {
   type ContinuousColorByMode,
 } from '@/components/gcodeLayer';
 import { DEFAULT_LINE_VISIBILITY, type LineTypeId, type LineTypeVisibility } from '@/components/gcodeLineTypes';
-import { defaultColorByScope, COLOR_BY_LABELS, type ColorByScope } from '@/components/gcodeColormap';
+import { defaultColorByScope, type ColorByScope } from '@/components/gcodeColormap';
 import { type GCodeGenerator } from '@/components/gcodeGenerator';
 import { isConversionAvailable } from '@/utils/gcodeConversion';
 import { hasApexSignature } from '@/utils/apexSignature';
@@ -123,8 +122,6 @@ function useColorByState(fileInfo: GCodeFileInfo | null) {
 
   const setColorBy = useCallback((mode: ColorByMode) => {
     setColorByState(mode);
-    const label = mode === 'lineType' ? 'Type de ligne' : COLOR_BY_LABELS[mode];
-    showSuccess(`Coloration : ${label}.`);
   }, []);
   /** Règle la portée (curseurs min/max) et/ou l'écrêtage hors-portée du mode continu `mode`. */
   const setColorByScope = useCallback((mode: ContinuousColorByMode, scope: ColorByScope) => {

@@ -65,10 +65,11 @@ describe('gizmo de rotation (Orca) : rotation', () => {
     send(BABYLON.PointerEventTypes.POINTERDOWN, 0);
     expect(gizmo['dragging']).toBe(1);
     send(BABYLON.PointerEventTypes.POINTERMOVE, 90);
-    // Les anneaux n'ont pas bougé pendant le glissement, alors que le modèle a été déplacé.
+    // Les anneaux suivent le décalage du modèle : le centre du cercle reste le centre de rotation.
     scene.render();
     const ringNode = gizmo['layer'].utilityLayerScene.getTransformNodeByName('orcaRotateRing1')!;
-    expect(BABYLON.Vector3.Distance(ringNode.position, center)).toBeLessThan(1e-6);
+    expect(BABYLON.Vector3.Distance(ringNode.position, center.add(new BABYLON.Vector3(0, 7, 0)))).toBeLessThan(1e-6);
+    expect(BABYLON.Vector3.Distance(ringNode.position, gizmo['pivot'])).toBeLessThan(1e-6);
     send(BABYLON.PointerEventTypes.POINTERUP, 90);
 
     // Le centre de la boîte n'a pas bougé.

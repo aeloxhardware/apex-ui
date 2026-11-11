@@ -1,6 +1,5 @@
 import type React from 'react';
 import { playUiSound } from '@/utils/uiSound';
-import { showSuccess } from '@/utils/toast';
 import { CONTAINER_RESHAPE_DURATION, SPACE_LABELS, SPACE_SOUNDS } from './sidebarData';
 import type { SidebarTool, TabName } from './sidebarHooks';
 
@@ -52,10 +51,7 @@ export function makePlaySpaceTransition(c: TransitionCtx): PlaySpaceTransition {
     }
     emitApex('apex-space-transition', {
         label,
-        onCovered: () => {
-          onCovered();
-          showSuccess(`Espace ${label} activé.`);
-        },
+        onCovered,
       });
   };
 }

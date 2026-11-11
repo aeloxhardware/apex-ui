@@ -2,12 +2,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import clsx from 'clsx';
 import styles from './AxisSidebar.module.scss';
 import { CustomTooltip } from './CustomTooltip';
-import { showSuccess } from '@/utils/toast';
 import { PAN_PERSPECTIVE_EVENT, readPanPerspective, setPanPerspective } from '@/utils/panPerspectivePrefs';
 import { hideBottomTip, showBottomTip } from './edit-node/bottomTooltip';
 import type { ParsedGCode } from './gcodeLayer';
 
 import { emitApex } from '@/events/apexEvents';
+import { TOP_RIGHT_SLOT_ID } from './topRightSlot';
 type AxisMode = '3-axes' | '5-axes';
 
 export const AxisSidebar: React.FC = () => {
@@ -44,7 +44,6 @@ export const AxisSidebar: React.FC = () => {
 
   const handleSelect = (mode: AxisMode) => {
     setAxisMode(mode);
-    showSuccess(`Mode d'impression configuré : ${mode === '3-axes' ? '3 Axes Standard' : '5 Axes Avancé'}`);
     emitApex('apex-axis-changed', { mode });
   };
 
@@ -62,7 +61,6 @@ export const AxisSidebar: React.FC = () => {
       const mode: AxisMode = kind === 'cartesian' ? '3-axes' : '5-axes';
       if (mode === axisModeRef.current) return;
       setAxisMode(mode);
-      showSuccess(`G-code ${mode === '3-axes' ? '3 axes' : '5 axes'} détecté : mode ${mode === '3-axes' ? '3 AXES' : '5 AXES'} activé.`);
       emitApex('apex-axis-changed', { mode });
     };
     window.addEventListener('apex-gcode-loaded', onGCodeLoaded);
@@ -89,6 +87,9 @@ export const AxisSidebar: React.FC = () => {
 
   return (
     <div className={styles.container} data-apex-chrome-panel>
+      {/* Emplacement du bouton « Découper le plateau » (SliceSidebar, par portail) : il rejoint la rangée, donc le même
+          écart (gap) et le même centrage vertical que l'interrupteur et la barre des axes. */}
+      <div id={TOP_RIGHT_SLOT_ID} className={styles.slot} />
       <button
         type="button"
         role="switch"

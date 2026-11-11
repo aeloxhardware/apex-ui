@@ -37,6 +37,7 @@ import { useAnimate, motion, AnimatePresence } from 'framer-motion';
 import { Box } from 'lucide-react';
 import { showSuccess } from '@/utils/toast';
 import { BetaWatermark, BetaBanners } from '@/components/BetaWatermark';
+import { AmsPanel } from '@/components/dev/AmsPanel';
 import { useDevMode } from '@/utils/devModePrefs';
 import { setModelingSpace } from '@/utils/modelingSpace';
 
@@ -452,10 +453,15 @@ const BottomBar: React.FC<{
   isPreviewActive: boolean;
   gcodePreview: GCodePreviewState;
 }> = ({ modelStatus, statusBarRef, isPreviewActive, gcodePreview }) => (
-      <div className="fixed bottom-3 left-6 right-24 z-[1000] flex items-center justify-start gap-3 pointer-events-none">
-        <ModelStatusPill modelStatus={modelStatus} pillRef={statusBarRef} />
-        <GCodePreviewBar active={isPreviewActive} {...gcodePreview} />
-      </div>
+      <>
+        {/* Pastille de statut en bas à droite : la place qu'occupait le bouton SLICE, parti en haut à droite. */}
+        <div className="fixed bottom-3 right-3 z-[1000] flex items-center justify-end pointer-events-none">
+          <ModelStatusPill modelStatus={modelStatus} pillRef={statusBarRef} />
+        </div>
+        <div className="fixed bottom-3 left-3 right-24 z-[1000] flex items-center justify-start gap-3 pointer-events-none">
+          <GCodePreviewBar active={isPreviewActive} {...gcodePreview} />
+        </div>
+      </>
 );
 
 /** Zone centrale : le viewport 3D et l'interface du prévisualisateur G-code polaire. */
@@ -508,6 +514,7 @@ const Index = () => {
   // Sidebar et la barre fichier/son FileSidebar) est entièrement démonté, pas seulement masqué —
   // aucune scène Babylon.js ne doit tourner en fond pendant que ces espaces sont affichés.
   const isParams = activeTab === 'params' || activeTab === 'home';
+  const isDev = activeTab === 'developer'; // Dev : seuls viewport, onglets, barre d'aide et avis GPU restent
   const warmingViewport = useViewportWarmup(isParams);
 
   // Le menu Profils imprimante n'existe que dans Préparation et Prévisualisation (activeTab '3d-view') :
@@ -549,10 +556,10 @@ const Index = () => {
   return (
     <div
       className="flex flex-col h-screen w-screen overflow-hidden select-none relative"
-      style={{ backgroundColor: '#2a2d34' }}
+      style={{ backgroundColor: '#33373f' }}
     >
       <DitherOverlay />
-      <FileSidebar
+      {!isDev && <FileSidebar
         onOpenModel={handleOpenModel}
         onSaveProject={handleSaveProject}
         onOpenSettings={() => setActiveTab('settings')}
@@ -563,9 +570,9 @@ const Index = () => {
         showPrinterButton={activeTab === '3d-view'}
         selectedPrinter={printer.selectedPrinter}
         selectedFilament={printer.selectedFilament}
-      />
+      />}
 
-      {!isParams && <PlateOverlays isPreviewActive={isPreviewActive} gcodeName={gcodePreview.fileInfo?.name} slice={slice} />}
+      {!isParams && !isDev && <PlateOverlays isPreviewActive={isPreviewActive} gcodeName={gcodePreview.fileInfo?.name} slice={slice} />}
 
       <Sidebar activeTab={activeTab} onTabChange={handleTabChange} onOpenModel={handleOpenModel} />
 
@@ -588,10 +595,10 @@ const Index = () => {
             transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
           >
             <TopRightMenu />
-            <AxisSidebar />
-            <ViewCube />
+            {!isDev && <AxisSidebar />}
+            {!isDev && <ViewCube />}
 
-            <SpacePanels {...panelProps} />
+            {!isDev && <SpacePanels {...panelProps} />}
 
             <ViewportMain isPreviewActive={isPreviewActive} />
           </motion.div>
@@ -607,7 +614,8 @@ const Index = () => {
       {activeTab === 'params' && <ParamsPanel />}
       {activeTab === 'home' && <HomePanel />}
 
-      {!isParams && <BottomBar modelStatus={modelStatus} statusBarRef={statusBarRef} isPreviewActive={isPreviewActive} gcodePreview={gcodePreview} />}
+      {isDev && <AmsPanel />}
+      {!isParams && !isDev && <BottomBar modelStatus={modelStatus} statusBarRef={statusBarRef} isPreviewActive={isPreviewActive} gcodePreview={gcodePreview} />}
 
       {/* Rideau plein écran commun à tous les changements d'espace (Préparation, Prévisualisation,
           Modélisation, Dev, Paramètres) : monté en permanence, pas seulement à l'intérieur du bloc

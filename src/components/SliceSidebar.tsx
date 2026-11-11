@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useTopRightSlot } from './topRightSlot';
 import clsx from 'clsx';
 import { Play, Download } from 'lucide-react';
 import styles from './SliceSidebar.module.scss';
@@ -18,6 +20,9 @@ interface SliceSidebarProps {
 
 export const SliceSidebar: React.FC<SliceSidebarProps> = ({ onSlice, previewExport }) => {
   const [hasModels, setHasModels] = useState(false);
+  const slot = useTopRightSlot();
+  /** Dans la rangée en haut à droite (portail) si elle existe ; sinon posé à sa place par le CSS (`position: fixed`). */
+  const place = (node: React.ReactElement) => (slot ? createPortal(node, slot) : node);
 
   // SLICE tranche tous les modèles du plateau, pas la sélection : le bouton suit la liste réelle des
   // modèles (réponse de Viewport3D à `apex-request-slice-models`), jamais la sélection.
@@ -46,8 +51,8 @@ export const SliceSidebar: React.FC<SliceSidebarProps> = ({ onSlice, previewExpo
 
   if (previewExport) {
     const { enabled, onExport, reason } = previewExport;
-    return (
-      <div className={styles.container} data-apex-chrome-panel>
+    return place(
+      <div className={clsx(styles.container, slot && styles.inSlot)} data-apex-chrome-panel>
         <div
           className={styles.toolbar}
           data-apex-tooltip="Barre d'export : enregistre le G-code affiché pour l'imprimer."
@@ -70,14 +75,14 @@ export const SliceSidebar: React.FC<SliceSidebarProps> = ({ onSlice, previewExpo
     );
   }
 
-  return (
-    <div className={styles.container} data-apex-chrome-panel>
+  return place(
+    <div className={clsx(styles.container, slot && styles.inSlot)} data-apex-chrome-panel>
       <div
         className={styles.toolbar}
-        data-apex-tooltip="Barre de découpe : lance le calcul du G-code du plateau (slicing)."
+        data-apex-tooltip="Découper le plateau : lance le calcul du G-code du plateau (slicing). Bouton placé en haut à droite, à gauche du sélecteur d'axes."
       >
         <CustomTooltip 
-          content={hasModels ? "Lancer le Slicing (Découpe)" : "Aucun modèle sur le plateau"} 
+          content={hasModels ? "Découper le plateau" : "Aucun modèle sur le plateau"} 
           description={hasModels ? "Lancez le calcul complet du G-code pour transformer votre modèle 3D en trajectoires d'impression exploitables." : "Veuillez importer un modèle 3D sur le plateau pour activer le slicing."}
         >
           <button
@@ -88,7 +93,7 @@ export const SliceSidebar: React.FC<SliceSidebarProps> = ({ onSlice, previewExpo
             disabled={!hasModels}
           >
             <Play size={16} className="fill-current mr-2 shrink-0" />
-            <span className="font-semibold text-xs tracking-wide">SLICE</span>
+            <span className="font-semibold text-xs tracking-wide">Découper le plateau</span>
           </button>
         </CustomTooltip>
       </div>

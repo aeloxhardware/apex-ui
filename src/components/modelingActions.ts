@@ -1,4 +1,4 @@
-import { showError, showSuccess } from '@/utils/toast';
+import { showError } from '@/utils/toast';
 import { FEATURE_LABELS, nextId, type ExtrudeFeature, type Feature, type FeatureKind } from '@/modeling/types';
 import type { ExtrudeParams } from './ExtrudePanel';
 import type { ModelNode } from './modelingData';
@@ -55,17 +55,14 @@ export function makeExtrudeConfirm(c: ToolCtx) {
       if (owner) {
         const feature = makeFeature('', owner.features.filter((f) => f.kind === 'extrude').length + 1, faceRef);
         addFeatureTo(tree, owner.id, feature);
-        showSuccess(`${feature.name} ajoutée à ${owner.name}.`);
       } else {
         const bodyName = params.face.modelName ?? `Corps ${tree.models.length + 1}`;
         const feature = makeFeature('', 1, faceRef);
         addBody(tree, bodyName, [feature], feature);
-        showSuccess(`${feature.name} créée dans ${bodyName}.`);
       }
     } else if (targetModel && sk) {
       const feature = makeFeature(sk.id, targetModel.features.filter((f) => f.kind === 'extrude').length + 1);
       addFeatureTo(tree, targetModel.id, feature);
-      showSuccess(`${feature.name} ajoutée à ${targetModel.name}.`);
     } else if (floating) {
       // Esquisse flottante : l'extrusion crée le corps qui la porte.
       const bodyName = `Corps ${tree.models.length + 1}`;
@@ -75,7 +72,6 @@ export function makeExtrudeConfirm(c: ToolCtx) {
       sketch.floatingSketchRef.current = null;
       sketch.setFloatingSketchName(null);
       sketch.sketchIdRef.current = null;
-      showSuccess(`${extrude.name} créée dans ${bodyName}.`);
     } else {
       showError('Aucune esquisse à extruder.');
       return;
@@ -158,6 +154,5 @@ export function makeToolClick(c: ToolCtx) {
     const id = nextId(kind);
     const name = `${FEATURE_LABELS[kind]} ${targetModel.features.filter((f) => f.kind === kind).length + 1}`;
     addFeatureTo(tree, targetModel.id, simpleFeature(kind, id, name, sketchId));
-    showSuccess(`${name} ajoutée à ${targetModel.name}.`);
   };
 }

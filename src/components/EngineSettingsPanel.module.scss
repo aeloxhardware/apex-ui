@@ -2,7 +2,7 @@
 // Conteneur fixé à droite, sous le cube d'axes.
 .container {
   position: fixed;
-  right: 24px;
+  right: 12px;
   top: 190px;
   // Le panneau s'arrête à mi-hauteur (ligne repérée par l'utilisateur, 2026-10-28) ; plus court si la fenêtre l'est.
   height: min(457px, calc(100vh - 300px));
@@ -19,9 +19,9 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: rgba(10, 15, 26, 0.25);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  background: rgba(10, 15, 26, 0.5);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
   border-radius: 20px;
   padding: 14px 8px 10px 14px;
@@ -38,7 +38,7 @@
 
 .title {
   margin: 0;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   letter-spacing: 0.02em;
   color: #f4f4f5;
@@ -53,7 +53,7 @@
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.03);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
-  font-size: 11px;
+  font-size: 13px;
   color: rgba(255, 255, 255, 0.9);
   cursor: pointer;
   outline: none;
@@ -80,18 +80,18 @@
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.03);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
-  font-size: 11px;
+  font-size: 13px;
   color: rgba(255, 255, 255, 0.9);
 }
 
 .settingField {
   flex: 0 0 auto;
-  width: 96px;
-  min-height: 26px;
+  width: 104px;
+  min-height: 28px;
   border-radius: 6px;
 
   input {
-    font-size: 11px;
+    font-size: 13px;
     padding: 0 6px;
   }
 }
@@ -135,7 +135,7 @@
 
 .selectorTitle {
   margin: 0 0 10px;
-  font-size: 10px;
+  font-size: 11.5px;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -169,7 +169,7 @@
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.03);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
-  font-size: 11px;
+  font-size: 13px;
   color: rgba(255, 255, 255, 0.9);
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
@@ -205,7 +205,7 @@
 
 .selectorEmpty {
   margin: 0;
-  font-size: 11px;
+  font-size: 13px;
   color: rgba(255, 255, 255, 0.4);
 }
 

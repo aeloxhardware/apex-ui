@@ -8,14 +8,14 @@ $control-bg: rgba(0, 0, 0, 0.28);
 .panel {
   position: fixed;
   top: 214px; // sous le gizmo de vue et le sélecteur d'axes
-  right: 24px;
+  right: 12px;
   width: 316px;
   z-index: 1001;
   display: flex;
   flex-direction: column;
   background: $panel-bg;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-radius: 18px;
   box-shadow: $panel-shadow;
   color: rgba(255, 255, 255, 0.85);

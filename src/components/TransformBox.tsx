@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { usePortalRoot } from '@/components/GpuWarningFrame';
 import clsx from 'clsx';
 import { ApexNumberField } from './ApexNumberField';
 import { bottomTip } from './edit-node/bottomTooltip';
@@ -59,7 +61,12 @@ const Row: React.FC<RowProps> = ({ letters, values, unit, title, desc, step, min
   </div>
 );
 
-const TransformBox: React.FC<{ tool: TransformTool }> = ({ tool }) => {
+/** Écart entre le bas de la barre d'outils et la boîte : le même que le menu d'auto-disposition (ArrangeMenu). */
+const BOX_GAP = 8;
+
+const TransformBox: React.FC<{ tool: TransformTool; anchorRef: React.RefObject<HTMLElement | null> }> = ({ tool, anchorRef }) => {
+  const portalRoot = usePortalRoot();
+  const boxRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<TransformState>({ position: ZERO, rotation: ZERO, size: ZERO, scale: ZERO });
   const [hasModel, setHasModel] = useState(false);
   const [keepProportions, setKeepProportions] = useState(true);
@@ -83,11 +90,30 @@ const TransformBox: React.FC<{ tool: TransformTool }> = ({ tool }) => {
     };
   }, [tool]);
 
+  // La boîte vit hors de la barre : un `backdrop-filter` imbriqué dans celui de la barre ne floute que le contenu de
+  // la barre, pas la scène derrière. Elle est donc attachée à la zone de l'interface et recalée sur le bas de la
+  // barre à chaque image (la barre se déforme pendant les transitions d'espace).
+  useEffect(() => {
+    let frame = 0;
+    const place = () => {
+      const box = boxRef.current;
+      const bar = anchorRef.current?.getBoundingClientRect();
+      if (box && bar) {
+        const root = portalRoot.getBoundingClientRect();
+        box.style.top = `${bar.bottom - root.top + BOX_GAP}px`;
+        box.style.left = `${bar.left + bar.width / 2 - root.left}px`;
+      }
+      frame = requestAnimationFrame(place);
+    };
+    place();
+    return () => cancelAnimationFrame(frame);
+  }, [anchorRef, portalRoot]);
+
   const send = (kind: 'position' | 'rotation' | 'size' | 'scale') => (axis: Axis, value: number) =>
     emitApex('apex-transform-set', { kind, axis, value, keepProportions });
 
-  return (
-    <div className={clsx(styles.box, !hasModel && styles.disabled)} {...bottomTip(
+  return createPortal(
+    <div ref={boxRef} className={clsx(styles.box, !hasModel && styles.disabled)} {...bottomTip(
       'Valeurs exactes',
       hasModel ? 'Saisissez les valeurs exactes du modèle sélectionné.' : 'Sélectionnez un modèle pour saisir ses valeurs.',
     )}>
@@ -114,7 +140,8 @@ const TransformBox: React.FC<{ tool: TransformTool }> = ({ tool }) => {
           </label>
         </>
       )}
-    </div>
+    </div>,
+    portalRoot,
   );
 };
 

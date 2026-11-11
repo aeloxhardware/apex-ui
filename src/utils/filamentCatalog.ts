@@ -1,5 +1,11 @@
 // Catalogue des filaments (public/filaments.json, généré par scripts/profiles/filaments.cjs depuis les
 // profils d'OrcaSlicer, AGPL-3.0 : cf. utils/credits.ts) et filament choisi (mémorisé dans le navigateur).
+/**
+ * Aspect (brillance) d'un filament : mat, satiné, brillant, soyeux, métallisé ou pailleté. `null` = non renseigné
+ * (les profils Orca n'en ont pas ; indexé par scripts/profiles/filamentFinish.cjs, jamais deviné pour un nom neutre).
+ */
+export type FilamentFinish = 'matte' | 'satin' | 'glossy' | 'silk' | 'metallic' | 'sparkle';
+
 export interface FilamentProfile {
   name: string;
   vendor: string;
@@ -14,6 +20,7 @@ export interface FilamentProfile {
   flow_ratio: number | null;
   max_volumetric_speed: number | null;
   color: string | null;
+  finish: FilamentFinish | null;
   orca_source: string;
 }
 

@@ -8,6 +8,7 @@ import { PILL_CLIP, TRIANGLE_CLIP } from '@/utils/indicatorShapes';
 import styles from './Sidebar.module.scss';
 import { CustomTooltip } from './CustomTooltip';
 import { BricksIcon } from './ModelingIcons';
+import { ArrangeMenu } from './ArrangeMenu';
 import { PREVIEW_TABS, setPreviewTab } from './PreviewUpperTabs';
 import { APP_TAGLINE_DEV, APP_TAGLINE_PREVIEW } from '@/utils/devModePrefs';
 import { iconVariants } from './sidebarData';
@@ -126,10 +127,13 @@ export const TopTabs: React.FC<TopTabsProps> = ({
 /** Icônes de la barre slicer (import, outils de manipulation, caméra) ; elles se replient hors de ce mode. */
 export const SlicerIcons: React.FC<{
   hidden: boolean;
-  activeTool: SidebarTool;
+  /** Outil actif ; null quand le menu d'auto-disposition (outil exclusif lui aussi) est ouvert. */
+  activeTool: SidebarTool | null;
   onToolClick: (tool: 'select' | 'move' | 'rotate' | 'scale' | 'texture') => void;
   onUploadClick: () => void;
-}> = ({ hidden, activeTool, onToolClick, onUploadClick }) => (
+  arrangeOpen: boolean;
+  onArrangeOpenChange: (open: boolean) => void;
+}> = ({ hidden, activeTool, onToolClick, onUploadClick, arrangeOpen, onArrangeOpenChange }) => (
   <>
         <motion.div custom={0} variants={iconVariants} animate={hidden ? "hidden" : "visible"} initial="visible" className="flex items-center">
           <CustomTooltip content="Importer un Modèle 3D (.stl, .glb, .gltf)" description="Ouvrez le sélecteur de fichiers pour charger un nouveau fichier 3D avec textures sur le plateau.">
@@ -212,10 +216,20 @@ export const SlicerIcons: React.FC<{
         </motion.div>
 
         <motion.div custom={7} variants={iconVariants} animate={hidden ? "hidden" : "visible"} initial="visible" className="flex items-center">
-          <div className={styles.separator} />
+          <ArrangeMenu
+            open={arrangeOpen}
+            onOpenChange={onArrangeOpenChange}
+            tabIndex={hidden ? -1 : 0}
+            buttonClassName={clsx(styles.button, styles.bottomButton, { [styles.active]: arrangeOpen })}
+            iconSize={16}
+          />
         </motion.div>
 
         <motion.div custom={8} variants={iconVariants} animate={hidden ? "hidden" : "visible"} initial="visible" className="flex items-center">
+          <div className={styles.separator} />
+        </motion.div>
+
+        <motion.div custom={9} variants={iconVariants} animate={hidden ? "hidden" : "visible"} initial="visible" className="flex items-center">
           <CustomTooltip content="Réinitialiser la Caméra" description="Remettez la caméra dans sa position isométrique par défaut face au plateau.">
             <button
               className={clsx(styles.button, styles.bottomButton)}
@@ -226,7 +240,7 @@ export const SlicerIcons: React.FC<{
           </CustomTooltip>
         </motion.div>
 
-        <motion.div custom={9} variants={iconVariants} animate={hidden ? "hidden" : "visible"} initial="visible" className="flex items-center">
+        <motion.div custom={10} variants={iconVariants} animate={hidden ? "hidden" : "visible"} initial="visible" className="flex items-center">
           <CustomTooltip content="Ajuster à l'Écran (Fit)" description="Zoomez et recentrez la vue automatiquement sur le modèle sélectionné.">
             <button
               className={clsx(styles.button, styles.bottomButton)}

@@ -5,7 +5,7 @@
 // (PREVIEW_W) dépliée, juste la taille du message une fois la conversion terminée.
 .card {
   position: fixed;
-  left: 24px;
+  left: 12px;
   top: calc(212px - var(--preview-lift, 0px) + var(--preview-upper-h, max(120px, 100vh - 714px)) + 16px + var(--preview-lower-h, 250px) + 16px);
   z-index: 1000;
   box-sizing: border-box;

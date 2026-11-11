@@ -153,7 +153,6 @@ function announceLoaded(parsed: ParsedGCode, text: string) {
     // Fichier du moteur d'avant la ligne `; apex_kinematics` (R-007) : on ne peut que supposer la longueur d'alors.
     showWarning(`G-code d'une ancienne version du moteur (sans cinématique déclarée) : longueur pivot-pointe supposée à ${parsed.kinematics.pivotToTip} mm.`);
   } else {
-    showSuccess(`G-code chargé : ${parsed.moves.length} mouvements.`);
   }
 }
 

@@ -1,15 +1,15 @@
 /**
  * Géométrie partagée des morphings "verre liquide" entre la pilule/les panneaux de
  * Prévisualisation (CategoriesSidebar) et le panneau Modélisation (ModelingSidebar) — en px, dans
- * le repère de la pilule (fixed, left 24 / top 212). Doit rester alignée sur
+ * le repère de la pilule (fixed, left 12 / top 212). Doit rester alignée sur
  * CategoriesSidebar.module.scss (.leftSidebarContainer, .categoriesToolbar,
  * .previewPanelUpper/.previewPanelLower) et ModelingSidebar.module.scss (.container / .panel).
  */
 import { mitosisPath, rectPath, stretchPath, type GlassRect } from './liquidGlass';
 
-export const PANEL_LEFT = 24;
+export const PANEL_LEFT = 12;
 export const PILL_TOP = 212;
-export const PILL: GlassRect = { x: 0, y: 0, w: 293, h: 56, r: 20 };
+export const PILL: GlassRect = { x: 0, y: 0, w: 293, h: 42, r: 18 };
 
 // Haut fixe de l'arborescence des modèles (ModelStatusBox.module.scss, .container) et marge
 // minimale à toujours conserver entre son bord bas réel et la pilule ci-dessous — jamais recouverte
@@ -94,7 +94,7 @@ export const tabMorphPathAt = (viewportH: number, t: number, dx: number, dy: num
   return stretchPath(upper, expanded, (ms - TAB_MERGE_MS - TAB_HOLD_MS) / TAB_EXPAND_MS, dx, dy);
 };
 
-// Panneau de Modélisation (ModelingSidebar.module.scss : .container top 96 / left 24 / bottom 96,
+// Panneau de Modélisation (ModelingSidebar.module.scss : .container top 96 / left 12 / bottom 96,
 // .panel width 268 / border-radius 18, mêmes background/backdrop-filter/box-shadow que le verre
 // animé — la bascule finale doit donc être invisible). Repère relatif à PILL_TOP (212) : le
 // panneau commence 116px plus haut que la pilule.

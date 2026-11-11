@@ -9,7 +9,7 @@ $morph-z: 999;
   position: fixed;
   z-index: $morph-z;
   pointer-events: none;
-  background: rgba(10, 15, 26, 0.25);
+  background: rgba(10, 15, 26, 0.5);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   clip-path: inset(0 0 100% 0);

@@ -28,12 +28,14 @@ export interface GlassPanelProps extends Omit<HTMLMotionProps<'div'>, 'children'
   contentClassName?: string;
   /** Sans marge interne (ex. une carte dont le contenu gère déjà la sienne). */
   flush?: boolean;
+  /** Verre fumé des grands panneaux latéraux : teinte plus sombre et flou plus prononcé. */
+  smoky?: boolean;
   /** Rayon des coins, px. */
   radius?: number;
 }
 
 export const GlassPanel = React.forwardRef<HTMLDivElement, GlassPanelProps>(({
-  children, open, portal = false, contentClassName, flush = false, radius = 16,
+  children, open, portal = false, contentClassName, flush = false, smoky = false, radius = 16,
   className, style, initial, animate, exit, transition, ...rest
 }, ref) => {
   const portalRoot = usePortalRoot();
@@ -41,7 +43,7 @@ export const GlassPanel = React.forwardRef<HTMLDivElement, GlassPanelProps>(({
   const panel = (
     <motion.div
       ref={ref}
-      className={clsx(styles.panel, portal && styles.fixed, className)}
+      className={clsx(styles.panel, portal && styles.fixed, smoky && styles.smoky, className)}
       style={{ borderRadius: radius, ...style }}
       data-apex-chrome-panel
       initial={initial ?? { scale: 0.95, x: -10 }}

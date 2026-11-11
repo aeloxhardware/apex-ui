@@ -85,33 +85,50 @@ const ArrangeMenuBody: React.FC<{ hasSelection: boolean; onRun: () => void }> = 
   );
 };
 
-/** Bouton « Auto-disposition » de la barre d'outils et son menu, qui s'ouvre en dessous (« Menu Barre »). */
-export const ArrangeMenu: React.FC<{ tabIndex?: number }> = ({ tabIndex = 0 }) => {
+/** Bouton « Auto-disposition » de la barre d'outils (Sidebar) et son menu, qui s'ouvre en dessous (« Menu Barre »). */
+interface ArrangeMenuProps {
+  /** Le menu est ouvert : l'état vit dans la Sidebar, où le bouton est un outil exclusif comme les autres. */
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  tabIndex?: number;
+  buttonClassName?: string;
+  iconSize?: number;
+}
+
+/** Écart entre le bas de la barre d'outils et le menu : le même que la boîte Déplacer / Pivoter / Échelle. */
+const MENU_GAP = 8;
+
+export const ArrangeMenu: React.FC<ArrangeMenuProps> = ({ open, onOpenChange, tabIndex = 0, buttonClassName, iconSize = 18 }) => {
   const portalRoot = usePortalRoot();
-  const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const selectionCount = useSelectionCount();
 
   const toggle = () => {
-    const r = buttonRef.current?.getBoundingClientRect();
-    if (r) setPos({ top: r.bottom + 10, left: r.left + r.width / 2 });
-    setOpen((v) => !v);
+    const button = buttonRef.current;
+    const r = button?.getBoundingClientRect();
+    // Mesuré depuis le bas de la barre (pas du bouton), comme la boîte de transformation qui y est accrochée.
+    const bar = button?.closest('[data-apex-toolbar]')?.getBoundingClientRect();
+    // `position: fixed` dans la zone de l'interface (contain: layout) se compte depuis cette zone, décalée par la
+    // barre de titre : on retranche son origine.
+    const root = portalRoot.getBoundingClientRect();
+    if (r) setPos({ top: (bar?.bottom ?? r.bottom) + MENU_GAP - root.top, left: r.left + r.width / 2 - root.left });
+    onOpenChange(!open);
   };
   const run = () => {
     emitApex(selectionCount > 0 ? 'apex-arrange-selection' : 'apex-arrange-models');
-    setOpen(false);
+    onOpenChange(false);
   };
 
   useEffect(() => {
     if (!open) return;
     const onDown = (e: PointerEvent) => {
       const t = e.target as Node;
-      if (!menuRef.current?.contains(t) && !buttonRef.current?.contains(t)) setOpen(false);
+      if (!menuRef.current?.contains(t) && !buttonRef.current?.contains(t)) onOpenChange(false);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape') onOpenChange(false);
     };
     window.addEventListener('pointerdown', onDown);
     window.addEventListener('keydown', onKey);
@@ -119,14 +136,14 @@ export const ArrangeMenu: React.FC<{ tabIndex?: number }> = ({ tabIndex = 0 }) =
       window.removeEventListener('pointerdown', onDown);
       window.removeEventListener('keydown', onKey);
     };
-  }, [open]);
+  }, [open, onOpenChange]);
 
   return (
     <>
       <button
         ref={buttonRef}
         type="button"
-        className={clsx(buttonStyles.button)}
+        className={buttonClassName ?? clsx(buttonStyles.button)}
         onClick={toggle}
         tabIndex={tabIndex}
         aria-haspopup="menu"
@@ -134,7 +151,7 @@ export const ArrangeMenu: React.FC<{ tabIndex?: number }> = ({ tabIndex = 0 }) =
         aria-label="Auto-disposition"
         {...tip(ARRANGE_BUTTON_TIP)}
       >
-        <RectangleGroupIcon width={18} height={18} />
+        <RectangleGroupIcon width={iconSize} height={iconSize} />
       </button>
       {open &&
         createPortal(

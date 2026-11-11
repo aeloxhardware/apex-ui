@@ -1,4 +1,6 @@
 import React from 'react';
+import { motion } from 'framer-motion';
+import { menuItemEnterVariants } from './categoryMenuMotion';
 import { ChevronDown } from 'lucide-react';
 import clsx from 'clsx';
 import { ApexNumberField } from './ApexNumberField';
@@ -52,13 +54,14 @@ export const EngineItemRow: React.FC<{ path: string; onOpenChoices?: (() => void
 
   return (
     <CustomTooltip content={setting.label} description={tooltip.desc}>
-      <li
+      <motion.li
+        variants={menuItemEnterVariants}
         className={clsx(styles.itemRow, styles.engineRow, { [styles.clickableRow]: !!onOpenChoices })}
         onClick={onOpenChoices}
       >
         <span className={clsx(styles.itemName, styles.itemNameWrap)}>{setting.label}</span>
         {control}
-      </li>
+      </motion.li>
     </CustomTooltip>
   );
 };

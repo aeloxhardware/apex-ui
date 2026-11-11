@@ -5,7 +5,7 @@ import {
   PANEL_LEFT, PILL_TOP, PILL, PREVIEW_W, previewGeometry, tabMorphPathAt, TAB_MORPH_MS,
 } from '@/utils/spaceMorphGeometry';
 import {
-  MENU_OFFSET_Y, MENU_W, MENU_R, MENU_STAGE_H, MENU_MORPH_MS, PREVIEW_STRETCH_MS, PREVIEW_HOLD_MS, PREVIEW_DIVIDE_MS, PREVIEW_MORPH_MS,
+  MENU_OFFSET_Y, MENU_W, MENU_R, MENU_MORPH_MS, PREVIEW_STRETCH_MS, PREVIEW_HOLD_MS, PREVIEW_DIVIDE_MS, PREVIEW_MORPH_MS,
 } from './categoriesMotion';
 import type { MorphPhase, PreviewSpace } from './categoriesPreviewState';
 
@@ -112,7 +112,8 @@ export const CategoryGlassMorphs: React.FC<CategoryGlassMorphsProps> = ({
           left={PANEL_LEFT}
           top={PILL_TOP + modelTreeOverflow}
           width={MENU_W}
-          height={MENU_STAGE_H}
+          // Panneau (de hauteur variable, cf. .fusionMenuContainer) + la marge que prend le col en s'étirant avant de se rompre.
+          height={MENU_OFFSET_Y + (menuContainerRef.current?.offsetHeight ?? 400) + 40}
           duration={MENU_MORPH_MS}
           pathAt={menuPathAt}
           reverse={morphPhase === 'merging'}

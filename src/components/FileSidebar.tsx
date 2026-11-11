@@ -4,7 +4,6 @@ import clsx from 'clsx';
 import { FolderOpen, Save, Printer, Volume2, VolumeX } from 'lucide-react';
 import styles from './FileSidebar.module.scss';
 import { CustomTooltip } from './CustomTooltip';
-import { ArrangeMenu } from './ArrangeMenu';
 import { useUiSoundMuted } from '@/hooks/use-ui-sounds';
 
 interface FileSidebarProps {
@@ -66,8 +65,6 @@ export const FileSidebar: React.FC<FileSidebarProps> = ({
 
         <div className={clsx(styles.printerGroup, { [styles.printerGroupHidden]: !showPrinterButton })} aria-hidden={!showPrinterButton}>
           <div className={styles.separator} />
-
-          <ArrangeMenu tabIndex={showPrinterButton ? 0 : -1} />
 
           <CustomTooltip content="Configuration Imprimante & Filament" description={`Imprimante active : ${selectedPrinter} | Filament sélectionné : ${selectedFilament}. Cliquez pour modifier.`}>
             <button

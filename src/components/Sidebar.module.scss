@@ -151,13 +151,13 @@
 }
 
 .bottomButton {
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
 
   svg {
-    width: 16px;
-    height: 16px;
+    width: 20px;
+    height: 20px;
     transition: transform 0.2s ease;
   }
 
@@ -194,9 +194,9 @@
 
 .uploadActionButton {
   color: #00f0ff !important;
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
 
   &:hover {
     background: rgba(0, 240, 255, 0.15) !important;
@@ -205,7 +205,7 @@
 
 .separator {
   width: 1px;
-  height: 18px;
+  height: 24px;
   background: rgba(255, 255, 255, 0.2);
   margin: 0 4px;
 }

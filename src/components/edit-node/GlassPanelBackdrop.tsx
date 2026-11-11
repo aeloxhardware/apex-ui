@@ -11,7 +11,7 @@ function pageBackground(from: HTMLElement): string {
     const c = getComputedStyle(el).backgroundColor;
     if (c && c !== 'transparent' && !/rgba\(.*,\s*0\)$/.test(c)) return c;
   }
-  return '#2a2d34';
+  return '#33373f';
 }
 
 /**

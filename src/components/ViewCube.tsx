@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import styles from './ViewCube.module.scss';
 import { CustomTooltip } from './CustomTooltip';
-import { showSuccess } from '@/utils/toast';
 
 import { emitApex } from '@/events/apexEvents';
 // Extrémités des axes en coordonnées 3D unitaires, projetées ensuite en 2D selon alpha/beta caméra
@@ -67,11 +66,10 @@ export const ViewCube: React.FC = () => {
     };
   }, []);
 
-  const triggerView = (key: string, label: string, alpha: number, beta: number) => {
+  const triggerView = (key: string, alpha: number, beta: number) => {
     lastClickedKeyRef.current = key;
     lastClickedAnglesRef.current = { alpha, beta, at: performance.now() };
     emitApex('apex-set-camera-custom', { alpha, beta });
-    showSuccess(`Vue orientée : ${label}`);
   };
 
   const points = AXES.map((axis) => ({ ...axis, ...project(axis.dir, camAngles.alpha, camAngles.beta) }))
@@ -85,11 +83,11 @@ export const ViewCube: React.FC = () => {
       const oppositeKey = p.key.endsWith('+') ? p.key.replace('+', '-') : p.key.replace('-', '+');
       const opposite = AXES.find((a) => a.key === oppositeKey);
       if (opposite) {
-        triggerView(opposite.key, opposite.label || opposite.key.toUpperCase(), opposite.alpha, opposite.beta);
+        triggerView(opposite.key, opposite.alpha, opposite.beta);
         return;
       }
     }
-    triggerView(p.key, p.label || p.key.toUpperCase(), p.alpha, p.beta);
+    triggerView(p.key, p.alpha, p.beta);
   };
 
   return (

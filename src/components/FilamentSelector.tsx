@@ -195,6 +195,7 @@ export const FilamentSelector = React.forwardRef<HTMLDivElement, { motionProps: 
   return (
     <GlassPanel
       flush
+      smoky
       radius={22}
       ref={(el) => {
         rootRef.current = el;

@@ -60,7 +60,7 @@ export function useToolbarGeometry(isModeling: boolean, isPreviewActive: boolean
     ? { x: 0, y: 0, width: modelingSketchActive ? 50 : 274, height: 50, borderRadius: 14 } // barre CAD (6 boutons de 38px + séparateur) ; Esquisse seul : 1 bouton
     : isPreviewActive
       ? { x: previewX, y: previewY, width: PREVIEW_TOOLBAR_WIDTH, height: 340, borderRadius: 20 } // colonne de calques
-      : { x: 0, y: 0, width: boxWidth ?? 332, height: 44, borderRadius: 22 }; // barre slicer
+      : { x: 0, y: 0, width: boxWidth ?? 460, height: 52, borderRadius: 24 }; // barre slicer (9 boutons de 40px + 2 séparateurs)
   targetGeometryRef.current = { x: targetGeometry.x, y: targetGeometry.y };
 
   // Mesure la largeur naturelle de la barre slicer dès qu'on la voit au repos (mode box, aucune transition en cours).

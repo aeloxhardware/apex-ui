@@ -7,17 +7,14 @@ export interface NotificationItem {
   createdAt: number;
 }
 
-type Listener = (items: NotificationItem[], frontId: string | null) => void;
+type Listener = (items: NotificationItem[]) => void;
 
 let items: NotificationItem[] = [];
-// Id de la notif épinglée au premier plan par la molette (ou par un push récent). null = aucun
-// forçage, la pile retombe sur la plus récente (cf. orderedIds dans NotificationStack.tsx).
-let frontId: string | null = null;
 const listeners = new Set<Listener>();
 
 function emit() {
   const snapshot = items.slice();
-  listeners.forEach((l) => l(snapshot, frontId));
+  listeners.forEach((l) => l(snapshot));
 }
 
 let uid = 0;
@@ -29,7 +26,6 @@ function genId() {
 export function pushNotification(variant: NotificationVariant, message: string): string {
   const id = genId();
   items = [...items, { id, variant, message, createdAt: Date.now() }];
-  frontId = id;
   emit();
   return id;
 }
@@ -38,27 +34,11 @@ export function pushNotification(variant: NotificationVariant, message: string):
 export function removeNotification(id: string): void {
   if (!items.some((n) => n.id === id)) return;
   items = items.filter((n) => n.id !== id);
-  if (frontId === id) frontId = null;
-  emit();
-}
-
-/** Bouton « tout fermer » de la pile. */
-export function clearNotifications(): void {
-  if (items.length === 0) return;
-  items = [];
-  frontId = null;
-  emit();
-}
-
-/** Appelé par le gestionnaire de molette de NotificationStack. */
-export function setFrontNotification(id: string): void {
-  if (!items.some((n) => n.id === id)) return;
-  frontId = id;
   emit();
 }
 
 export function subscribeToNotifications(listener: Listener): () => void {
   listeners.add(listener);
-  listener(items.slice(), frontId);
+  listener(items.slice());
   return () => listeners.delete(listener);
 }

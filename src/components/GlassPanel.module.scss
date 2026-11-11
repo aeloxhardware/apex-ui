@@ -47,3 +47,20 @@
   max-height: none;
   overflow: visible;
 }
+
+// Variante « fumée » des grands panneaux (teinte plus sombre, flou plus prononcé) : réservée à ceux qui la demandent
+// (carte Filament de Préparation), pas aux fenêtres et menus. Le flou est porté par le panneau LUI-MÊME et non par le
+// calque enfant : un panneau dont l'opacité est animée (fondu d'entrée de la carte) neutralise le `backdrop-filter`
+// de ses descendants — c'est le montage de la pilule des catégories, dont le flou est visible. Le calque `.glass`
+// ne garde que l'ombre portée.
+.smoky {
+  background: rgba(10, 15, 26, 0.5);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+
+  > .glass {
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}

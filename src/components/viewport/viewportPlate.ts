@@ -84,6 +84,10 @@ function setupRtWidth(st: ViewportState) {
   const blurRTClearColor = BABYLON.Color4.FromColor3(BABYLON.Color3.FromHexString(backdropColor), 1);
   blurRT.clearColor = blurRTClearColor;
   blurRT.updateSamplingMode(BABYLON.Texture.BILINEAR_SAMPLINGMODE);
+  // Anticrénelage de la capture : le MSAA du contexte et le FXAA du pipeline ne couvrent pas les cibles de rendu
+  // hors écran (échantillons = 1 par défaut). Les lignes fines de la grille y étaient crénelées, puis floutées en
+  // un damier visible dans le disque du plateau.
+  blurRT.samples = Math.min(4, engine.getCaps().maxMSAASamples);
   Object.assign(st, { rtWidth, rtHeight, blurRT });
 }
 
@@ -110,6 +114,7 @@ function setupBlurH(st: ViewportState) {
   gcodeBlurRT.ignoreCameraViewport = true;
   gcodeBlurRT.clearColor = new BABYLON.Color4(0, 0, 0, 0);
   gcodeBlurRT.updateSamplingMode(BABYLON.Texture.BILINEAR_SAMPLINGMODE);
+  gcodeBlurRT.samples = Math.min(4, engine.getCaps().maxMSAASamples);
   gcodeBlurRT.refreshRate = 0;
   scene.customRenderTargets.push(gcodeBlurRT);
   const gcodeBlurH = new BABYLON.BlurPostProcess("gcodeBlurH", new BABYLON.Vector2(1, 0), DEFAULT_BLUR_LEVEL, 1, null, BABYLON.Texture.BILINEAR_SAMPLINGMODE, engine, false);

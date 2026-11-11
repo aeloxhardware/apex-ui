@@ -6,7 +6,7 @@ import { SketchBar } from './ModelingSketchBar';
 import { ModelingPanel } from './ModelingPanel';
 import { ModelingToolbar } from './ModelingToolbar';
 import { LiquidGlassShadow } from './LiquidGlassMorph';
-import { showError, showSuccess } from '@/utils/toast';
+import { showError } from '@/utils/toast';
 import type { Feature, FeatureKind, SketchEntityKind } from '@/modeling/types';
 import { useModelingMorph } from './useModelingMorph';
 import { useModelingSelection } from './useModelingSelection';
@@ -111,7 +111,6 @@ export const ModelingSidebar: React.FC<ModelingSidebarProps> = ({ morph }) => {
     // Même signal que le retrait de l'outil : déverrouille l'orbite et désactive le tracé.
     emitApex('apex-tool-changed', { tool: 'select' });
     emitApex('apex-sketch-plane-pick-cancel');
-    showSuccess('Esquisse terminée.');
   };
 
   const handleSketchEntity = (kind: SketchEntityKind) => {

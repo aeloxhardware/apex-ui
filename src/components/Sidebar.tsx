@@ -5,9 +5,8 @@ import clsx from 'clsx';
 import TransformBox from './TransformBox';
 import styles from './Sidebar.module.scss';
 import { getPreviewTab, setPreviewTab, usePreviewTab } from './PreviewUpperTabs';
-import { showSuccess } from '@/utils/toast';
 import { isDevModeEnabled, subscribeDevMode } from '@/utils/devModePrefs';
-import { TOOL_LABELS, iconVariants } from './sidebarData';
+import { iconVariants } from './sidebarData';
 import { useToolbarGeometry, useTabIndicator, useToolShortcuts, useSpaceEntryEvents, type SidebarTool } from './sidebarHooks';
 import { TopTabs, SlicerIcons, PreviewTabsSlot } from './SidebarParts';
 import { makePlaySpaceTransition, makeTopTabClick, makeEnterPreview, toolbarMotion } from './sidebarTransitions';
@@ -29,7 +28,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   onTabChange,
 }) => {
-  const [activeTool, setActiveTool] = useState<SidebarTool>('select');
+  const [activeTool, setActiveToolState] = useState<SidebarTool>('select');
+  // Le menu d'auto-disposition est un outil de la barre au même titre que les autres : un seul à la fois.
+  const [arrangeOpen, setArrangeOpen] = useState(false);
+  const setActiveTool = (tool: SidebarTool) => { setActiveToolState(tool); setArrangeOpen(false); };
+  const handleArrangeOpenChange = (open: boolean) => {
+    setArrangeOpen(open);
+    if (!open || activeTool === 'select') return;
+    setActiveToolState('select');
+    emitApex('apex-tool-changed', { tool: 'select' });
+  };
   const [isPreviewActive, setIsPreviewActive] = useState(false);
   const previewTab = usePreviewTab();
   const [devMode, setDevModeState] = useState(isDevModeEnabled);
@@ -46,7 +54,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   /** L'onglet « Modélisation » porte la valeur 'settings'. */
   const isModeling = activeTab === 'settings';
   /** Accueil et Paramètres : le viewport et ses outils n'ont plus de sens, la barre d'outils fondu-glisse en dehors. */
-  const isParams = activeTab === 'params' || activeTab === 'home';
+  const hideToolbar = ['params', 'home', 'developer'].includes(activeTab); // pilule d'outils masquée (Paramètres, Accueil, Dev)
   const geo = useToolbarGeometry(isModeling, isPreviewActive);
   const { fromGeometry, setFromGeometry, boxWidth, bottomToolbarRef, targetGeometry, sketchReshape, setSketchReshape } = geo;
   const indicator = useTabIndicator(activeTab, activeTool);
@@ -58,15 +66,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const handleTopTabClick = makeTopTabClick(transitionCtx, playSpaceTransition);
   const enterPreview = makeEnterPreview(transitionCtx, playSpaceTransition);
 
-  const announceTool = (tool: keyof typeof TOOL_LABELS) => {
-    showSuccess(`Outil ${TOOL_LABELS[tool]} activé.`);
-  };
-
   const handleToolClick = (tool: 'select' | 'move' | 'rotate' | 'scale' | 'texture') => {
     const newTool = activeTool === tool ? 'select' : tool;
     setActiveTool(newTool);
     emitApex('apex-tool-changed', { tool: newTool });
-    announceTool(newTool);
   };
 
 
@@ -86,11 +89,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   useSpaceEntryEvents({ activeTab, isPreviewActive, isModeling, handleTopTabClick, enterPreview });
-  useToolShortcuts(activeTool, isPreviewActive, (tool, announce) => {
+  useToolShortcuts(activeTool, isPreviewActive, (tool) => {
     setActiveTool(tool);
     emitApex('apex-tool-changed', { tool });
-    if (announce) announceTool(tool as keyof typeof TOOL_LABELS);
-  }, () => announceTool('select'));
+  }, () => undefined);
 
   return (
     <div className={styles.container} data-apex-chrome-panel>
@@ -112,18 +114,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
         // en Paramètres, le pilule d'outils du viewport n'a plus lieu d'être affichée — elle
         // fondu-glisse en dehors plutôt que de se déformer vers un gabarit qui n'existe pas
         // pour cet espace.
-        animate={{ opacity: isParams ? 0 : 1, y: isParams ? 24 : 0 }}
+        animate={{ opacity: hideToolbar ? 0 : 1, y: hideToolbar ? 24 : 0 }}
         transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-        style={{ pointerEvents: isParams ? 'none' : 'auto' }}
+        style={{ pointerEvents: hideToolbar ? 'none' : 'auto' }}
       >
       <motion.div
         ref={bottomToolbarRef}
+        data-apex-toolbar
         className={clsx(styles.toolbar, styles.bottomToolbar)}
         initial={false}
         {...toolbarMotion(fromGeometry, targetGeometry, sketchReshape, isModeling || boxWidth !== null ? targetGeometry.width : "auto")}
         style={{ originX: 0.5, originY: 0.5, pointerEvents: 'auto' }}
       >
-          <SlicerIcons hidden={isPreviewActive || isModeling} activeTool={activeTool} onToolClick={handleToolClick} onUploadClick={() => fileInputRef.current?.click()} />
+          <SlicerIcons hidden={isPreviewActive || isModeling} activeTool={arrangeOpen ? null : activeTool} onToolClick={handleToolClick} onUploadClick={() => fileInputRef.current?.click()} arrangeOpen={arrangeOpen} onArrangeOpenChange={handleArrangeOpenChange} />
 
         <PreviewTabsSlot visible={isPreviewActive && !isModeling} devMode={devMode} previewTab={previewTab} />
 
@@ -142,7 +145,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         />
 
         {!isPreviewActive && !isModeling && (activeTool === 'move' || activeTool === 'rotate' || activeTool === 'scale') && (
-          <TransformBox tool={activeTool} />
+          <TransformBox tool={activeTool} anchorRef={bottomToolbarRef} />
         )}
 
         <input

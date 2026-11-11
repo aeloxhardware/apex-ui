@@ -1,6 +1,6 @@
 .leftSidebarContainer {
   position: fixed;
-  left: 24px;
+  left: 12px;
   top: 212px;
   display: flex;
   flex-direction: column;
@@ -13,29 +13,53 @@
   flex-direction: row;
   width: 293px;
   max-width: 293px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scroll-behavior: smooth;
+  overflow: hidden;
   gap: 6px;
   pointer-events: auto;
-  background: rgba(10, 15, 26, 0.25);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  background: rgba(10, 15, 26, 0.5);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: none;
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
-  padding: 8px;
-  border-radius: 20px;
-
-  scrollbar-width: none;
-
-  &::-webkit-scrollbar {
-    display: none;
-  }
+  padding: 6px;
+  border-radius: 18px;
 
   > div {
     width: auto;
     flex: 0 0 auto;
     transition: opacity 0.2s ease;
+  }
+
+  // Défilement horizontal des catégories (cf. FadeScroller.tsx) : le bout du contenu s'estompe, en fondu, vers le bord
+  // où il continue. Le masque ne porte que sur ce défilement, pas sur le verre de la pilule.
+  > .categoriesScroll {
+    flex: 0 1 auto;
+    min-width: 0;
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+    --fade-px: 28px;
+    mask-image: linear-gradient(
+      to right,
+      rgba(0, 0, 0, var(--fade-left, 1)) 0,
+      #000 var(--fade-px),
+      #000 calc(100% - var(--fade-px)),
+      rgba(0, 0, 0, var(--fade-right, 1)) 100%
+    );
+    -webkit-mask-image: linear-gradient(
+      to right,
+      rgba(0, 0, 0, var(--fade-left, 1)) 0,
+      #000 var(--fade-px),
+      #000 calc(100% - var(--fade-px)),
+      rgba(0, 0, 0, var(--fade-right, 1)) 100%
+    );
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
   }
 
   // Pendant un morphing (cf. LiquidGlassMorph), le verre animé tient lieu de fond : la pilule
@@ -59,7 +83,7 @@
   justify-content: center;
   width: auto;
   min-width: 40px;
-  height: 40px;
+  height: 30px;
   padding: 0 12px;
   gap: 8px;
   flex: 0 0 auto;
@@ -79,7 +103,6 @@
   &.active {
     background: rgba(0, 240, 255, 0.18);
     color: #00f0ff;
-    box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
   }
 
   &.disabledButton {
@@ -91,7 +114,7 @@
 
 .categoryLabel {
   white-space: nowrap;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
 }
 
@@ -101,7 +124,7 @@
 // pilule (top 212), fin à 236px du bas de l'écran.
 %previewPanelBase {
   position: fixed;
-  left: 24px;
+  left: 12px;
   width: 440px; // PREVIEW_W (spaceMorphGeometry.ts)
   border: none;
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
@@ -114,11 +137,11 @@
     content: '';
     position: absolute;
     inset: 0;
-    background: rgba(10, 15, 26, 0.25);
-    // 2,5× le verre standard (4px) — même valeur que PREVIEW_GLASS_BLUR_PX (LiquidGlassMorph.tsx),
-    // flou de fin du morphing qui fait naître ces panneaux.
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    background: rgba(10, 15, 26, 0.5);
+    // Même valeur que PREVIEW_GLASS_BLUR_PX (LiquidGlassMorph.tsx), flou de fin du morphing qui fait
+    // naître ces panneaux ; la teinte est celle de .glass (LiquidGlassMorph.module.scss).
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     z-index: -1;
     border-radius: inherit;
     pointer-events: none;
@@ -216,10 +239,12 @@
 
 .fusionMenuContainer {
   position: fixed;
-  left: 24px;
-  top: 280px;
+  left: 12px;
+  top: 266px;
   width: 320px;
-  max-height: 400px;
+  // Jusqu'en bas de la zone, à 60 px du bord : la place laissée par la pastille de statut, déplacée en bas à droite.
+  // `--menu-top` : le haut réel du panneau, repoussé par l'arborescence des modèles (cf. CategoriesPanels.tsx).
+  max-height: calc(100% - var(--menu-top, 266px) - 60px);
   border: none;
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
   border-radius: 16px;
@@ -233,9 +258,9 @@
     content: '';
     position: absolute;
     inset: 0;
-    background: rgba(10, 15, 26, 0.25);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
+    background: rgba(10, 15, 26, 0.5);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     z-index: -1;
     border-radius: inherit;
     pointer-events: none;
@@ -263,13 +288,15 @@
 // Le mécanisme d'ouverture/fermeture du panneau est fonctionnel, mais son contenu (réglages
 // qualité/solidité/vitesse) n'est pas encore branché : grisé et non interactif, tooltip "Arrive
 // bientôt" sur chaque ligne (cf. CategoriesSidebar.tsx).
+
 .itemRowInert {
   flex: 1 1 auto;
   min-width: 0;
-  opacity: 0.45;
-  filter: grayscale(1);
   cursor: default;
   pointer-events: none;
+
+  opacity: 0.45;
+  filter: grayscale(1);
 
   // grayscale() désature mais ne neutralise pas la luminosité : le cyan très saturé de .itemInput (#00f0ff, cf. plus
   // bas) restait visuellement "vif" une fois désaturé en gris clair. On écrase sa couleur pour un gris terne.
@@ -286,12 +313,12 @@
 
   .compactField {
     flex: 0 0 auto;
-    width: 112px;
-    min-height: 26px;
+    width: 118px;
+    min-height: 28px;
     border-radius: 6px;
 
     input {
-      font-size: 11px;
+      font-size: 13px;
       padding: 0 6px;
     }
   }
@@ -307,16 +334,16 @@
   align-items: center;
   flex: 0 0 auto;
   color: #00f0ff;
-  font-size: 11px;
+  font-size: 13px;
 }
 
 .fusionMenuContent {
   padding: 16px;
   overflow-y: scroll;
-  max-height: 400px;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   border-radius: 16px;
 
   &::-webkit-scrollbar {
@@ -361,7 +388,7 @@
   background: transparent;
   color: rgba(255, 255, 255, 0.55);
   font: inherit;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
 }
@@ -376,14 +403,20 @@
   cursor: default;
 }
 
+// Sous-panneau d'une catégorie de réglages, DANS le grand panneau : un creux plus sombre (pas de verre propre : un flou
+// imbriqué dans celui du panneau ne verrait que le panneau).
 .sectionGroup {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding: 12px 10px 10px;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.22);
+  box-shadow: inset 0 1px 6px rgba(0, 0, 0, 0.25);
 }
 
 .sectionTitle {
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 600;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.45);
@@ -408,7 +441,7 @@
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
   padding: 8px 10px;
   border-radius: 8px;
-  font-size: 11px;
+  font-size: 13px;
   color: rgba(255, 255, 255, 0.9);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   transform: perspective(400px) translateZ(0px);
@@ -445,7 +478,7 @@
   border-radius: 4px;
   color: #00f0ff;
   text-align: center;
-  font-size: 11px;
+  font-size: 13px;
   padding: 2px 4px;
   outline: none;
 
@@ -463,7 +496,7 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
   border-radius: 6px;
   color: #00f0ff;
-  font-size: 11px;
+  font-size: 13px;
   padding: 4px 8px;
   transition: all 0.2s;
   max-width: 140px;
@@ -496,9 +529,9 @@
 .patternGlass {
   position: absolute;
   inset: 0;
-  background: rgba(10, 15, 26, 0.25);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  background: rgba(10, 15, 26, 0.5);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
   border-radius: inherit;
   z-index: -1;
@@ -531,7 +564,7 @@
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
   padding: 8px 10px;
   border-radius: 8px;
-  font-size: 11px;
+  font-size: 13px;
   color: rgba(255, 255, 255, 0.9);
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);

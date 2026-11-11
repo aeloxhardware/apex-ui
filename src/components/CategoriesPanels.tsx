@@ -1,9 +1,11 @@
 import React from 'react';
 import clsx from 'clsx';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, type MotionStyle } from 'framer-motion';
 import { Check } from 'lucide-react';
 import { CustomTooltip } from './CustomTooltip';
 import { EngineItemRow } from './EngineItemRow';
+import { FadeScroller } from './FadeScroller';
+import { menuEnterVariants, menuItemEnterVariants } from './categoryMenuMotion';
 import { InfillPatternIcon } from './InfillPatternIcon';
 import { ENGINE_PATTERN_ICON, ORCA_ONLY_PATTERNS } from '@/utils/orcaInfillPatterns';
 import { ENUM_DESCRIPTIONS, ENUM_LABELS, getEngineSetting, getEngineSettingValue, setEngineSettingValue } from '@/utils/engineSettings';
@@ -127,7 +129,6 @@ export const CategoryPill: React.FC<CategoryPillProps> = ({
               que la fusion inverse démarre, jusqu'à avoir repris sa forme. */}
           {(!previewActive || !previewPanelsBorn || previewMorphPhase === 'reverse') && (
             <motion.div
-              ref={toolbarRef}
               data-apex-tooltip="Catégories de réglages de découpe (qualité, solidité, vitesse…) : cliquez une icône pour ouvrir ses paramètres."
               className={clsx(styles.categoriesToolbar, {
                 [styles.morphing]: morphPhase !== null || previewMorphPhase !== null,
@@ -153,6 +154,7 @@ export const CategoryPill: React.FC<CategoryPillProps> = ({
                   d'apparition au retour d'un morph de sortie (wasArrivingFromModeling), une fois la
                   déformation terminée. Hors de ces cas, `animate="visible"` sans délai, comme un
                   menu statique normal. */}
+              <FadeScroller ref={toolbarRef} className={styles.categoriesScroll}>
               <motion.div
                 variants={pillIconsContainerVariants}
                 // Pendant la déformation inverse (Prévisualisation → Préparation), les icônes
@@ -177,13 +179,13 @@ export const CategoryPill: React.FC<CategoryPillProps> = ({
                         })}
                         onClick={() => onCategoryClick(cat)}
                       >
-                        {cat.icon}
                         <span className={styles.categoryLabel}>{cat.label}</span>
                       </motion.button>
                     </CustomTooltip>
                   );
                 })}
               </motion.div>
+              </FadeScroller>
             </motion.div>
           )}
         </AnimatePresence>
@@ -271,6 +273,8 @@ export const PreviewPanels: React.FC<PreviewPanelsProps> = ({
 };
 
 interface CategoryMenuProps {
+  /** Joue l'entrée séquentielle ci-dessus ; faux au retour d'un morphing (le verre animé tient lieu d'entrée). */
+  animateIn: boolean;
   activeCatData: CategoryItem | undefined;
   previewActive: boolean;
   menuContainerRef: React.RefObject<HTMLDivElement | null>;
@@ -286,7 +290,7 @@ interface CategoryMenuProps {
 
 /** Menu détaillé d'une catégorie (réglages du moteur) et sa fenêtre de motifs. */
 export const CategoryMenu: React.FC<CategoryMenuProps> = ({
-  activeCatData, previewActive, menuContainerRef, morphPhase, modelTreeOverflow, contentRef, thumb,
+  animateIn, activeCatData, previewActive, menuContainerRef, morphPhase, modelTreeOverflow, contentRef, thumb,
   patternContentRef, patternThumb, isPatternPopupOpen, setIsPatternPopupOpen,
 }) => (
       <AnimatePresence>
@@ -301,10 +305,14 @@ export const CategoryMenu: React.FC<CategoryMenuProps> = ({
                 [styles.morphing]: morphPhase !== null,
               })}
               // Le menu suit la pilule quand l'arborescence des modèles / la carte Filament la repoussent.
-              style={modelTreeOverflow > 0 ? { top: 280 + modelTreeOverflow } : {}}
-              initial={false}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0 }}
+              style={{
+                '--menu-top': `${266 + modelTreeOverflow}px`,
+                ...(modelTreeOverflow > 0 ? { top: 266 + modelTreeOverflow } : {}),
+              } as MotionStyle}
+              variants={menuEnterVariants}
+              initial={animateIn && morphPhase === null ? 'hidden' : false}
+              animate="shown"
+              exit={{ opacity: 0, transition: { duration: 0 } }}
             >
               <div
                 ref={contentRef}
@@ -313,17 +321,17 @@ export const CategoryMenu: React.FC<CategoryMenuProps> = ({
               >
                 {/* Portée des réglages, comme « Global / Objets » d'OrcaSlicer. Les réglages par objet n'existent
                     pas encore côté moteur : « Par objet » est visible mais inactif. */}
-                <div className={styles.scopeSwitch}>
+                <motion.div variants={menuItemEnterVariants} className={styles.scopeSwitch}>
                   <CustomTooltip content="Global" description="Les réglages s'appliquent à tout le plateau.">
                     <button type="button" className={clsx(styles.scopeButton, styles.scopeActive)}>Global</button>
                   </CustomTooltip>
                   <CustomTooltip content="Arrive bientôt" description="Réglages propres à chaque objet du plateau, qui remplacent les réglages globaux pour cet objet.">
                     <button type="button" className={clsx(styles.scopeButton, styles.scopeInert)} aria-disabled="true" tabIndex={-1}>Par objet</button>
                   </CustomTooltip>
-                </div>
+                </motion.div>
                 {activeCatData.sections.map((section, idx) => (
                   <div key={idx} className={styles.sectionGroup}>
-                    <h4 className={styles.sectionTitle}>{section.title}</h4>
+                    <motion.h4 variants={menuItemEnterVariants} className={styles.sectionTitle}>{section.title}</motion.h4>
                     <ul className={styles.itemsList}>
                       {section.items.map((item, iIdx) => item.engine ? (
                         <EngineItemRow
@@ -333,7 +341,7 @@ export const CategoryMenu: React.FC<CategoryMenuProps> = ({
                         />
                       ) : (
                         <CustomTooltip key={iIdx} content="Arrive bientôt" description={item.description}>
-                          <li className={clsx(styles.itemRow, styles.itemRowInert)}>
+                          <motion.li variants={menuItemEnterVariants} className={clsx(styles.itemRow, styles.itemRowInert)}>
                             <span className={styles.itemName}>{item.label}</span>
                             <input
                               type="text"
@@ -342,7 +350,7 @@ export const CategoryMenu: React.FC<CategoryMenuProps> = ({
                               readOnly
                               tabIndex={-1}
                             />
-                          </li>
+                          </motion.li>
                         </CustomTooltip>
                       ))}
                     </ul>

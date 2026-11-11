@@ -171,6 +171,7 @@ function wireSplash(win, splash, splashShownAt) {
     // écran noir le temps du premier affichage. On la montre donc invisible (opacité 0), on attend que le
     // compositeur ait présenté des images, puis on l'opacifie et on ferme le splash dans la foulée.
     win.setOpacity(0);
+    win.maximize();
     win.show();
     const present = () => {
       if (!win.isDestroyed()) win.setOpacity(1);
@@ -206,8 +207,9 @@ function createWindow() {
   const splashShownAt = Date.now();
   const win = newMainWindow();
 
-  // Lancement agrandi (animations natives de Windows pour agrandir / restaurer ensuite).
-  win.maximize();
+  // Lancement agrandi (animations natives de Windows pour agrandir / restaurer ensuite) : la maximisation est faite
+  // à la révélation (cf. wireSplash). `maximize()` AFFICHE la fenêtre sous Windows, même créée avec `show: false` :
+  // appelée ici, elle apparaissait pendant le chargement, à côté du splash.
   wireSplash(win, splash, splashShownAt);
 
   // Alt sert de modificateur (poignées du nœud d'édition : Alt + glisser) : relâcher Alt ne doit

@@ -1,13 +1,11 @@
 // Géométrie du menu et durées des animations de CategoriesSidebar.tsx.
 
-// Géométrie du menu de catégorie, en px, dans le repère de la pilule (fixed, left 24 / top 212).
+// Géométrie du menu de catégorie, en px, dans le repère de la pilule (fixed, left 12 / top 212).
 // Doit rester alignée sur CategoriesSidebar.module.scss (.leftSidebarContainer,
 // .categoriesToolbar, .fusionMenuContainer).
-export const MENU_OFFSET_Y = 68; // .fusionMenuContainer : top 280
+export const MENU_OFFSET_Y = 54; // .fusionMenuContainer : top 266 (= PILL_TOP 212 + PILL.h 42 + 12)
 export const MENU_W = 320;
 export const MENU_R = 16;
-// Panneau (max-height 400) + la marge que prend le col en s'étirant avant de se rompre.
-export const MENU_STAGE_H = MENU_OFFSET_Y + 400 + 40;
 export const MENU_MORPH_MS = 700;
 
 // Prévisualisation : panneau du haut sur toute la hauteur disponible, panneau du bas de hauteur

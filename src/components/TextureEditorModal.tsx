@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styles from './TextureEditorModal.module.scss';
 import { Palette, X, Check, Info } from 'lucide-react';
-import { showSuccess } from '@/utils/toast';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { emitApex } from '@/events/apexEvents';
@@ -287,7 +286,6 @@ export const TextureEditorModal: React.FC = () => {
               <button 
                 className={styles.saveBtn}
                 onClick={() => {
-                  showSuccess("Texture mise à jour sur le modèle 3D !");
                 }}
               >
                 Appliquer

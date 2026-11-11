@@ -1,14 +1,22 @@
+// En haut à droite, aligné sur la barre des axes (AxisSidebar : top 12, right 12) et posé juste à sa gauche : la barre des
+// axes (interrupteur de perspective + 3 AXES / 5 AXES) occupe ~ 200 px depuis le bord droit.
 .container {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
+  top: 12px;
+  right: 220px;
   display: flex;
   align-items: center;
   z-index: 1000;
   pointer-events: none;
 }
 
+.inSlot {
+  position: static;
+}
+
 .toolbar {
+  height: 44px; // = barre des axes (AxisSidebar.module.scss)
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -20,9 +28,8 @@
   -webkit-backdrop-filter: blur(4px);
   border: none;
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
-  padding: 8px 16px;
+  padding: 4px 6px;
   border-radius: 16px;
-  width: 293px;
 }
 
 .button {
@@ -40,10 +47,10 @@
 .sliceButton {
   background: rgba(0, 240, 255, 0.12);
   color: #00f0ff;
-  padding: 10px 16px;
+  padding: 8px 16px;
   border-radius: 12px;
   border: none;
-  width: 100%;
+  white-space: nowrap;
   justify-content: center;
   
   &:hover:not(:disabled) {

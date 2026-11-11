@@ -6,6 +6,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { ORCA } = require('./orca-index.cjs');
+const { finishFor, loadOverrides } = require('./filamentFinish.cjs');
 
 const BOM = String.fromCharCode(0xfeff);
 const all = {};
@@ -35,6 +36,7 @@ const flatten = (name, seen = new Set()) => {
 const first = (v) => (Array.isArray(v) ? v[0] : v);
 const num = (v) => { const n = parseFloat(first(v)); return Number.isFinite(n) ? n : null; };
 
+const finishOverrides = loadOverrides();
 const byKey = new Map();
 for (const name of Object.keys(all)) {
   const raw = all[name];
@@ -58,6 +60,8 @@ for (const name of Object.keys(all)) {
     flow_ratio: num(f.filament_flow_ratio),
     max_volumetric_speed: num(f.filament_max_volumetric_speed),
     color: first(f.default_filament_colour) || null,
+    // Brillance : absente des profils Orca, indexée par filamentFinish.cjs (règles sur le nom + corrections vérifiées).
+    finish: finishFor(raw.__vendor, display, first(f.filament_type) ?? null, finishOverrides),
     orca_source: name,
   });
 }

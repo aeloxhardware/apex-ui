@@ -474,11 +474,15 @@ export class OrcaRotateGizmo {
     if (Math.abs(delta) < 1e-9) return;
     this.applied = theta;
     mesh.rotateAround(this.pivot, ring.axis, delta);
-    // La rotation laisse le pivot en place ; le rappel peut ensuite reposer le modèle sur le plateau,
-    // et le pivot suit ce décalage. Les anneaux, eux, ne bougent pas avant le relâchement.
+    // La rotation laisse le pivot en place ; le rappel peut ensuite reposer le modèle sur le plateau.
+    // Le pivot suit ce décalage ET les anneaux avec lui : la rotation se fait donc toujours autour du
+    // centre du cercle affiché, qui reste confondu avec le centre pris au départ du glissement.
     const afterRotation = mesh.position.clone();
     this.options.onRotated(mesh);
-    this.pivot.addInPlace(mesh.position.subtract(afterRotation));
+    const shift = mesh.position.subtract(afterRotation);
+    this.pivot.addInPlace(shift);
+    this.center.copyFrom(this.pivot);
+    this.layoutRings();
   }
 
   private endDrag() {

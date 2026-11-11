@@ -1,24 +1,8 @@
-import React, {  } from 'react';
-import {
-  Layers,
-  BicepsFlexed,
-  Gauge,
-  Sparkles,
-  Terminal} from 'lucide-react';
-
-// Icône personnalisée "Supports" : barres verticales évoquant une structure de support
-const SupportsIcon = () => (
-  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-    <path d="M6 4v16M10.5 4v16M15 4v16M19 4v16" />
-  </svg>
-);
-
 export interface CategoryItem {
   id: string;
   title: string;
   label: string;
   description: string;
-  icon: React.ReactNode;
   disabled?: boolean;
   sections: {
     title: string;
@@ -35,7 +19,6 @@ export const CATEGORIES: CategoryItem[] = [
     title: 'Quality (Qualité)',
     label: 'Qualité',
     description: 'Paramétrez la hauteur de couche, la vitesse globale, la précision des parois, les porte-à-faux, la couture et la compensation d’isolation.',
-    icon: <Sparkles size={20} />,
     sections: [
       {
         title: 'Hauteur de couche',
@@ -85,7 +68,6 @@ export const CATEGORIES: CategoryItem[] = [
     title: 'Strength (Solidité)',
     label: 'Solidité',
     description: 'Configurez les parois, les coques, le remplissage et l’ancrage des structures.',
-    icon: <BicepsFlexed size={20} />,
     sections: [
       {
         title: 'Parois & coques',
@@ -109,7 +91,6 @@ export const CATEGORIES: CategoryItem[] = [
     title: 'Speed (Vitesse)',
     label: 'Vitesse',
     description: 'Réglez l’accélération, les vitesses spécifiques et la vitesse de rétraction.',
-    icon: <Gauge size={20} />,
     sections: [
       {
         title: 'Accélération & vitesses',
@@ -145,7 +126,6 @@ export const CATEGORIES: CategoryItem[] = [
     title: 'Support (Support & Adhérence)',
     label: 'Supports',
     description: 'Configurez les supports, leurs interfaces et l’adhérence au plateau.',
-    icon: <SupportsIcon />,
     sections: [
       {
         title: 'Supports',
@@ -171,7 +151,6 @@ export const CATEGORIES: CategoryItem[] = [
     title: 'Others (Autres)',
     label: 'Autre',
     description: 'Regroupez les options avancées, la ventilation fine, la purge multi-couleurs et les scripts.',
-    icon: <Layers size={20} />,
     sections: [
       {
         title: 'Impression & ventilation',
@@ -196,7 +175,6 @@ export const CATEGORIES: CategoryItem[] = [
     title: 'Others/G-code (Flotteurs spécifiques)',
     label: 'G-code spécifique',
     description: 'Regroupez les paramètres d’exclusion d’objets, de pauses intermédiaires et d’optimisation de trajectoire.',
-    icon: <Terminal size={20} />,
     sections: [
       {
         title: 'Paramètres spécifiques',

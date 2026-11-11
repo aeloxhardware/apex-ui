@@ -41,8 +41,8 @@ interface LiquidGlassMorphProps extends LiquidGlassMorphTimingProps {
 
 /** Flou du verre standard (.glass, pilule, menus, panneau Modélisation). */
 export const GLASS_BLUR_PX = 4;
-/** Flou des deux panneaux de Prévisualisation (.previewPanelUpper/.previewPanelLower) : 2,5×. */
-export const PREVIEW_GLASS_BLUR_PX = 10;
+/** Flou des deux panneaux de Prévisualisation (.previewPanelUpper/.previewPanelLower) : 4×. */
+export const PREVIEW_GLASS_BLUR_PX = 16;
 
 /** Pose un flou de verre interpolé entre `from` (t = 0) et `to` (t = 1) sur `el`. */
 export function applyGlassBlur(el: HTMLElement, from: number, to: number, t: number) {

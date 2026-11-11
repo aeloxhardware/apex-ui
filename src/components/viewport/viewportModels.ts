@@ -195,7 +195,7 @@ function suggestUnitForImport(st: ViewportState, name: string, boundingInfo: { m
 }
 
 /** Sélectionne le modèle importé et en informe l'interface. */
-function announceImport(st: ViewportState, r: BABYLON.AbstractMesh, uniqueName: string) {
+function announceImport(st: ViewportState, r: BABYLON.AbstractMesh) {
   const { applyModelShading, selectedMeshesRef, setSelectedMeshName, updateHighlight, updateSelectedPosition, updateSelectedRotation } = st;
   applyModelShading();
   selectedMeshesRef.current.clear();
@@ -209,7 +209,6 @@ function announceImport(st: ViewportState, r: BABYLON.AbstractMesh, uniqueName: 
         name: r.name || "Modèle 3D",
         subMeshes: describeSubMeshes(r),
       });
-  showSuccess(`Modèle importé : ${uniqueName}.`);
 }
 
 /** Active le gizmo de l'outil courant sur le modèle importé (sans toucher aux autres gizmos hors outil). */
@@ -259,7 +258,7 @@ function setupOnImportModel(st: ViewportState) {
         const boundingInfo = placeImportedModel(st, r, isGlbOrGltf);
         modelsRef.current.add(r);
         suggestUnitForImport(st, r.name, boundingInfo);
-        announceImport(st, r, uniqueName);
+        announceImport(st, r);
         recordCreatedModels(st, [r]);
         attachGizmoAfterImport(st, r);
         if (getArrangePrefs().arrangeOnImport) emitApex('apex-arrange-models');

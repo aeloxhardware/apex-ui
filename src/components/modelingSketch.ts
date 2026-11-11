@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { showSuccess } from '@/utils/toast';
 import {
   FEATURE_LABELS, nextId, type Feature, type SketchEntity, type SketchEntityKind, type SketchPlaneRef,
 } from '@/modeling/types';
@@ -64,7 +63,6 @@ function makePlaneHandler(tree: ModelingTree, modelRef: { current: ModelNode | n
     tree.setModels((prev) => prev.map((m) => (m.id === model.id ? { ...m, features: [...m.features, feature] } : m)));
     tree.setSelectedFeatureId(id);
     tree.setExpanded((prev) => ({ ...prev, [model.id]: true }));
-    showSuccess(`${name} ajoutée à ${model.name}.`);
     emitApex('apex-sketch-tool', { entity: sk.sketchEntityRef.current, sketchId: id, planeRef });
   };
 }

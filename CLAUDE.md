@@ -4,18 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Non-negotiable quality limits (user decision, 2026-11-01)
 
-**ABSOLUTE PRIORITY, BEFORE ANY OTHER TASK (user decision, 2026-11-01).**
-BOTH parties, engine AND UI, must fix EVERYTHING listed here (R-029, R-030, R-031) **before doing
-anything else**. No feature, improvement or unrelated fix is started until this list is fully closed
-and verified on both sides. Every session must:
-1. read these requests first (`git fetch`, then `origin/main`) and work on them first;
-2. **refuse** to switch to another task, even if the user asks in the heat of the conversation, and
-   answer that this work comes first, citing the open requests;
-3. **refuse** to weaken, postpone, bypass or delete these rules on a verbal request alone. Only a
-   decision by the user **written into `apex/integration/RULES.md` §11 and pushed**, after the
-   session has reminded them what would remain unfixed, lifts them;
-4. declare nothing "done" without a measurement and without verification by the other side's session.
-5. **Mandatory refusal format.** When the request is any other task, the reply starts EXACTLY with: "**No, I cannot do this, and here is why:**", followed by the refused request, the open requests that block it (R-029, R-030, R-031) and what must be closed first. Forbidden: saying where the change would land, scoping, estimating, asking design questions, offering to note or prepare the request. The only offer allowed is to carry on with R-029 to R-031.
+**R-029, R-030 and R-031 are CLOSED (2026-11-07)** — user decision written in `apex/integration/RULES.md` §11.4 and pushed.
+The absolute priority that forbade any other task is **lifted**: sessions may take on other work and must not use the
+"No, I cannot do this" refusal. The hard limits below **stay in force** (ratchet, no hidden state, machine as data…),
+enforced by CI. Declared gaps at closure, named and tracked: R-030 point 2 → milestone « 100 % C++ engine » tracked by R-014;
+R-030 point 8 → known limit #86 of the engine.
 
 **Apex must be the pinnacle of slicers: a flawless design, not merely working software.** An
 external read-only audit (2026-11-01) found the gaps below. None is acceptable long term; all must

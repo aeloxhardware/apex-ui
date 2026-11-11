@@ -321,7 +321,7 @@ function setupRenderPipeline(st: ViewportState) {
   // mesure qu'on s'éloigne du centre, pour donner l'impression d'une étendue sans limite
   // visible plutôt qu'une pièce fermée. Contrairement à l'ancien fond CSS derrière le canvas,
   // cette géométrie réelle peut être capturée et floutée par le disque "verre dépoli" du plateau.
-  const backdropColor = "#2A2D33";
+  const backdropColor = "#33373F"; // = fond de la page (Index.tsx) : le dessous flouté du plateau doit s'y confondre
   const backdropSize = 20000;
   Object.assign(st, { renderPipeline, backdropColor, backdropSize });
 }
@@ -353,12 +353,19 @@ function setupBackdropMat(st: ViewportState) {
       void main(void) {
         vec2 p = vWorldPos.xz - uCenter.xz;
         vec2 g = abs(fract(p / uStep - 0.5) - 0.5) * uStep;
+        // Taille d'un pixel de l'écran dans le monde, PAR AXE : la demi-épaisseur des lignes (uLineWidth, en pixels)
+        // est convertie avec elle. Une épaisseur fixe dans le monde était écrasée par la perspective sur les
+        // lignes qui traversent l'écran, qui paraissaient plus fines que celles qui partent vers l'horizon.
         vec2 derivative = fwidth(p);
-        vec2 lineAA = smoothstep(uLineWidth - derivative, uLineWidth + derivative, g);
+        vec2 halfWidth = uLineWidth * derivative;
+        vec2 lineAA = smoothstep(halfWidth - derivative, halfWidth + derivative, g);
         float line = 1.0 - min(lineAA.x, lineAA.y);
+        // Quand un pixel couvre une bonne part d'une maille (lointain, vue rasante), les lignes se noieraient
+        // dans un aplat : on les estompe.
+        float resolvable = 1.0 - smoothstep(uStep * 0.15, uStep * 0.45, max(derivative.x, derivative.y));
         float dist = length(p);
         float fade = 1.0 - smoothstep(uFadeStart, uFadeEnd, dist);
-        float alpha = line * fade;
+        float alpha = line * fade * resolvable;
         gl_FragColor = vec4(uLineColor, alpha);
       }
     `;
@@ -368,11 +375,12 @@ function setupBackdropMat(st: ViewportState) {
     needAlphaBlending: true,
   });
   backdropMat.setColor3("uBgColor", BABYLON.Color3.FromHexString(backdropColor));
-  // Lignes discrètes : léger éclaircissement du gris de fond, pas un blanc pur.
-  backdropMat.setColor3("uLineColor", BABYLON.Color3.FromHexString(backdropColor).add(new BABYLON.Color3(0.05, 0.05, 0.05)));
+  // Lignes discrètes : éclaircissement du gris de fond (assez pour trancher sur le fond clarifié), pas un blanc pur.
+  backdropMat.setColor3("uLineColor", BABYLON.Color3.FromHexString(backdropColor).add(new BABYLON.Color3(0.15, 0.15, 0.15)));
   backdropMat.setVector3("uCenter", BABYLON.Vector3.Zero());
   backdropMat.setFloat("uStep", 25);
-  backdropMat.setFloat("uLineWidth", 0.5);
+  // Demi-épaisseur des lignes, en pixels de l'écran (≈ 1,2 px au total), identique dans les deux directions.
+  backdropMat.setFloat("uLineWidth", 0.6);
   Object.assign(st, { backdropMat });
 }
 

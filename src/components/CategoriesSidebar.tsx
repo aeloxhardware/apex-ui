@@ -1,6 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useEngineSettings } from '@/utils/engineSettings';
-import { showSuccess } from '@/utils/toast';
 import { usePreviewPanelVars } from '@/hooks/use-preview-panel-vars';
 import { useExternalScrollThumb } from '@/hooks/use-external-scroll-thumb';
 import { CATEGORIES, type CategoryItem } from './categoriesData';
@@ -81,18 +80,15 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
 
 
   const handleCategoryClick = (cat: CategoryItem) => {
-    if (cat.disabled) {
-      showSuccess("Bientôt disponible");
-      return;
-    }
+    if (cat.disabled) return;
     // Pendant un morphing, ou en Prévisualisation où la pilule est en train de devenir un panneau.
     if (morphPhase || previewActive) return;
     setIsPatternPopupOpen(false);
 
-    if (activeCategory === cat.id) {
-      // Fermeture : le panneau se refond dans la pilule ; il n'est démonté qu'en fin d'animation.
-      setMorphPhase('merging');
-    } else if (activeCategory === null) {
+    // Un menu de la pilule reste toujours ouvert : recliquer sur le menu actif ne le ferme pas (on ne passe
+    // d'un menu à l'autre qu'en choisissant un autre bouton).
+    if (activeCategory === cat.id) return;
+    if (activeCategory === null) {
       setMorphPhase('dividing');
       onSelectCategory(cat.id);
     } else {
@@ -152,7 +148,7 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
 
 
       <CategoryMenu
-        activeCatData={CATEGORIES.find((c) => c.id === activeCategory)} previewActive={previewActive}
+        animateIn={!wasArrivingFromModeling} activeCatData={CATEGORIES.find((c) => c.id === activeCategory)} previewActive={previewActive}
         menuContainerRef={menuContainerRef} morphPhase={morphPhase} modelTreeOverflow={modelTreeOverflow}
         contentRef={contentRef} thumb={thumb} patternContentRef={patternContentRef} patternThumb={patternThumb}
         isPatternPopupOpen={isPatternPopupOpen} setIsPatternPopupOpen={setIsPatternPopupOpen}

@@ -5,7 +5,7 @@ $panel-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
 .container {
   position: fixed;
   top: 96px;
-  left: 24px;
+  left: 12px;
   width: 268px;
   // Même règle que modelingGeometry() dans spaceMorphGeometry.ts (MODELING_H plafonné par la
   // place entre top 96 et une marge basse de 96) : la dernière image du morph doit tomber
@@ -27,9 +27,10 @@ $panel-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  background: $panel-bg;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  // Verre fumé des grands panneaux latéraux (comme les panneaux de Préparation).
+  background: rgba(10, 15, 26, 0.5);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: none;
   border-radius: 18px;
   box-shadow: $panel-shadow;
