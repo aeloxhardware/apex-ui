@@ -1,0 +1,301 @@
+// Rectangle de verre de l'AMS (mêmes valeurs que GlassPanel, sans contour). Replié par défaut, développé au survol.
+@property --apex-fade {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+$ease: cubic-bezier(0.16, 1, 0.3, 1);
+$fade-length: 56px;
+
+.ams {
+  // Aucun texte de l'AMS n'est sélectionnable : glisser une bobine ne surligne plus rien.
+  user-select: none;
+  -webkit-user-select: none;
+  flex: none;
+  box-sizing: border-box;
+  width: var(--w-collapsed);
+  max-width: 100%;
+  height: 192px;
+  border-radius: 16px;
+  background: rgba(10, 15, 26, 0.25);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  // Deux parties dans les proportions du croquis : 110 px / 82 px sur 192 px.
+  display: grid;
+  grid-template-rows: 57fr 43fr;
+  transition: width 0.5s $ease, --apex-fade 0.5s $ease;
+}
+
+.overflowing {
+  --apex-fade: #{$fade-length};
+
+  &:hover {
+    width: var(--w-expanded);
+    --apex-fade: 0px;
+  }
+}
+
+// Plus de 12 filaments : le bout reste estompé même au survol (la partie basse ouvre tous les filaments).
+.overflowing.truncated:hover {
+  --apex-fade: #{$fade-length};
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  padding: 0 var(--pad);
+  min-width: 0;
+}
+
+// Partie basse plus sombre, séparée de la haute par un trait.
+.bottom {
+  display: flex;
+  align-items: flex-start;
+  position: relative;
+  padding: 7px var(--pad) 0;
+  min-width: 0;
+  background: rgba(0, 0, 0, 0.28);
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+  cursor: pointer;
+  transition: background 0.2s;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.18);
+  }
+}
+
+.track {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  mask-image: linear-gradient(to right, #000 calc(100% - var(--apex-fade)), transparent);
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--apex-fade)), transparent);
+}
+
+// Replié, la piste est plus longue que le boîtier : on la rogne à la longueur utile pour que le fondu tombe au bord.
+.overflowing .track {
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+
+.slot {
+  position: relative;
+  flex: none;
+  height: var(--h); // largeur et écart sont animés par framer-motion (AmsBox)
+}
+
+// Petit numéro sous chaque bobine (même largeur qu'elle, donc centré dessous).
+.number {
+  flex: none;
+  text-align: center;
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+// Matériau écrit à la verticale sur le filament de la bobine (lu de bas en haut), centré.
+.material {
+  position: absolute;
+  inset: 9% 13%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  overflow: hidden;
+  pointer-events: none;
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.25);
+}
+
+// Invite en bas à droite quand il y a plus de filaments que le survol n'en montre.
+.more {
+  position: absolute;
+  right: 12px;
+  bottom: 8px;
+  max-width: 190px;
+  text-align: right;
+  font-size: 10px;
+  line-height: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  pointer-events: none;
+}
+
+// Bobine : se saisit n'importe où pour la glisser ; l'icône « personne » ne s'affiche qu'au survol d'une bobine modifiée.
+.spoolBody {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  touch-action: none;
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+.person {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(10, 15, 26, 0.75);
+  border: 1px solid #00f0ff;
+  color: #00f0ff;
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
+}
+
+.spoolBody:hover .person {
+  opacity: 1;
+}
+
+// « + » : zone étroite entre deux bobines (ou au bout) ; le bouton n'apparaît que quand on passe dessus.
+.plusZone {
+  // Boîte de 20 px dont le CENTRE est posé à `left` (marges négatives) : le « + » est centré sur l'entre-deux.
+  position: absolute;
+  top: 50%;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+  z-index: 3;
+
+  // Zone de survol élargie autour du bouton : passer entre deux bobines suffit à le faire apparaître.
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -40px -4px;
+  }
+
+  .plus {
+    opacity: 0;
+  }
+
+  &:hover .plus {
+    opacity: 1;
+  }
+}
+
+// Traits blancs au-dessus et au-dessous du « + » entre deux bobines, avec une marge ; ils apparaissent avec lui.
+.plusLine {
+  position: absolute;
+  left: 50%;
+  width: 1.5px;
+  margin-left: -0.75px;
+  height: 17px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.9);
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
+}
+
+// 94 px de bobine : le trait part à 8 px du bord de la bobine et s'arrête à 8 px du bouton (rayon 14 px).
+.plusLineTop {
+  top: calc(50% - 39px);
+}
+
+.plusLineBottom {
+  top: calc(50% + 22px);
+}
+
+.plusZone:hover .plusLine {
+  opacity: 1;
+}
+
+// « + » de fin de rangée : un emplacement de bobine vide (même hauteur et mêmes animations), juste un « + » blanc.
+.addSlot {
+  flex: none;
+  height: var(--h);
+}
+
+.addSlotButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  opacity: 0.85;
+  transition: opacity 0.15s, transform 0.15s;
+
+  &:hover {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
+.plus {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  border: 0;
+  // Ni contour ni filtre de couleur : du flou seulement (le fond reste transparent), avec une ombre portée.
+  background: transparent;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  outline: none;
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.15s;
+
+  svg {
+    position: relative;
+  }
+
+  &:hover {
+    transform: scale(1.12);
+  }
+}
+
+.plus svg {
+  display: block;
+}
+
+// Flou du « + » : copie des deux bobines voisines, floutée, découpée en rond (le centre du bouton est l'origine).
+.plusBlur {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  pointer-events: none;
+  // Fond plein (couleur du fond de l'AMS) : sans lui, les joues NETTES de l'original passeraient dans les trous de la copie floutée.
+  background: #262b37;
+}
+
+.plusGhosts {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  filter: blur(9px);
+}
+
+.ghost {
+  position: absolute;
+  top: calc(var(--h) / -2);
+  height: var(--h);
+}

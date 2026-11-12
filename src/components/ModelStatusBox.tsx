@@ -3,7 +3,7 @@ import styles from './ModelStatusBox.module.scss';
 import { ExternalScrollArea } from './ExternalScrollArea';
 import { Box, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FilamentSelector } from './FilamentSelector';
+import { AmsCard } from './ams/AmsCard';
 import { ELEMENTS_FADE_MS, MODEL_TREE_TOP, MODEL_TREE_PILL_GAP, PILL_TOP } from '@/utils/spaceMorphGeometry';
 
 import { emitApex } from '@/events/apexEvents';
@@ -269,7 +269,7 @@ export const ModelStatusBox: React.FC<ModelStatusBoxProps> = ({ startsInPreview 
   // recouvrir ou coller. On mesure la hauteur réellement rendue et on ne diffuse un décalage que
   // lorsque le bord bas réel + la marge dépasse la position par défaut de la pilule (PILL_TOP).
   useEffect(() => {
-    // Colonne entière (arborescence + carte Filament dessous) : la pilule se place sous la carte du bas.
+    // Colonne entière (arborescence + AMS dessous) : la pilule se place sous la carte du bas.
     const el = containerRef.current;
     if (!el || previewActive || modelingActive) {
       emitApex('apex-model-tree-resized', { overflow: 0 });
@@ -326,7 +326,7 @@ export const ModelStatusBox: React.FC<ModelStatusBoxProps> = ({ startsInPreview 
           </motion.div>
         )}
         {!previewActive && !modelingActive && (
-          <FilamentSelector
+          <AmsCard
             key="filament"
             motionProps={{
               initial: { opacity: 0, x: -20 },

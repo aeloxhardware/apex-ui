@@ -4,7 +4,7 @@ import { AMS_HOVER_SPOOLS, AMS_MAX_SPOOLS, AMS_BASE_SPOOLS, amsLayout, type AmsM
 const M: AmsMetrics = { caseW: 440, pad: 18, maxSize: 84, gapRatio: 0.12 };
 
 describe('amsLayout', () => {
-  it('garde le boîtier à sa longueur et rétrécit les bobines jusqu\'à la limite', () => {
+  it("garde le boîtier à sa longueur et rétrécit les bobines jusqu'à la limite", () => {
     let previous = Infinity;
     for (let n = 1; n <= AMS_BASE_SPOOLS; n++) {
       const l = amsLayout(n, M);
@@ -51,15 +51,13 @@ describe('amsLayout', () => {
     expect(amsLayout(5, ams).overflowing).toBe(true);
   });
 
-  it('au-delà de AMS_HOVER_SPOOLS : le survol s’arrête à ce nombre, le clic montre tout', () => {
+  it('au-delà de AMS_HOVER_SPOOLS : le survol s’arrête à ce nombre, la partie basse ouvre tout', () => {
     const ams: AmsMetrics = { caseW: 240, pad: 8, maxSize: 52, gapRatio: 0.1 };
     const hover = amsLayout(AMS_HOVER_SPOOLS, ams);
     expect(hover.truncated).toBe(false);
-    expect(hover.fullW).toBe(hover.expandedW);
     const many = amsLayout(AMS_HOVER_SPOOLS + 6, ams);
     expect(many.truncated).toBe(true);
     expect(many.expandedW).toBe(hover.expandedW);
-    expect(many.fullW).toBeGreaterThan(many.expandedW);
-    expect(amsLayout(AMS_MAX_SPOOLS, ams).fullW).toBeGreaterThan(many.fullW);
+    expect(amsLayout(AMS_MAX_SPOOLS, ams).expandedW).toBe(many.expandedW);
   });
 });

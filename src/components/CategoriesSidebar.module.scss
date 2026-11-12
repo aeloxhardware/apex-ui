@@ -371,13 +371,20 @@
   }
 }
 
+// Bloc séparé, posé sous le panneau (qui laisse 60 px libres en bas) avec son propre verre.
 .scopeSwitch {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 100%;
   display: flex;
   gap: 2px;
-  padding: 2px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.06);
-  flex-shrink: 0;
+  padding: 6px;
+  border-radius: 16px;
+  background: rgba(10, 15, 26, 0.5);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
 }
 
 .scopeButton {

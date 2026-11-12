@@ -21,15 +21,7 @@
   align-items: center;
   justify-content: center;
   pointer-events: auto;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  
-  background: rgba(10, 15, 26, 0.25);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  border: none;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
-  padding: 4px 6px;
-  border-radius: 16px;
+  // Pas d'îlot : le bouton est lui-même l'élément de verre (cf. .sliceButton).
 }
 
 .button {
@@ -44,24 +36,64 @@
   width: 100%;
 }
 
+// Verre Liquid Glass WebGL dessiné dessous (GlassPanelBackdrop), forme du bandeau d'aide du bas (TopRightMenu) : coins de
+// 20 px, marge intérieure 10 px / 24 px. Seule une légère teinte reste ici ; texte cyan quand le découpage est possible.
 .sliceButton {
-  background: rgba(0, 240, 255, 0.12);
+  height: 100%;
+  min-height: 44px;
+  background: rgba(10, 15, 26, 0.04);
   color: #00f0ff;
-  padding: 8px 16px;
-  border-radius: 12px;
+  padding: 10px 24px;
+  border-radius: 999px; // pilule : le verre (corner 999 → demi-hauteur) est entièrement arrondi
   border: none;
   white-space: nowrap;
   justify-content: center;
-  
-  &:hover:not(:disabled) {
-    background: rgba(0, 240, 255, 0.22) !important;
-    box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
+
+  // L'icône et le texte flottent dans le verre : ils suivent son glissement vers le pointeur (variables posées par
+  // useGlassReaction) avec une profondeur différente (l'icône plus loin que le texte, comme deux plans), et grossissent
+  // avec son gonflement.
+  svg,
+  span {
+    display: inline-block;
+    will-change: transform;
+  }
+
+  svg {
+    transform: translate(calc(var(--glass-dx, 0px) * 1.7), calc(var(--glass-dy, 0px) * 1.7))
+      scale(calc(1 + var(--glass-grow, 0) * 0.025));
+  }
+
+  span {
+    transform: translate(calc(var(--glass-dx, 0px) * 1.2), calc(var(--glass-dy, 0px) * 1.2))
+      scale(calc(1 + var(--glass-grow, 0) * 0.012));
+  }
+
+  // Repli si le verre WebGL est indisponible.
+  &[data-glass-fallback] {
+    background: rgba(10, 15, 26, 0.35);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
+  }
+
+  // Actif seulement s'il y a des modèles sur le plateau (sinon `disabled`). La réaction au survol et au clic est celle du
+  // verre lui-même (useGlassReaction : il gonfle, réfracte davantage, son bord s'éclaire) ; ici seul le texte s'éclaire.
+  &:not(:disabled) {
+    transition: color 0.15s ease, text-shadow 0.15s ease;
+
+    &:hover {
+      color: #7df9ff;
+      text-shadow: 0 0 10px rgba(0, 240, 255, 0.6);
+    }
+
+    &:focus-visible {
+      outline: 2px solid rgba(0, 240, 255, 0.6);
+      outline-offset: 2px;
+    }
   }
 
   &.disabledButton {
-    background: rgba(255, 255, 255, 0.04);
-    color: rgba(255, 255, 255, 0.25);
+    color: rgba(255, 255, 255, 0.3);
     cursor: not-allowed;
-    box-shadow: none;
   }
 }

@@ -1,0 +1,18 @@
+// Emplacement fixe de l'AMS dans la colonne (largeur de la carte Filament d'avant, hauteur de l'AMS) : l'AMS replié
+// le remplit, et quand il s'allonge au survol il déborde vers la droite par-dessus l'interface au lieu d'élargir la colonne.
+.card {
+  position: relative;
+  width: 293px;
+  height: 192px;
+  pointer-events: none;
+
+  // Le boîtier de l'AMS (premier enfant) : posé en absolu, sans la limite de largeur de son parent.
+  > div:first-child {
+    position: absolute;
+    top: 0;
+    left: 0;
+    max-width: calc(100vw - 48px);
+    pointer-events: auto;
+    z-index: 1;
+  }
+}

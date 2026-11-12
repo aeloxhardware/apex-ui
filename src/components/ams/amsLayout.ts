@@ -5,7 +5,7 @@
  * bobines gardent leur taille (elles ne rétrécissent que si le boîtier est réglé plus court qu'elles). Au-delà, elles
  * gardent la taille qu'elles ont à `AMS_BASE_SPOOLS` : le boîtier ne montre que sa longueur de base, la dernière bobine
  * s'estompe au bout, et le survol l'allonge pour tout développer — jusqu'à `AMS_HOVER_SPOOLS` bobines. Au-delà, le bout
- * reste estompé même au survol (`truncated`) et un clic affiche tous les filaments (`fullW`).
+ * reste estompé même au survol (`truncated`) ; la partie basse de l'AMS ouvre alors tous les filaments.
  */
 
 export const AMS_BASE_SPOOLS = 4;
@@ -30,8 +30,6 @@ export interface AmsLayout {
   collapsedW: number;
   /** Longueur au survol : jusqu'à AMS_HOVER_SPOOLS bobines. */
   expandedW: number;
-  /** Longueur avec TOUS les filaments (clic). */
-  fullW: number;
   /** Plus de AMS_HOVER_SPOOLS bobines : le bout reste estompé au survol, clic pour tout afficher. */
   truncated: boolean;
   /** Plus de bobines que le boîtier replié n'en montre : bout estompé, développé au survol. */
@@ -58,7 +56,6 @@ export function amsLayout(count: number, m: AmsMetrics): AmsLayout {
     gap,
     collapsedW: m.caseW,
     expandedW: overflowing ? widthFor(Math.min(n, AMS_HOVER_SPOOLS), size, gap, m) : m.caseW,
-    fullW: overflowing ? widthFor(n, size, gap, m) : m.caseW,
     truncated: n > AMS_HOVER_SPOOLS,
     overflowing,
   };

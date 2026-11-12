@@ -37,7 +37,7 @@ import { useAnimate, motion, AnimatePresence } from 'framer-motion';
 import { Box } from 'lucide-react';
 import { showSuccess } from '@/utils/toast';
 import { BetaWatermark, BetaBanners } from '@/components/BetaWatermark';
-import { AmsPanel } from '@/components/dev/AmsPanel';
+import { AmsPanel } from '@/components/ams/AmsPanel';
 import { useDevMode } from '@/utils/devModePrefs';
 import { setModelingSpace } from '@/utils/modelingSpace';
 
@@ -614,8 +614,7 @@ const Index = () => {
       {activeTab === 'params' && <ParamsPanel />}
       {activeTab === 'home' && <HomePanel />}
 
-      {isDev && <AmsPanel />}
-      {!isParams && !isDev && <BottomBar modelStatus={modelStatus} statusBarRef={statusBarRef} isPreviewActive={isPreviewActive} gcodePreview={gcodePreview} />}
+      {isDev ? <AmsPanel /> : !isParams && <BottomBar modelStatus={modelStatus} statusBarRef={statusBarRef} isPreviewActive={isPreviewActive} gcodePreview={gcodePreview} />}
 
       {/* Rideau plein écran commun à tous les changements d'espace (Préparation, Prévisualisation,
           Modélisation, Dev, Paramètres) : monté en permanence, pas seulement à l'intérieur du bloc

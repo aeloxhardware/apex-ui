@@ -33,7 +33,7 @@ describe('deriveFinish', () => {
 });
 
 describe('finishFor', () => {
-  it('une correction vérifiée l\'emporte sur les règles', () => {
+  it("une correction vérifiée l'emporte sur les règles", () => {
     expect(finishFor('BBL', 'Bambu PLA Basic', 'PLA', { 'BBL|Bambu PLA Basic': 'satin' })).toBe('satin');
     expect(finishFor('BBL', 'Bambu PLA Basic', 'PLA', {})).toBeNull();
   });

@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { loadFilaments, filamentKey, type FilamentProfile } from '@/utils/filamentCatalog';
+import { useUserFilaments } from '@/utils/userFilaments';
 
 /** Bobines d'exemple de l'AMS : chacune pointe un VRAI profil du catalogue (matériau et aspect viennent du profil). */
 export const AMS_SAMPLE_SPOOLS: ReadonlyArray<{ key: string; color: string }> = [
@@ -17,15 +18,22 @@ export const AMS_SAMPLE_SPOOLS: ReadonlyArray<{ key: string; color: string }> = 
   { key: 'BBL|Bambu ABS', color: '#8e949c' },
 ];
 
-/** Profils du catalogue indexés par clé `vendor|name` (vide tant que le catalogue charge). */
+/** Profils d'usine ET de l'utilisateur indexés par clé `vendor|name` (seuls ceux de l'utilisateur tant que le catalogue charge). */
 export function useFilamentIndex(): ReadonlyMap<string, FilamentProfile> {
-  const [index, setIndex] = useState<ReadonlyMap<string, FilamentProfile>>(new Map());
+  const [factory, setFactory] = useState<FilamentProfile[]>([]);
+  const user = useUserFilaments();
   useEffect(() => {
     let alive = true;
     loadFilaments()
-      .then((list) => { if (alive) setIndex(new Map(list.map((p) => [filamentKey(p), p]))); })
-      .catch(() => { /* catalogue indisponible : bobines sans matériau ni aspect */ });
-    return () => { alive = false; };
+      .then((list) => {
+        if (alive) setFactory(list);
+      })
+      .catch(() => {
+        /* catalogue indisponible : bobines sans matériau ni aspect */
+      });
+    return () => {
+      alive = false;
+    };
   }, []);
-  return index;
+  return useMemo(() => new Map([...factory, ...user].map((p) => [filamentKey(p), p])), [factory, user]);
 }

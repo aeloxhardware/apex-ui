@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { GlassPanelBackdrop } from './edit-node/GlassPanelBackdrop';
+import { useGlassReaction } from './edit-node/glassReaction';
 import { createPortal } from 'react-dom';
 import { useTopRightSlot } from './topRightSlot';
 import clsx from 'clsx';
@@ -17,6 +19,32 @@ interface SliceSidebarProps {
     reason: string;
   } | undefined;
 }
+
+/** Bouton posé directement sur la scène : son verre Liquid Glass WebGL est celui du bandeau d'aide du bas (TopRightMenu). */
+const GlassActionButton: React.FC<{
+  enabled: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}> = ({ enabled, onClick, children }) => {
+  const ref = useRef<HTMLButtonElement>(null);
+  // Le verre répond au pointeur comme de la matière (gonfle, réfracte, s'éclaire), seulement quand le bouton est actif.
+  const live = useGlassReaction(ref, enabled);
+  return (
+    <>
+      {/* warp 0,6 : la bande réfractée (30 px × warp ≈ 18 px) doit tenir dans la demi-hauteur du bouton (22 px), sinon
+          les bandes du haut et du bas se rejoignent et plient la grille en un pli au milieu. */}
+      <GlassPanelBackdrop targetRef={ref} corner={999} warp={0.6} liveRef={live} />
+      <button
+        ref={ref}
+        className={clsx(styles.button, styles.sliceButton, 'w-full', { [styles.disabledButton]: !enabled })}
+        onClick={enabled ? onClick : undefined}
+        disabled={!enabled}
+      >
+        {children}
+      </button>
+    </>
+  );
+};
 
 export const SliceSidebar: React.FC<SliceSidebarProps> = ({ onSlice, previewExport }) => {
   const [hasModels, setHasModels] = useState(false);
@@ -61,14 +89,10 @@ export const SliceSidebar: React.FC<SliceSidebarProps> = ({ onSlice, previewExpo
             content={enabled ? 'Exporter le G-code' : 'Export indisponible'}
             description={enabled ? "Enregistre le G-code polaire affiché, prêt à être imprimé par l'Apex." : reason}
           >
-            <button
-              className={clsx(styles.button, styles.sliceButton, 'w-full', { [styles.disabledButton]: !enabled })}
-              onClick={enabled ? onExport : undefined}
-              disabled={!enabled}
-            >
+            <GlassActionButton enabled={enabled} onClick={onExport}>
               <Download size={16} className="mr-2 shrink-0" />
               <span className="font-semibold text-xs tracking-wide">EXPORT</span>
-            </button>
+            </GlassActionButton>
           </CustomTooltip>
         </div>
       </div>
@@ -85,16 +109,10 @@ export const SliceSidebar: React.FC<SliceSidebarProps> = ({ onSlice, previewExpo
           content={hasModels ? "Découper le plateau" : "Aucun modèle sur le plateau"} 
           description={hasModels ? "Lancez le calcul complet du G-code pour transformer votre modèle 3D en trajectoires d'impression exploitables." : "Veuillez importer un modèle 3D sur le plateau pour activer le slicing."}
         >
-          <button
-            className={clsx(styles.button, styles.sliceButton, "w-full", {
-              [styles.disabledButton]: !hasModels
-            })}
-            onClick={hasModels ? onSlice : undefined}
-            disabled={!hasModels}
-          >
+          <GlassActionButton enabled={hasModels} onClick={() => onSlice?.()}>
             <Play size={16} className="fill-current mr-2 shrink-0" />
             <span className="font-semibold text-xs tracking-wide">Découper le plateau</span>
-          </button>
+          </GlassActionButton>
         </CustomTooltip>
       </div>
     </div>

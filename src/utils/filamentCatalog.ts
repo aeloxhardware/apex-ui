@@ -22,6 +22,10 @@ export interface FilamentProfile {
   color: string | null;
   finish: FilamentFinish | null;
   orca_source: string;
+  /** Profil créé par l'utilisateur (copie modifiée, cf. userFilaments.ts) ; absent pour un profil d'usine. */
+  user?: true | undefined;
+  /** Profil d'USINE dont la copie dérive (`vendor|name`) : sert à « revenir au profil d'usine ». */
+  baseKey?: string | undefined;
 }
 
 export const FILAMENT_CHANGED_EVENT = 'apex-filament-changed';

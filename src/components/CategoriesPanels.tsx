@@ -319,16 +319,6 @@ export const CategoryMenu: React.FC<CategoryMenuProps> = ({
                 className={styles.fusionMenuContent}
                 onScroll={thumb.handleScroll}
               >
-                {/* Portée des réglages, comme « Global / Objets » d'OrcaSlicer. Les réglages par objet n'existent
-                    pas encore côté moteur : « Par objet » est visible mais inactif. */}
-                <motion.div variants={menuItemEnterVariants} className={styles.scopeSwitch}>
-                  <CustomTooltip content="Global" description="Les réglages s'appliquent à tout le plateau.">
-                    <button type="button" className={clsx(styles.scopeButton, styles.scopeActive)}>Global</button>
-                  </CustomTooltip>
-                  <CustomTooltip content="Arrive bientôt" description="Réglages propres à chaque objet du plateau, qui remplacent les réglages globaux pour cet objet.">
-                    <button type="button" className={clsx(styles.scopeButton, styles.scopeInert)} aria-disabled="true" tabIndex={-1}>Par objet</button>
-                  </CustomTooltip>
-                </motion.div>
                 {activeCatData.sections.map((section, idx) => (
                   <div key={idx} className={styles.sectionGroup}>
                     <motion.h4 variants={menuItemEnterVariants} className={styles.sectionTitle}>{section.title}</motion.h4>
@@ -368,6 +358,18 @@ export const CategoryMenu: React.FC<CategoryMenuProps> = ({
                   }}
                 />
               )}
+
+              {/* Portée des réglages, comme « Global / Objets » d'OrcaSlicer. Bloc de verre indépendant, sous le
+                  panneau. Les réglages par objet n'existent pas encore côté moteur : « Par objet » est visible
+                  mais inactif. */}
+              <motion.div variants={menuItemEnterVariants} className={styles.scopeSwitch}>
+                <CustomTooltip content="Global" description="Les réglages s'appliquent à tout le plateau.">
+                  <button type="button" className={clsx(styles.scopeButton, styles.scopeActive)}>Global</button>
+                </CustomTooltip>
+                <CustomTooltip content="Arrive bientôt" description="Réglages propres à chaque objet du plateau, qui remplacent les réglages globaux pour cet objet.">
+                  <button type="button" className={clsx(styles.scopeButton, styles.scopeInert)} aria-disabled="true" tabIndex={-1}>Par objet</button>
+                </CustomTooltip>
+              </motion.div>
             </motion.div>
 
             {/* Pattern popup window next to the menu */}

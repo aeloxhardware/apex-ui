@@ -1,0 +1,357 @@
+// Panneau de tous les filaments et fiche technique : calque flouté au-dessus de toute l'interface (GlassPanel : 1003).
+$cyan: #00f0ff;
+$glass: rgba(10, 15, 26, 0.55);
+$line: rgba(255, 255, 255, 0.14);
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 32px 72px;
+  background: rgba(6, 9, 16, 0.45);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+// La fiche s'ouvre au-dessus du panneau de tous les filaments : pas de second flou, seulement une teinte.
+.level2 {
+  z-index: 1110;
+  background: rgba(6, 9, 16, 0.4);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+// Rappel du texte du bandeau d'aide du bas, que le flou rend illisible.
+.tipEcho {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  max-width: min(760px, 90vw);
+  padding: 8px 16px;
+  border-radius: 14px;
+  background: rgba(10, 15, 26, 0.7);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: center;
+  pointer-events: none;
+}
+
+.library,
+.sheet {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  max-height: 100%;
+  border-radius: 20px;
+  background: $glass;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3);
+  color: #fff;
+}
+
+.library {
+  width: min(1180px, 100%);
+  height: 100%;
+  padding: 20px 22px;
+}
+
+.libraryHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+
+  h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+
+    span {
+      margin-left: 8px;
+      color: $cyan;
+    }
+  }
+}
+
+.cards {
+  flex: 1;
+  min-height: 0;
+  overflow-y: scroll;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 12px;
+  align-content: start;
+
+  &::-webkit-scrollbar {
+    width: 0;
+    background: transparent;
+  }
+}
+
+.card {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  text-align: left;
+  color: inherit;
+  border-radius: 14px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  transition: background 0.15s, transform 0.15s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+    transform: translateY(-1px);
+  }
+}
+
+.cardSpool {
+  flex: none;
+  width: 44px;
+  height: 80px;
+}
+
+.cardBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cardIndex {
+  flex: none;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.14);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  text-align: center;
+}
+
+.cardName {
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cardUser {
+  flex: none;
+  color: $cyan;
+}
+
+.cardBrand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 2px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.userBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: $cyan;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 10px;
+  margin: 8px 0 0;
+  font-size: 11px;
+
+  dt {
+    color: rgba(255, 255, 255, 0.5);
+  }
+
+  dd {
+    margin: 0;
+  }
+}
+
+.iconButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.18);
+  }
+}
+
+// Fiche technique.
+.sheet {
+  width: min(640px, 100%);
+  padding: 20px 22px;
+  overflow-y: auto;
+
+  &::-webkit-scrollbar {
+    width: 0;
+    background: transparent;
+  }
+}
+
+.sheetHead {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.sheetSpool {
+  flex: none;
+  width: 48px;
+  height: 88px;
+}
+
+.sheetTitle {
+  flex: 1;
+  min-width: 0;
+
+  h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+  }
+}
+
+.sheetRows {
+  display: grid;
+  grid-template-columns: 190px 1fr;
+  align-items: center;
+  gap: 8px 14px;
+  margin: 0;
+  font-size: 13px;
+
+  dt {
+    color: rgba(255, 255, 255, 0.55);
+  }
+
+  dd {
+    margin: 0;
+    min-width: 0;
+  }
+}
+
+.sheetFoot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+  min-height: 34px;
+}
+
+.footNote {
+  flex: 1;
+  font-size: 11px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.textButton,
+.primaryButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.18);
+  }
+}
+
+.primaryButton {
+  background: rgba(0, 240, 255, 0.22);
+  color: $cyan;
+
+  &:hover:not(:disabled) {
+    background: rgba(0, 240, 255, 0.34);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+}
+
+.textInput {
+  width: 100%;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid $line;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-size: 13px;
+  outline: none;
+
+  &:focus {
+    border-color: rgba(0, 240, 255, 0.6);
+  }
+}
+
+.finishChoices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.choice,
+.choiceActive {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid $line;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.choiceActive {
+  background: rgba(0, 240, 255, 0.22);
+  border-color: rgba(0, 240, 255, 0.6);
+  color: $cyan;
+}
+
+.rangeFields {
+  display: flex;
+  gap: 8px;
+}
