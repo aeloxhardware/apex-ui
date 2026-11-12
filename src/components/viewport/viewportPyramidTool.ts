@@ -52,7 +52,7 @@ function setupBuildPyramidPreview(st: ViewportState) {
       corners.forEach((corner) => lines.push([corner, apex]));
     }
     previous?.dispose(false, true);
-    const mesh = createScreenLines(scene, "pyramidDrawPreview", lines, new BABYLON.Color3(0, 0.94, 1), LINE_WIDTH_PX);
+    const mesh = createScreenLines(scene, "pyramidDrawPreview", lines, new BABYLON.Color3(0.9608, 0.6196, 0.0431), LINE_WIDTH_PX);
     mesh.isPickable = false;
     return mesh;
   };

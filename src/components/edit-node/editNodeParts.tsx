@@ -41,7 +41,7 @@ export const closeDelayFor = (count: number) =>
 // Point plein (cyan, orange si rognage) <-> verre : l'opacité de la couleur suit la taille de la
 // bulle, donc le point ne se colore qu'en fin de dégonflement (et se vide dès le début du
 // gonflement). Ouvert, l'ombre portée est dessinée par le shader du verre.
-const CYAN = [0, 240, 255];
+const CYAN = [245, 158, 11];
 const ORANGE = [255, 159, 28];
 export const TINT_FADE_S = 0.2;
 export const solidity = (o: number) => clamp01(1 - Math.max(0, o) * 2.5);

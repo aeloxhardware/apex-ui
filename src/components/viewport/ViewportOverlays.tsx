@@ -31,8 +31,8 @@ export const ViewportOverlays: React.FC<ViewportOverlaysProps> = ({
             position: 'absolute',
             left: selectionBox.x, top: selectionBox.y,
             width: selectionBox.width, height: selectionBox.height,
-            border: '1px solid rgba(0,240,255,0.9)',
-            background: 'rgba(0,240,255,0.12)',
+            border: '1px solid rgba(245,158,11,0.9)',
+            background: 'rgba(245,158,11,0.12)',
             pointerEvents: 'none', zIndex: 30,
           }}
         />
@@ -106,7 +106,7 @@ export const ViewportOverlays: React.FC<ViewportOverlaysProps> = ({
             <div
               style={{
                 position: 'absolute', left: -9, top: -9, width: 19, height: 19,
-                border: '2px solid #00f0ff', borderRadius: 2, boxSizing: 'border-box',
+                border: '2px solid #f59e0b', borderRadius: 2, boxSizing: 'border-box',
               }}
             />
           )}

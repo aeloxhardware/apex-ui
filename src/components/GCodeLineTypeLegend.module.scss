@@ -111,8 +111,8 @@
   }
 
   &:checked {
-    background: rgba(0, 240, 255, 0.18);
-    box-shadow: 0 0 8px rgba(0, 240, 255, 0.25);
+    background: rgba(245,158,11, 0.18);
+    box-shadow: 0 0 8px rgba(245,158,11, 0.25);
 
     &::after {
       content: '';
@@ -121,14 +121,14 @@
       top: 2px;
       width: 4px;
       height: 9px;
-      border: solid #00f0ff;
+      border: solid #f59e0b;
       border-width: 0 1px 1px 0;
       transform: rotate(45deg);
     }
   }
 
   &:focus-visible {
-    box-shadow: 0 0 0 1px rgba(0, 240, 255, 0.6);
+    box-shadow: 0 0 0 1px rgba(245,158,11, 0.6);
   }
 }
 
@@ -158,7 +158,7 @@
   }
 
   &:focus-visible {
-    box-shadow: 0 0 0 1px rgba(0, 240, 255, 0.6);
+    box-shadow: 0 0 0 1px rgba(245,158,11, 0.6);
   }
 }
 
@@ -287,14 +287,14 @@
   }
 
   &:focus-visible {
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5), 0 0 12px rgba(0, 240, 255, 0.45);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5), 0 0 12px rgba(245,158,11, 0.45);
   }
 }
 
 .activeItemRow {
-  background: rgba(0, 240, 255, 0.14);
-  color: #00f0ff;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.4), 0 0 14px rgba(0, 240, 255, 0.18);
+  background: rgba(245,158,11, 0.14);
+  color: #f59e0b;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.4), 0 0 14px rgba(245,158,11, 0.18);
 }
 
 .itemName {
@@ -417,7 +417,7 @@
 
 .gradientHandleActive {
   cursor: grabbing;
-  box-shadow: 0 3px 10px 0 rgba(0, 0, 0, 0.6), 0 1px 3px 0 rgba(0, 0, 0, 0.5), 0 0 0 5px rgba(0, 240, 255, 0.25);
+  box-shadow: 0 3px 10px 0 rgba(0, 0, 0, 0.6), 0 1px 3px 0 rgba(0, 0, 0, 0.5), 0 0 0 5px rgba(245,158,11, 0.25);
 }
 
 .gradientStats {
@@ -504,7 +504,7 @@
 .precisionValue {
   font-size: 11px;
   font-weight: 600;
-  color: #00f0ff;
+  color: #f59e0b;
   font-variant-numeric: tabular-nums;
 }
 
@@ -531,7 +531,7 @@
   }
 
   &:focus-visible .precisionHandle {
-    border-color: rgba(0, 240, 255, 0.7);
+    border-color: rgba(245,158,11, 0.7);
   }
 }
 
@@ -541,7 +541,7 @@
   top: 50%;
   height: 3px;
   border-radius: 2px;
-  background: #00f0ff;
+  background: #f59e0b;
   transform: translateY(-50%);
 }
 
@@ -587,7 +587,7 @@
   }
 
   &:focus-visible {
-    box-shadow: 0 0 0 1px rgba(0, 240, 255, 0.6);
+    box-shadow: 0 0 0 1px rgba(245,158,11, 0.6);
   }
 
   &:disabled {
@@ -597,7 +597,7 @@
 }
 
 .pickButtonActive {
-  background: rgba(0, 240, 255, 0.14);
-  border-color: rgba(0, 240, 255, 0.3);
-  color: #00f0ff;
+  background: rgba(245,158,11, 0.14);
+  border-color: rgba(245,158,11, 0.3);
+  color: #f59e0b;
 }

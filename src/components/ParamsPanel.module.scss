@@ -108,8 +108,8 @@
   }
 
   &:checked {
-    background: rgba(0, 240, 255, 0.18);
-    box-shadow: 0 0 8px rgba(0, 240, 255, 0.25);
+    background: rgba(245,158,11, 0.18);
+    box-shadow: 0 0 8px rgba(245,158,11, 0.25);
 
     &::after {
       content: '';
@@ -118,14 +118,14 @@
       top: 3px;
       width: 4px;
       height: 9px;
-      border: solid #00f0ff;
+      border: solid #f59e0b;
       border-width: 0 1px 1px 0;
       transform: rotate(45deg);
     }
   }
 
   &:focus-visible {
-    box-shadow: 0 0 0 1px rgba(0, 240, 255, 0.6);
+    box-shadow: 0 0 0 1px rgba(245,158,11, 0.6);
   }
 }
 
@@ -161,8 +161,8 @@
 
 .segmentIndicator {
   position: absolute;
-  background: rgba(0, 240, 255, 0.18);
-  box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
+  background: rgba(245,158,11, 0.18);
+  box-shadow: 0 0 12px rgba(245,158,11, 0.25);
   border-radius: 9px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: none;
@@ -188,6 +188,6 @@
   outline: none;
 
   &:hover:not(:disabled) { color: white; }
-  &.active { color: #00f0ff; }
+  &.active { color: #f59e0b; }
   &:disabled { opacity: 0.32; cursor: not-allowed; }
 }

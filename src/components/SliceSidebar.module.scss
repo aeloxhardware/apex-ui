@@ -42,7 +42,7 @@
   height: 100%;
   min-height: 44px;
   background: rgba(10, 15, 26, 0.04);
-  color: #00f0ff;
+  color: #f59e0b;
   padding: 10px 24px;
   border-radius: 999px; // pilule : le verre (corner 999 → demi-hauteur) est entièrement arrondi
   border: none;
@@ -83,11 +83,11 @@
 
     &:hover {
       color: #7df9ff;
-      text-shadow: 0 0 10px rgba(0, 240, 255, 0.6);
+      text-shadow: 0 0 10px rgba(245,158,11, 0.6);
     }
 
     &:focus-visible {
-      outline: 2px solid rgba(0, 240, 255, 0.6);
+      outline: 2px solid rgba(245,158,11, 0.6);
       outline-offset: 2px;
     }
   }

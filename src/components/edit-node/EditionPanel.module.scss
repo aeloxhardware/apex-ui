@@ -70,9 +70,9 @@ $element-blur: blur(4px);
 }
 
 .on {
-  color: #00f0ff;
-  background: rgba(0, 240, 255, 0.14);
-  box-shadow: $element-shadow, 0 0 10px rgba(0, 240, 255, 0.25);
+  color: #f59e0b;
+  background: rgba(245,158,11, 0.14);
+  box-shadow: $element-shadow, 0 0 10px rgba(245,158,11, 0.25);
 }
 
 .status {
@@ -173,8 +173,8 @@ $element-blur: blur(4px);
     }
 
     &:checked {
-      background: rgba(0, 240, 255, 0.18);
-      box-shadow: $element-shadow, 0 0 8px rgba(0, 240, 255, 0.25);
+      background: rgba(245,158,11, 0.18);
+      box-shadow: $element-shadow, 0 0 8px rgba(245,158,11, 0.25);
 
       &::after {
         content: '';
@@ -183,7 +183,7 @@ $element-blur: blur(4px);
         top: 2.5px;
         width: 4px;
         height: 8px;
-        border: solid #00f0ff;
+        border: solid #f59e0b;
         border-width: 0 1px 1px 0;
         transform: rotate(45deg);
       }
@@ -246,7 +246,7 @@ $element-blur: blur(4px);
 .number:focus-visible {
   outline: none;
   background: rgba(255, 255, 255, 0.12);
-  box-shadow: $element-shadow, 0 0 0 1px rgba(0, 240, 255, 0.6);
+  box-shadow: $element-shadow, 0 0 0 1px rgba(245,158,11, 0.6);
 }
 
 // Légende obligatoire de la teinte d'influence (cf. CLAUDE.md « Visualisation ») : un seul violet,
@@ -297,7 +297,7 @@ $element-blur: blur(4px);
   &:focus-visible {
     outline: none;
     background: rgba(255, 255, 255, 0.12);
-    box-shadow: 0 0 0 1px rgba(0, 240, 255, 0.6);
+    box-shadow: 0 0 0 1px rgba(245,158,11, 0.6);
   }
 
   &:disabled {
@@ -364,7 +364,7 @@ $element-blur: blur(4px);
 
 .graphLine {
   fill: none;
-  stroke: #00f0ff;
+  stroke: #f59e0b;
   stroke-width: 1.2;
 }
 
@@ -392,8 +392,8 @@ $element-blur: blur(4px);
   cursor: pointer;
 
   &:hover {
-    background: rgba(0, 240, 255, 0.2);
-    color: #00f0ff;
+    background: rgba(245,158,11, 0.2);
+    color: #f59e0b;
   }
 }
 

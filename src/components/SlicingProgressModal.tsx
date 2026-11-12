@@ -77,7 +77,7 @@ export const SlicingProgressModal: React.FC<SlicingProgressModalProps> = ({ isOp
         <div className={styles.modalCard} style={{ width: '440px', padding: '16px 20px', gap: '0' }}>
           <div className={styles.header} style={{ borderBottom: 'none', paddingBottom: '0' }}>
             <div className={styles.title}>
-              <Play size={16} className="fill-current text-[#00f0ff]" />
+              <Play size={16} className="fill-current text-[#f59e0b]" />
               <span>Découpe des modèles en cours</span>
             </div>
             <button className={styles.closeBtn} onClick={handleClose}>

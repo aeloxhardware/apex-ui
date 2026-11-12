@@ -64,7 +64,7 @@ const PatternPopup: React.FC<{ contentRef: React.RefObject<HTMLDivElement | null
                                   <InfillPatternIcon pattern={ENGINE_PATTERN_ICON[option] ?? option} />
                                   <span className={styles.itemName}>{ENUM_LABELS[option] ?? option}</span>
                                 </span>
-                                {isSelected && <Check size={14} className="text-[#00f0ff] shrink-0" />}
+                                {isSelected && <Check size={14} className="text-[#f59e0b] shrink-0" />}
                               </li>
                             </CustomTooltip>
                           );

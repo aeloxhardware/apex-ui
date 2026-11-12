@@ -219,7 +219,7 @@ const ModelTree: React.FC<{
                         className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} 
                       />
                     </button>
-                    <Box size={14} className="text-[#00f0ff] ml-1" />
+                    <Box size={14} className="text-[#f59e0b] ml-1" />
                     <span className={styles.nodeName}>{model.name}</span>
                   </div>
                   <AnimatePresence>

@@ -54,7 +54,7 @@ export const FeatureParams: React.FC<FeatureParamsProps> = ({ selectedFeature, t
                 {selectedFeature.kind === 'sketch' && selectedFeature.planeRef.kind === 'face' && (
                   <div className={styles.paramRow}>
                     <span className={styles.paramLabel}>Plan</span>
-                    <span className={styles.paramLabel} style={{ color: 'rgba(0,240,255,0.85)' }}>
+                    <span className={styles.paramLabel} style={{ color: 'rgba(245,158,11,0.85)' }}>
                       Face sélectionnée
                     </span>
                   </div>

@@ -55,11 +55,11 @@ function setupUpdateHighlight(st: ViewportState) {
     selectedMeshesRef.current.forEach((mesh) => {
       if (mesh && !mesh.isDisposed()) {
         if (mesh instanceof BABYLON.Mesh && mesh.getTotalVertices() > 0) {
-          hlRef.current?.addMesh(mesh, new BABYLON.Color3(0, 0.94, 1));
+          hlRef.current?.addMesh(mesh, new BABYLON.Color3(0.9608, 0.6196, 0.0431));
         }
         mesh.getChildMeshes(false).forEach((child) => {
           if (child instanceof BABYLON.Mesh && child.getTotalVertices() > 0 && !child.isDisposed()) {
-            hlRef.current?.addMesh(child, new BABYLON.Color3(0, 0.94, 1));
+            hlRef.current?.addMesh(child, new BABYLON.Color3(0.9608, 0.6196, 0.0431));
           }
         });
       }
@@ -490,7 +490,7 @@ function setupOnRequestTextures(st: ViewportState) {
       if (!mat || visitedMats.has(mat.uniqueId)) return;
       visitedMats.add(mat.uniqueId);
 
-      let hexColor = '#00f0ff';
+      let hexColor = '#f59e0b';
       if (mat.albedoColor) {
         hexColor = mat.albedoColor.toHexString();
       } else if (mat.diffuseColor) {

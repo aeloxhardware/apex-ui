@@ -67,7 +67,7 @@
   }
 
   &:focus-visible {
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 8px rgba(0, 240, 255, 0.4);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 8px rgba(245,158,11, 0.4);
   }
 }
 
@@ -97,7 +97,7 @@
 }
 
 .selectorOpen {
-  background: rgba(0, 240, 255, 0.12);
+  background: rgba(245,158,11, 0.12);
 }
 
 .selectorLabel {
@@ -148,7 +148,7 @@
   align-items: center;
   gap: 8px;
   padding-left: 8px;
-  color: #00f0ff;
+  color: #f59e0b;
 }
 
 .selectorList {
@@ -184,9 +184,9 @@
 }
 
 .selectorItemActive {
-  background: rgba(0, 240, 255, 0.2);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 12px rgba(0, 240, 255, 0.3);
-  color: #00f0ff;
+  background: rgba(245,158,11, 0.2);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 12px rgba(245,158,11, 0.3);
+  color: #f59e0b;
   font-weight: 600;
 }
 

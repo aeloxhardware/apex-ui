@@ -27,7 +27,10 @@ function setupSetPlateActionHovered(st: ViewportState) {
         emitApex('apex-reset-tooltip');
       }
       plateActionHovered = index;
-      canvas.style.cursor = index !== null ? 'pointer' : '';
+      // Curseur « main » par attribut + règle CSS !important (globals.css) : plusieurs fonctions (extrusion, gizmos,
+      // croquis) écrivent `canvas.style.cursor` à chaque survol et effaçaient la main, bouton pourtant surligné.
+      if (index !== null) canvas.setAttribute('data-apex-plate-action-hover', '');
+      else canvas.removeAttribute('data-apex-plate-action-hover');
     }
     // L'étiquette suit le curseur tant qu'un bouton est survolé ; hors survol, on ne touche
     // plus à l'état React pour ne pas re-rendre à chaque mouvement de souris.
@@ -82,6 +85,7 @@ function setupDisposePlateActions(st: ViewportState) {
     window.removeEventListener('apex-gcode-pick-mode', onGCodePickMode);
     scene.onPointerObservable.remove(gcodePickObserver);
     canvas.style.cursor = '';
+    canvas.removeAttribute('data-apex-plate-action-hover');
     window.removeEventListener('apex-gcode-time', onGCodeTime);
     window.removeEventListener('apex-gcode-line-visibility', onGCodeLineVisibility);
     window.removeEventListener('apex-gcode-highlight-offplate', onGCodeHighlightOffPlate);

@@ -138,7 +138,7 @@ const UnitRow: React.FC<{ contextModel: ContextModel; setContextModel: (model: C
                         style={{
                           position: 'relative', padding: '5px 12px', borderRadius: 7, fontSize: 12, cursor: 'pointer',
                           textAlign: 'center', userSelect: 'none', whiteSpace: 'nowrap',
-                          color: active ? '#00f0ff' : 'rgba(255,255,255,0.8)',
+                          color: active ? '#f59e0b' : 'rgba(255,255,255,0.8)',
                         }}
                         {...menuTooltip(unit === 'in' ? SCALE_INCH_TOOLTIP : SCALE_MM_TOOLTIP)}
                       >
@@ -146,7 +146,7 @@ const UnitRow: React.FC<{ contextModel: ContextModel; setContextModel: (model: C
                           <motion.span
                             layoutId="apex-unit-pill"
                             transition={{ duration: 0.24, ease: UNIT_PILL_EASE }}
-                            style={{ position: 'absolute', inset: 0, borderRadius: 7, background: 'rgba(0,240,255,0.22)' }}
+                            style={{ position: 'absolute', inset: 0, borderRadius: 7, background: 'rgba(245,158,11,0.22)' }}
                           />
                         )}
                         <span style={{ position: 'relative' }}>{label}</span>

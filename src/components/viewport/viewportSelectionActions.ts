@@ -20,7 +20,7 @@ export function clearSelection(st: ViewportState) {
 /** Parties d'un modèle (lui-même et ses enfants) avec leur couleur, pour l'éditeur de textures. */
 export function describeSubMeshes(target: BABYLON.AbstractMesh): { id: string; name: string; color: string }[] {
   return [target, ...target.getChildMeshes()].map((cm, idx) => {
-    let hex = '#00f0ff';
+    let hex = '#f59e0b';
     if (cm.material) {
       const mat = cm.material as InspectableMaterial;
       if (mat.albedoColor) hex = mat.albedoColor.toHexString();

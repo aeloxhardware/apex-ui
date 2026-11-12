@@ -214,8 +214,8 @@ const ProfileColumn: React.FC<ProfileColumnProps> = ({
                     >
                       <span className={styles.itemName}>{printer.name}</span>
                       {isActive
-                        ? <ChevronRight size={14} className="text-[#00f0ff] shrink-0" />
-                        : isSelected && <Check size={14} className="text-[#00f0ff] shrink-0" />}
+                        ? <ChevronRight size={14} className="text-[#f59e0b] shrink-0" />
+                        : isSelected && <Check size={14} className="text-[#f59e0b] shrink-0" />}
                     </li>
                   </CustomTooltip>
                 </motion.div>
@@ -259,7 +259,7 @@ const PrinterBreadcrumb: React.FC<{
   >
     <div className={styles.tabButtonsContainer}>
       <div className={styles.activeTabTitle}>
-        <Printer size={14} className="mr-1.5 inline text-[#00f0ff] shrink-0" />
+        <Printer size={14} className="mr-1.5 inline text-[#f59e0b] shrink-0" />
         <span className="truncate">{titlePath}</span>
       </div>
     </div>

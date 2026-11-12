@@ -12,7 +12,7 @@ import { materialsTip } from '@/utils/amsTooltips';
 import type { FilamentProfile } from '@/utils/filamentCatalog';
 import styles from './AmsBox.module.scss';
 
-// Rectangle 240 × 192 px, largeur réglée sur 4 bobines (le cas le plus courant) ; la partie haute (110 px) porte les bobines.
+// Rectangle 240 × 176 px, largeur réglée sur 4 bobines (le cas le plus courant) ; la partie haute (110 px) porte les bobines.
 // `maxSize` est ici la LARGEUR d'une bobine ; la hauteur est fixe (94 px, celle d'une bobine à pleine largeur) : réduire une bobine ne change que sa largeur.
 const SPOOL_HEIGHT = 94;
 const METRICS: AmsMetrics = { caseW: 240, pad: 8, maxSize: 52, gapRatio: 0.1 };

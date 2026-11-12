@@ -8,7 +8,7 @@ const FLANGE = {
   strokeWidth: 1,
   vectorEffect: 'non-scaling-stroke',
 } as const;
-const FLANGE_EDITED = { fill: 'rgba(0,240,255,0.3)', stroke: '#00f0ff', strokeWidth: 1.4, vectorEffect: 'non-scaling-stroke' } as const;
+const FLANGE_EDITED = { fill: 'rgba(245,158,11,0.3)', stroke: '#f59e0b', strokeWidth: 1.4, vectorEffect: 'non-scaling-stroke' } as const;
 
 const STRANDS = [14, 19, 24, 29, 34, 39, 44];
 

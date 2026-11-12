@@ -82,7 +82,7 @@
   font-family: 'Orbitron', sans-serif !important;
   font-size: 14px;
   font-weight: 700;
-  color: #00f0ff;
+  color: #f59e0b;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -146,11 +146,11 @@
 }
 
 .confirmBtn {
-  background: rgba(0, 240, 255, 0.25);
+  background: rgba(245,158,11, 0.25);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   border: none;
-  color: #00f0ff;
+  color: #f59e0b;
   font-family: 'Orbitron', sans-serif !important;
   font-size: 11px;
   font-weight: 700;
@@ -158,10 +158,10 @@
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 8px 24px rgba(0, 240, 255, 0.25);
+  box-shadow: 0 8px 24px rgba(245,158,11, 0.25);
 
   &:hover {
-    background: rgba(0, 240, 255, 0.35);
+    background: rgba(245,158,11, 0.35);
     filter: brightness(1.15);
   }
 }

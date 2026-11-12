@@ -70,7 +70,7 @@ function setupPasteClipboard(st: ViewportState) {
     if (clones.length === 1) {
       const childMeshes = [last, ...last.getChildMeshes()];
       childMeshes.forEach((cm, idx) => {
-        let hex = '#00f0ff';
+        let hex = '#f59e0b';
         if (cm.material) {
           const mat = cm.material as InspectableMaterial;
           if (mat.albedoColor) hex = mat.albedoColor.toHexString();

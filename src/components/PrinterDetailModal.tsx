@@ -148,7 +148,7 @@ export const PrinterDetailModal: React.FC<PrinterDetailModalProps> = ({ printer,
     <div className={styles.container} style={{ left }}>
       <motion.div className={styles.headerBox} {...boxVariants} transition={transition} exit={{ ...boxVariants.exit, transition: exitTransition }}>
         <div className={styles.headerTitle}>
-          <Info size={16} className="text-[#00f0ff]" />
+          <Info size={16} className="text-[#f59e0b]" />
           <span>Fiche Technique : {printer.name}</span>
         </div>
         <button className={styles.closeBtn} onClick={onClose}>

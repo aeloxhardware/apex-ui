@@ -108,7 +108,7 @@ function setupBuildBoxOutline(st: ViewportState) {
     // Recréé à chaque appel (6 polylignes, coût négligeable) : un ruban écran n'a pas de mise à
     // jour en place par `instance` comme un LinesMesh.
     previous?.dispose(false, true);
-    const mesh = createScreenLines(scene, "boxDrawOutline", lines, new BABYLON.Color3(0, 0.94, 1), LINE_WIDTH_PX);
+    const mesh = createScreenLines(scene, "boxDrawOutline", lines, new BABYLON.Color3(0.9608, 0.6196, 0.0431), LINE_WIDTH_PX);
     mesh.isPickable = false;
     return mesh;
   };

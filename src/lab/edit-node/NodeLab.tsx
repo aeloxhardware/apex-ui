@@ -21,12 +21,12 @@ interface Line {
 // Grille irrégulière : trames de périodes premières entre elles, plus quelques lignes vives
 // isolées près du centre pour bien voir la réfraction.
 const VERTICAL: Line[] = [
-  { period: 23, width: 2, color: 'rgba(0, 240, 255, 0.35)' },
+  { period: 23, width: 2, color: 'rgba(245,158,11, 0.35)' },
   { period: 37, width: 1, color: 'rgba(255, 255, 255, 0.2)' },
   { period: 59, width: 3, color: 'rgba(60, 220, 140, 0.35)' },
 ];
 const HORIZONTAL: Line[] = [
-  { period: 19, width: 2, color: 'rgba(0, 240, 255, 0.3)' },
+  { period: 19, width: 2, color: 'rgba(245,158,11, 0.3)' },
   { period: 31, width: 1, color: 'rgba(255, 255, 255, 0.2)' },
   { period: 53, width: 3, color: 'rgba(255, 110, 60, 0.3)' },
 ];

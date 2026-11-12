@@ -32,17 +32,17 @@
 }
 
 .tabActive {
-  background: rgba(0, 240, 255, 0.18);
-  color: #00f0ff;
-  box-shadow: 0 0 10px rgba(0, 240, 255, 0.25);
+  background: rgba(245,158,11, 0.18);
+  color: #f59e0b;
+  box-shadow: 0 0 10px rgba(245,158,11, 0.25);
 }
 
 .tabDot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #00f0ff;
-  box-shadow: 0 0 6px rgba(0, 240, 255, 0.6);
+  background: #f59e0b;
+  box-shadow: 0 0 6px rgba(245,158,11, 0.6);
 }
 
 .categoryBody {
@@ -100,9 +100,9 @@
 }
 
 .segmentActive {
-  background: rgba(0, 240, 255, 0.18);
-  color: #00f0ff;
-  box-shadow: 0 0 8px rgba(0, 240, 255, 0.25);
+  background: rgba(245,158,11, 0.18);
+  color: #f59e0b;
+  box-shadow: 0 0 8px rgba(245,158,11, 0.25);
 }
 
 .resetButton {
@@ -113,7 +113,7 @@
   padding: 0;
   border: none;
   background: none;
-  color: #22d3ee;
+  color: #f59e0b;
   font-size: 12px;
   cursor: pointer;
 
@@ -156,8 +156,8 @@
   }
 
   &:checked {
-    background: rgba(0, 240, 255, 0.18);
-    box-shadow: 0 0 8px rgba(0, 240, 255, 0.25);
+    background: rgba(245,158,11, 0.18);
+    box-shadow: 0 0 8px rgba(245,158,11, 0.25);
 
     &::after {
       content: '';
@@ -166,7 +166,7 @@
       top: 3px;
       width: 4px;
       height: 8px;
-      border: solid #00f0ff;
+      border: solid #f59e0b;
       border-width: 0 2px 2px 0;
       transform: rotate(45deg);
     }

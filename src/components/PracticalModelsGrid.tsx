@@ -97,7 +97,7 @@ const Tile: React.FC<{ model: PracticalModel; revealed: boolean; onPick: () => v
       onClick={onPick}
       onMouseEnter={() => onHover(true)}
       onMouseLeave={() => onHover(false)}
-      onPointerEnter={(e) => { e.currentTarget.style.background = 'rgba(0,240,255,0.18)'; }}
+      onPointerEnter={(e) => { e.currentTarget.style.background = 'rgba(245,158,11,0.18)'; }}
       onPointerLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; }}
       style={{
         width: BUTTON_PX, height: BUTTON_PX, padding: 4, border: 'none', borderRadius: 10, cursor: 'pointer',

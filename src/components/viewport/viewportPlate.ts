@@ -42,6 +42,9 @@ function setupRtWidth(st: ViewportState) {
     // zOffset 0 : sous la surface du plateau, ces axes doivent rester occultés par le disque.
     const axisLine = createScreenLine(scene, `originAxis${i}`, [originAxisBase, dir], flat ? BABYLON.Color3.White() : color, LINE_WIDTH_PX, 1, { zOffset: 0 });
     axisLine.parent = originAxesRoot;
+    // Groupe 2 (sans effacement de la profondeur, cf. viewportSketchPlanes.ts), tracé APRÈS la lueur de sélection
+    // (HighlightLayer, groupe 0, cf. viewportScene.ts) : la lueur orange du modèle ne teinte plus les axes du plateau.
+    axisLine.renderingGroupId = 2;
     if (!flat) return;
     // Interface classique : pas de couleur d'axe, une lettre au bout (Z imprimante = Y Babylon, Y imprimante = Z Babylon).
     const letter = ['X', 'Z', 'Y'][i];

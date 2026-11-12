@@ -10,7 +10,7 @@
   align-items: center;
   gap: 6px;
   min-height: 24px;
-  color: #00f0ff;
+  color: #f59e0b;
   font-size: 12px;
   font-weight: 600;
 }
@@ -40,9 +40,9 @@
   &:hover { color: #fff; }
 }
 .modeActive {
-  background: rgba(0, 240, 255, 0.2);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 0 10px rgba(0, 240, 255, 0.25);
-  color: #00f0ff;
+  background: rgba(245,158,11, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 0 10px rgba(245,158,11, 0.25);
+  color: #f59e0b;
 }
 
 .back {
@@ -110,13 +110,13 @@
   padding: 8px 16px;
   border: none;
   border-radius: 8px;
-  background: rgba(0, 240, 255, 0.2);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 12px rgba(0, 240, 255, 0.3);
-  color: #00f0ff;
+  background: rgba(245,158,11, 0.2);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 12px rgba(245,158,11, 0.3);
+  color: #f59e0b;
   font: inherit;
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-  &:hover { background: rgba(0, 240, 255, 0.32); }
+  &:hover { background: rgba(245,158,11, 0.32); }
 }

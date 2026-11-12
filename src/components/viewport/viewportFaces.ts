@@ -33,7 +33,7 @@ function setupIsExtrudeFaceMode(st: ViewportState) {
   st.extrudeArrowMeshes = [];
   st.extrudeDrag = null;
   const sketchFaceMeshes: BABYLON.Mesh[] = [];
-  const EXTRUDE_COLOR = new BABYLON.Color3(0, 0.94, 1);
+  const EXTRUDE_COLOR = new BABYLON.Color3(0.9608, 0.6196, 0.0431);
 
   const extrudeFaceMaterial = new BABYLON.StandardMaterial('extrudeFaceMat', scene);
   extrudeFaceMaterial.emissiveColor = EXTRUDE_COLOR;

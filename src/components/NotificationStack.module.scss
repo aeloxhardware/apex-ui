@@ -64,7 +64,7 @@ $bleed: -24px; // marge du clip-path : laisse passer l'ombre portée des cartes
   }
 
   &:focus-visible {
-    outline: 1px solid rgba(0, 240, 255, 0.6);
+    outline: 1px solid rgba(245,158,11, 0.6);
     outline-offset: 2px;
   }
 }
@@ -116,7 +116,7 @@ $bleed: -24px; // marge du clip-path : laisse passer l'ombre portée des cartes
   }
 
   &:focus-visible {
-    outline: 1px solid rgba(0, 240, 255, 0.6);
+    outline: 1px solid rgba(245,158,11, 0.6);
     outline-offset: 2px;
   }
 }
@@ -188,7 +188,7 @@ $bleed: -24px; // marge du clip-path : laisse passer l'ombre portée des cartes
 
   &:focus-visible {
     opacity: 1;
-    outline: 1px solid rgba(0, 240, 255, 0.6);
+    outline: 1px solid rgba(245,158,11, 0.6);
     outline-offset: 2px;
   }
 }

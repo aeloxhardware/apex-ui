@@ -9,6 +9,8 @@ import { CategoryGlassMorphs } from './CategoryGlassMorphs';
 
 interface CategoriesSidebarProps {
   activeCategory: string | null;
+  /** Menu à rouvrir quand la Prévisualisation est quittée (le menu avait été fermé à son entrée). */
+  resumeCategory?: string | null;
   onSelectCategory: (catId: string | null) => void;
   /**
    * Vrai quand ce composant est remonté directement dans l'espace Prévisualisation — après un
@@ -45,6 +47,7 @@ interface CategoriesSidebarProps {
 
 export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
   activeCategory,
+  resumeCategory = null,
   onSelectCategory,
   initialPreviewActive = false,
   leavingToModeling = false,
@@ -77,6 +80,12 @@ export const CategoriesSidebar: React.FC<CategoriesSidebarProps> = ({
   const space = usePreviewSpace({ initialPreviewActive, leavingToModeling, onSelectCategory, setMorphPhase });
   const { previewActive } = space;
   const modelTreeOverflow = useModelTreeOverflow();
+
+  // Retour de la Prévisualisation (ou d'un aller-retour par Modélisation) : le menu qui était ouvert se rouvre.
+  useEffect(() => {
+    if (resumeCategory && activeCategory === null && !previewActive && !leavingToModeling) onSelectCategory(resumeCategory);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- dépendances volontairement limitées : effet à déclenchement ciblé
+  }, [resumeCategory, previewActive]);
 
 
   const handleCategoryClick = (cat: CategoryItem) => {

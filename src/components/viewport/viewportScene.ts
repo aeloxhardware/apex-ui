@@ -521,7 +521,8 @@ function setupHandleCustomView(st: ViewportState) {
   new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
   // Interface classique : sélection par contour (cf. updateFlatOutline), donc pas de HighlightLayer (cible de rendu + flou).
   if (!flat) {
-    const hl = new BABYLON.HighlightLayer("hl1", scene);
+    // Lueur composée après le groupe 0 seulement : les axes du plateau (groupe 2) restent par-dessus, de leur couleur.
+    const hl = new BABYLON.HighlightLayer("hl1", scene, { renderingGroupId: 0 });
     hl.blurHorizontalSize = 0.5;
     hl.blurVerticalSize = 0.5;
     hlRef.current = hl;

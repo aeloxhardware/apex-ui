@@ -145,3 +145,8 @@
 .apex-gpu-frame .h-screen { height: 100%; }
 .apex-gpu-frame .w-screen { width: 100%; }
 .apex-gpu-frame .min-h-screen { min-height: 100%; }
+
+/* Boutons d'action du plateau (arc d'icônes) : la main l'emporte sur tout `canvas.style.cursor` écrit ailleurs. */
+[data-apex-plate-action-hover] {
+  cursor: pointer !important;
+}

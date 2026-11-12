@@ -33,6 +33,7 @@ import { DitherOverlay } from '@/components/DitherOverlay';
 import { GCodeConversionCard } from '@/components/GCodeConversionCard';
 import { UnlayeredDetectedDialog } from '@/components/UnlayeredDetectedDialog';
 import { useGCodePreview } from '@/hooks/use-gcode-preview';
+import { useResumeCategory } from '@/hooks/use-resume-category';
 import { useAnimate, motion, AnimatePresence } from 'framer-motion';
 import { Box } from 'lucide-react';
 import { showSuccess } from '@/utils/toast';
@@ -338,6 +339,8 @@ interface SpacePanelsProps {
   setModelingMorph: (morph: ModelingMorph) => void;
   activeCategory: string | null;
   setActiveCategory: (category: string | null) => void;
+  /** Menu de catégorie à rouvrir au retour de la Prévisualisation (cf. useResumeCategory). */
+  resumeCategory: string | null;
   isPrinterConfigOpen: boolean;
   setIsPrinterConfigOpen: (open: boolean) => void;
   isPreviewActive: boolean;
@@ -350,7 +353,7 @@ interface SpacePanelsProps {
 
 /** Panneaux latéraux : soit Modélisation, soit ceux du slicer (Préparation / Prévisualisation). */
 const SpacePanels: React.FC<SpacePanelsProps> = ({
-  activeTab, isModeling, modelingMorph, setModelingMorph, activeCategory, setActiveCategory,
+  activeTab, isModeling, modelingMorph, setModelingMorph, activeCategory, setActiveCategory, resumeCategory,
   isPrinterConfigOpen, setIsPrinterConfigOpen, isPreviewActive, arrivingFromModeling, leavingToModeling,
   gcodePreview, printer, onSlice,
 }) => (
@@ -369,6 +372,7 @@ const SpacePanels: React.FC<SpacePanelsProps> = ({
     <>
       <CategoriesSidebar
         activeCategory={activeCategory}
+        resumeCategory={resumeCategory}
         onSelectCategory={(cat) => {
           setActiveCategory(cat);
           if (cat) setIsPrinterConfigOpen(false);
@@ -485,6 +489,7 @@ const Index = () => {
   const [isPrinterConfigOpen, setIsPrinterConfigOpen] = useState(false);
   const printer = usePrinterSelection();
   const { modelStatus, isPreviewActive } = useSpaceEvents();
+  const resumeCategory = useResumeCategory(activeCategory, isPreviewActive);
   const isPreviewActiveRef = useRef(isPreviewActive);
   isPreviewActiveRef.current = isPreviewActive;
   // Logique de l'espace Prévisualisation (chargement/lecture G-code) : appelée ici (et non dans
@@ -548,7 +553,7 @@ const Index = () => {
   };
 
   const panelProps: SpacePanelsProps = {
-    activeTab, isModeling, modelingMorph, setModelingMorph, activeCategory, setActiveCategory,
+    activeTab, isModeling, modelingMorph, setModelingMorph, activeCategory, setActiveCategory, resumeCategory,
     isPrinterConfigOpen, setIsPrinterConfigOpen, isPreviewActive, arrivingFromModeling, leavingToModeling,
     gcodePreview, printer, onSlice: slice.handleSlice,
   };

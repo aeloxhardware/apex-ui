@@ -98,7 +98,7 @@
 }
 
 .success {
-  color: #00f0ff;
+  color: #f59e0b;
 }
 
 .error {
@@ -146,7 +146,7 @@
   }
 
   &:focus-visible {
-    box-shadow: 0 0 0 1px rgba(0, 240, 255, 0.6);
+    box-shadow: 0 0 0 1px rgba(245,158,11, 0.6);
   }
 
   &:disabled {
@@ -154,9 +154,9 @@
   }
 
   &.active {
-    background: rgba(0, 240, 255, 0.18);
-    color: #00f0ff;
-    box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
+    background: rgba(245,158,11, 0.18);
+    color: #f59e0b;
+    box-shadow: 0 0 12px rgba(245,158,11, 0.25);
   }
 }
 
@@ -165,8 +165,8 @@
   font-weight: 600;
   padding: 1px 5px;
   border-radius: 5px;
-  background: rgba(0, 240, 255, 0.12);
-  color: rgba(0, 240, 255, 0.85);
+  background: rgba(245,158,11, 0.12);
+  color: rgba(245,158,11, 0.85);
 }
 
 // Même bouton que le bouton SLICE/EXPORT de SliceSidebar.
@@ -178,8 +178,8 @@
   border: none;
   outline: none;
   border-radius: 10px;
-  background: rgba(0, 240, 255, 0.12);
-  color: #00f0ff;
+  background: rgba(245,158,11, 0.12);
+  color: #f59e0b;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -188,12 +188,12 @@
   transition: all 0.2s ease;
 
   &:hover:not(:disabled) {
-    background: rgba(0, 240, 255, 0.22);
-    box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
+    background: rgba(245,158,11, 0.22);
+    box-shadow: 0 0 12px rgba(245,158,11, 0.25);
   }
 
   &:focus-visible {
-    box-shadow: 0 0 0 1px rgba(0, 240, 255, 0.6);
+    box-shadow: 0 0 0 1px rgba(245,158,11, 0.6);
   }
 
   &:disabled {
@@ -239,7 +239,7 @@
   }
 
   &:focus-visible {
-    box-shadow: 0 0 0 1px rgba(0, 240, 255, 0.6);
+    box-shadow: 0 0 0 1px rgba(245,158,11, 0.6);
   }
 }
 
@@ -248,7 +248,7 @@
   left: 0;
   bottom: 0;
   height: 2px;
-  background: #00f0ff;
-  box-shadow: 0 0 8px rgba(0, 240, 255, 0.6);
+  background: #f59e0b;
+  box-shadow: 0 0 8px rgba(245,158,11, 0.6);
   transition: width 0.15s linear;
 }

@@ -101,8 +101,8 @@
   }
 
   &.active {
-    background: rgba(0, 240, 255, 0.18);
-    color: #00f0ff;
+    background: rgba(245,158,11, 0.18);
+    color: #f59e0b;
   }
 
   &.disabledButton {
@@ -239,15 +239,18 @@
 
 .fusionMenuContainer {
   position: fixed;
-  left: 12px;
+  left: 0;
   top: 266px;
   width: 320px;
-  // Jusqu'en bas de la zone, à 60 px du bord : la place laissée par la pastille de statut, déplacée en bas à droite.
+  // Jusqu'au bord bas de la fenêtre : le sélecteur Global / Par objet (.scopeSwitch) ferme le bloc contre ce bord.
   // `--menu-top` : le haut réel du panneau, repoussé par l'arborescence des modèles (cf. CategoriesPanels.tsx).
-  max-height: calc(100% - var(--menu-top, 266px) - 60px);
+  // Toujours jusqu'en bas : hauteur fixe, le vide s'ajoute entre la dernière section et le sélecteur.
+  // Marge d'ancrage de 10 px en bas : elle laisse arrondir le coin bas droit sans décoller le bloc du bord gauche.
+  height: calc(100% - var(--menu-top, 266px) - 10px);
   border: none;
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
-  border-radius: 16px;
+  // Collé au bord gauche de la fenêtre : les coins droits sont arrondis.
+  border-radius: 0 16px 16px 0;
   z-index: 1001;
   display: flex;
   flex-direction: column;
@@ -298,7 +301,7 @@
   opacity: 0.45;
   filter: grayscale(1);
 
-  // grayscale() désature mais ne neutralise pas la luminosité : le cyan très saturé de .itemInput (#00f0ff, cf. plus
+  // grayscale() désature mais ne neutralise pas la luminosité : le cyan très saturé de .itemInput (#f59e0b, cf. plus
   // bas) restait visuellement "vif" une fois désaturé en gris clair. On écrase sa couleur pour un gris terne.
   .itemInput {
     color: rgba(255, 255, 255, 0.5);
@@ -333,18 +336,19 @@
   display: inline-flex;
   align-items: center;
   flex: 0 0 auto;
-  color: #00f0ff;
+  color: #f59e0b;
   font-size: 13px;
 }
 
 .fusionMenuContent {
   padding: 16px;
   overflow-y: scroll;
+  flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 12px;
-  border-radius: 16px;
+  border-radius: 0 16px 0 0;
 
   &::-webkit-scrollbar {
     width: 0px;
@@ -371,20 +375,14 @@
   }
 }
 
-// Bloc séparé, posé sous le panneau (qui laisse 60 px libres en bas) avec son propre verre.
+// Dernière ligne du bloc, au bas de la fenêtre (à 10 px du bord), même verre que le panneau : un seul bloc.
 .scopeSwitch {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  width: 100%;
+  flex: 0 0 auto;
   display: flex;
   gap: 2px;
   padding: 6px;
-  border-radius: 16px;
-  background: rgba(10, 15, 26, 0.5);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
+  border-radius: 0 0 16px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .scopeButton {
@@ -401,8 +399,8 @@
 }
 
 .scopeActive {
-  background: rgba(0, 240, 255, 0.14);
-  color: #00f0ff;
+  background: rgba(245,158,11, 0.14);
+  color: #f59e0b;
 }
 
 .scopeInert {
@@ -483,14 +481,14 @@
   border: none;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
   border-radius: 4px;
-  color: #00f0ff;
+  color: #f59e0b;
   text-align: center;
   font-size: 13px;
   padding: 2px 4px;
   outline: none;
 
   &:focus {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45), 0 0 8px rgba(0, 240, 255, 0.4);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45), 0 0 8px rgba(245,158,11, 0.4);
   }
 }
 
@@ -502,7 +500,7 @@
   border: none;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
   border-radius: 6px;
-  color: #00f0ff;
+  color: #f59e0b;
   font-size: 13px;
   padding: 4px 8px;
   transition: all 0.2s;
@@ -585,9 +583,9 @@
   }
 
   &.activePattern {
-    background: rgba(0, 240, 255, 0.2);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 12px rgba(0, 240, 255, 0.3);
-    color: #00f0ff;
+    background: rgba(245,158,11, 0.2);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 12px rgba(245,158,11, 0.3);
+    color: #f59e0b;
     font-weight: 600;
   }
 }

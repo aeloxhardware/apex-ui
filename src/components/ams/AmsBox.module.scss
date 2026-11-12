@@ -16,16 +16,16 @@ $fade-length: 56px;
   box-sizing: border-box;
   width: var(--w-collapsed);
   max-width: 100%;
-  height: 192px;
+  height: 176px;
   border-radius: 16px;
   background: rgba(10, 15, 26, 0.25);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
   overflow: hidden;
-  // Deux parties dans les proportions du croquis : 110 px / 82 px sur 192 px.
+  // Deux parties : 110 px pour les bobines, le reste (66 px) pour les numéros, sur 176 px.
   display: grid;
-  grid-template-rows: 57fr 43fr;
+  grid-template-rows: 110px 1fr;
   transition: width 0.5s $ease, --apex-fade 0.5s $ease;
 }
 
@@ -154,8 +154,8 @@ $fade-length: 56px;
   height: 20px;
   border-radius: 50%;
   background: rgba(10, 15, 26, 0.75);
-  border: 1px solid #00f0ff;
-  color: #00f0ff;
+  border: 1px solid #f59e0b;
+  color: #f59e0b;
   opacity: 0;
   transition: opacity 0.15s;
   pointer-events: none;

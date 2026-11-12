@@ -88,7 +88,7 @@ export const EngineSettingsPanel: React.FC = () => {
                     <li className={clsx(styles.selectorItem, { [styles.selectorItemActive]: mode === option, [styles.selectorItemDisabled]: !available })}
                       aria-disabled={!available} onClick={() => chooseMode(option)}>
                       <span className={styles.modeLabel}>{logo(option)}{option}</span>
-                      {mode === option && <Check size={14} className="text-[#00f0ff] shrink-0" />}
+                      {mode === option && <Check size={14} className="text-[#f59e0b] shrink-0" />}
                     </li>
                   </CustomTooltip>
                 );

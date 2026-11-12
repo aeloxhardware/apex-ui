@@ -8,7 +8,7 @@
   border-radius: 14px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0;
   // Même verre que la barre d'outils (Sidebar.module.scss, .toolbar).
   background: rgba(10, 15, 26, 0.25);
   backdrop-filter: blur(4px);
@@ -22,7 +22,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 8px 10px;
+  padding: 5px 10px;
   border-radius: 10px;
   font-size: 15px;
   color: rgba(255, 255, 255, 0.8);
@@ -41,7 +41,7 @@
   background: transparent;
   text-align: left;
   font-weight: 600;
-  color: #67e8f9;
+  color: #f59e0b;
 }
 
 .field {
@@ -53,21 +53,21 @@
   }
 }
 
-// Même vocabulaire que ParamsPanel.module.scss (.checkbox) : cyan pour l'état coché.
+// Même vocabulaire que ParamsPanel.module.scss (.checkbox) : couleur d'accent pour l'état coché ; case ronde.
 .checkbox {
   appearance: none;
   flex: 0 0 auto;
   order: 2;
   width: 20px;
   height: 20px;
-  border-radius: 5px;
+  border-radius: 50%;
   border: 1px solid rgba(255, 255, 255, 0.35);
   background: transparent;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
 
   &:checked {
-    background: #22d3ee;
-    border-color: #22d3ee;
+    background: #f59e0b;
+    border-color: #f59e0b;
   }
 }

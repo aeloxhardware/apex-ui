@@ -17,7 +17,7 @@ function setupMakeScreenLine(st: ViewportState) {
     // Même hauteur que glassDisc : sans ça le contour cerclait le vide sous le disque surélevé.
     outlinePoints.push(new BABYLON.Vector3(Math.cos(angle) * RADIUS, glassDisc.position.y, Math.sin(angle) * RADIUS));
   }
-  const outline = makeScreenLine("plateOutline", outlinePoints, flat ? BABYLON.Color3.White() : new BABYLON.Color3(0, 0.94, 1));
+  const outline = makeScreenLine("plateOutline", outlinePoints, flat ? BABYLON.Color3.White() : new BABYLON.Color3(0.9608, 0.6196, 0.0431));
   outline.parent = volumeRoot;
 
   const topOutlinePoints = [];
@@ -25,7 +25,7 @@ function setupMakeScreenLine(st: ViewportState) {
     const angle = (i / 720) * Math.PI * 2;
     topOutlinePoints.push(new BABYLON.Vector3(Math.cos(angle) * RADIUS, HEIGHT, Math.sin(angle) * RADIUS));
   }
-  const topOutline = makeScreenLine("topOutline", topOutlinePoints, flat ? BABYLON.Color3.White() : new BABYLON.Color3(0, 0.94, 1));
+  const topOutline = makeScreenLine("topOutline", topOutlinePoints, flat ? BABYLON.Color3.White() : new BABYLON.Color3(0.9608, 0.6196, 0.0431));
   topOutline.parent = volumeRoot;
 
   // Grille d'esquisse du mode modélisation : masquée tant qu'on est en mode slicer, elle

@@ -1,6 +1,6 @@
 // Panneau latéral droit de l'outil Extrusion, aux couleurs d'Apex (verre sombre, accent cyan) : même
 // vocabulaire que les panneaux de Modélisation (ModelingSidebar.module.scss).
-$accent: #00f0ff;
+$accent: #f59e0b;
 $panel-bg: rgba(10, 15, 26, 0.25);
 $panel-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
 $control-bg: rgba(0, 0, 0, 0.28);
@@ -37,7 +37,7 @@ $control-bg: rgba(0, 0, 0, 0.28);
 
 .headerIcon {
   color: $accent;
-  filter: drop-shadow(0 0 6px rgba(0, 240, 255, 0.5));
+  filter: drop-shadow(0 0 6px rgba(245,158,11, 0.5));
 }
 
 .rows {
@@ -83,8 +83,8 @@ $control-bg: rgba(0, 0, 0, 0.28);
 
   &.active {
     color: $accent;
-    background: rgba(0, 240, 255, 0.16);
-    box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
+    background: rgba(245,158,11, 0.16);
+    box-shadow: 0 0 12px rgba(245,158,11, 0.25);
   }
 }
 
@@ -111,8 +111,8 @@ $control-bg: rgba(0, 0, 0, 0.28);
 
   &.selected {
     color: $accent;
-    background: rgba(0, 240, 255, 0.16);
-    box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
+    background: rgba(245,158,11, 0.16);
+    box-shadow: 0 0 12px rgba(245,158,11, 0.25);
   }
 }
 
@@ -130,7 +130,7 @@ $control-bg: rgba(0, 0, 0, 0.28);
   outline: none;
 
   &:hover { background: rgba(255, 255, 255, 0.1) !important; }
-  &:focus { box-shadow: 0 0 0 1px rgba(0, 240, 255, 0.5) !important; }
+  &:focus { box-shadow: 0 0 0 1px rgba(245,158,11, 0.5) !important; }
 }
 
 .selectContent {
@@ -149,7 +149,7 @@ $control-bg: rgba(0, 0, 0, 0.28);
 
   &:focus,
   &[data-highlighted] {
-    background: rgba(0, 240, 255, 0.14);
+    background: rgba(245,158,11, 0.14);
     color: $accent;
   }
 }
@@ -178,7 +178,7 @@ $control-bg: rgba(0, 0, 0, 0.28);
     font-weight: 600;
   }
 
-  &:focus-within { box-shadow: 0 0 0 1px rgba(0, 240, 255, 0.5); }
+  &:focus-within { box-shadow: 0 0 0 1px rgba(245,158,11, 0.5); }
 
   // Valeur invalide (vide, nulle, négative ou non numérique) : contour rouge, comme les champs du tracé.
   &.invalid { box-shadow: 0 0 0 2px #ff453a; }
@@ -214,11 +214,11 @@ $control-bg: rgba(0, 0, 0, 0.28);
 }
 
 .ok {
-  background: rgba(0, 240, 255, 0.22);
+  background: rgba(245,158,11, 0.22);
   color: $accent;
-  box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
+  box-shadow: 0 0 12px rgba(245,158,11, 0.25);
 
-  &:hover:not(:disabled) { background: rgba(0, 240, 255, 0.32); transform: translateY(-1px); }
+  &:hover:not(:disabled) { background: rgba(245,158,11, 0.32); transform: translateY(-1px); }
   &:disabled { opacity: 0.32; cursor: not-allowed; box-shadow: none; }
 }
 

@@ -119,7 +119,7 @@ const TextureDetailsPanel: React.FC<{ texture: TextureItem }> = ({ texture }) =>
         >
           <div className={styles.header}>
             <div className={styles.headerTitle}>
-              <Info size={16} className="text-[#00f0ff]" />
+              <Info size={16} className="text-[#f59e0b]" />
               <span>Détails & Filament</span>
             </div>
           </div>
@@ -180,7 +180,7 @@ const TextureGrid: React.FC<{
             >
               <span 
                 className="w-3.5 h-3.5 rounded-full shrink-0 shadow-sm" 
-                style={{ backgroundColor: tex.color || '#00f0ff' }} 
+                style={{ backgroundColor: tex.color || '#f59e0b' }} 
               />
               <div className={styles.cardInfo}>
                 <span className={styles.cardName}>{tex.name}</span>
@@ -263,7 +263,7 @@ export const TextureEditorModal: React.FC = () => {
           >
             <div className={styles.header}>
               <div className={styles.headerTitle}>
-                <Palette size={16} className="text-[#00f0ff]" />
+                <Palette size={16} className="text-[#f59e0b]" />
                 <span>Éditeur de Texture</span>
               </div>
               <button 

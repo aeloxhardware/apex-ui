@@ -128,7 +128,7 @@ function pickingApi(st: GCodeLayerState): ApiPart<'setPickingEnabled' | 'pickAt'
         st.pickHighlight = BABYLON.MeshBuilder.CreateSphere(`${GCODE_MESH_PREFIX}PickHighlight`, { diameter: 1.8, segments: 12 }, scene);
         const mat = new BABYLON.StandardMaterial(`${GCODE_MESH_PREFIX}PickHighlightMat`, scene);
         mat.disableLighting = true;
-        mat.emissiveColor = new BABYLON.Color3(0.0, 0.94, 1.0);
+        mat.emissiveColor = new BABYLON.Color3(0.9608, 0.6196, 0.0431);
         mat.alpha = 0.9;
         mat.disableDepthWrite = true;
         st.pickHighlight.material = mat;

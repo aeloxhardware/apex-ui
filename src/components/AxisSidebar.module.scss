@@ -51,8 +51,8 @@
 
 .perspectiveOn .perspectiveKnob {
   top: 5px;
-  background: #00f0ff;
-  box-shadow: 0 0 8px rgba(0, 240, 255, 0.6);
+  background: #f59e0b;
+  box-shadow: 0 0 8px rgba(245,158,11, 0.6);
 }
 
 .toolbar {
@@ -75,8 +75,8 @@
 
 .activeIndicator {
   position: absolute;
-  background: rgba(0, 240, 255, 0.18);
-  box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
+  background: rgba(245,158,11, 0.18);
+  box-shadow: 0 0 12px rgba(245,158,11, 0.25);
   border-radius: 10px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: none;
@@ -105,6 +105,6 @@
   }
 
   &.active {
-    color: #00f0ff;
+    color: #f59e0b;
   }
 }

@@ -44,7 +44,7 @@
   font-family: 'Orbitron', sans-serif !important;
   font-size: 12px;
   font-weight: 700;
-  color: #00f0ff;
+  color: #f59e0b;
 }
 
 .closeBtn {
@@ -124,7 +124,7 @@
   color: rgba(255, 255, 255, 0.9);
 
   &.yes {
-    color: #00f0ff;
+    color: #f59e0b;
   }
 
   &.no {
@@ -134,8 +134,8 @@
 
 .selectBtn {
   @extend %floatingBox;
-  background: rgba(0, 240, 255, 0.22);
-  color: #00f0ff;
+  background: rgba(245,158,11, 0.22);
+  color: #f59e0b;
   border: none;
   padding: 12px 16px;
   font-family: 'Orbitron', sans-serif !important;
@@ -143,11 +143,11 @@
   font-weight: 700;
   letter-spacing: 0.02em;
   cursor: pointer;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 0 10px rgba(0, 240, 255, 0.15);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 0 10px rgba(245,158,11, 0.15);
   transition: background 0.2s, box-shadow 0.2s;
 
   &:hover {
-    background: rgba(0, 240, 255, 0.32);
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 0 14px rgba(0, 240, 255, 0.35);
+    background: rgba(245,158,11, 0.32);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 0 14px rgba(245,158,11, 0.35);
   }
 }

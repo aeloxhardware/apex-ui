@@ -1,5 +1,5 @@
 // Panneau de tous les filaments et fiche technique : calque flouté au-dessus de toute l'interface (GlassPanel : 1003).
-$cyan: #00f0ff;
+$cyan: #f59e0b;
 $glass: rgba(10, 15, 26, 0.55);
 $line: rgba(255, 255, 255, 0.14);
 
@@ -298,11 +298,11 @@ $line: rgba(255, 255, 255, 0.14);
 }
 
 .primaryButton {
-  background: rgba(0, 240, 255, 0.22);
+  background: rgba(245,158,11, 0.22);
   color: $cyan;
 
   &:hover:not(:disabled) {
-    background: rgba(0, 240, 255, 0.34);
+    background: rgba(245,158,11, 0.34);
   }
 
   &:disabled {
@@ -323,7 +323,7 @@ $line: rgba(255, 255, 255, 0.14);
   outline: none;
 
   &:focus {
-    border-color: rgba(0, 240, 255, 0.6);
+    border-color: rgba(245,158,11, 0.6);
   }
 }
 
@@ -346,8 +346,8 @@ $line: rgba(255, 255, 255, 0.14);
 }
 
 .choiceActive {
-  background: rgba(0, 240, 255, 0.22);
-  border-color: rgba(0, 240, 255, 0.6);
+  background: rgba(245,158,11, 0.22);
+  border-color: rgba(245,158,11, 0.6);
   color: $cyan;
 }
 

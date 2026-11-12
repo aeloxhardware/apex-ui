@@ -22,7 +22,7 @@
 .value {
   width: 40px;
   text-align: right;
-  color: #00f0ff;
+  color: #f59e0b;
   font-variant-numeric: tabular-nums;
 }
 
@@ -37,7 +37,7 @@
   outline: none;
 
   &:focus-visible .trackHandle {
-    box-shadow: 0 0 0 1px rgba(0, 240, 255, 0.7), 0 4px 10px 0 rgba(0, 0, 0, 0.5);
+    box-shadow: 0 0 0 1px rgba(245,158,11, 0.7), 0 4px 10px 0 rgba(0, 0, 0, 0.5);
   }
 }
 
@@ -52,7 +52,7 @@
 
 .trackFill {
   left: 0;
-  background: #00f0ff;
+  background: #f59e0b;
 }
 
 .trackRemainder {
