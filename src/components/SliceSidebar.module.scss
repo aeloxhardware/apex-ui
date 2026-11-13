@@ -49,9 +49,9 @@
   white-space: nowrap;
   justify-content: center;
 
-  // L'icône et le texte flottent dans le verre : ils suivent son glissement vers le pointeur (variables posées par
-  // useGlassReaction) avec une profondeur différente (l'icône plus loin que le texte, comme deux plans), et grossissent
-  // avec son gonflement.
+  // L'icône et le texte flottent dans le verre : ils suivent le déplacement de la matière vers le pointeur (variables
+  // posées par useGlassReaction), l'icône un peu plus que le texte (deux plans de profondeur), et se tassent ou
+  // grossissent avec la goutte (écrasement à l'appui).
   svg,
   span {
     display: inline-block;
@@ -59,13 +59,12 @@
   }
 
   svg {
-    transform: translate(calc(var(--glass-dx, 0px) * 1.7), calc(var(--glass-dy, 0px) * 1.7))
+    transform: translate(calc(var(--glass-dx, 0px) * 1.3), calc(var(--glass-dy, 0px) * 1.3))
       scale(calc(1 + var(--glass-grow, 0) * 0.025));
   }
 
   span {
-    transform: translate(calc(var(--glass-dx, 0px) * 1.2), calc(var(--glass-dy, 0px) * 1.2))
-      scale(calc(1 + var(--glass-grow, 0) * 0.012));
+    transform: translate(var(--glass-dx, 0px), var(--glass-dy, 0px)) scale(calc(1 + var(--glass-grow, 0) * 0.012));
   }
 
   // Repli si le verre WebGL est indisponible.
@@ -77,14 +76,8 @@
   }
 
   // Actif seulement s'il y a des modèles sur le plateau (sinon `disabled`). La réaction au survol et au clic est celle du
-  // verre lui-même (useGlassReaction : il gonfle, réfracte davantage, son bord s'éclaire) ; ici seul le texte s'éclaire.
+  // verre lui-même (useGlassReaction : il gonfle, réfracte davantage, son bord s'éclaire) ; le texte ne change pas de couleur.
   &:not(:disabled) {
-    transition: color 0.15s ease, text-shadow 0.15s ease;
-
-    &:hover {
-      color: #7df9ff;
-      text-shadow: 0 0 10px rgba(245,158,11, 0.6);
-    }
 
     &:focus-visible {
       outline: 2px solid rgba(245,158,11, 0.6);

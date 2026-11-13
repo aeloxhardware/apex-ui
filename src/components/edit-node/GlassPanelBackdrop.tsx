@@ -1,11 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { usePortalRoot } from '@/components/GpuWarningFrame';
-import { DEFAULT_GLASS, LiquidGlassRenderer, type GlassLens } from './liquidGlass';
-import { newGlassLive, reactiveGlassParams, type GlassLive } from './glassReaction';
+import { ATTRACT_THIN, DEFAULT_GLASS, LiquidGlassRenderer, type GlassLens } from './liquidGlass';
+import { glassSigma, newGlassLive, reactiveGlassParams, type GlassLive } from './glassReaction';
 
-/** Portée de fusion entre le verre et son renflement sous le pointeur, px CSS : large, donc diffus. */
-const BULGE_MERGE_PX = 30;
 import { isFlatUi } from '@/utils/interfaceMode';
 import { drawVeilTiles, veilNow, veilState } from '@/utils/veilTimeline';
 
@@ -182,35 +180,20 @@ export function GlassPanelBackdrop({
       renderer.setBackground(flat);
       // Réaction au pointeur (useGlassReaction) : le verre déborde et réfracte davantage ; au repos, rien ne change.
       const lv = liveRef?.current ?? newGlassLive();
-      // Glissement d'ensemble vers le pointeur (dx, dy) : le centre avance de (dx, dy), les demi-côtés grandissent de
-      // la moitié, donc le bord côté pointeur avance de 1,5 × et l'autre de 0,5 × seulement.
-      const halfW = r.width / 2 + lv.grow + Math.abs(lv.dx) / 2;
-      const halfH = r.height / 2 + lv.grow + Math.abs(lv.dy) / 2;
-      const cx = r.left - s.left + r.width / 2;
-      const cy = r.top - s.top + r.height / 2;
+      // Liquide magnétique : la matière du verre est attirée par le pointeur (GlassLens.attract, état de useGlassReaction).
+      const halfW = r.width / 2 + lv.gw;
+      const halfH = r.height / 2 + lv.gh;
+      // Rayon plafonné à 80 % de la demi-épaisseur la plus fine (la forme s'amincit loin du pointeur) : sinon les bandes
+      // réfractées du haut et du bas se rejoignent et plient le fond en sablier (bouton fin, ex. « Découper le plateau »).
+      const R = Math.min(30 * warp * lv.warp, 0.8 * (halfH - ATTRACT_THIN * Math.abs(lv.pull)));
       const lenses: GlassLens[] = [{
-        x: cx + lv.dx,
-        y: cy + lv.dy,
-        radius: 30 * warp * lv.warp,
+        x: r.left - s.left + r.width / 2,
+        y: r.top - s.top + r.height / 2,
+        radius: Math.max(R, 1),
         strength,
-        mergePx: BULGE_MERGE_PX,
-        box: { halfW, halfH, corner: Math.min(corner + lv.grow, halfH) },
+        box: { halfW, halfH, corner: Math.min(corner + Math.max(lv.gh, 0), halfH) },
+        attract: { x: lv.mx, y: lv.my, pull: lv.pull, sigma: glassSigma(r.width / 2, r.height / 2) },
       }];
-      // Renflement diffus sous le pointeur : petite lentille séparée, faible et largement fondue dans le verre.
-      // Même rayon que le verre (le shader prend épaisseur et réfraction de la lentille dominante : deux rayons
-      // différents font une couture là où la dominante change) et centre borné pour ne jamais dépasser du contour.
-      if (lv.es > 0.005) {
-        const R = 30 * warp * lv.warp;
-        const bx = Math.max(0, halfW - R);
-        const by = Math.max(0, halfH - R);
-        lenses.push({
-          x: cx + Math.max(-bx, Math.min(bx, lv.ex)),
-          y: cy + Math.max(-by, Math.min(by, lv.ey)),
-          radius: R,
-          strength: lv.es * strength,
-          mergePx: BULGE_MERGE_PX,
-        });
-      }
       renderer.render(lenses, dpr, reactiveGlassParams(
         whiteRim
           ? { ...DEFAULT_GLASS, blurPx, dispersion }

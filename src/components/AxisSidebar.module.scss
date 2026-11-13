@@ -2,7 +2,7 @@
   position: fixed;
   top: 12px;
   right: 12px;
-  z-index: 100;
+  z-index: 1000; // au-dessus du calque du verre WebGL (999) : le bouton « Découper le plateau », posé dans cette rangée, y met son texte
   display: flex;
   align-items: center;
   gap: 8px;

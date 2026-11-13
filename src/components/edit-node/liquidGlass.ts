@@ -56,6 +56,13 @@ export interface GlassLens {
   glareTurn?: number | undefined;
   /** Rectangle arrondi (demi-côtés et rayon de coin, px CSS) au lieu d'un cercle ; `radius` ne sert alors qu'à l'épaisseur du verre. */
   box?: { halfW: number; halfH: number; corner: number };
+  /**
+   * Aimant qui attire la matière du rectangle (liquide magnétique) : position relative au centre (px CSS, y vers le bas),
+   * force (déplacement maximal de la matière, px CSS) et portée (px CSS ; de l'ordre de la demi-largeur, pour que toute
+   * la forme réponde). La matière glisse vers l'aimant et s'y accumule : la forme enfle près de lui, s'amincit et se
+   * rétracte au loin.
+   */
+  attract?: { x: number; y: number; pull: number; sigma: number };
 }
 
 /** Réglages du verre, mêmes noms et unités que Liquid Glass Studio sauf mention contraire. */
@@ -115,6 +122,9 @@ export const DEFAULT_GLASS: GlassParams = {
 };
 
 const MAX_LENSES = 8;
+/** Aimant (GlassLens.attract) : gonflement de la forme à l'aimant et amincissement au loin, en fraction de la force. */
+const ATTRACT_SWELL = 0.9;
+export const ATTRACT_THIN = 0.27;
 export const MAX_PULLS = 10;
 const MAX_BLUR_TAPS = 32;
 
@@ -176,6 +186,7 @@ uniform float u_shadowBlur;   // px physiques
 uniform float u_merge;        // px physiques
 uniform float u_lensMerge[MAX_LENSES]; // portée de fusion propre à une lentille (0 : u_merge)
 uniform float u_lensGlare[MAX_LENSES]; // rotation des reflets propre à une lentille (rad, horaire)
+uniform vec4 u_lensWarp[MAX_LENSES];   // aimant du rectangle : position relative (px phys., y vers le haut), force et portée (px phys.)
 uniform vec4 u_lensBox[MAX_LENSES];    // rectangle arrondi : demi-côtés, rayon de coin (px phys.) ; x = 0 : cercle
 uniform float u_thickness;
 uniform float u_refFactor;
@@ -250,8 +261,20 @@ float lensSd(vec2 p, int i) {
   vec2 d = p - L.xy;
   vec4 B = u_lensBox[i];
   if (B.x > 0.0) {
+    vec4 W = u_lensWarp[i];
+    float swell = 0.0;
+    if (W.z != 0.0) {
+      // Antécédent de p : la matière glisse vers l'aimant, d'autant plus qu'elle en est proche (cloche large : toute la
+      // forme répond), puis s'y accumule (la forme enfle près de l'aimant et s'amincit au loin).
+      vec2 v = W.xy - d;
+      float r2 = dot(v, v);
+      float s2 = W.w * W.w;
+      float f = s2 / (s2 + r2);
+      d -= W.z * f * v * inversesqrt(r2 + s2);
+      swell = W.z * (${ATTRACT_SWELL.toFixed(2)} * f - ${ATTRACT_THIN.toFixed(2)});
+    }
     vec2 q = abs(d) - (B.xy - B.z);
-    return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - B.z;
+    return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - B.z - swell;
   }
   float len = length(d);
   vec2 n = d / max(len, 1e-4);
@@ -416,6 +439,7 @@ export class LiquidGlassRenderer {
   private readonly mergeData = new Float32Array(MAX_LENSES);
   private readonly glareData = new Float32Array(MAX_LENSES);
   private readonly boxData = new Float32Array(MAX_LENSES * 4);
+  private readonly warpData = new Float32Array(MAX_LENSES * 4);
 
   /**
    * @param overlay Calque posé sur la vue réfractée (scène 3D) : seuls le verre et son ombre sont
@@ -570,6 +594,10 @@ export class LiquidGlassRenderer {
       this.boxData[4 * i] = (l.box?.halfW ?? 0) * dpr;
       this.boxData[4 * i + 1] = (l.box?.halfH ?? 0) * dpr;
       this.boxData[4 * i + 2] = (l.box?.corner ?? 0) * dpr;
+      this.warpData[4 * i] = (l.attract?.x ?? 0) * dpr;
+      this.warpData[4 * i + 1] = -(l.attract?.y ?? 0) * dpr;
+      this.warpData[4 * i + 2] = (l.attract?.pull ?? 0) * dpr;
+      this.warpData[4 * i + 3] = Math.max(l.attract?.sigma ?? 1, 1) * dpr;
       for (let j = 0; j < MAX_PULLS; j++) {
         const pull = l.pulls?.[j];
         const o = 4 * (i * MAX_PULLS + j);
@@ -649,6 +677,7 @@ export class LiquidGlassRenderer {
     gl.uniform1fv(u('u_lensMerge'), this.mergeData);
     gl.uniform1fv(u('u_lensGlare'), this.glareData);
     gl.uniform4fv(u('u_lensBox'), this.boxData);
+    gl.uniform4fv(u('u_lensWarp'), this.warpData);
     this.setGlassUniforms(u, params, dpr, count);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
