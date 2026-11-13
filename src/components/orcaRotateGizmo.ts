@@ -9,11 +9,13 @@
  * la zone centrale, de 5° près de l'anneau). Crédit : `src/utils/credits.ts`.
  *
  * Contrairement au gizmo de Babylon, qui tourne autour de l'origine du fichier, la rotation se fait toujours
- * autour du centre de la boîte englobante du modèle, pris au début du glissement.
+ * autour du centre de la boîte englobante du modèle, pris au début du glissement : c'est le centre des
+ * anneaux, qui ne bouge pas pendant le glissement. La repose sur le plateau revient à `onDragEnd`.
  *
  * Axes et couleurs de l'application : X rouge, Y (vertical) bleu, Z vert.
  */
 import * as BABYLON from 'babylonjs';
+import { localPointOf } from '@/utils/meshScale';
 
 const OFFSET = 5; // mm ajoutés au rayon de la sphère englobante
 const SCALE_STEPS = 72;
@@ -63,10 +65,8 @@ export class OrcaRotateGizmo {
   private readonly renderObserver: BABYLON.Nullable<BABYLON.Observer<BABYLON.Scene>>;
 
   private mesh: BABYLON.AbstractMesh | null = null;
-  /** Centre des anneaux : figé pendant un glissement, pour que le gizmo ne bouge pas sous le pointeur. */
+  /** Centre des anneaux et de la rotation : figé pendant un glissement (le modèle n'est reposé qu'au relâchement). */
   private center = BABYLON.Vector3.Zero();
-  /** Point autour duquel le modèle tourne : il suit le modèle quand celui-ci est reposé sur le plateau. */
-  private pivot = BABYLON.Vector3.Zero();
   private radius = 1;
   private hover = -1;
   private dragging = -1;
@@ -433,7 +433,6 @@ export class OrcaRotateGizmo {
 
   private beginDrag(index: number) {
     this.fitToMesh();
-    this.pivot.copyFrom(this.center);
     const hit = this.hitInPlane(this.rings[index]);
     this.dragging = index;
     this.hover = index;
@@ -469,20 +468,21 @@ export class OrcaRotateGizmo {
     this.angle = theta;
     this.updateArc(ring);
 
-    // Pas relatif au dernier angle appliqué : le modèle tourne autour du centre pris au départ.
+    // Pas relatif au dernier angle appliqué : le modèle tourne autour du centre des anneaux, figé
+    // pendant tout le glissement. `rotateAround` de Babylon ne convient pas : il ignore le pivot du
+    // maillage (setPivotPoint, posé à l'import) et tourne alors autour d'un point décalé d'autant. On
+    // relève donc le centre dans le repère local, on tourne, puis on recale la position pour que ce
+    // point revienne exactement au centre des anneaux.
     const delta = theta - this.applied;
     if (Math.abs(delta) < 1e-9) return;
     this.applied = theta;
-    mesh.rotateAround(this.pivot, ring.axis, delta);
-    // La rotation laisse le pivot en place ; le rappel peut ensuite reposer le modèle sur le plateau.
-    // Le pivot suit ce décalage ET les anneaux avec lui : la rotation se fait donc toujours autour du
-    // centre du cercle affiché, qui reste confondu avec le centre pris au départ du glissement.
-    const afterRotation = mesh.position.clone();
+    const localCenter = localPointOf(mesh, this.center);
+    mesh.rotate(ring.axis, delta, BABYLON.Space.WORLD);
+    mesh.computeWorldMatrix(true);
+    const moved = BABYLON.Vector3.TransformCoordinates(localCenter, mesh.getWorldMatrix());
+    mesh.position.addInPlace(this.center.subtract(moved));
+    mesh.computeWorldMatrix(true);
     this.options.onRotated(mesh);
-    const shift = mesh.position.subtract(afterRotation);
-    this.pivot.addInPlace(shift);
-    this.center.copyFrom(this.pivot);
-    this.layoutRings();
   }
 
   private endDrag() {

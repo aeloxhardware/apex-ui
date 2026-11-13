@@ -37,9 +37,17 @@ describe('gizmo de rotation (Orca) : rotation', () => {
     const camera = new BABYLON.ArcRotateCamera('cam', 0, 0.001, 400, BABYLON.Vector3.Zero(), scene);
     const box = BABYLON.MeshBuilder.CreateBox('b', { size: 20 }, scene);
     box.bakeTransformIntoVertices(BABYLON.Matrix.Translation(60, 0, -30));
+    // Comme à l'import (placeImportedModel) : pivot au centre de la boîte, loin de l'origine du maillage.
+    // `rotateAround` de Babylon l'ignorait et faisait tourner la pièce autour d'un point décalé d'autant.
+    box.setPivotPoint(new BABYLON.Vector3(60, 0, -30));
+    box.position.set(15, 0, 25);
 
-    // Le rappel simule la repose sur le plateau : il remonte le modèle de 7 mm à chaque pas.
-    const gizmo = new OrcaRotateGizmo(scene, { onRotated: (m) => { m.position.y += 7; } });
+    // La repose sur le plateau (simulée : +7 mm) n'a lieu qu'au relâchement.
+    let steps = 0;
+    const gizmo = new OrcaRotateGizmo(scene, {
+      onRotated: () => { steps++; },
+      onDragEnd: () => { box.position.y += 7; },
+    });
     gizmo.attach(box);
     scene.render();
 
@@ -64,19 +72,26 @@ describe('gizmo de rotation (Orca) : rotation', () => {
     send(BABYLON.PointerEventTypes.POINTERMOVE, 0);
     send(BABYLON.PointerEventTypes.POINTERDOWN, 0);
     expect(gizmo['dragging']).toBe(1);
-    send(BABYLON.PointerEventTypes.POINTERMOVE, 90);
-    // Les anneaux suivent le décalage du modèle : le centre du cercle reste le centre de rotation.
-    scene.render();
-    const ringNode = gizmo['layer'].utilityLayerScene.getTransformNodeByName('orcaRotateRing1')!;
-    expect(BABYLON.Vector3.Distance(ringNode.position, center.add(new BABYLON.Vector3(0, 7, 0)))).toBeLessThan(1e-6);
-    expect(BABYLON.Vector3.Distance(ringNode.position, gizmo['pivot'])).toBeLessThan(1e-6);
+    const boxCenter = () => {
+      box.computeWorldMatrix(true);
+      const { min, max } = box.getHierarchyBoundingVectors(true);
+      return min.add(max).scale(0.5);
+    };
+    const ringNode = gizmo['layer'].utilityLayerScene.getTransformNodeByName('orcaRotateRing1');
+    // Pendant le glissement : ni l'anneau ni le centre de la pièce ne bougent, à aucun angle.
+    for (const deg of [30, 60, 90]) {
+      send(BABYLON.PointerEventTypes.POINTERMOVE, deg);
+      scene.render();
+      expect(BABYLON.Vector3.Distance(ringNode?.position ?? BABYLON.Vector3.Zero(), center)).toBeLessThan(1e-6);
+      expect(BABYLON.Vector3.Distance(boxCenter(), center)).toBeLessThan(1e-3);
+    }
+    expect(steps).toBe(3);
     send(BABYLON.PointerEventTypes.POINTERUP, 90);
 
-    // Le centre de la boîte n'a pas bougé.
-    box.computeWorldMatrix(true);
-    const { min, max } = box.getHierarchyBoundingVectors(true);
-    const newCenter = min.add(max).scale(0.5);
-    expect(BABYLON.Vector3.Distance(newCenter, center.add(new BABYLON.Vector3(0, 7, 0)))).toBeLessThan(1e-3);
+    // Au relâchement seulement : la hauteur est ajustée, et l'anneau rejoint la pièce.
+    expect(BABYLON.Vector3.Distance(boxCenter(), center.add(new BABYLON.Vector3(0, 7, 0)))).toBeLessThan(1e-3);
+    scene.render();
+    expect(BABYLON.Vector3.Distance(ringNode?.position ?? BABYLON.Vector3.Zero(), center.add(new BABYLON.Vector3(0, 7, 0)))).toBeLessThan(1e-3);
 
     // La direction (0°) a suivi le pointeur jusqu'à 90° : u est devenu v.
     const turned = new BABYLON.Vector3();

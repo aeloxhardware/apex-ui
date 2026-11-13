@@ -217,9 +217,9 @@ function setupSetupGizmoDragEnd(st: ViewportState) {
   gizmoManager.gizmos.positionGizmo?.yGizmo.dragBehavior.onDragObservable.add(updateSelectedPosition);
   gizmoManager.gizmos.positionGizmo?.zGizmo.dragBehavior.onDragObservable.add(updateSelectedPosition);
 
-  // Pendant une rotation, le point le plus bas du modèle reste collé au plateau : on corrige
-  // la hauteur à chaque pas (le gizmo a déjà appliqué sa rotation, son observer est enregistré
-  // avant le nôtre).
+  // Repose le point le plus bas du modèle sur le plateau. Rotation : au relâchement seulement (pendant
+  // le glissement le modèle tourne autour du centre de l'anneau, sans bouger en hauteur). Échelle : à
+  // chaque pas.
   const keepOnPlateAfterRotation = () => {
     if (scene.isDisposed) return;
     const selection = selectedMeshesRef.current;
@@ -240,10 +240,11 @@ function setupSetupGizmoDragEnd(st: ViewportState) {
   // Gizmo de rotation d'OrcaSlicer (orcaRotateGizmo.ts) à la place de celui de Babylon : trois anneaux
   // autour du CENTRE du modèle, accroche de l'angle, rotation autour de ce centre. Le gestionnaire de
   // gizmos reste le point d'entrée : `rotationGizmoEnabled` et `attachToMesh` pilotent notre gizmo, celui
-  // de Babylon n'est jamais créé.
+  // de Babylon n'est jamais créé. La hauteur n'est ajustée qu'au relâchement (demande de l'utilisateur,
+  // 2026-11-13) : pendant le glissement le modèle ne quitte pas le centre de l'anneau.
   const orcaRotateGizmo = new OrcaRotateGizmo(scene, {
-    onRotated: onRotationDrag,
-    onDragEnd: () => { updateSelectedPosition(); updateSelectedRotation(); },
+    onRotated: () => { updateSelectedPosition(); updateSelectedRotation(); },
+    onDragEnd: onRotationDrag,
   });
   st.rotateToolOn = false;
   Object.assign(st, { setupGizmoDragEnd, keepOnPlateAfterRotation, onRotationDrag, orcaRotateGizmo });
