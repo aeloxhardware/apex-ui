@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styles from './TextureEditorModal.module.scss';
-import { Palette, X, Check, Info } from 'lucide-react';
+import { Palette, X, Check, Info } from '@/lib/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import { emitApex } from '@/events/apexEvents';

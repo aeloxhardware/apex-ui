@@ -42,6 +42,8 @@ function useMeshEvents(
     window.addEventListener('apex-mesh-selected', handleMeshSelected as EventListener);
     window.addEventListener('apex-mesh-deleted', handleMeshDeleted as EventListener);
     window.addEventListener('apex-delete-all-models', handleMeshDeleted as EventListener);
+    // Monté après les modèles (arrivée en Modélisation) : le viewport ré-annonce ce qui est déjà sur le plateau.
+    emitApex('apex-request-mesh-list');
 
     return () => {
       window.removeEventListener('apex-mesh-selected', handleMeshSelected as EventListener);

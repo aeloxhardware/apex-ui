@@ -7,6 +7,7 @@ import { type ColorByMode, type ParsedGCode } from '../gcodeParse';
 import { type PathSampler } from '../gcodeLayerGeometry';
 import type { PickGrid } from './gcodeLayerTypes';
 import { type MarkerEntry, type PathEntry } from './gcodeLayerShared';
+import type { GCodeLighting } from './layerLighting';
 
 export interface GCodeLayerState {
   root: BABYLON.TransformNode;
@@ -22,6 +23,7 @@ export interface GCodeLayerState {
   headModelReady: boolean;
   applyHeadVisibility: () => void;
   disposed: boolean;
+  lighting: GCodeLighting;
   colors: Record<LineTypeId, BABYLON.Color3>;
   beadMaterials: Map<LineTypeId, BABYLON.StandardMaterial>;
   vertexColorBeadMat: BABYLON.StandardMaterial;

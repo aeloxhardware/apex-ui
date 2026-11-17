@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usePortalRoot } from '@/components/GpuWarningFrame';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Download, Play, Square, X } from 'lucide-react';
+import { Download, Play, Square, X } from '@/lib/icons';
 import { SOUND_LIBRARY, type LibrarySound } from '@/utils/soundLibrary';
 import { ExternalScrollArea } from './ExternalScrollArea';
 import styles from './SoundLibrary.module.scss';

@@ -48,6 +48,16 @@ const SCENE_RENDERED_EVENT = 'apex-scene-rendered';
  * Le calque épouse le canevas 3D : même repère que la texture réfractée. `position: fixed` se repère
  * sur la zone de l'interface (bandeau ancré au-dessus, cf. GpuWarningFrame), pas sur la fenêtre.
  */
+/**
+ * Canevas que le verre réfracte : la scène 3D, sauf à l'Accueil et dans Paramètres où elle reste montée mais cachée
+ * (data-apex-scene-hidden, posé par Index) — le verre y réfracte alors le fond animé de la page.
+ */
+function glassSourceCanvas(): HTMLCanvasElement | null {
+  const sceneHidden = document.documentElement.dataset.apexSceneHidden === '1';
+  const babylon = sceneHidden ? null : document.getElementById('babylon-canvas');
+  return (babylon ?? document.getElementById('home-background') ?? document.getElementById('topo-background')) as HTMLCanvasElement | null;
+}
+
 function placeOverlay(canvas: HTMLCanvasElement, s: DOMRect, portalRoot: HTMLElement) {
   const origin = portalRoot === document.body ? null : portalRoot.getBoundingClientRect();
   canvas.style.left = `${s.left - (origin?.left ?? 0)}px`;
@@ -160,7 +170,7 @@ export function GlassPanelBackdrop({
         return;
       }
       const el = targetRef.current;
-      const scene = (document.getElementById('babylon-canvas') ?? document.getElementById('home-background') ?? document.getElementById('topo-background')) as HTMLCanvasElement | null;
+      const scene = glassSourceCanvas();
       if (!el || !scene || scene.width === 0) {
         if (shown) { renderer.clear(); shown = false; }
         return;
@@ -183,9 +193,10 @@ export function GlassPanelBackdrop({
       // Liquide magnétique : la matière du verre est attirée par le pointeur (GlassLens.attract, état de useGlassReaction).
       const halfW = r.width / 2 + lv.gw;
       const halfH = r.height / 2 + lv.gh;
-      // Rayon plafonné à 80 % de la demi-épaisseur la plus fine (la forme s'amincit loin du pointeur) : sinon les bandes
-      // réfractées du haut et du bas se rejoignent et plient le fond en sablier (bouton fin, ex. « Découper le plateau »).
-      const R = Math.min(30 * warp * lv.warp, 0.8 * (halfH - ATTRACT_THIN * Math.abs(lv.pull)));
+      // Rayon plafonné à 80 % de la demi-épaisseur la plus fine (la forme s'amincit loin du pointeur, d'environ la moitié
+      // de l'amincissement limite) : sinon les bandes réfractées du haut et du bas se rejoignent et plient le fond en
+      // sablier (bouton fin, ex. « Découper le plateau »).
+      const R = Math.min(30 * warp * lv.warp, 0.8 * (halfH - 0.5 * ATTRACT_THIN * Math.abs(lv.pull)));
       const lenses: GlassLens[] = [{
         x: r.left - s.left + r.width / 2,
         y: r.top - s.top + r.height / 2,

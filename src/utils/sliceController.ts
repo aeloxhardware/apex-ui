@@ -4,7 +4,7 @@
 // moteur publie (`main.py steps`), pas une liste écrite ici.
 import { APEX_CONTRACT_VERSION } from '@/utils/engineContract';
 import { buildEngineOverrides } from '@/utils/engineSettings';
-import { stepLabel } from '@/utils/sliceStepLabels';
+import { STEP_SUBSTEPS, stepLabel } from '@/utils/sliceStepLabels';
 import { ENGINE_ALGORITHM, RUNNABLE_ALGORITHMS, getSlicingMode } from '@/utils/slicingMode';
 import { aeolisNozzleParams } from '@/utils/aeolisNozzle';
 import { DEFAULT_PRINTER_PROFILE, engineLayerLimits, engineMachineProfile, enginePivotToTip } from '@/utils/machineProfile';
@@ -20,12 +20,14 @@ export interface SliceState {
   /** Étape en cours (index dans `steps`) et avancement réel de celle-ci, rapportés par le moteur. */
   stepIndex: number;
   fraction: number;
+  /** Avancement réel des sous-étapes déjà annoncées par le moteur : étape → sous-étape → fraction (0..1). */
+  substeps: Record<string, Record<string, number>>;
   message: string | null;
   warnings: string[];
   gcodeFile: File | null;
 }
 
-const IDLE: SliceState = { phase: 'idle', steps: [], stepIndex: 0, fraction: 0, message: null, warnings: [], gcodeFile: null };
+const IDLE: SliceState = { phase: 'idle', steps: [], stepIndex: 0, fraction: 0, substeps: {}, message: null, warnings: [], gcodeFile: null };
 
 let state: SliceState = IDLE;
 const listeners = new Set<() => void>();
@@ -44,7 +46,17 @@ function exportPlateStl(): Promise<Uint8Array | null> {
 }
 
 /** Avancement rapporté par le moteur (jamais estimé ici). */
+function applySubstep(event: Extract<ApexSliceEvent, { type: 'substep' }>) {
+  const known = STEP_SUBSTEPS[event.slug]?.some((s) => s.slug === event.sub);
+  if (!known) return;
+  const current = state.substeps[event.slug] ?? {};
+  const fraction = Math.min(1, Math.max(0, event.fraction));
+  // Comme pour l'étape : une sous-barre ne recule jamais.
+  set({ substeps: { ...state.substeps, [event.slug]: { ...current, [event.sub]: Math.max(current[event.sub] ?? 0, fraction) } } });
+}
+
 function applyProgress(event: ApexSliceEvent) {
+  if (event.type === 'substep') { applySubstep(event); return; }
   if (event.type !== 'step') return;
   const index = state.steps.findIndex((s) => s.slug === event.slug);
   if (index < 0) return;

@@ -1,5 +1,7 @@
 import React from 'react';
+import type * as BABYLON from 'babylonjs';
 import styles from '../Viewport3D.module.scss';
+import { Render4kFrame } from './Render4kFrame';
 
 interface ViewportOverlaysProps {
   selectionBox: { x: number; y: number; width: number; height: number; mode: 'window' | 'crossing' } | null;
@@ -13,13 +15,16 @@ interface ViewportOverlaysProps {
   sketchCursor: { x: number; y: number; snapped: boolean } | null;
   sketchPlaneHint: { x: number; y: number } | null;
   scaleBar: { px: number; label: string } | null;
+  engineRef: React.MutableRefObject<BABYLON.Engine | null>;
+  cameraRef: React.MutableRefObject<BABYLON.ArcRotateCamera | null>;
 }
 
 /** Calques purement visuels par-dessus le canevas : fenêtre de sélection, info-bulles, esquisse, échelle. */
 export const ViewportOverlays: React.FC<ViewportOverlaysProps> = ({
-  selectionBox, plateActionHint, sketchDimsShown, sketchDimInputs, sketchDimsApi, sketchCursor, sketchPlaneHint, scaleBar,
+  selectionBox, plateActionHint, sketchDimsShown, sketchDimInputs, sketchDimsApi, sketchCursor, sketchPlaneHint, scaleBar, engineRef, cameraRef,
 }) => (
   <>
+      <Render4kFrame engineRef={engineRef} cameraRef={cameraRef} />
       {/* Rectangle de la fenêtre de sélection (clic gauche + drag) : purement visuel, la
           logique de hit-test vit dans le pointer observer Babylon ci-dessus. « window » (drag
           vers la droite, ne retient que les objets entièrement englobés) reprend le style plein

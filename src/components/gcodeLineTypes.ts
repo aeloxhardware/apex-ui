@@ -78,7 +78,7 @@ export const LINE_TYPES: LineTypeInfo[] = [
     description: "Points où le filament rétracté est réinjecté avant de reprendre l'impression." },
   { id: 'wipe', label: 'Essuyage', color: '#FFFF00', kind: 'move', visibleByDefault: false,
     description: 'Mouvements de la buse sur la pièce pendant la rétraction, pour essuyer la matière en excès.' },
-  { id: 'seam', label: 'Coutures', color: '#E6E6E6', kind: 'marker', visibleByDefault: true,
+  { id: 'seam', label: 'Coutures', color: '#E6E6E6', kind: 'marker', visibleByDefault: false,
     description: 'Points de départ de chaque boucle de paroi extérieure, où la jointure reste visible.' },
 ];
 

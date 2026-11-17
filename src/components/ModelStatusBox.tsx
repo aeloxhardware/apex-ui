@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import styles from './ModelStatusBox.module.scss';
 import { ExternalScrollArea } from './ExternalScrollArea';
-import { Box, ChevronRight } from 'lucide-react';
+import { Box, ChevronRight } from '@/lib/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AmsCard } from './ams/AmsCard';
 import { ELEMENTS_FADE_MS, MODEL_TREE_TOP, MODEL_TREE_PILL_GAP, PILL_TOP } from '@/utils/spaceMorphGeometry';

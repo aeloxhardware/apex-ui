@@ -1,8 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import styles from './ViewCube.module.scss';
 import { CustomTooltip } from './CustomTooltip';
+import { GlassPanel } from './GlassPanel';
+import { ApexButton } from './apex-ui';
 
 import { emitApex } from '@/events/apexEvents';
+import { OrbitView, Home } from '@/lib/icons';
 // Extrémités des axes en coordonnées 3D unitaires, projetées ensuite en 2D selon alpha/beta caméra
 const AXES: { key: string; label: string; color: string; dir: [number, number, number]; alpha: number; beta: number }[] = [
   { key: 'x+', label: 'X', color: '#ff3b3b', dir: [1, 0, 0], alpha: Math.PI / 2, beta: Math.PI / 2 },
@@ -12,6 +15,9 @@ const AXES: { key: string; label: string; color: string; dir: [number, number, n
   { key: 'y+', label: 'Y', color: '#3bff5c', dir: [0, 0, 1], alpha: Math.PI, beta: Math.PI / 2 },
   { key: 'y-', label: '', color: '#1f7a2f', dir: [0, 0, -1], alpha: 0, beta: Math.PI / 2 },
 ];
+
+// Vue normale : la caméra regarde le long de la diagonale +X +Y +Z (les trois composantes égales).
+const DIAGONAL_VIEW = { alpha: Math.PI / 4, beta: Math.acos(1 / Math.sqrt(3)) };
 
 const SIZE = 100;
 const CENTER = SIZE / 2;
@@ -35,12 +41,16 @@ function project(dir: [number, number, number], alpha: number, beta: number) {
 }
 
 export const ViewCube: React.FC = () => {
+  const [orbitOn, setOrbitOn] = useState(false);
   const [camAngles, setCamAngles] = useState({ alpha: Math.PI / 4, beta: Math.PI / 3 });
   // Dernier axe atteint par un clic sur le gizmo, seul état qui autorise l'inversion.
   const lastClickedKeyRef = useRef<string | null>(null);
   // Angles visés par ce clic et instant où il a eu lieu, pour reconnaître la vue qu'il a
   // produite une fois la transition terminée.
   const lastClickedAnglesRef = useRef<{ alpha: number; beta: number; at: number } | null>(null);
+
+  // Démonté (espace sans 3D) : le mode orbital ne doit pas rester actif sans son bouton.
+  useEffect(() => () => emitApex('apex-orbit-view-mode', { enabled: false }), []);
 
   useEffect(() => {
     const handleCameraUpdated = (e: CustomEvent<{ alpha: number; beta: number }>) => {
@@ -72,6 +82,11 @@ export const ViewCube: React.FC = () => {
     emitApex('apex-set-camera-custom', { alpha, beta });
   };
 
+  const toggleOrbit = () => {
+    emitApex('apex-orbit-view-mode', { enabled: !orbitOn });
+    setOrbitOn(!orbitOn);
+  };
+
   const points = AXES.map((axis) => ({ ...axis, ...project(axis.dir, camAngles.alpha, camAngles.beta) }))
     .sort((a, b) => a.depth - b.depth);
 
@@ -91,7 +106,19 @@ export const ViewCube: React.FC = () => {
   };
 
   return (
-    <div className={styles.container} data-apex-chrome-panel>
+    <GlassPanel portal flush className={styles.container} contentClassName={styles.content}>
+      <div className={styles.buttons}>
+        <CustomTooltip content="Vue orbitale" description="Affiche trois cercles : cliquez-en un pour faire orbiter la caméra automatiquement autour de cet axe, à partir de la vue actuelle, jusqu'à votre prochaine interaction.">
+          <ApexButton icon active={orbitOn} onClick={toggleOrbit} aria-label="Vue orbitale">
+            <OrbitView size={18} />
+            </ApexButton>
+        </CustomTooltip>
+        <CustomTooltip content="Accueil" description="Revient à la vue d'accueil, en diagonale le long de +X +Y +Z.">
+          <ApexButton icon onClick={() => triggerView('diagonal', DIAGONAL_VIEW.alpha, DIAGONAL_VIEW.beta)} aria-label="Accueil">
+            <Home size={18} />
+            </ApexButton>
+        </CustomTooltip>
+      </div>
       <CustomTooltip content="Gizmo d'axes" description="Cliquez sur un point pour orienter la caméra 3D le long de cet axe.">
         <svg width={SIZE} height={SIZE} className={styles.gizmo}>
           {AXES.filter((axis) => axis.label).map((axis) => {
@@ -114,6 +141,6 @@ export const ViewCube: React.FC = () => {
           ))}
         </svg>
       </CustomTooltip>
-    </div>
+    </GlassPanel>
   );
 };

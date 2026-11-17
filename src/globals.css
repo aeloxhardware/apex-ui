@@ -1,3 +1,13 @@
+/* COULEUR DE MISE EN VALEUR d'Apex (ADR 0006) : l'orange ambre, réservé à ce qui doit ressortir (état actif, choix courant,
+   action principale). Une seule ou deux mises en valeur par écran : le reste reste neutre (blanc translucide).
+   Pendant SCSS : $amber et consorts dans styles/_apex-ui.scss. */
+:root {
+  --apex-highlight: #f59e0b;
+  --apex-highlight-fill: rgba(245, 158, 11, 0.18);
+  --apex-highlight-glow: 0 0 12px rgba(245, 158, 11, 0.25);
+  --apex-highlight-ring: 0 0 0 1px rgba(245, 158, 11, 0.6);
+}
+
 /* Oxanium servie depuis /public/fonts : pas de dépendance réseau, et la police est donc
    disponible même hors ligne — ce qui compte pour les libellés de grille, dessinés une seule
    fois dans une texture WebGL qui figerait un repli sans-serif si la police manquait. */

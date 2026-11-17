@@ -19,15 +19,6 @@
   align-items: flex-start;
 }
 
-// Pendant l'animation de changement d'espace : origine au coin bas gauche de la fenêtre, la
-// position est entièrement donnée par x / y (voir TopRightMenu.tsx).
-.containerAnimating {
-  left: 0;
-  bottom: 0;
-  transform: none;
-  align-items: flex-start;
-}
-
 .toolbar {
   display: flex;
   align-items: center;

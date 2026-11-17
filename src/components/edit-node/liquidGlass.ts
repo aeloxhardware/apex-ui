@@ -123,8 +123,8 @@ export const DEFAULT_GLASS: GlassParams = {
 
 const MAX_LENSES = 8;
 /** Aimant (GlassLens.attract) : gonflement de la forme à l'aimant et amincissement au loin, en fraction de la force. */
-const ATTRACT_SWELL = 0.9;
-export const ATTRACT_THIN = 0.27;
+const ATTRACT_SWELL = 1.1;
+export const ATTRACT_THIN = 0.4;
 export const MAX_PULLS = 10;
 const MAX_BLUR_TAPS = 32;
 

@@ -200,7 +200,7 @@ $element-blur: blur(4px);
   height: 22px;
   border: none;
   border-radius: 6px;
-  // Même verre clair que les listes (GlassSelect), un peu plus lumineux au survol et à la saisie.
+  // Même verre clair que les listes (ApexSelect), un peu plus lumineux au survol et à la saisie.
   background: rgba(255, 255, 255, 0.06);
   transition: background-color 0.15s ease;
   backdrop-filter: $element-blur;
@@ -233,7 +233,7 @@ $element-blur: blur(4px);
   &:disabled { opacity: 0.45; }
 }
 
-// Listes déroulantes : GlassSelect (style propre), seule la largeur minimale est fixée ici.
+// Listes déroulantes : ApexSelect (style propre), seule la largeur minimale est fixée ici.
 .select {
   min-width: 78px;
 }

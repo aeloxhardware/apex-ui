@@ -34,12 +34,10 @@ import { GCodeConversionCard } from '@/components/GCodeConversionCard';
 import { UnlayeredDetectedDialog } from '@/components/UnlayeredDetectedDialog';
 import { useGCodePreview } from '@/hooks/use-gcode-preview';
 import { useResumeCategory } from '@/hooks/use-resume-category';
-import { useAnimate, motion, AnimatePresence } from 'framer-motion';
-import { Box } from 'lucide-react';
-import { showSuccess } from '@/utils/toast';
-import { BetaWatermark, BetaBanners } from '@/components/BetaWatermark';
+import { Box } from '@/lib/icons';
+import { showError, showSuccess, showWarning } from '@/utils/toast';
 import { AmsPanel } from '@/components/ams/AmsPanel';
-import { useDevMode } from '@/utils/devModePrefs';
+import { markProjectDirty, saveProject } from '@/utils/projectSave';
 import { setModelingSpace } from '@/utils/modelingSpace';
 
 import { readProfile } from '@/utils/printerProfiles';
@@ -117,49 +115,6 @@ function useSpaceEvents() {
 }
 
 /**
- * Au changement d'espace, la barre d'aide (TopRightMenu) passe par le coin bas gauche, là où
- * se trouve la barre de statut : celle-ci se rentre sous le bord de l'écran juste avant
- * (0,2 → 0,45 s ; la barre d'aide démarre à 0,495 s) et ressort une fois la barre d'aide
- * arrivée (1,1 s), pour ne pas se faire recouvrir.
- */
-function useStatusBarSlide(isPreviewActive: boolean) {
-  const [statusBarRef, animateStatusBar] = useAnimate<HTMLDivElement>();
-  const prevPreviewActiveRef = useRef(isPreviewActive);
-  useEffect(() => {
-    if (prevPreviewActiveRef.current === isPreviewActive) return;
-    prevPreviewActiveRef.current = isPreviewActive;
-    if (!statusBarRef.current) return;
-    animateStatusBar(
-      statusBarRef.current,
-      { y: [0, 0, 80, 80, 0] },
-      { duration: 1.4, times: [0, 0.2 / 1.4, 0.45 / 1.4, 1.1 / 1.4, 1], ease: [0.25, 1, 0.5, 1] },
-    );
-  }, [isPreviewActive, animateStatusBar, statusBarRef]);
-  return statusBarRef;
-}
-
-/**
- * Préchargement (interface moderne) : l'application s'ouvre sur l'Accueil, sans 3D. Un Viewport3D invisible
- * est monté au lancement, le temps que son moteur, ses shaders et ses modèles soient prêts (le splash
- * l'attend, cf. main.tsx), puis démonté : aucune scène ne tourne en fond. Le premier passage en 3D
- * retrouve ainsi des caches chauds au lieu de tout initialiser.
- */
-function useViewportWarmup(isParams: boolean) {
-  const [warmingViewport, setWarmingViewport] = useState(true);
-  useEffect(() => {
-    if (!warmingViewport) return;
-    const done = () => window.setTimeout(() => setWarmingViewport(false), 0);
-    window.addEventListener('apex-viewport-ready', done, { once: true });
-    return () => window.removeEventListener('apex-viewport-ready', done);
-  }, [warmingViewport]);
-  // Si l'utilisateur quitte l'Accueil avant la fin du préchargement, le vrai viewport prend le relais.
-  useEffect(() => {
-    if (!isParams) setWarmingViewport(false);
-  }, [isParams]);
-  return warmingViewport;
-}
-
-/**
  * Déformation de ModelingSidebar entre la forme de la pilule / des deux panneaux de Prévisualisation et
  * sa forme normale (prop `morph`) : c'est le même élément, déjà affiché avec son contenu réel, qui change
  * de forme. `leavingToModeling` est vrai dès le CLIC vers Modélisation (apex-entering-modeling), pour que le
@@ -217,7 +172,10 @@ function useSliceFlow() {
     setIsSlicingProgressOpen(false);
     const file = sliceController.getState().gcodeFile;
     sliceController.reset();
-    if (file) emitApex('apex-open-sliced-gcode', { file });
+    if (file) {
+      markProjectDirty(); // G-code produit : le projet enregistré n'est plus à jour
+      emitApex('apex-open-sliced-gcode', { file });
+    }
   };
 
   return {
@@ -231,7 +189,10 @@ const handleOpenModel = () => {
 };
 
 const handleSaveProject = () => {
-  showSuccess("Project saved successfully.");
+  void saveProject().then(
+    (saved) => (saved ? showSuccess(`Projet enregistré : ${saved.path}`) : showWarning('Rien à enregistrer.')),
+    () => showError("L'enregistrement du projet a échoué."),
+  );
 };
 
 type GCodePreviewState = ReturnType<typeof useGCodePreview>;
@@ -284,9 +245,9 @@ const exportReason = (gp: GCodePreviewState) => !gp.fileInfo
     ? 'Conversion en cours…'
     : "Convertissez d'abord le G-code 3 axes en polaire (carte Conversion, sous les panneaux).";
 
-/** Pastille de statut du plateau (modèle posé, dimensions), animée à l'apparition. */
-const ModelStatusPill: React.FC<{ modelStatus: ModelStatus | null; pillRef: React.Ref<HTMLDivElement> }> = ({ modelStatus, pillRef }) => (
-  <div ref={pillRef} className="shrink-0">
+/** Pastille de statut du plateau (modèle posé, dimensions). */
+const ModelStatusPill: React.FC<{ modelStatus: ModelStatus | null }> = ({ modelStatus }) => (
+  <div className="shrink-0">
     <div
       data-apex-tooltip={modelStatus
         ? `Modèle « ${modelStatus.name} » posé sur le plateau${modelStatus.dimensions
@@ -295,39 +256,21 @@ const ModelStatusPill: React.FC<{ modelStatus: ModelStatus | null; pillRef: Reac
         : "Aucun modèle n'est posé sur le plateau : importez-en un ou déposez un fichier pour commencer."}
       className="bg-[rgba(10,15,26,0.25)] backdrop-blur-[4px] -webkit-backdrop-blur-[4px] border-none rounded-lg px-3 py-2 text-xs text-zinc-300 flex items-center space-x-4 pointer-events-auto shadow-[0_8px_32px_0_rgba(0,0,0,0.4),0_2px_8px_0_rgba(0,0,0,0.3)]"
     >
-      <AnimatePresence mode="wait">
-        {modelStatus ? (
-          <motion.div
-            key="model-status"
-            initial={{ opacity: 0, x: -12 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -12 }}
-            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-            className="flex items-center space-x-4"
-          >
-            <span className="flex items-center"><Box className="w-3.5 h-3.5 mr-1.5 text-blue-400" /> {modelStatus.name}</span>
-            {modelStatus.dimensions && (
-              <>
-                <span className="text-zinc-600">|</span>
-                <span>Dimensions: {modelStatus.dimensions.x.toFixed(1)} x {modelStatus.dimensions.z.toFixed(1)} x {modelStatus.dimensions.y.toFixed(1)} mm</span>
-              </>
-            )}
-            <span className="text-zinc-600">|</span>
-            <span className="text-emerald-400 font-medium">Ready to slice</span>
-          </motion.div>
-        ) : (
-          <motion.span
-            key="no-model"
-            initial={{ opacity: 0, x: -12 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -12 }}
-            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-            className="text-zinc-400"
-          >
-            Aucun modèle sur le plateau
-          </motion.span>
-        )}
-      </AnimatePresence>
+      {modelStatus ? (
+        <div className="flex items-center space-x-4">
+          <span className="flex items-center"><Box className="w-3.5 h-3.5 mr-1.5 text-blue-400" /> {modelStatus.name}</span>
+          {modelStatus.dimensions && (
+            <>
+              <span className="text-zinc-600">|</span>
+              <span>Dimensions: {modelStatus.dimensions.x.toFixed(1)} x {modelStatus.dimensions.z.toFixed(1)} x {modelStatus.dimensions.y.toFixed(1)} mm</span>
+            </>
+          )}
+          <span className="text-zinc-600">|</span>
+          <span className="text-emerald-400 font-medium">Ready to slice</span>
+        </div>
+      ) : (
+        <span className="text-zinc-400">Aucun modèle sur le plateau</span>
+      )}
     </div>
   </div>
 );
@@ -439,28 +382,18 @@ const PlateOverlays: React.FC<{
 );
 
 /**
- * l'intérieur du motion.div "apex-3d-chrome" : framer-motion pose transform/will-change sur
- * ses éléments animés, ce qui crée un contexte d'empilement qui piège tout descendant
- * `fixed`, même à `opacity: 1` une fois l'animation d'espace terminée — un z-index local,
- * aussi élevé soit-il, ne peut alors jamais dépasser le rideau de transition (z-index 30),
- * rendu en dehors de ce contexte. Même z-index que les autres panneaux fixes (≥1000, cf.
- * SpaceTransitionOverlay.module.scss) pour rester au-dessus du rideau et ne pas être flouté.
- * Seule la pastille de statut (animée via statusBarRef) se rentre sous le bord de l'écran au
- * changement d'espace : c'est elle qui se trouve dans le coin bas gauche où la barre d'aide
- * vient se poser en Prévisualisation (cf. TopRightMenu). GCodePreviewBar, à droite, a sa PROPRE
- * animation d'entrée/sortie (glissement depuis le bas) et ne doit donc PAS être montée à
- * l'intérieur du conteneur animé par statusBarRef.
+ * Rangée du bas : pastille de statut du plateau à droite, barre de lecture du G-code (Prévisualisation) à gauche.
+ * Le rideau de transition (z-index 100000) la recouvre : seules les deux barres du haut restent au-dessus.
  */
 const BottomBar: React.FC<{
   modelStatus: ModelStatus | null;
-  statusBarRef: React.Ref<HTMLDivElement>;
   isPreviewActive: boolean;
   gcodePreview: GCodePreviewState;
-}> = ({ modelStatus, statusBarRef, isPreviewActive, gcodePreview }) => (
+}> = ({ modelStatus, isPreviewActive, gcodePreview }) => (
       <>
         {/* Pastille de statut en bas à droite : la place qu'occupait le bouton SLICE, parti en haut à droite. */}
         <div className="fixed bottom-3 right-3 z-[1000] flex items-center justify-end pointer-events-none">
-          <ModelStatusPill modelStatus={modelStatus} pillRef={statusBarRef} />
+          <ModelStatusPill modelStatus={modelStatus} />
         </div>
         <div className="fixed bottom-3 left-3 right-24 z-[1000] flex items-center justify-start gap-3 pointer-events-none">
           <GCodePreviewBar active={isPreviewActive} {...gcodePreview} />
@@ -482,7 +415,6 @@ const ViewportMain: React.FC<{ isPreviewActive: boolean }> = ({ isPreviewActive 
 );
 
 const Index = () => {
-  const devMode = useDevMode();
   // L'application s'ouvre sur l'Accueil (espace sans 3D) ; le viewport n'est monté qu'en le quittant.
   const [activeTab, setActiveTab] = useState<ActiveTab>('home');
   const [activeCategory, setActiveCategory] = useState<string | null>('quality');
@@ -490,16 +422,20 @@ const Index = () => {
   const printer = usePrinterSelection();
   const { modelStatus, isPreviewActive } = useSpaceEvents();
   const resumeCategory = useResumeCategory(activeCategory, isPreviewActive);
+  // Dans Préparation, un menu de catégorie (Qualité, Solidité…) est TOUJOURS ouvert : on ne le désélectionne pas.
+  // Seuls le menu Profils imprimante (qui prend sa place) et la Prévisualisation (la pilule devient panneaux) le ferment ;
+  // il revient aussitôt, sur la dernière catégorie choisie.
+  const lastCategoryRef = useRef('quality');
+  if (activeCategory) lastCategoryRef.current = activeCategory;
   const isPreviewActiveRef = useRef(isPreviewActive);
   isPreviewActiveRef.current = isPreviewActive;
   // Logique de l'espace Prévisualisation (chargement/lecture G-code) : appelée ici (et non dans
   // GCodePreview) car sa barre de lecture (GCodePreviewBar) partage la rangée du bas avec la
   // pastille de statut du plateau, ce qui demande que les deux soient des enfants directs du même
   // conteneur flex plutôt que des composants positionnés indépendamment.
-  const gcodePreview = useGCodePreview(isPreviewActive);
+  const gcodePreview = useGCodePreview(isPreviewActive, activeTab === 'params' || activeTab === 'home');
   const morph = useModelingMorphState(activeTab === 'settings');
   const { modelingMorph, setModelingMorph, leavingToModeling, arrivingFromModeling, setArrivingFromModeling } = morph;
-  const statusBarRef = useStatusBarSlide(isPreviewActive);
   const slice = useSliceFlow();
 
   /** L'onglet « Modélisation » de la Sidebar porte la valeur 'settings'. */
@@ -514,13 +450,23 @@ const Index = () => {
       : isPreviewActive ? 'preview'
       : 'preparation';
     emitApex('apex-space-changed', { space });
+    // Lu par le style commun des menus déroulants (styles/_dropdown.scss) : filtre clair dans l'Accueil.
+    document.documentElement.dataset.apexSpace = space;
   }, [activeTab, isPreviewActive]);
-  // Paramètres et Accueil : le Viewport3D (et tout le reste du chrome sauf la barre d'onglets
-  // Sidebar et la barre fichier/son FileSidebar) est entièrement démonté, pas seulement masqué —
-  // aucune scène Babylon.js ne doit tourner en fond pendant que ces espaces sont affichés.
+  // Paramètres et Accueil : le chrome du plateau (Viewport3D compris) reste MONTÉ mais invisible et inerte, et la
+  // scène ne se dessine plus. Passer d'un espace à l'autre n'est pas changer de logiciel : au retour, le plateau,
+  // les modèles, le G-code, les menus ouverts et la caméra sont exactement comme on les a laissés.
   const isParams = activeTab === 'params' || activeTab === 'home';
+  useEffect(() => {
+    document.documentElement.dataset.apexSceneHidden = isParams ? '1' : '0';
+  }, [isParams]);
   const isDev = activeTab === 'developer'; // Dev : seuls viewport, onglets, barre d'aide et avis GPU restent
-  const warmingViewport = useViewportWarmup(isParams);
+
+  useEffect(() => {
+    if (activeTab === '3d-view' && !isPreviewActive && !isPrinterConfigOpen && activeCategory === null) {
+      setActiveCategory(lastCategoryRef.current);
+    }
+  }, [activeTab, isPreviewActive, isPrinterConfigOpen, activeCategory]);
 
   // Le menu Profils imprimante n'existe que dans Préparation et Prévisualisation (activeTab '3d-view') :
   // il se ferme avec son bouton quand on les quitte.
@@ -577,57 +523,46 @@ const Index = () => {
         selectedFilament={printer.selectedFilament}
       />}
 
-      {!isParams && !isDev && <PlateOverlays isPreviewActive={isPreviewActive} gcodeName={gcodePreview.fileInfo?.name} slice={slice} />}
+      {!isDev && (
+        <div className={isParams ? 'contents invisible' : 'contents'}>
+          <PlateOverlays isPreviewActive={isPreviewActive} gcodeName={gcodePreview.fileInfo?.name} slice={slice} />
+        </div>
+      )}
 
       <Sidebar activeTab={activeTab} onTabChange={handleTabChange} onOpenModel={handleOpenModel} />
 
-      {/* Espace Paramètres : tout le chrome lié au plateau 3D (viewport compris) se
-          fondu-glisse en une fois plutôt que de disparaître d'un coup — seules la barre
-          d'onglets (Sidebar) et la barre fichier/son (FileSidebar) restent visibles. Rendu
-          conditionnel simple pour le Viewport3D (jamais monté en Paramètres, cf. CLAUDE.md sur
-          Viewport3D) ; AnimatePresence porte uniquement la sortie/entrée visuelle de ce bloc. */}
-      <AnimatePresence>
-        {!isParams && (
-          <motion.div
-            key="apex-3d-chrome"
-            // Remplit la colonne : sans cela, `main` (flex-1) n'a plus de parent flex, sa hauteur
-            // devient celle de son contenu, et le canevas 3D prend la hauteur intrinsèque de son
-            // tampon au lieu de celle de la fenêtre (bande vide en bas de l'écran).
-            className="flex-1 min-h-0 flex flex-col"
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 24 }}
-            transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-          >
-            <TopRightMenu />
-            {!isDev && <AxisSidebar />}
-            {!isDev && <ViewCube />}
+      {/* Le changement d'espace est masqué par le rideau (SpaceTransitionOverlay) : aucune animation d'entrée ou de
+          sortie ici. Le bloc reste monté en Accueil et Paramètres (invisible, inerte : `invisible` est hérité par
+          les panneaux fixes). Il remplit la colonne : sans cela, `main` (flex-1) n'a plus de parent flex, sa hauteur
+          devient celle de son contenu, et le canevas 3D prend la hauteur intrinsèque de son tampon au lieu de celle
+          de la fenêtre (bande vide en bas de l'écran). */}
+      {(
+        <div className={isParams ? 'flex-1 min-h-0 flex flex-col invisible pointer-events-none' : 'flex-1 min-h-0 flex flex-col'}>
+          <TopRightMenu />
+          {!isDev && <AxisSidebar />}
+          {/* Espaces 3D seulement : le panneau est porté hors de ce bloc (portail), il ne suit donc pas l'invisibilité d'Accueil / Paramètres. */}
+          {!isDev && !isParams && <ViewCube />}
 
-            {!isDev && <SpacePanels {...panelProps} />}
+          {!isDev && <SpacePanels {...panelProps} />}
 
-            <ViewportMain isPreviewActive={isPreviewActive} />
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {warmingViewport && isParams && (
-        <div aria-hidden className="fixed inset-0 pointer-events-none opacity-0 -z-10 overflow-hidden">
-          <Viewport3D />
+          <ViewportMain isPreviewActive={isPreviewActive} />
         </div>
       )}
 
       {activeTab === 'params' && <ParamsPanel />}
       {activeTab === 'home' && <HomePanel />}
 
-      {isDev ? <AmsPanel /> : !isParams && <BottomBar modelStatus={modelStatus} statusBarRef={statusBarRef} isPreviewActive={isPreviewActive} gcodePreview={gcodePreview} />}
+      {isDev ? <AmsPanel /> : (
+        <div className={isParams ? 'contents invisible' : 'contents'}>
+          <BottomBar modelStatus={modelStatus} isPreviewActive={isPreviewActive} gcodePreview={gcodePreview} />
+        </div>
+      )}
 
       {/* Rideau plein écran commun à tous les changements d'espace (Préparation, Prévisualisation,
           Modélisation, Dev, Paramètres) : monté en permanence, pas seulement à l'intérieur du bloc
           chrome ci-dessus, sinon il disparaîtrait avec lui pendant la transition qu'il est
           justement censé masquer. */}
       <SpaceTransitionOverlay />
-      {!devMode && <BetaWatermark />}
-      {!devMode && <BetaBanners />}
       <UnlayeredDetectedDialog fileInfo={gcodePreview.fileInfo} loading={gcodePreview.isLoading} active={isPreviewActive} />
     </div>
   );

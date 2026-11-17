@@ -1,6 +1,7 @@
 // Issu de la découpe de l'ancien useLayoutEffect de Viewport3D.tsx : le texte des instructions est
 // conservé ; les variables partagées entre morceaux passent par `st` (viewportState.ts).
 import { PAN_PERSPECTIVE_EVENT } from '@/utils/panPerspectivePrefs';
+import { stashPlateModels } from './viewportModelStash';
 import type { ViewportState } from './viewportState';
 
 function disposeEngine(st: ViewportState) {
@@ -9,6 +10,7 @@ function disposeEngine(st: ViewportState) {
   if (st.disposed) return;
   renderPipeline?.dispose();
   orcaRotateGizmo.dispose();
+  st.orbitViewGizmo.dispose();
   orcaScaleGizmo.dispose();
   gizmoManager.dispose();
   scene.dispose();
@@ -21,7 +23,7 @@ function disposeEngine(st: ViewportState) {
 }
 
 function removeExtrudeAndCameraListeners(st: ViewportState) {
-  const { canvas, commitExtrudeBody, contextMenuPointerObserver, disposePlateActions, gridZoomObserver, handleCustomView, handleKeyDown, handleSetView, offArrange, onCanvasWheel, onExtrudeDown, onExtrudeMove, onExtrudeSetDistance, onExtrudeToolEvent, onExtrudeUp, onFaceBrowseContext, onPanDown, onPanMove, onPanPerspective, onPanUp, onRequestTextures, onSelectionModeEvent, onSetModelUnit, onWindowPointerUpSafety, pointerObserver, scene, sketchPlaneAxisLines, sketchPlaneOrigin, sketchPlanePlates, zoomTowardCursorObserver } = st;
+  const { canvas, commitExtrudeBody, contextMenuPointerObserver, disposePlateActions, gridZoomObserver, handleCustomView, handleKeyDown, handleSetView, offArrange, offCut, onCanvasWheel, onExtrudeDown, onExtrudeMove, onExtrudeSetDistance, onExtrudeToolEvent, onExtrudeUp, onFaceBrowseContext, onPanDown, onPanMove, onPanPerspective, onPanUp, onRequestTextures, onSelectionModeEvent, onSetModelUnit, onWindowPointerUpSafety, pointerObserver, scene, sketchPlaneAxisLines, sketchPlaneOrigin, sketchPlanePlates, zoomTowardCursorObserver } = st;
   canvas.removeEventListener('pointerdown', onExtrudeDown);
   canvas.removeEventListener('pointermove', onExtrudeMove);
   canvas.removeEventListener('pointerup', onExtrudeUp);
@@ -47,6 +49,7 @@ function removeExtrudeAndCameraListeners(st: ViewportState) {
   scene.onBeforeRenderObservable.remove(gridZoomObserver);
   scene.onBeforeRenderObservable.remove(zoomTowardCursorObserver);
   offArrange();
+  offCut();
   disposePlateActions();
   canvas.removeEventListener("wheel", onCanvasWheel);
   window.removeEventListener(PAN_PERSPECTIVE_EVENT, onPanPerspective);
@@ -114,6 +117,9 @@ function removeGeneralListeners(st: ViewportState) {
 
 function setupCleanupPart1(st: ViewportState) {
   return () => {
+    // Avant tout : la scène existe encore, les modèles sont déposés dans la réserve temporaire.
+    stashPlateModels(st);
+    st.offModelStash();
     removeGeneralListeners(st);
     removeSketchListeners(st);
     removeExtrudeAndCameraListeners(st);

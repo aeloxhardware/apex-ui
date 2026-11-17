@@ -1,5 +1,6 @@
 // Issu de la découpe de createGCodeEditController (gcodeEditController.ts) : le texte des instructions est conservé ;
 // les variables partagées entre morceaux passent par `st` (controllerState.ts).
+import { markProjectDirty } from '@/utils/projectSave';
 import { editKernel } from '@/utils/editKernelClient';
 import { fingerprintOf } from '@/utils/apexHeader';
 import { currentValues, groupsOf, journalEntryOf, toHistory, type JournalCommit } from '../editJournal';
@@ -37,6 +38,7 @@ function setupRestoreJournal(st: EditControllerState) {
 
   /** Nouvelle entrée du journal pour une validation (avant / après, transformation, influence). */
   const journalCommit = async (parsed: ParsedGCode, commit: JournalCommit) => {
+    markProjectDirty();
     if (parsed.insertedBlocks?.length) return;
     const journal = (parsed.editJournal ??= { undo: [], redo: [] });
     const entry = journalEntryOf(commit);

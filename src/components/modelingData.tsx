@@ -8,7 +8,7 @@ import {
   Square,
   Triangle,
   Waves,
-} from 'lucide-react';
+} from '@/lib/icons';
 import { ChamferIcon, ExtrudeIcon, FilletIcon } from './ModelingIcons';
 import {
   type Feature,

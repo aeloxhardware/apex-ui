@@ -1,7 +1,7 @@
 /**
  * Page de démarrage (Paramètres) : l'espace sur lequel l'application s'ouvre. Même patron que
  * plateShadingPrefs.ts (singleton + localStorage). Lue au lancement ; « Modélisation » n'existe
- * qu'avec la valeur « dev » activée (cf. devModePrefs.ts), sinon l'Accueil est utilisé.
+ * aucune condition (le mode dev n'y change plus rien).
  */
 
 import { useEffect, useState } from 'react';

@@ -4,9 +4,9 @@ import {
   type EditReachMode, type EditStateDetail, type EditSymmetryMode,
 } from './editProtocol';
 import { DEFAULT_LAYER_LIMITS } from '@/utils/layerLimits';
-import type { GlassSelectOption } from './GlassSelect';
+import type { ApexSelectOption } from '../apex-ui/ApexSelect';
 
-export const FALLOFFS: GlassSelectOption<EditFalloff>[] = [
+export const FALLOFFS: ApexSelectOption<EditFalloff>[] = [
   {
     value: 'cubic',
     label: 'Cubique',
@@ -29,7 +29,7 @@ export const FALLOFFS: GlassSelectOption<EditFalloff>[] = [
   },
 ];
 
-export const EXTRUSION_CHOICES: GlassSelectOption<'off' | 'auto' | 'manual'>[] = [
+export const EXTRUSION_CHOICES: ApexSelectOption<'off' | 'auto' | 'manual'>[] = [
   {
     value: 'off',
     label: 'Désactivée (E d’origine)',
@@ -47,7 +47,7 @@ export const EXTRUSION_CHOICES: GlassSelectOption<'off' | 'auto' | 'manual'>[] =
   },
 ];
 
-export const REACH_MODE_CHOICES: GlassSelectOption<EditReachMode>[] = [
+export const REACH_MODE_CHOICES: ApexSelectOption<EditReachMode>[] = [
   {
     value: 'reach',
     label: 'Portée',
@@ -60,7 +60,7 @@ export const REACH_MODE_CHOICES: GlassSelectOption<EditReachMode>[] = [
   },
 ];
 
-export const COMBINE_CHOICES: GlassSelectOption<'product' | 'max'>[] = [
+export const COMBINE_CHOICES: ApexSelectOption<'product' | 'max'>[] = [
   {
     value: 'product',
     label: 'Produit (intersection)',
@@ -73,7 +73,7 @@ export const COMBINE_CHOICES: GlassSelectOption<'product' | 'max'>[] = [
   },
 ];
 
-export const SYMMETRY_CHOICES: GlassSelectOption<EditSymmetryMode>[] = [
+export const SYMMETRY_CHOICES: ApexSelectOption<EditSymmetryMode>[] = [
   {
     value: 'none',
     label: 'Aucune',

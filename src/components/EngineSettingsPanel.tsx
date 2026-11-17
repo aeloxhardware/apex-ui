@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Check, ChevronDown } from 'lucide-react';
+import { Check, ChevronDown } from '@/lib/icons';
 import clsx from 'clsx';
 import { CustomTooltip } from './CustomTooltip';
 import { ApexNumberField } from './ApexNumberField';
@@ -16,14 +16,14 @@ export const EngineSettingsPanel: React.FC = () => {
   // Sélecteur vide pour l'instant : même fonctionnement que celui du motif de remplissage (CategoriesSidebar), en miroir
   // (flèche à gauche, liste qui sort à gauche du panneau).
   const [selectorOpen, setSelectorOpen] = useState(false);
-  const { axisMode, mode, setMode } = useSlicingMode();
+  const { mode, setMode } = useSlicingMode();
   const nozzle = useAeolisNozzle();
   const isAeolis = ENGINE_ALGORITHM[mode] === 'element-aeolis';
   const logo = (option: string) => (
     <span className={styles.modeLogo} aria-hidden style={{ maskImage: `url(${SLICING_MODE_LOGOS[option]})`, WebkitMaskImage: `url(${SLICING_MODE_LOGOS[option]})` }} />
   );
   const chooseMode = (next: string) => {
-    if (!isSlicingModeAvailable(next, axisMode)) return;
+    if (!isSlicingModeAvailable(next)) return;
     setMode(next);
     setSelectorOpen(false);
   };
@@ -78,7 +78,7 @@ export const EngineSettingsPanel: React.FC = () => {
             <h4 className={styles.selectorTitle}>Mode de tranchage</h4>
             <ul className={styles.selectorList}>
               {SLICING_MODES.map((option) => {
-                const available = isSlicingModeAvailable(option, axisMode);
+                const available = isSlicingModeAvailable(option);
                 return (
                   <CustomTooltip key={option} content={option} description={available
                     ? `Mode de tranchage « ${option} » : le moteur le lance (algorithme ${ENGINE_ALGORITHM[option]}).`

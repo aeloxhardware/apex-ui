@@ -1,7 +1,7 @@
 {
   "name": "vite_react_shadcn_ts",
   "version": "0.2.3",
-  "apexVersion": "alpha-0.2.3.1.4.1.0.221",
+  "apexVersion": "alpha-0.2.3.1.6.1.0.221",
   "packageManager": "pnpm@10.28.0",
   "apexUpdate": {
     "repo": "aeloxhardware/apex",
@@ -38,10 +38,10 @@
     "quality:check": "node scripts/check-quality.cjs",
     "quality:update": "node scripts/check-quality.cjs --update",
     "quality:report": "node scripts/check-quality.cjs --report",
-    "typecheck": "tsc -p tsconfig.app.json --noEmit"
+    "typecheck": "tsc -p tsconfig.app.json --noEmit",
+    "check:photosensitivity": "electron scripts/check-photosensitivity.cjs"
   },
   "dependencies": {
-    "@heroicons/react": "2.2.0",
     "@hookform/resolvers": "3.10.0",
     "@radix-ui/react-accordion": "1.2.4",
     "@radix-ui/react-alert-dialog": "1.1.7",
@@ -71,7 +71,6 @@
     "@radix-ui/react-toggle-group": "1.1.3",
     "@radix-ui/react-tooltip": "1.2.0",
     "@swc/core-win32-x64-msvc": "1.16.2",
-    "@tabler/icons-react": "3.46.0",
     "@tanstack/react-query": "5.74.4",
     "@yogesharc/thinking-orbs": "0.1.2",
     "babylonjs": "9.15.0",
@@ -85,7 +84,6 @@
     "framer-motion": "13.1.0",
     "input-otp": "1.4.2",
     "jszip": "3.10.1",
-    "lucide-react": "0.462.0",
     "next-themes": "0.4.6",
     "react": "19.2.3",
     "react-day-picker": "9.13.0",
@@ -164,7 +162,7 @@
       "category": "public.app-category.graphics-design"
     },
     "win": {
-      "icon": "build/icon-256.png",
+      "icon": "electron/icon-256.png",
       "target": "nsis",
       "extraResources": [
         {

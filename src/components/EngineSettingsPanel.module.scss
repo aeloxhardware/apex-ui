@@ -2,10 +2,10 @@
 // Conteneur fixé à droite, sous le cube d'axes.
 .container {
   position: fixed;
-  right: 12px;
-  top: 190px;
-  // Le panneau s'arrête à mi-hauteur (ligne repérée par l'utilisateur, 2026-10-28) ; plus court si la fenêtre l'est.
-  height: min(457px, calc(100vh - 300px));
+  right: 0; // ancré au bord droit de la fenêtre
+  top: 284px; // abaissé de 82 px sous le ViewCube (qui finit à 194 px), demande de l'utilisateur 2026-11-17
+  // Hauteur inchangée depuis 2026-10-28 ; plus courte si la fenêtre l'est (le panneau a été descendu de 82 px).
+  height: min(457px, calc(100vh - 382px));
   display: flex;
   align-items: flex-start;
   gap: 10px;
@@ -23,7 +23,7 @@
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
-  border-radius: 20px;
+  border-radius: 20px 0 0 20px; // coins droits droits : le panneau touche le bord
   padding: 14px 8px 10px 14px;
   pointer-events: auto;
   color: rgba(255, 255, 255, 0.85);

@@ -14,11 +14,23 @@ export function spoolTip(p: FilamentProfile): string {
   return `Matériau : ${materialNameOf(p)} ${origin}. ${actions}`;
 }
 
+/** Bobine dans l'AMS (texte fourni par l'utilisateur, 2026-11-15) : « Matériau : [nom] provenant [de/d'] [marque] [modifié …]. Cliquer pour changer … ». */
+export function spoolSlotTip(p: FilamentProfile): string {
+  const edited = p.user === true ? " modifié par l'utilisateur" : '';
+  return (
+    `Matériau : ${materialNameOf(p)} provenant ${deOrD(brandOf(p))}${edited}. Cliquer pour changer la couleur ou le matériau. ` +
+    'Cliquer deux fois pour consulter et éditer le profil filament. Maintenir pour supprimer ou réorganiser.'
+  );
+}
+
 /** Partie basse sombre de l'AMS. */
 export const materialsTip = (count: number): string =>
   `${count} ${count > 1 ? 'matériaux' : 'matériau'}. Cliquer pour afficher les filaments sélectionnés.`;
 
 export const ADD_MATERIAL_TIP = 'Cliquez pour ajouter un matériau provenant de la bibliothèque.';
+
+// À valider avec l'utilisateur.
+export const REMOVE_MATERIAL_TIP = 'Lâchez la bobine ici pour la retirer de l\'AMS.';
 
 // À valider avec l'utilisateur.
 export const SHEET_EDIT_TIP =

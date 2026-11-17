@@ -5,9 +5,14 @@ import { motion } from 'framer-motion';
 import { GlassPanel } from './GlassPanel';
 import { ExternalScrollArea } from './ExternalScrollArea';
 import { CreditsPanel } from './CreditsPanel';
-import Lightfall from './Lightfall';
+import DigitalStorm from './DigitalStorm';
 import { GlassPanelBackdrop } from './edit-node/GlassPanelBackdrop';
-import { APP_TAGLINE_DEV, APP_TAGLINE_PREVIEW, useDevMode } from '@/utils/devModePrefs';
+import { HomeProjects } from './HomeProjects';
+import { ShortcutsPage } from './ShortcutsPage';
+import { CustomTooltip } from './CustomTooltip';
+import { ApexButton } from './apex-ui';
+import { APP_TAGLINE } from '@/utils/devModePrefs';
+import { emitApex } from '@/events/apexEvents';
 import styles from './HomePanel.module.scss';
 
 /**
@@ -17,21 +22,22 @@ import styles from './HomePanel.module.scss';
 const LICENSE_URL = 'https://www.gnu.org/licenses/agpl-3.0.html';
 const AELOX_URL = 'https://aeloxhardware.com';
 
-const notifyHomeReady = () => window.dispatchEvent(new Event('apex-home-ready'));
+const notifyHomeReady = () => emitApex('apex-home-ready');
 
-/** Fond de l'Accueil (plus léger qu'un fond calculé en temps réel). Assez léger pour rester animé même sur GPU faible. */
-const HomeLightfall: React.FC = () => (
-  <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', background: '#05070b' }}>
-    <Lightfall dpr={1} onReady={notifyHomeReady} />
+/** Fond de l'Accueil : orage numérique (un seul passage WebGL, plafonné en pixels) ; il reste animé sur GPU faible. */
+const HomeBackground: React.FC = () => (
+  <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', background: '#02040a' }}>
+    <DigitalStorm onReady={notifyHomeReady} />
   </div>
 );
 
 export const HomePanel: React.FC = () => {
-  const devMode = useDevMode();
   const portalRoot = usePortalRoot();
   const [licenseOpen, setLicenseOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [licenseText, setLicenseText] = useState<string | null>(null);
   const identityRef = useRef<HTMLDivElement>(null);
+  const projectsRef = useRef<HTMLDivElement>(null);
   const promiseRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -55,8 +61,15 @@ export const HomePanel: React.FC = () => {
 
   return (
     <>
-      <HomeLightfall />
+      <HomeBackground />
+      {shortcutsOpen ? (
+        <div className={styles.container}>
+          <ShortcutsPage onBack={() => setShortcutsOpen(false)} />
+        </div>
+      ) : (
+      <>
       <GlassPanelBackdrop targetRef={identityRef} corner={20} warp={1.3} blurPx={5} distortion={8} whiteRim />
+      <GlassPanelBackdrop targetRef={projectsRef} corner={20} warp={1.3} blurPx={5} distortion={8} whiteRim />
       <GlassPanelBackdrop targetRef={promiseRef} corner={20} warp={1.3} blurPx={5} distortion={8} whiteRim />
     <div className={styles.container}>
       <div className={styles.column}>
@@ -70,9 +83,13 @@ export const HomePanel: React.FC = () => {
         >
           <img src={`${import.meta.env.BASE_URL}logo.svg`} alt="" className={styles.logo} />
           <h2 className={styles.title}>Apex Studio</h2>
-          <p className={styles.tagline}>{devMode ? APP_TAGLINE_DEV : APP_TAGLINE_PREVIEW}</p>
+          <p className={styles.tagline}>{APP_TAGLINE}</p>
           <p className={styles.by}>Aelox Hardware</p>
+          <CustomTooltip inline content="Raccourcis" description="Ouvre la liste de tous les raccourcis clavier d'Apex.">
+            <ApexButton size="sm" onClick={() => setShortcutsOpen(true)}>Raccourcis</ApexButton>
+          </CustomTooltip>
         </motion.div>
+        <HomeProjects panelRef={projectsRef} panelClassName={styles.panel} />
         <motion.div
           ref={promiseRef}
           className={styles.panel}
@@ -138,6 +155,8 @@ export const HomePanel: React.FC = () => {
         </div>
       </GlassPanel>
     </div>
+      </>
+      )}
     </>
   );
 };

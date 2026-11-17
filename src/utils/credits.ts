@@ -67,20 +67,6 @@ export const CREDITS: CreditGroup[] = [
     ],
   },
   {
-    title: 'Icônes',
-    entries: [
-      {
-        name: 'Heroicons',
-        flag: '🇺🇸', by: 'Tailwind Labs',
-        license: 'MIT',
-        use: 'Icône « rectangle-group » du bouton Auto-disposition de la barre d’outils.',
-        url: 'https://github.com/tailwindlabs/heroicons',
-        citation: 'Tailwind Labs. Heroicons [logiciel]. https://github.com/tailwindlabs/heroicons. Licence MIT.',
-        obligation: 'La notice de licence MIT reste jointe aux distributions (docs/THIRD_PARTY_LICENSES.md).',
-      },
-    ],
-  },
-  {
     title: 'Assistant',
     entries: [
       {
@@ -110,8 +96,6 @@ export const CREDITS: CreditGroup[] = [
       { name: 'shadcn/ui', flag: '🌍', by: 'shadcn', license: 'MIT', use: 'Base des composants.' },
       { name: 'Radix UI', flag: '🇺🇸', by: 'WorkOS', license: 'MIT', use: 'Primitives accessibles.' },
       { name: 'Tailwind CSS', flag: '🇺🇸', by: 'Tailwind Labs', license: 'MIT', use: 'Mise en page.' },
-      { name: 'Lucide', flag: '🌍', by: 'Les contributeurs de Lucide', license: 'ISC', use: 'Icônes.' },
-      { name: 'Tabler Icons', flag: '🇵🇱', by: 'Paweł Kuna', license: 'MIT', use: 'Icônes.' },
       { name: 'Recharts', flag: '🌍', by: 'Les contributeurs de Recharts', license: 'MIT', use: 'Graphiques.' },
       { name: 'Sonner', flag: '🌍', by: 'Emil Kowalski', license: 'MIT', use: 'Notifications.' },
     ],

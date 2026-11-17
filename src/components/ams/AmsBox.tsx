@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import clsx from 'clsx';
 import { AnimatePresence, Reorder, motion } from 'framer-motion';
 import { AmsAddSlot } from './AmsPlus';
@@ -28,6 +28,8 @@ export interface AmsBoxProps {
   onOpenAll: () => void;
   /** « + » : ajouter un matériau à la position `at`, le menu s'ouvrant près de `anchor`. */
   onAdd: (at: number, anchor: HTMLElement) => void;
+  /** Bobine lâchée sur la poubelle : la retirer. */
+  onRemove: (id: string) => void;
 }
 
 /** Rangée des numéros, sous les bobines : même largeur, mêmes écarts et mêmes animations que les bobines. */
@@ -55,8 +57,10 @@ const NumberRow: React.FC<{ count: number; size: number; gap: number }> = ({ cou
  * elle ouvre tous les filaments). Il montre 4 bobines ; au-delà, le bout s'estompe (masque animé par --apex-fade) et le
  * survol allonge le boîtier, jusqu'à 12 bobines. Au-delà de 12 le bout reste estompé même au survol.
  */
-export const AmsBox: React.FC<AmsBoxProps> = ({ entries, profiles, onReorder, onOpenSheet, onOpenAll, onAdd }) => {
+export const AmsBox: React.FC<AmsBoxProps> = ({ entries, profiles, onReorder, onOpenSheet, onOpenAll, onAdd, onRemove }) => {
   const count = entries.length;
+  const trashRef = useRef<HTMLButtonElement>(null);
+  const [drag, setDrag] = useState({ dragging: false, near: false });
   // Le « + » de fin est un emplacement de bobine vide : il compte comme une bobine dans la mise en page.
   const hasAddSlot = count < AMS_MAX_SPOOLS;
   const layout = amsLayout(count + (hasAddSlot ? 1 : 0), METRICS);
@@ -69,15 +73,31 @@ export const AmsBox: React.FC<AmsBoxProps> = ({ entries, profiles, onReorder, on
   } as React.CSSProperties;
 
   return (
-    <div className={clsx(styles.ams, layout.overflowing && styles.overflowing, layout.truncated && styles.truncated)} style={vars}>
+    <div className={clsx(styles.ams, layout.overflowing && styles.overflowing, layout.truncated && styles.truncated, drag.dragging && styles.dragging)} style={vars}>
       <div className={styles.top}>
         <Reorder.Group as="div" axis="x" values={entries.map((e) => e.id)} onReorder={onReorder} className={styles.track}>
           <AnimatePresence initial={false}>
             {ghosts.map((self, i) => (
-              <AmsSlot key={self.entry.id} self={self} prev={ghosts[i - 1]} index={i} layout={layout} onOpen={onOpenSheet} onAdd={onAdd} />
+              <AmsSlot
+                key={self.entry.id}
+                self={self}
+                prev={ghosts[i - 1]}
+                index={i}
+                layout={layout}
+                onOpen={onOpenSheet}
+                onAdd={onAdd}
+                trashRef={trashRef}
+                near={drag.near}
+                onDragState={(dragging, near) => setDrag({ dragging, near })}
+                onRemove={onRemove}
+              />
             ))}
           </AnimatePresence>
-          <AnimatePresence initial={false}>{hasAddSlot && <AmsAddSlot layout={layout} onAdd={(el) => onAdd(count, el)} />}</AnimatePresence>
+          <AnimatePresence initial={false}>
+            {hasAddSlot && (
+              <AmsAddSlot layout={layout} onAdd={(el) => onAdd(count, el)} dragging={drag.dragging} near={drag.near} buttonRef={trashRef} />
+            )}
+          </AnimatePresence>
         </Reorder.Group>
       </div>
       <div

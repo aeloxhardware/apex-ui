@@ -6,6 +6,7 @@ import { attachEditDeform } from '../gcodeEditDeform';
 import { TUBE_SIDES } from '../gcodeLayerGeometry';
 import { GCODE_MESH_PREFIX, loadHeadModel } from './gcodeLayerShared';
 import type { GCodeLayerState } from './gcodeLayerState';
+import { createGCodeLighting } from './layerLighting';
 
 function setupRoot(st: GCodeLayerState) {
   const { parent, scene } = st;
@@ -28,7 +29,7 @@ function setupRoot(st: GCodeLayerState) {
   // « NOZZLE » (nom du modèle réel, cf. loadHeadModel) faisant office de repère — pas de plan de
   // coupe : plus simple, et jamais de coquille ouverte à boucher puisque chaque maillage garde ses
   // propres faces fermées, jamais tronquées à mi-hauteur.
-  st.fullHead = true;
+  st.fullHead = false;
 
   const nozzleMat = new BABYLON.StandardMaterial(`${GCODE_MESH_PREFIX}NozzleMat`, scene);
   nozzleMat.diffuseColor = new BABYLON.Color3(1, 0.55, 0.05);
@@ -114,10 +115,11 @@ function setupColors(st: GCodeLayerState) {
   for (const t of LINE_TYPES) {
     if (t.kind !== 'extrusion') continue;
     const mat = new BABYLON.StandardMaterial(`${GCODE_MESH_PREFIX}BeadMat_${t.id}`, scene);
+    // Couleur de la légende telle quelle, sans émissif (il délavait les teintes) : tout le relief
+    // vient des lumières du tracé (cf. layerLighting.ts), comme dans la visionneuse d'Orca.
     mat.diffuseColor = colors[t.id];
-    mat.emissiveColor = colors[t.id].scale(0.18);
-    mat.specularColor = new BABYLON.Color3(0.25, 0.25, 0.25);
-    mat.specularPower = 48;
+    mat.emissiveColor = BABYLON.Color3.Black();
+    mat.specularColor = BABYLON.Color3.Black();
     mat.backFaceCulling = false;
     attachEditDeform(mat);
     beadMaterials.set(t.id, mat);
@@ -135,6 +137,7 @@ function setupColors(st: GCodeLayerState) {
   const neutralBeadMat = new BABYLON.StandardMaterial(`${GCODE_MESH_PREFIX}BeadMatNeutral`, scene);
   neutralBeadMat.diffuseColor = new BABYLON.Color3(0.62, 0.63, 0.65);
   neutralBeadMat.emissiveColor = new BABYLON.Color3(0.07, 0.07, 0.08);
+  st.lighting = createGCodeLighting(scene);
   Object.assign(st, { colors, beadMaterials, vertexColorBeadMat, neutralBeadMat });
 }
 
@@ -182,6 +185,8 @@ function setupLiveA(st: GCodeLayerState) {
     mesh.alwaysSelectAsActiveMesh = true;
     mesh.setEnabled(false);
   }
+  st.lighting.tag(liveBead);
+  st.lighting.refresh();
   const liveA = new BABYLON.Vector3();
   const liveB = new BABYLON.Vector3();
   const liveAxA = new BABYLON.Vector3();

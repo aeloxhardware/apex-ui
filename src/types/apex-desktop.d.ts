@@ -66,6 +66,8 @@ declare global {
 
   type ApexSliceEvent =
     | { type: 'step'; slug: string; fraction: number }
+    /** Avancement réel d'une sous-étape de `slug` (TetraNet : prepare / tetrahedralize / verify). */
+    | { type: 'substep'; slug: string; sub: string; fraction: number }
     | { type: 'log'; level: string; code?: string; message: string };
 
   interface ApexSliceResult {
@@ -92,6 +94,8 @@ declare global {
     shutdownFinish?(): void;
     /** Fermeture immédiate, sans les étapes de nettoyage (bouton « Forcer la fermeture »). */
     shutdownForce?(): void;
+    /** Relance l'application : fermeture propre (rideau), puis nouveau lancement avec son écran de démarrage. */
+    relaunch?(): void;
     /** L'interface est prête : ferme l'écran de démarrage et affiche la fenêtre principale. */
     appReady(): void;
     /** Étape affichée sur l'écran de démarrage tant que l'interface n'est pas prête. */
@@ -110,7 +114,6 @@ declare global {
     onSliceProgress?(callback: (event: ApexSliceEvent) => void): () => void;
     saveGCode(request: { name: string; text: string }): Promise<{ saved: boolean; path?: string }>;
     /** Écrit (atomiquement) un G-code à un chemin connu : modification en place. */
-    setDevMode?(enabled: boolean): void;
     /** Vrai si l'application a été installée par l'installateur (désinstalleur présent). */
     canUninstall?(): Promise<boolean>;
     /** Lance le désinstalleur (confirmation, UAC, suppression). */
@@ -118,6 +121,16 @@ declare global {
     writeGCode(request: { path: string; text: string }): Promise<{ saved: boolean; path: string }>;
     /** Chemin réel d'un fichier déposé ou choisi, null s'il n'en a pas. */
     pathForFile?(file: File): string | null;
+    /** Écrit le projet (3MF) dans le répertoire dédié d'Apex ; renvoie le chemin du fichier. */
+    saveProject?(request: { name: string; bytes: Uint8Array }): Promise<{ path: string }>;
+    /** Projets 3MF du répertoire dédié, du plus récent au plus ancien (`modified` : ms depuis 1970). */
+    listProjects?(limit?: number): Promise<{ name: string; path: string; modified: number }[]>;
+    /** Octets d'un projet de la liste ; refuse tout chemin hors du répertoire dédié. */
+    readProject?(path: string): Promise<Uint8Array>;
+    /** Réserve de fichiers temporaires (cf. electron/stash.cjs, src/utils/spaceStash.ts). */
+    stashWrite?(key: string, bytes: Uint8Array): Promise<void>;
+    stashRead?(key: string): Promise<Uint8Array | null>;
+    stashDrop?(key: string): Promise<void>;
     /** Arbre du dossier `profiles/` (cf. electron/profiles.cjs). */
     scanProfiles?(): Promise<ApexProfileFolder>;
     /** Contenu d'un profil d'imprimante (chemin relatif d'un .json) et sa photo. */

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ClipboardPaste, Copy, Crosshair, Lock, LockOpen, Redo2, Save, Trash2, Undo2 } from 'lucide-react';
+import { ClipboardPaste, Copy, Crosshair, Lock, LockOpen, Redo2, Save, Trash2, Undo2 } from '@/lib/icons';
 import {
   EDIT_ANALYZE_EVENT, EDIT_CLEAR_LOCKS_EVENT, EDIT_COPY_EVENT, EDIT_LAYER_LIMITS_EVENT, EDIT_PASTE_EVENT,
   EDIT_PLACE_EVENT, EDIT_REDO_EVENT, EDIT_REMOVE_NODE_EVENT, EDIT_SAVE_EVENT, EDIT_SET_DELTA_EVENT, EDIT_UNDO_EVENT,
@@ -9,7 +9,7 @@ import type { MachineLimits } from '@/utils/machineLimits';
 import { layerFloorMm, type LayerLimits } from '@/utils/layerLimits';
 import { bottomTip } from './bottomTooltip';
 import { ApexNumberField } from '../ApexNumberField';
-import { GlassSelect } from './GlassSelect';
+import { ApexSelect } from '../apex-ui/ApexSelect';
 import styles from './EditionPanel.module.scss';
 import { FALLOFFS, EXTRUSION_CHOICES, REACH_MODE_CHOICES, COMBINE_CHOICES, SYMMETRY_CHOICES, send, DELTA_TIPS } from './editionPanelData';
 import { fmtMm, NumberField, NormalGraph } from './EditionPanelWidgets';
@@ -56,7 +56,7 @@ const metric = (ctx: PanelCtx, key: 'spatial' | 'along', label: string, hint: st
         </label>
         <PanelNumber value={m.radiusMm} min={0} step={0.1} disabled={!ready || !m.enabled} onValue={(v) => setInfluence({ ...influence, [key]: { ...m, radiusMm: v } })} />
         <span className={styles.unit}>mm</span>
-        <GlassSelect
+        <ApexSelect
           className={styles.select}
           value={m.falloff}
           options={FALLOFFS}
@@ -304,7 +304,7 @@ export const ExtrusionRow: React.FC<SectionProps & { extrusionChoice: string; se
         <span className={styles.check} {...bottomTip('Extrusion', 'Recalcul de l’extrusion des segments déformés, au prorata de leur longueur et de leur épaisseur.')}>
           Extrusion
         </span>
-        <GlassSelect
+        <ApexSelect
           className={styles.select}
           value={extrusionChoice}
           options={EXTRUSION_CHOICES}
@@ -358,7 +358,7 @@ export const InfluenceSection: React.FC<SectionProps> = ({ ctx }) => {
         </div>
         <div className={styles.metric}>
           <span className={styles.check}>Mode</span>
-          <GlassSelect
+          <ApexSelect
             className={styles.select}
             value={influence.reachMode ?? 'reach'}
             options={REACH_MODE_CHOICES}
@@ -382,7 +382,7 @@ export const InfluenceSection: React.FC<SectionProps> = ({ ctx }) => {
           </label>
           <PanelNumber value={adj.hopsBefore} min={0} step={1} disabled={!ready || !adj.enabled} tip={['Avant', 'Trajectoires déposées avant (supports) atteintes par l’influence.']} integer onValue={(v) => setInfluence({ ...influence, adjacency: { ...adj, hopsBefore: v } })} />
           <PanelNumber value={adj.hopsAfter} min={0} step={1} disabled={!ready || !adj.enabled} tip={['Après', 'Trajectoires déposées après (posées dessus) atteintes par l’influence.']} integer onValue={(v) => setInfluence({ ...influence, adjacency: { ...adj, hopsAfter: v } })} />
-          <GlassSelect
+          <ApexSelect
             className={styles.select}
             value={adj.falloff}
             options={FALLOFFS}
@@ -394,7 +394,7 @@ export const InfluenceSection: React.FC<SectionProps> = ({ ctx }) => {
         </div>
         <div className={styles.metric}>
           <span className={styles.check}>Combinaison</span>
-          <GlassSelect
+          <ApexSelect
             className={styles.select}
             value={influence.combine}
             options={COMBINE_CHOICES}
@@ -499,7 +499,7 @@ export const SymmetrySection: React.FC<{ state: EditStateDetail; ready: boolean;
       <div className={styles.section}>
         <div className={styles.sectionTitle}>Symétrie</div>
         <div className={styles.metric}>
-          <GlassSelect
+          <ApexSelect
             className={styles.select}
             value={state.symmetry.mode}
             options={SYMMETRY_CHOICES}

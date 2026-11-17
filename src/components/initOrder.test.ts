@@ -101,30 +101,61 @@ function writesOf(fn: ts.FunctionDeclaration, sf: ts.SourceFile): string[] {
   return writes;
 }
 
+interface Declared {
+  fn: ts.FunctionDeclaration;
+  sf: ts.SourceFile;
+  file: string;
+}
+
+/** Toutes les fonctions déclarées au premier niveau des fichiers du dossier (un morceau peut vivre dans un autre fichier). */
+function declaredIn(split: Split): Map<string, Declared> {
+  const out = new Map<string, Declared>();
+  const dir = path.join(SRC, split.dir);
+  fs.readdirSync(dir).filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts')).forEach((file) => {
+    const sf = parse(path.join(dir, file));
+    sf.statements.filter(ts.isFunctionDeclaration).forEach((fn) => fn.name && out.set(fn.name.text, { fn, sf, file }));
+  });
+  return out;
+}
+
+/**
+ * Sections atteintes depuis le fichier d'entrée, dans l'ordre d'exécution : une section appelée par une autre section
+ * (et non par l'entrée) s'exécute à l'endroit de son appel.
+ */
+function executionOrder(split: Split, declared: Map<string, Declared>, entryCalls: string[]): string[] {
+  const out: string[] = [];
+  const visit = (name: string) => {
+    out.push(name);
+    const d = declared.get(name);
+    if (d) chunkCalls(d.fn).filter((c) => split.sectionName.test(c)).forEach(visit);
+  };
+  entryCalls.forEach(visit);
+  return out;
+}
+
 describe.each(SPLITS)('initialisation par morceaux : $name', (split) => {
   const entrySource = fs.readFileSync(path.join(SRC, split.entry), 'utf8');
-  const order = [...entrySource.matchAll(split.sectionCall)].map((m) => m[1]);
+  const entryCalls = [...entrySource.matchAll(split.sectionCall)].map((m) => m[1]);
+  const declared = declaredIn(split);
   const files = sectionFiles(split);
+  const order = executionOrder(split, declared, entryCalls);
 
   it('appelle toutes les sections définies, chacune une fois', () => {
-    expect(order.length).toBeGreaterThan(3);
+    expect(entryCalls.length).toBeGreaterThan(3);
     expect(new Set(order).size).toBe(order.length);
     expect([...files.keys()].sort()).toEqual([...order].sort());
   });
 
-  it('ne lit jamais dans `st` une valeur qu\'aucun morceau précédent n\'a posée', () => {
+  it("ne lit jamais dans `st` une valeur qu'aucun morceau précédent n'a posée", () => {
     const provided = hostFields(split);
     const problems: string[] = [];
     for (const section of order) {
-      const file = files.get(section)!;
-      const sf = parse(path.join(SRC, split.dir, file));
-      const fns = new Map<string, ts.FunctionDeclaration>();
-      sf.statements.filter(ts.isFunctionDeclaration).forEach((s) => s.name && fns.set(s.name.text, s));
-      for (const name of chunkCalls(fns.get(section)!)) {
-        const fn = fns.get(name);
-        if (!fn) { problems.push(`${file}: ${name} introuvable`); continue; }
-        readsOf(fn, sf).filter((r) => !provided.has(r)).forEach((r) => problems.push(`${file} > ${name} lit st.${r} avant qu'il soit posé`));
-        writesOf(fn, sf).forEach((w) => provided.add(w));
+      const owner = declared.get(section)!;
+      for (const name of chunkCalls(owner.fn).filter((c) => !split.sectionName.test(c))) {
+        const chunk = declared.get(name);
+        if (!chunk) { problems.push(`${owner.file}: ${name} introuvable`); continue; }
+        readsOf(chunk.fn, chunk.sf).filter((r) => !provided.has(r)).forEach((r) => problems.push(`${chunk.file} > ${name} lit st.${r} avant qu'il soit posé`));
+        writesOf(chunk.fn, chunk.sf).forEach((w) => provided.add(w));
       }
     }
     expect(problems).toEqual([]);

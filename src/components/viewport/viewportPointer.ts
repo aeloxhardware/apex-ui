@@ -310,6 +310,13 @@ function onPointerUp(st: ViewportState, pointerInfo: BABYLON.PointerInfo, isPick
   const pick = scene.pick(scene.pointerX, scene.pointerY, isPickable);
   if (!pick?.hit || !pick.pickedMesh) return;
   const targetMesh = currentToolRef.current !== 'texture' ? getRootModel(pick.pickedMesh) : pick.pickedMesh;
+  // Clic droit (menu contextuel) : jamais de bascule. Sur un modèle déjà sélectionné la sélection
+  // reste telle quelle ; sur un autre, il devient la sélection.
+  if (evt.button === 2) {
+    if (!st.selectedMeshesRef.current.has(targetMesh)) selectMesh(targetMesh, false);
+    return;
+  }
+  if (evt.button !== 0) return;
   selectMesh(targetMesh, evt.ctrlKey || evt.metaKey);
 }
 

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Pencil, RotateCcw, User, X } from 'lucide-react';
+import { Pencil, RotateCcw, User, X } from '@/lib/icons';
 import { AmsBackdrop } from './AmsBackdrop';
 import { AmsSpool } from './AmsSpool';
 import { FINISH_CHOICES, NUM_FIELDS, draftOf, isDirty } from './filamentSheetData';
 import { ApexNumberField } from '@/components/ApexNumberField';
+import { ApexTextField } from '@/components/apex-ui';
 import { bottomTip } from '@/components/edit-node/bottomTooltip';
 import { CLOSE_TIP, SHEET_CANCEL_TIP, SHEET_EDIT_TIP, SHEET_REVERT_TIP, SHEET_SAVE_TIP, spoolTip } from '@/utils/amsTooltips';
 import { brandOf, finishLabel, materialNameOf, rangeText, withUnit } from '@/utils/filamentText';
@@ -51,8 +52,7 @@ const SheetEdit: React.FC<{ draft: FilamentEdits; setDraft: (d: FilamentEdits) =
   return (
     <dl className={styles.sheetRows}>
       <Row label="Type">
-        <input
-          className={styles.textInput}
+        <ApexTextField
           value={draft.type ?? ''}
           onChange={(e) => setDraft({ ...draft, type: e.target.value || null })}
         />

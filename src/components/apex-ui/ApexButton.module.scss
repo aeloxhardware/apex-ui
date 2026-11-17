@@ -1,0 +1,74 @@
+@use '../../styles/apex-ui' as ui;
+
+// Bouton unique d'Apex (cf. ApexButton.tsx). `ghost` : sans fond (barres d'outils) ; `glass` : verre posé seul sur la scène ;
+// `field` : fond de champ (actions dans un panneau).
+.button {
+  @include ui.reset;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 0 12px;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 600;
+  background: transparent;
+  border-radius: ui.$radius-control;
+  @include ui.control;
+}
+
+.ghost {
+  background: transparent;
+}
+
+.glass {
+  @include ui.glass-surface;
+}
+
+.field {
+  background: ui.$surface;
+  border-radius: ui.$radius-field;
+
+  &:hover:not(:disabled) {
+    background: ui.$surface-hover;
+  }
+}
+
+// Action principale : verre dont l'encre et le halo prennent la couleur de mise en valeur (une seule par écran).
+.accent {
+  @include ui.glass-surface;
+  @include ui.selected;
+
+  &:hover:not(:disabled) {
+    background: rgba(245, 158, 11, 0.28);
+    color: ui.$amber;
+  }
+}
+
+.sm {
+  height: 22px;
+  padding: 0 8px;
+  border-radius: ui.$radius-small;
+}
+
+.md {
+  height: 30px;
+}
+
+.lg {
+  height: 44px;
+}
+
+// Bouton carré, sans texte : l'icône seule.
+.icon {
+  padding: 0;
+  &.sm { width: 22px; }
+  &.md { width: 30px; }
+  &.lg { width: 44px; }
+}
+
+.active,
+.active:hover:not(:disabled) {
+  @include ui.selected;
+}

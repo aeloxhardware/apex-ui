@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Info } from 'lucide-react';
+import { Info } from '@/lib/icons';
 import clsx from 'clsx';
 import { CustomTooltip } from './CustomTooltip';
 import { ExtrudeIcon } from './ModelingIcons';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ApexSelect } from './apex-ui/ApexSelect';
 import styles from './ExtrudePanel.module.scss';
 import type { Vec3 } from '@/modeling/types';
 
@@ -59,23 +59,11 @@ interface DropdownProps<T extends string> {
   tip: string;
 }
 
-/** Liste déroulante aux couleurs d'Apex (Radix Select / shadcn), avec son tooltip. */
+/** Liste déroulante d'Apex (`ApexSelect`), avec son tooltip. */
 function Dropdown<T extends string>({ label, value, onChange, options, tip }: DropdownProps<T>) {
   return (
     <CustomTooltip content={label} description={tip}>
-      <Select value={value} onValueChange={(v) => onChange(v as T)}>
-        <SelectTrigger className={styles.select} aria-label={label}>
-          <SelectValue />
-        </SelectTrigger>
-        {/* z-index > panneaux (1000/1001) : le menu est porté au <body>. */}
-        <SelectContent className={styles.selectContent} style={{ zIndex: 3000 }}>
-          {options.map((o) => (
-            <SelectItem key={o.value} value={o.value} className={styles.selectItem}>
-              {o.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <ApexSelect value={value} options={options} onChange={onChange} ariaLabel={label} className={styles.select} />
     </CustomTooltip>
   );
 }

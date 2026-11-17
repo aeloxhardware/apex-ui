@@ -1,0 +1,59 @@
+@use '../../styles/dropdown';
+
+@include dropdown.keyframes;
+
+// Menu contextuel du viewport (clic droit) : style commun des menus déroulants (réf. menu Fichier).
+.menu {
+  min-width: 220px;
+  @include dropdown.panel;
+  @include dropdown.cascade;
+}
+
+// Sous-menus (portés dans le body) : même panneau, sans cascade du conteneur.
+.submenu {
+  min-width: 160px;
+  @include dropdown.panel;
+  @include dropdown.cascade;
+}
+
+.item {
+  @include dropdown.item;
+  justify-content: space-between;
+  white-space: nowrap;
+  position: relative;
+}
+
+.itemInert {
+  cursor: default;
+  color: rgba(255, 255, 255, 0.3);
+
+  &:hover {
+    color: rgba(255, 255, 255, 0.3);
+    background: transparent;
+  }
+}
+
+.arrow {
+  @include dropdown.hint;
+}
+
+.separator {
+  @include dropdown.separator;
+}
+
+.label {
+  padding: 6px 10px 4px;
+  font-size: 10.7px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+// Ligne de réglage : pas de survol (le contrôle est dedans).
+.static {
+  cursor: default;
+  gap: 18px;
+
+  &:hover {
+    background: transparent;
+    color: rgba(255, 255, 255, 0.85);
+  }
+}

@@ -1,0 +1,40 @@
+@use '../styles/dropdown';
+
+@include dropdown.keyframes;
+
+// Menu Fichier, sous la barre de fichiers : RÉFÉRENCE du style commun des menus déroulants
+// (cotes dans styles/_dropdown.scss).
+.menu {
+  position: fixed;
+  z-index: 10000;
+  min-width: 330px;
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+  @include dropdown.panel;
+  @include dropdown.cascade;
+}
+
+.item {
+  @include dropdown.item;
+}
+
+.icon {
+  display: inline-flex;
+  width: 16px;
+  flex: 0 0 16px;
+  justify-content: center;
+}
+
+.label {
+  flex: 1;
+}
+
+.shortcut,
+.arrow {
+  @include dropdown.hint;
+}
+
+.separator {
+  @include dropdown.separator;
+}

@@ -245,6 +245,40 @@ $fade-length: 56px;
   }
 }
 
+// Pendant qu'on glisse une bobine, les petits « + » d'entre-deux disparaissent : seule la poubelle reste.
+.dragging .plusZone {
+  display: none;
+}
+
+// Et la piste cesse de rogner (masque de fondu, débordement) : la bobine tenue sort de sa boîte sans être coupée.
+.ams.dragging .track {
+  mask-image: none;
+  -webkit-mask-image: none;
+  overflow: visible;
+}
+
+// Bobine tenue : ses joues deviennent pleines (opaques), sans transparence.
+.held svg rect[stroke] {
+  fill: #3c4354;
+}
+
+.held svg rect[stroke='#f59e0b'] {
+  fill: #6e4a0c;
+}
+
+// Poubelle (le « + » de fin pendant qu'on glisse une bobine) : grossit et rougit quand la bobine s'en approche.
+.trash {
+  color: #fff;
+  opacity: 1;
+  transition: opacity 0.15s, transform 0.2s, color 0.15s;
+}
+
+.trashNear {
+  color: #ff4d4d;
+  transform: scale(1.275);
+  filter: drop-shadow(0 0 8px rgba(255, 77, 77, 0.7));
+}
+
 .plus {
   position: relative;
   display: flex;

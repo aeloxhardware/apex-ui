@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { CircleCheck, CircleX, Loader2, TriangleAlert, X } from 'lucide-react';
+import { CircleCheck, CircleX, Loader2, TriangleAlert, X } from '@/lib/icons';
 import { emitApex, onApex } from '@/events/apexEvents';
 import { removeNotification, subscribeToNotifications, type NotificationItem, type NotificationVariant } from '@/utils/notificationStore';
 import { FALLBACK_HEIGHT, PEEK, cardPose, layoutStack, type CardPose } from './notificationLayout';

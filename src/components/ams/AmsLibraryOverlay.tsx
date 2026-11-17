@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, User } from 'lucide-react';
+import { X, User } from '@/lib/icons';
 import { AmsBackdrop } from './AmsBackdrop';
 import { AmsSpool } from './AmsSpool';
 import type { AmsEntry } from './amsSpoolsState';

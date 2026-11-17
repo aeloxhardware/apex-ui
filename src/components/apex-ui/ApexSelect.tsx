@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import clsx from 'clsx';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { hideBottomTip, showBottomTip } from './bottomTooltip';
-import styles from './GlassSelect.module.scss';
+import * as Popover from '@radix-ui/react-popover';
+import { hideBottomTip, showBottomTip } from '../edit-node/bottomTooltip';
+import styles from './ApexSelect.module.scss';
 
-export interface GlassSelectOption<T extends string> {
+export interface ApexSelectOption<T extends string> {
   value: T;
   label: string;
   /** Explication pour un novice, affichée dans l'infobulle de bas d'écran au survol de l'option. */
@@ -12,11 +12,11 @@ export interface GlassSelectOption<T extends string> {
 }
 
 /**
- * Liste déroulante assortie à l'interface (verre flouté, sans contour, actif en cyan) : remplace le
+ * LA liste déroulante d'Apex (verre flouté, sans contour, choix actif en ambre) : remplace le
  * `<select>` natif, dont le menu est dessiné par le système. Même vocabulaire que le menu
  * « Coloration » de la légende (GCodeLineTypeLegend).
  */
-export function GlassSelect<T extends string>({
+export function ApexSelect<T extends string>({
   value,
   options,
   onChange,
@@ -26,7 +26,7 @@ export function GlassSelect<T extends string>({
   ...hover
 }: {
   value: T;
-  options: readonly GlassSelectOption<T>[];
+  options: readonly ApexSelectOption<T>[];
   onChange: (value: T) => void;
   disabled?: boolean;
   className?: string | undefined;
@@ -37,8 +37,8 @@ export function GlassSelect<T extends string>({
   const [open, setOpen] = useState(false);
   const active = options.find((o) => o.value === value);
   return (
-    <Popover open={open && !disabled} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+    <Popover.Root open={open && !disabled} onOpenChange={setOpen}>
+      <Popover.Trigger asChild>
         <button
           type="button"
           className={clsx(styles.trigger, className)}
@@ -51,8 +51,9 @@ export function GlassSelect<T extends string>({
             <path d="M1 1L4 4L7 1" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
-      </PopoverTrigger>
-      <PopoverContent
+      </Popover.Trigger>
+      <Popover.Portal>
+      <Popover.Content
         className={styles.menu}
         align="end"
         sideOffset={6}
@@ -78,7 +79,8 @@ export function GlassSelect<T extends string>({
             </li>
           ))}
         </ul>
-      </PopoverContent>
-    </Popover>
+      </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
   );
 }

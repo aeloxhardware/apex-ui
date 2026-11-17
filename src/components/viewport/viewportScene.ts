@@ -1,5 +1,6 @@
 // Issu de la découpe de l'ancien useLayoutEffect de Viewport3D.tsx : le texte des instructions est
 // conservé ; les variables partagées entre morceaux passent par `st` (viewportState.ts).
+import { OrbitViewGizmo } from '../orbitViewGizmo';
 import * as BABYLON from 'babylonjs';
 import { isFlatUi } from '@/utils/interfaceMode';
 import { PAN_PERSPECTIVE_EVENT, readPanPerspective } from '@/utils/panPerspectivePrefs';
@@ -542,4 +543,5 @@ export function setupViewportScene(st: ViewportState) {
   setupBackdrop(st);
   setupHandleSetView(st);
   setupHandleCustomView(st);
+  st.orbitViewGizmo = new OrbitViewGizmo(st.scene, st.camera);
 }

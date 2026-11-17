@@ -1,13 +1,13 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { importModelsOneByOne } from '@/utils/importModels';
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import TransformBox from './TransformBox';
+import CutBox from './CutBox';
 import styles from './Sidebar.module.scss';
-import { getPreviewTab, setPreviewTab, usePreviewTab } from './PreviewUpperTabs';
-import { isDevModeEnabled, subscribeDevMode } from '@/utils/devModePrefs';
+import { usePreviewTab } from './PreviewUpperTabs';
 import { iconVariants } from './sidebarData';
-import { useToolbarGeometry, useTabIndicator, useToolShortcuts, useSpaceEntryEvents, type SidebarTool } from './sidebarHooks';
+import { useToolbarGeometry, useTabIndicator, useToolShortcuts, useSpaceEntryEvents, useViewportToolReset, type SidebarTool } from './sidebarHooks';
 import { TopTabs, SlicerIcons, PreviewTabsSlot } from './SidebarParts';
 import { makePlaySpaceTransition, makeTopTabClick, makeEnterPreview, toolbarMotion } from './sidebarTransitions';
 
@@ -40,15 +40,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
   const [isPreviewActive, setIsPreviewActive] = useState(false);
   const previewTab = usePreviewTab();
-  const [devMode, setDevModeState] = useState(isDevModeEnabled);
-  useEffect(() => subscribeDevMode(setDevModeState), []);
-  // Désactiver le mode dev depuis un espace devenu caché (Dev, Modélisation) ramène à l'Accueil ;
-  // l'onglet « Fonction » grisé ne doit pas rester affiché.
-  useEffect(() => {
-    if (devMode) return;
-    if (activeTab === 'developer' || activeTab === 'settings') onTabChange('home');
-    if (getPreviewTab() === 'fonction') setPreviewTab('coloration');
-  }, [devMode, activeTab, onTabChange]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modelingSlotRef = useRef<HTMLDivElement>(null);
   /** L'onglet « Modélisation » porte la valeur 'settings'. */
@@ -59,14 +50,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { fromGeometry, setFromGeometry, boxWidth, bottomToolbarRef, targetGeometry, sketchReshape, setSketchReshape } = geo;
   const indicator = useTabIndicator(activeTab, activeTool);
 
+  // Outil de Préparation, retenu tant qu'on est dans cet espace (hors Prévisualisation) : retrouvé au retour.
+  const prepToolRef = useRef<SidebarTool>('select');
+  if (activeTab === '3d-view' && activeTool !== 'layers') prepToolRef.current = activeTool;
+
   const transitionCtx = {
     bottomToolbarRef, targetGeometry, setFromGeometry, setSketchReshape, isModeling, onTabChange, setActiveTool, setIsPreviewActive,
+    activeTool, prepTool: prepToolRef.current,
   };
   const playSpaceTransition = makePlaySpaceTransition(transitionCtx);
   const handleTopTabClick = makeTopTabClick(transitionCtx, playSpaceTransition);
   const enterPreview = makeEnterPreview(transitionCtx, playSpaceTransition);
 
-  const handleToolClick = (tool: 'select' | 'move' | 'rotate' | 'scale' | 'texture') => {
+  const handleToolClick = (tool: 'select' | 'move' | 'rotate' | 'scale' | 'texture' | 'cut') => {
     const newTool = activeTool === tool ? 'select' : tool;
     setActiveTool(newTool);
     emitApex('apex-tool-changed', { tool: newTool });
@@ -89,6 +85,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   useSpaceEntryEvents({ activeTab, isPreviewActive, isModeling, handleTopTabClick, enterPreview });
+  useViewportToolReset(setActiveToolState);
   useToolShortcuts(activeTool, isPreviewActive, (tool) => {
     setActiveTool(tool);
     emitApex('apex-tool-changed', { tool });
@@ -98,7 +95,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <div className={styles.container} data-apex-chrome-panel>
       <TopTabs
         topToolbarRef={indicator.topToolbarRef} buttonRefs={indicator.buttonRefs} indicatorStyle={indicator.indicatorStyle}
-        indicatorOnLogo={indicator.indicatorOnLogo} devMode={devMode} activeTab={activeTab} isPreviewActive={isPreviewActive}
+        indicatorOnLogo={indicator.indicatorOnLogo} activeTab={activeTab} isPreviewActive={isPreviewActive}
         onTabClick={handleTopTabClick} onLayerClick={handleLayerClick}
       />
 
@@ -128,7 +125,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       >
           <SlicerIcons hidden={isPreviewActive || isModeling} activeTool={arrangeOpen ? null : activeTool} onToolClick={handleToolClick} onUploadClick={() => fileInputRef.current?.click()} arrangeOpen={arrangeOpen} onArrangeOpenChange={handleArrangeOpenChange} />
 
-        <PreviewTabsSlot visible={isPreviewActive && !isModeling} devMode={devMode} previewTab={previewTab} />
+        <PreviewTabsSlot visible={isPreviewActive && !isModeling} previewTab={previewTab} />
 
         {/* Mode modélisation : mêmes noeud et animation de conteneur que le mode slicer —
             seul le contenu diffère. Les boutons CAD eux-mêmes (logique de features) sont
@@ -147,6 +144,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {!isPreviewActive && !isModeling && (activeTool === 'move' || activeTool === 'rotate' || activeTool === 'scale') && (
           <TransformBox tool={activeTool} anchorRef={bottomToolbarRef} />
         )}
+        {!isPreviewActive && !isModeling && activeTool === 'cut' && <CutBox anchorRef={bottomToolbarRef} />}
 
         <input
           type="file"

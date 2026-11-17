@@ -7,7 +7,6 @@ Dépendances directes seulement ; les dépendances transitives sont figées dans
 
 | Paquet | Version | Licence | Dépôt |
 |---|---|---|---|
-| @heroicons/react | 2.2.0 | MIT | https://github.com/tailwindlabs/heroicons |
 | @hookform/resolvers | 3.10.0 | MIT | https://github.com/react-hook-form/resolvers |
 | @radix-ui/react-accordion | 1.2.4 | MIT | https://github.com/radix-ui/primitives |
 | @radix-ui/react-alert-dialog | 1.1.7 | MIT | https://github.com/radix-ui/primitives |
@@ -37,7 +36,6 @@ Dépendances directes seulement ; les dépendances transitives sont figées dans
 | @radix-ui/react-toggle-group | 1.1.3 | MIT | https://github.com/radix-ui/primitives |
 | @radix-ui/react-tooltip | 1.2.0 | MIT | https://github.com/radix-ui/primitives |
 | @swc/core-win32-x64-msvc | 1.16.2 | Apache-2.0 AND MIT | https://github.com/swc-project/swc |
-| @tabler/icons-react | 3.46.0 | MIT | https://github.com/tabler/tabler-icons |
 | @tanstack/react-query | 5.74.4 | MIT | https://github.com/TanStack/query |
 | @yogesharc/thinking-orbs | 0.1.2 | MIT | https://github.com/yogesharc/thinking-orbs |
 | babylonjs | 9.15.0 | Apache-2.0 | https://github.com/BabylonJS/Babylon.js |
@@ -51,7 +49,6 @@ Dépendances directes seulement ; les dépendances transitives sont figées dans
 | framer-motion | 13.1.0 | MIT | https://github.com/motiondivision/motion/ |
 | input-otp | 1.4.2 | MIT | https://github.com/guilhermerodz/input-otp |
 | jszip | 3.10.1 | (MIT OR GPL-3.0-or-later) | https://github.com/Stuk/jszip |
-| lucide-react | 0.462.0 | ISC | https://github.com/lucide-icons/lucide |
 | next-themes | 0.4.6 | MIT | https://github.com/pacocoursey/next-themes |
 | react | 19.2.3 | MIT | https://github.com/facebook/react |
 | react-day-picker | 9.13.0 | MIT | https://github.com/gpbl/react-day-picker |

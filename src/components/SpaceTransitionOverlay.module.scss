@@ -1,11 +1,10 @@
 // Plein écran (monté à la racine dans Index.tsx, hors du bloc chrome démonté en Paramètres) :
-// les panneaux en superposition (sidebars, menus, tooltips), tous en `position: fixed` avec un
-// z-index ≥ 1000, forment leur propre contexte d'empilement et restent ainsi visibles par-dessus,
-// sans flou ni voile.
+// le rideau (flou, tuiles, texte) recouvre toute l'interface (panneaux, scène, barre du bas, menus), SAUF les deux barres
+// du haut (fichiers et espaces : z-index 100001, au-dessus de lui) et les infobulles.
 .overlay {
   position: fixed;
   inset: 0;
-  z-index: 30;
+  z-index: 100000;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -16,7 +15,7 @@
 // Étape 1 : flou seul, sans aucune teinte — une simple loupe sur ce qu'il y a derrière.
 .blurLayer {
   position: fixed;
-  z-index: 30;
+  z-index: 100000;
   pointer-events: none;
   inset: 0;
   -webkit-backdrop-filter: blur(0px);
@@ -36,12 +35,9 @@
   inset: 0;
   width: 100vw;
   height: 100vh;
-  z-index: 30;
+  z-index: 100000;
   pointer-events: none;
 }
-
-// Rideau de fermeture de l'application : au-dessus de TOUT (panneaux de verre, infobulles, modales : z-index ≥ 1000).
-.onTop { z-index: 100000; }
 
 .textBlock {
   position: relative;

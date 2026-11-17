@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import type { MotionStyle } from 'framer-motion';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from '@/lib/icons';
 import { GlassPanel } from './GlassPanel';
 import { ExternalScrollArea } from './ExternalScrollArea';
 import { ApexCheckbox } from './ApexCheckbox';

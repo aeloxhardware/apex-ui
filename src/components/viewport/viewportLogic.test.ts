@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { cameraAnglesFacing } from './cameraAngles';
 import { findFreeSpotAmong, type Disc } from './freeSpot';
 import { isLabelVisible, labelDecimation } from './gridLabelLogic';
-import { uniqueModelName } from './modelNaming';
+import { cutPartName, uniqueModelName } from './modelNaming';
 
 describe('uniqueModelName', () => {
   it('garde le nom du fichier quand il est libre', () => {
@@ -22,6 +22,16 @@ describe('uniqueModelName', () => {
   });
   it('ne coupe que sur le dernier point', () => {
     expect(uniqueModelName('a.b.stl', new Set(['a.b.stl']))).toBe('a.b (2).stl');
+  });
+});
+
+describe('cutPartName', () => {
+  it('nomme chaque morceau d’après le modèle coupé, avant l’extension', () => {
+    expect(cutPartName('vase.stl', 'haut', new Set())).toBe('vase (haut).stl');
+    expect(cutPartName('vase', 'bas', new Set())).toBe('vase (bas)');
+  });
+  it('reste unique sur le plateau', () => {
+    expect(cutPartName('vase.stl', 'haut', new Set(['vase (haut).stl']))).toBe('vase (haut) (2).stl');
   });
 });
 

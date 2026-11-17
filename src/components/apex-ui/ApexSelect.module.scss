@@ -1,0 +1,82 @@
+@use '../../styles/apex-ui' as ui;
+@use '../../styles/dropdown';
+
+@include dropdown.keyframes;
+
+// Liste déroulante en verre (cf. ApexSelect.tsx) : déclencheur sans contour avec ombre portée,
+// menu au style commun des menus déroulants, option active en cyan.
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  height: 22px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  box-shadow: ui.$element-shadow;
+  color: inherit;
+  font: inherit;
+  font-size: 10.5px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.15s ease;
+
+  &:hover:not(:disabled),
+  &[data-state='open'] {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: ui.$element-shadow, 0 0 0 1px rgba(245, 158, 11, 0.6);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+}
+
+.value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chevron {
+  flex: 0 0 auto;
+  opacity: 0.7;
+}
+
+.menu {
+  z-index: 3000; // au-dessus des panneaux (1000/1001) : le menu est porté au <body>
+  min-width: 140px;
+  @include dropdown.panel;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  @include dropdown.cascade;
+}
+
+.item {
+  @include dropdown.item;
+  white-space: nowrap;
+
+  &:focus-visible {
+    outline: none;
+    background: rgba(255, 255, 255, 0.1);
+  }
+}
+
+.itemActive {
+  @include dropdown.item-active;
+}

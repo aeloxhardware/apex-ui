@@ -306,16 +306,16 @@ export const SpaceTransitionOverlay: React.FC = () => {
           est lu par GlassPanelBackdrop. */}
       <div
         data-veil-blur
-        className={`${styles.blurLayer} ${shutdown ? styles.onTop : ''} ${!label ? styles.blurOff : fadingOut ? styles.blurOut : styles.blurIn}`}
+        className={`${styles.blurLayer} ${!label ? styles.blurOff : fadingOut ? styles.blurOut : styles.blurIn}`}
         style={{ animationDuration: `${fadingOut ? FADEOUT_MS : BLUR_MS}ms` }}
       />
       {/* Tuiles (étapes 2 et 4) : peintes par un Worker dans ce canevas, voir veil.worker.ts. */}
-      <canvas ref={veilCanvasRef} className={`${styles.veilCanvas} ${shutdown ? styles.onTop : ''}`} />
+      <canvas ref={veilCanvasRef} className={`${styles.veilCanvas}`} />
     <AnimatePresence>
       {label && (
         // data-veil-root : posé tant que le rideau est affiché. Le verre des panneaux, qui réfracte le canevas
         // 3D et non le DOM, redessine le voile lui-même (veilState) pour ne pas montrer la scène cachée.
-        <div className={`${styles.overlay} ${shutdown ? styles.onTop : ''}`} data-veil-root>
+        <div className={`${styles.overlay}`} data-veil-root>
 
           <AnimatePresence>
             {painted && (

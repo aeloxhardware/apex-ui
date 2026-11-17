@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ScanSearch } from 'lucide-react';
+import { ScanSearch } from '@/lib/icons';
 import type { GCodeFileInfo } from '@/hooks/use-gcode-preview';
 import styles from './SliceModal.module.scss';
 

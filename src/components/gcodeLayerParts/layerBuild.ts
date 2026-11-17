@@ -265,6 +265,9 @@ function setupApplyColorBy(st: GCodeLayerState) {
       const isContinuous = st.colorBy !== 'lineType';
       for (const entry of st.paths) {
         if (!entry.isExtrusion || !entry.mesh) continue;
+        // Le tampon de couleurs par sommet reste sur le maillage après un mode continu : sans ce
+        // drapeau, Babylon le multiplie à tout matériau (catégoriel/neutre) au retour.
+        entry.mesh.useVertexColors = isContinuous && !st.editNeutral;
         if (st.editNeutral) {
           entry.mesh.material = neutralBeadMat;
           continue;
@@ -398,6 +401,22 @@ function resetEditState(st: GCodeLayerState) {
   st.travelPreviewKeys.clear();
 }
 
+/** Libère l'affichage remplacé par une reconstruction « à chaud ». */
+function disposePrevious(previous: { paths: PathEntry[]; markers: MarkerEntry[]; offPlatePath: PathEntry | null }) {
+  for (const entry of previous.paths) entry.mesh?.dispose(false, false);
+  for (const entry of previous.markers) entry.mesh.dispose(false, true);
+  previous.offPlatePath?.mesh?.dispose(false, false);
+}
+
+/** Pose les maillages sous le repère du plateau et dans l'éclairage du tracé (cf. layerLighting.ts). */
+function adoptMeshes(st: GCodeLayerState, meshes: BABYLON.AbstractMesh[], plateNode: BABYLON.TransformNode) {
+  for (const mesh of meshes) {
+    mesh.parent = plateNode;
+    st.lighting.tag(mesh);
+  }
+  st.lighting.refresh();
+}
+
 /** Remplace l'affichage par la construction terminée, puis réapplique visibilité, couleurs et édition. */
 function publishBuilt(
   st: GCodeLayerState,
@@ -406,17 +425,11 @@ function publishBuilt(
   moveCount: number,
 ) {
   const { applyColorBy, applyVisibility, headNode, plateNode } = st;
-  if (previous) {
-    for (const entry of previous.paths) entry.mesh?.dispose(false, false);
-    for (const entry of previous.markers) entry.mesh.dispose(false, true);
-    previous.offPlatePath?.mesh?.dispose(false, false);
-  }
+  if (previous) disposePrevious(previous);
   st.paths = built.paths;
   st.markers = built.markers;
   st.offPlatePath = built.offPlate;
-  for (const entry of [...st.paths, ...st.markers]) {
-    if (entry.mesh) entry.mesh.parent = plateNode;
-  }
+  adoptMeshes(st, [...st.paths, ...st.markers].flatMap((entry) => (entry.mesh ? [entry.mesh] : [])), plateNode);
   applyVisibility();
   applyColorBy();
   headNode.setEnabled(moveCount > 0);

@@ -57,6 +57,7 @@ export const AmsWithDialogs: React.FC = () => {
         entries={entries}
         profiles={profiles}
         onReorder={(ids) => updateAmsEntries((list) => reorderByIds(list, ids))}
+        onRemove={(id) => updateAmsEntries((list) => list.filter((e) => e.id !== id))}
         onOpenSheet={setSheetId}
         onOpenAll={() => setLibrary(true)}
         onAdd={(at, anchor) => setPicker({ at, ...pickerAnchor(anchor, zone) })}

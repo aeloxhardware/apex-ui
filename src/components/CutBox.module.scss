@@ -1,0 +1,96 @@
+// Panneau de l'outil Couper (cf. CutBox.tsx), posé sous la barre d'outils comme la boîte Déplacer / Pivoter / Échelle.
+@use '../styles/apex-ui' as ui;
+
+.box {
+  // Positionnée par CutBox.tsx (top/left) sous la barre d'outils.
+  position: fixed;
+  z-index: 1001;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 420px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  @include ui.glass-surface;
+  pointer-events: auto;
+  white-space: nowrap;
+  color: ui.$ink-strong;
+  font-size: 14px;
+}
+
+// Sans modèle, seul le contenu s'estompe : une opacité sur la boîte elle-même estomperait aussi son verre et son flou.
+.disabled {
+  pointer-events: none;
+
+  > * {
+    opacity: 0.45;
+  }
+}
+
+.line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.slider {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.height {
+  flex: 0 0 104px;
+}
+
+.rotations {
+  display: flex;
+  flex: 1 1 auto;
+  gap: 10px;
+}
+
+.cell {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+
+  // Le champ numérique (flèches comprises) rétrécit au lieu de déborder sur la lettre de la colonne suivante.
+  > :last-child {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
+.letter {
+  flex: 0 0 auto;
+  width: 14px;
+  font-size: 14.5px;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+}
+
+.part {
+  display: grid;
+  grid-template-columns: 104px auto 1fr;
+  align-items: center;
+  gap: 12px;
+}
+
+.label {
+  color: ui.$ink;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.perform {
+  align-self: stretch;
+}

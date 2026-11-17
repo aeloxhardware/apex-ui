@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Printer, Check, ChevronRight, ArrowLeft, X } from 'lucide-react';
+import { Printer, Check, ChevronRight, ArrowLeft, X } from '@/lib/icons';
 import { CustomTooltip } from './CustomTooltip';
 import styles from './PrinterConfigSidebar.module.scss';
 import { PrinterDetailModal } from './PrinterDetailModal';

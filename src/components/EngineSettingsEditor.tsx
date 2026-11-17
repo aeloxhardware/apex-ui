@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Compass, Layers, RotateCcw, Route, Settings2, Shield, Waypoints, type LucideIcon } from 'lucide-react';
+import { Collision, HeadTilt, LayerSmoothing, RotateCcw, Route, Settings2, Travel, type ApexIconComponent } from '@/lib/icons';
 import clsx from 'clsx';
 import { ApexSlider } from './ApexSlider';
 import { ApexNumberField } from './ApexNumberField';
@@ -11,15 +11,14 @@ import {
   isEngineSettingModified, resetEngineSettings, setEngineSettingValue, setShowAdvancedSettings,
   useEngineSettings, type EngineSetting, type EngineSettingValue,
 } from '@/utils/engineSettings';
-import { useDevMode } from '@/utils/devModePrefs';
 
 // Icône de chaque catégorie.
-const CATEGORY_ICONS: Record<string, LucideIcon> = {
-  'Lissage des couches': Layers,
-  'Orientation de la tête': Compass,
+const CATEGORY_ICONS: Record<string, ApexIconComponent> = {
+  'Lissage des couches': LayerSmoothing,
+  'Orientation de la tête': HeadTilt,
   'Trajectoires': Route,
-  'Collisions': Shield,
-  'Déplacements': Waypoints,
+  'Collisions': Collision,
+  'Déplacements': Travel,
   'Avancé': Settings2,
 };
 
@@ -100,11 +99,10 @@ const SettingControl: React.FC<{ setting: EngineSetting }> = ({ setting }) => {
  */
 export const EngineSettingsEditor: React.FC = () => {
   const { showAdvanced } = useEngineSettings();
-  const devMode = useDevMode();
   const [selected, setSelected] = useState<string>(ENGINE_SETTING_CATEGORIES[0]);
 
   const visible = (s: EngineSetting) =>
-    s.level === 'user' || (s.level === 'advanced' && showAdvanced) || (s.level === 'developer' && devMode);
+    s.level === 'user' || (s.level === 'advanced' && showAdvanced) || s.level === 'developer';
   const categories = ENGINE_SETTING_CATEGORIES
     .map((name) => ({ name, settings: ENGINE_SETTINGS.filter((s) => s.category === name && visible(s)) }))
     .filter((c) => c.settings.length > 0);

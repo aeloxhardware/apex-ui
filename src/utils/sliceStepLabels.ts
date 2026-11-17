@@ -22,6 +22,16 @@ const STEP_LABELS: Record<string, string> = {
   export: 'Écriture du G-code',
 };
 
+/** Sous-étapes que le moteur annonce pour une étape (événements `substep`), dans l'ordre d'affichage. Seul TetraNet en
+ *  publie : avec TetGen l'étape n'a pas de sous-barres (le moteur n'en rapporte aucune, rien n'est inventé). */
+export const STEP_SUBSTEPS: Record<string, { slug: string; label: string }[]> = {
+  tetrahedralization: [
+    { slug: 'prepare', label: 'Préparation de la tétraédralisation' },
+    { slug: 'tetrahedralize', label: 'Tétraédralisation' },
+    { slug: 'verify', label: 'Vérification' },
+  ],
+};
+
 export function stepLabel(slug: string, engineLabel: string): string {
   return STEP_LABELS[slug] ?? engineLabel;
 }

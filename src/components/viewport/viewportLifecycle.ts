@@ -1,6 +1,7 @@
 // Issu de la découpe de l'ancien useLayoutEffect de Viewport3D.tsx : le texte des instructions est
 // conservé ; les variables partagées entre morceaux passent par `st` (viewportState.ts).
 import { FLAT_MAX_FPS } from '@/utils/interfaceMode';
+import { setupViewportModelStash } from './viewportModelStash';
 import type { ViewportState } from './viewportState';
 
 function setupOnRenderPause(st: ViewportState) {
@@ -50,7 +51,8 @@ function setupOnShutdown3d(st: ViewportState) {
     // Rideau opaque (changement d'espace, chargement lourd) : la scène est cachée, son rendu ne ferait
     // que concurrencer sur le thread principal le montage de l'interface et la construction du
     // maillage. Les images du moteur continuent (verre, observateurs de fin d'image).
-    if (!scene.isDisposed && !st.renderPaused) {
+    // Accueil et Paramètres : la scène reste montée (on la retrouve telle quelle) mais invisible, donc on ne la dessine pas.
+    if (!scene.isDisposed && !st.renderPaused && document.documentElement.dataset.apexSceneHidden !== '1') {
       scene.render();
     }
   });
@@ -98,4 +100,6 @@ export function setupViewportLifecycle(st: ViewportState) {
   setupOnRenderPause(st);
   setupOnShutdown3d(st);
   setupLifecyclePart3(st);
+  // Dernier : les modèles du plateau mis en réserve par le montage précédent reviennent sur une scène complète.
+  setupViewportModelStash(st);
 }

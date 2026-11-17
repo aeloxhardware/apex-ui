@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; font-src file:; img-src data:" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; font-src file:; img-src data:; media-src data:" />
 <title>Apex</title>
 <style>
   /* Écran de démarrage : petite carte aux coins arrondis, sans bordure de fenêtre, affichée avant la
@@ -51,12 +51,6 @@
     animation: spin 0.8s linear infinite;
   }
   #status { font-family: 'Orbitron', sans-serif; font-weight: 600; font-size: 11px; letter-spacing: 0.06em; color: rgba(255,255,255,0.9); }
-  /* Motif de couches, rappel des trajectoires d'impression. */
-  .layers { position: absolute; right: -40px; bottom: -30px; width: 250px; height: 230px; opacity: 0.35; }
-  .layers i {
-    position: absolute; left: 0; top: 0; width: 250px; height: 22px; border-radius: 50%;
-    border: 1.5px solid rgba(255,255,255,0.8); will-change: transform, opacity;
-  }
   /* Verre : une fenêtre native (electron/backdrop.cjs) réfracte le bureau sous cette page ; elle devient
      transparente derrière le texte dès que le verre tourne (classe .glass posée par le main). */
   /* Pas tout à fait transparent : un pixel d'alpha nul laisse passer la souris vers les fenêtres de
@@ -76,7 +70,12 @@
   /* Fond clair derriere le verre (classe posee par main.cjs) : contenu en sombre. */
   @keyframes spin { to { transform: rotate(360deg); } }
   @keyframes appear { from { opacity: 0; } to { opacity: 1; } }
+  /* Interface classique (?ui=flat) : noir et blanc, à plat, sans coins arrondis, fumée, ombre, fondu ni rotation. */
+  /* Rien d'autre qu'une fenêtre noire carrée à contour orange. */
+  .flat .card { border-radius: 0; border: 2px solid #f59e0b; background: #000; animation: none; }
+  .flat .card > * { display: none; }
 </style>
+<script>if (location.search.indexOf('flat') >= 0) document.documentElement.classList.add('flat');</script>
 </head>
 <body>
   <div class="card">
@@ -84,31 +83,9 @@
     <div class="brand">APEX</div>
     <div class="version" id="version"></div>
     <div class="tagline">Slicer 5 axes<br />Aelox Hardware</div>
-    <div class="layers" id="layers"></div>
     <div class="progress"><div class="spinner"></div><div id="status">Démarrage…</div></div>
   </div>
-<script>
-  // Sphère de couches animée : les anneaux montent en rétrécissant (profil d'une sphère) et de nouveaux
-  // apparaissent en bas en grandissant. Une phase continue fait défiler les 10 anneaux.
-  (function () {
-    var N = 10, H = 228, SPEED = 0.25; // anneaux ; hauteur de la pile (px) ; tours de la pile par seconde
-    var box = document.getElementById('layers'), rings = [];
-    for (var i = 0; i < N; i++) { var r = document.createElement('i'); box.appendChild(r); rings.push(r); }
-    var t0 = performance.now();
-    function frame(now) {
-      var phase = ((now - t0) / 1000) * SPEED;
-      for (var i = 0; i < N; i++) {
-        var u = (((i / N) - phase) % 1 + 1) % 1;      // 0 = bas, 1 = haut
-        var y = (1 - u) * (H + 22);                   // le bas de la sphère est en bas
-        var k = Math.sqrt(Math.max(0, 1 - Math.pow(2 * u - 1, 2))); // largeur relative de la sphère
-        var el = rings[i];
-        el.style.transform = 'translate(' + (125 * (1 - k)) + 'px,' + y + 'px) scale(' + k + ')';
-        el.style.opacity = Math.min(1, k * 2.2);
-      }
-      requestAnimationFrame(frame);
-    }
-    requestAnimationFrame(frame);
-  })();
-</script>
+  <audio id="splash-sound" preload="auto"></audio>
+<!-- La sphère d'énergie est une fenêtre à part, posée par-dessus (splash-sphere.cjs / splash-sphere.html). -->
 </body>
 </html>

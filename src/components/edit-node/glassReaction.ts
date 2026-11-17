@@ -42,7 +42,7 @@ const PRESS: GlassTarget = { ...IDLE, gw: 7, gh: -1.5, distortion: 1.8, warp: 1.
 /** Portée de l'attraction (px CSS, depuis le bord du bouton) : large et progressive, sans seuil visible. */
 const RANGE = 90;
 /** Force de l'aimant, pointeur sur le bouton (px CSS) ; ×1,5 à l'appui. */
-const PULL = 12;
+const PULL = 18;
 const PRESS_PULL = 1.5;
 
 interface Spring {

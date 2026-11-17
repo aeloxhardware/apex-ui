@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import styles from './PrinterDetailModal.module.scss';
-import { Info, X } from 'lucide-react';
+import { Info, X } from '@/lib/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import { readProfile, type PrinterProfile } from '@/utils/printerProfiles';
 

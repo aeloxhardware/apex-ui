@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Palette, Pencil, Sparkles } from 'lucide-react';
+import { FunctionF, NodeEdit, Palette } from '@/lib/icons';
 import styles from './PreviewUpperTabs.module.scss';
 import { ApexSlider } from './ApexSlider';
 import { EditionPanel } from './edit-node/EditionPanel';
@@ -17,8 +17,8 @@ export type PreviewTabId = 'coloration' | 'edition' | 'fonction';
 
 export const PREVIEW_TABS: { id: PreviewTabId; label: string; description: string; icon: React.ReactNode }[] = [
   { id: 'coloration', label: 'Coloration', description: 'Critère de coloration du tracé et visibilité des types de ligne.', icon: <Palette size={16} /> },
-  { id: 'edition', label: 'Édition', description: 'Outils de retouche du G-code affiché.', icon: <Pencil size={16} /> },
-  { id: 'fonction', label: 'Fonction', description: 'Fonctions avancées appliquées au tracé.', icon: <Sparkles size={16} /> },
+  { id: 'edition', label: 'Édition', description: 'Outils de retouche du G-code affiché.', icon: <NodeEdit size={16} /> },
+  { id: 'fonction', label: 'Fonction', description: 'Fonctions avancées appliquées au tracé.', icon: <FunctionF size={16} /> },
 ];
 
 

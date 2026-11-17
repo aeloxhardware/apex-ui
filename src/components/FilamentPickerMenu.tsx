@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { X } from 'lucide-react';
-import { IconFilterCheck, IconFilterPlus, IconFilterX } from '@tabler/icons-react';
+import { FilterCheck, FilterPlus, FilterX, X } from '@/lib/icons';
 import { GlassPanel } from './GlassPanel';
 import { usePortalRoot } from './GpuWarningFrame';
 import { bottomTip } from './edit-node/bottomTooltip';
@@ -84,7 +83,7 @@ const FilterChips: React.FC<{ filters: FilamentFilter[]; commitFilters: (next: F
   <div className={styles.chips}>
     {filters.map((filter) => {
       const exclude = filter.mode === 'exclude';
-      const Icon = exclude ? IconFilterX : IconFilterCheck;
+      const Icon = exclude ? FilterX : FilterCheck;
       return (
         <span key={`${filter.kind}:${filter.value}`} className={exclude ? `${styles.chip} ${styles.chipExclude}` : styles.chip}>
           <button
@@ -98,7 +97,7 @@ const FilterChips: React.FC<{ filters: FilamentFilter[]; commitFilters: (next: F
             )}
             onClick={() => commitFilters(filters.map((x) => (x === filter ? { ...x, mode: exclude ? 'include' : 'exclude' } : x)))}
           >
-            <Icon size={13} stroke={1.75} />
+            <Icon size={13} strokeWidth={1.75} />
             <span className={styles.chipLabel}>
               {filter.kind === 'brand' ? 'Marque' : 'Matériau'} : {filter.value}
             </span>
@@ -288,7 +287,7 @@ export const FilamentPickerMenu: React.FC<FilamentPickerMenuProps> = ({
               setFilterOpen((v) => !v);
             }}
           >
-            <IconFilterPlus size={16} stroke={1.75} />
+            <FilterPlus size={16} strokeWidth={1.75} />
           </button>
         </motion.div>
         <FilterChips filters={filters} commitFilters={commitFilters} />

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import styles from './SliceModal.module.scss';
-import { Play, X, AlertTriangle } from 'lucide-react';
+import { Play, X, TriangleAlert } from '@/lib/icons';
 import { getSlicingMode, slicingAlgorithmName } from '@/utils/slicingMode';
 
 interface SliceModalProps {
@@ -45,9 +45,9 @@ export const SliceModal: React.FC<SliceModalProps> = ({ isOpen, onClose, onConfi
 
         <div className={styles.attentionBox}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#ef4444', fontWeight: 700, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            <AlertTriangle size={15} style={{ flexShrink: 0 }} />
+            <TriangleAlert size={15} style={{ flexShrink: 0 }} />
             <span>Attention</span>
-            <AlertTriangle size={15} style={{ flexShrink: 0 }} />
+            <TriangleAlert size={15} style={{ flexShrink: 0 }} />
           </div>
         </div>
 

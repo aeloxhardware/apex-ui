@@ -41,12 +41,13 @@ export const SPACE_SOUNDS: Record<'box' | 'settings' | 'developer' | 'layers' | 
   params: null,
 };
 
-export const TOOL_LABELS: Record<'select' | 'move' | 'rotate' | 'scale' | 'texture' | 'layers', string> = {
+export const TOOL_LABELS: Record<'select' | 'move' | 'rotate' | 'scale' | 'texture' | 'cut' | 'layers', string> = {
   select: 'Sélection',
   move: 'Déplacement',
   rotate: 'Rotation',
   scale: 'Échelle',
   texture: 'Texture',
+  cut: 'Couper',
   layers: 'Prévisualisation',
 };
 

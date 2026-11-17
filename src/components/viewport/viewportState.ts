@@ -2,13 +2,14 @@
 // conservé ; les variables partagées entre morceaux passent par `st` (viewportState.ts).
 import React from 'react';
 import * as BABYLON from 'babylonjs';
+import type { OrbitViewGizmo } from '../orbitViewGizmo';
 import { OrcaRotateGizmo } from '../orcaRotateGizmo';
 import { OrcaScaleGizmo } from '../orcaScaleGizmo';
 import { type ScaleUnitSuggestion } from '../ScaleUnitPrompt';
 import { type ParsedGCode } from '../gcodeLayer';
 import { type GCodeEditController } from '../edit-node/gcodeEditController';
 import { type LineTypeVisibility } from '../gcodeLineTypes';
-import type { LucideProps } from 'lucide-react';
+import type { ApexIconComponent } from '@/lib/icons';
 import type { GCodeLayer } from '../gcodeLayer';
 import type { BoxDrawPhase, EdgeCandidate, ExtrudeFace, GridLabel, GridStandardPlane, PyramidPhase, SketchDimField, SketchFaceGroup, SketchViewSnapshot } from './viewportTypes';
 import type { ModelHistory } from './viewportHistory';
@@ -84,6 +85,7 @@ export interface ViewportState {
   keepOnPlateAfterRotation: () => void;
   onRotationDrag: () => void;
   orcaRotateGizmo: OrcaRotateGizmo;
+  orbitViewGizmo: OrbitViewGizmo;
   rotateToolOn: boolean;
   orcaScaleGizmo: OrcaScaleGizmo;
   rotationGizmoWired: unknown;
@@ -187,7 +189,7 @@ export interface ViewportState {
   PLATE_ACTION_CENTER_DEG: number;
   PLATE_ACTION_Y: number;
   PLATE_ACTION_ICON_MM: number;
-  plateActions: { icon: React.ForwardRefExoticComponent<Omit<LucideProps, "ref"> & React.RefAttributes<SVGSVGElement>>; title: string; description: string; }[];
+  plateActions: { icon: ApexIconComponent; title: string; description: string; }[];
   plateActionHoverMat: BABYLON.ShaderMaterial;
   plateActionRoot: BABYLON.TransformNode;
   roundClosedCorners: (pts: BABYLON.Vector3[], radius: number) => BABYLON.Vector3[];
@@ -447,6 +449,8 @@ export interface ViewportState {
   onExportPlateStl: (e: Event) => void;
   onDeleteAll: () => void;
   offArrange: () => void;
+  offCut: () => void;
+  offModelStash: () => void;
   renderPaused: boolean;
   onRenderPause: (e: Event) => void;
   handleResize: () => void;

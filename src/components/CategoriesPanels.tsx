@@ -1,7 +1,7 @@
 import React from 'react';
 import clsx from 'clsx';
 import { motion, AnimatePresence, type MotionStyle } from 'framer-motion';
-import { Check } from 'lucide-react';
+import { Check } from '@/lib/icons';
 import { CustomTooltip } from './CustomTooltip';
 import { EngineItemRow } from './EngineItemRow';
 import { FadeScroller } from './FadeScroller';

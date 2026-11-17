@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
+<title>Apex</title>
+<style>
+  /* Sphère d'énergie de l'écran de démarrage : fenêtre transparente, sans souris, posée par-dessus le splash
+     (electron/splash-sphere.cjs) pour que l'éclat et l'ombre débordent de la carte. Le shader vient de
+     apex-prez (src/energy-sphere/shader.ts, EXTENT = 2.6 rayons), modifié pour la photosensibilité (WCAG 2.3.1) :
+     les éclairs ne clignotent plus, ils rampent ou se déchargent en douceur, au plus une décharge par créneau.
+     Vérifié par pnpm check:photosensitivity. Le canevas est carré. */
+  * { margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; }
+  /* Ombre portée : tache sombre floue, décalée vers le bas, sous le corps de la sphère. */
+  #shadow {
+    position: absolute; left: 50%; top: 50%; width: 62%; height: 62%; border-radius: 50%;
+    transform: translate(-50%, -42%); filter: blur(22px);
+    background: radial-gradient(closest-side, rgba(0,0,0,0.62), rgba(0,0,0,0.35) 70%, rgba(0,0,0,0));
+  }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<div id="shadow"></div>
+<canvas id="c"></canvas>
+<script>
+(function () {
+  var EXTENT = 2.6;
+  var VERT = 'attribute vec2 a; varying vec2 vP; void main() { vP = a * ${EXTENT}; gl_Position = vec4(a, 0.0, 1.0); }'.replace('${EXTENT}', EXTENT.toFixed(3));
+  var FRAG = `
+precision highp float;
+varying vec2 vP;
+uniform float uTime;
+uniform float uPower;
+
+// Photosensibilité (WCAG 2.3.1) : rien ne clignote. Les arcs sont continus (ils rampent et changent de place en
+// fondu) ; les décharges suivent une seule horloge, au plus une par créneau de SLOT s, montée et descente douces.
+// Mesuré par pnpm check:photosensitivity.
+const float SLOT = 0.6;
+const float TAU = 6.2831853;
+
+float hash1(float n) { return fract(sin(n) * 43758.5453123); }
+float hash3(vec3 p) {
+  p = fract(p * 0.3183099 + 0.1);
+  p *= 17.0;
+  return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+}
+float noise(vec3 x) {
+  vec3 i = floor(x);
+  vec3 f = fract(x);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(
+    mix(mix(hash3(i), hash3(i + vec3(1, 0, 0)), f.x), mix(hash3(i + vec3(0, 1, 0)), hash3(i + vec3(1, 1, 0)), f.x), f.y),
+    mix(mix(hash3(i + vec3(0, 0, 1)), hash3(i + vec3(1, 0, 1)), f.x), mix(hash3(i + vec3(0, 1, 1)), hash3(i + vec3(1, 1, 1)), f.x), f.y),
+    f.z);
+}
+float fbm(vec3 p) {
+  float s = 0.0, a = 0.5;
+  for (int i = 0; i < 5; i++) { s += a * noise(p); p = p * 2.03 + 11.7; a *= 0.5; }
+  return s;
+}
+// bruit en crêtes : plis fins et brillants, l'allure de filaments électriques
+float ridge(vec3 p) {
+  float s = 0.0, a = 0.5;
+  for (int i = 0; i < 6; i++) {
+    float n = 1.0 - abs(2.0 * noise(p) - 1.0);
+    s += a * n * n;
+    p = p * 2.11 + 5.3;
+    a *= 0.52;
+  }
+  return s;
+}
+// éclair le long de l'axe +x de son repère : il erre de plus en plus en s'éloignant, s'affine en pointe, et rampe
+// avec drift (0 : forme figée)
+float bolt(float along, float across, float len, float seed, float width, float drift) {
+  if (along < 0.0 || along > len) return 0.0;
+  float k = along / len;
+  float wander = (noise(vec3(along * 4.0, seed, drift)) - 0.5) * 0.55 * (0.25 + k)
+               + (noise(vec3(along * 13.0, seed, 3.0 + drift)) - 0.5) * 0.14
+               + (noise(vec3(along * 37.0, seed, 7.0 + drift)) - 0.5) * 0.04;
+  float d = abs(across - wander * len * 0.9);
+  float w = width * (1.0 - 0.85 * k);
+  return w / (d + w * 0.35) * smoothstep(0.0, 0.03, along) * smoothstep(len, len * 0.9, along);
+}
+// enveloppe d'une décharge (a en secondes) : montée en 90 ms, extinction en une demi-seconde, sans rebond
+float envelope(float a) { return smoothstep(0.0, 0.09, a) * exp(-max(a - 0.09, 0.0) * 5.5); }
+// fondu d'un arc sur sa vie k (0 à 1)
+float lifeFade(float k) { return smoothstep(0.0, 0.25, k) * smoothstep(1.0, 0.75, k); }
+
+// la décharge du créneau n, partie du bord, surtout de la moitié haute comme dans un orage
+vec3 strike(vec2 p, float n, float t) {
+  float seed = n * 13.7 + 3.0;
+  if (hash1(seed + 4.0) < 0.3) return vec3(0.0);
+  float env = envelope(t - n * SLOT);
+  if (env < 0.003) return vec3(0.0);
+  float ang = mix(0.15, 2.99, hash1(seed)) + (hash1(seed + 9.0) < 0.25 ? 3.14159 : 0.0);
+  vec2 ax = vec2(cos(ang), sin(ang));
+  float along = dot(p, ax) - 0.99;
+  float across = dot(p, vec2(-ax.y, ax.x));
+  float len = 0.7 + 1.0 * hash1(seed + 1.0);
+  float I = bolt(along, across, len, seed, 0.03, 0.0);
+  float fork = 0.3 + 0.35 * hash1(seed + 2.0);
+  float slope = (hash1(seed + 3.0) - 0.5) * 1.4;
+  I += 0.55 * bolt(along - fork * len, across - (along - fork * len) * slope, len * 0.45, seed + 70.0, 0.019, 0.0);
+  vec3 tint = mix(vec3(0.25, 0.45, 1.0), vec3(0.62, 0.30, 1.0), smoothstep(0.0, 0.5, along / len));
+  return (tint * I * 1.7 + vec3(0.92, 0.88, 1.0) * pow(I * 0.33, 3.0)) * env;
+}
+// les arcs du bord : continus, ils rampent puis changent de place en fondu toutes les quelques secondes
+vec3 rimArcs(vec2 p, float t) {
+  vec3 col = vec3(0.0);
+  for (int i = 0; i < 3; i++) {
+    float fi = float(i);
+    float life = t / (3.5 + 1.5 * hash1(fi * 7.1)) + hash1(fi * 3.3);
+    float seed = floor(life) * 31.7 + fi * 57.0;
+    float ang = (fi + hash1(seed)) * TAU / 3.0;
+    vec2 ax = vec2(cos(ang), sin(ang));
+    float along = dot(p, ax) - 0.99;
+    float across = dot(p, vec2(-ax.y, ax.x));
+    float len = 0.6 + 0.6 * hash1(seed + 1.0);
+    float I = bolt(along, across, len, seed, 0.024, t * 0.35 + fi * 3.0);
+    vec3 tint = mix(vec3(0.25, 0.45, 1.0), vec3(0.62, 0.30, 1.0), smoothstep(0.0, 0.5, along / len));
+    col += (tint * I * 1.3 + vec3(0.9, 0.9, 1.0) * pow(I * 0.33, 3.0)) * lifeFade(fract(life));
+  }
+  return col;
+}
+
+void main() {
+  vec2 p = vP;
+  float r = length(p);
+  float t = uTime;
+  vec3 col = vec3(0.0);
+  float alpha = 0.0;
+
+  vec2 dir = p / max(r, 1e-4);
+  float rr = r - 1.0;
+
+  // ── la surface ──
+  if (r < 1.0) {
+    float z = sqrt(1.0 - r * r);
+    vec3 n = vec3(p, z);
+    float a = t * 0.22;
+    vec3 q = vec3(n.x * cos(a) + n.z * sin(a), n.y, -n.x * sin(a) + n.z * cos(a));
+    // une peau turbulente : des crêtes déformées à deux échelles, qui rampent lentement
+    vec3 w = q * 2.3 + 0.7 * vec3(fbm(q * 3.0 + t * 0.15), fbm(q * 3.0 + 7.0 - t * 0.1), fbm(q * 3.0 + 13.0));
+    float veins = ridge(w + vec3(0.0, t * 0.12, 0.0));
+    float fine = ridge(w * 3.1 - vec3(t * 0.2, 0.0, 0.0));
+    float web = pow(veins, 2.6) * 1.5 + pow(fine, 3.2) * 0.9;
+    float limb = pow(r, 4.0);
+    col = vec3(0.004, 0.010, 0.060);
+    col += vec3(0.02, 0.06, 0.36) * web * (0.30 + 1.0 * limb);
+    col += vec3(0.10, 0.40, 1.00) * pow(web, 2.2) * (0.08 + 0.9 * limb);
+    // le bord éclairé de la sphère, rongé par la même turbulence
+    col += vec3(0.08, 0.42, 1.00) * pow(r, 16.0) * (0.2 + 2.4 * pow(veins, 1.5));
+    col += vec3(0.70, 0.93, 1.00) * pow(r, 44.0) * (0.1 + 1.8 * fine);
+
+    // des arcs fourchus qui descendent la surface en suivant sa courbure, et rampent
+    float lon = p.x / max(0.05, sqrt(1.0 - p.y * p.y)); // les droites en lon sont des méridiens
+    for (int i = 0; i < 2; i++) {
+      float fi = float(i);
+      float life = t / (3.2 + 1.1 * fi) + fi * 0.5;
+      float seed = floor(life) * 7.31 + fi * 19.0;
+      float x0 = mix(-0.42, 0.34, fi) + (hash1(seed) - 0.5) * 0.25;
+      float top = 0.78 - 0.2 * hash1(seed + 1.0);
+      float len = 1.25 + 0.3 * hash1(seed + 2.0);
+      float along = top - p.y;
+      float drift = t * 0.4 + fi * 5.0;
+      float I = bolt(along, lon - x0, len, seed, 0.034, drift);
+      float fork = 0.35 + 0.3 * hash1(seed + 3.0);
+      float lean = (along - fork * len) * (hash1(seed + 4.0) - 0.5) * 1.1;
+      I += 0.6 * bolt(along - fork * len, lon - x0 - lean, len * 0.4, seed + 50.0, 0.02, drift);
+      col += (vec3(0.30, 0.62, 1.0) * 1.2 * I + vec3(1.0) * pow(I * 0.33, 3.0)) * lifeFade(fract(life)) * sqrt(z * z + 0.25);
+    }
+    alpha = 1.0;
+  }
+
+  // ── la couronne : des filaments qui bouillonnent sur le bord, dedans comme dehors ──
+  {
+    float e = abs(rr);
+    float fall = exp(rr * 30.0);
+    vec3 warp = vec3(fbm(vec3(p * 3.0, t * 0.4)), fbm(vec3(p * 3.0 + 9.0, t * 0.4)), fbm(vec3(p * 3.0 + 17.0, t * 0.3))) - 0.5;
+    vec3 c = vec3(p * 3.6, t * 0.5) + warp * 1.6 - vec3(dir * t * 0.9, 0.0);
+    float f1 = ridge(c);
+    float f2 = ridge(c * 2.9 + 31.0);
+    float f3 = ridge(c * 7.3 + 57.0);
+    float fil = pow(f1, 2.6) * 1.5 + pow(f2, 3.0) * 1.1 + pow(f3, 3.2) * 0.8;
+    // des langues qui s'étirent ici et là, et presque pas ailleurs
+    float reach = pow(fbm(vec3(dir * 2.6, t * 0.6)), 1.6) * 3.4 + 0.12;
+    float tongues = rr > 0.0 ? exp(-rr * 13.0 / reach) : fall;
+    vec3 cc = (vec3(0.04, 0.28, 1.0) * fil * 1.5 + vec3(0.55, 0.9, 1.0) * pow(fil, 2.2) * 1.0) * tongues;
+    cc += vec3(0.6, 0.9, 1.0) * exp(-e * 80.0) * (0.15 + 1.5 * pow(f2, 1.5)); // la ligne chaude du bord, morcelée
+    col += cc;
+  }
+
+  // ── les éclairs du bord : arcs continus et décharges cadencées ──
+  if (rr > -0.02) {
+    float slot = floor(t / SLOT);
+    col += rimArcs(p, t) + strike(p, slot, t) + strike(p, slot - 1.0, t);
+  }
+
+  // ── la brume : bleue tout près, violette plus loin ──
+  if (rr > 0.0) {
+    col += vec3(0.02, 0.07, 0.42) * exp(-rr * 4.0) * 0.7;
+    col += vec3(0.12, 0.04, 0.34) * exp(-rr * 1.6) * 0.22;
+  }
+
+  col *= uPower;
+  float edge = smoothstep(1.0, 0.985, r);
+  float glow = clamp(max(col.r, max(col.g, col.b)), 0.0, 1.0);
+  alpha = max(edge, glow * 0.85);
+  // s'efface jusqu'à rien au bord du carré
+  float border = 1.0 - smoothstep(2.132, 2.600, r);
+  gl_FragColor = vec4(col * border, alpha * border); // prémultiplié
+}
+`;
+  var c = document.getElementById('c');
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  c.width = Math.round(c.clientWidth * dpr); c.height = Math.round(c.clientHeight * dpr);
+  var gl = c.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: true });
+  if (!gl) return;
+  function sh(type, text) { var s = gl.createShader(type); gl.shaderSource(s, text); gl.compileShader(s); return s; }
+  var p = gl.createProgram();
+  gl.attachShader(p, sh(gl.VERTEX_SHADER, VERT)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, FRAG));
+  gl.linkProgram(p);
+  // Compilation ASYNCHRONE : ce shader est lourd (plus de 3 s sur un GPU modeste) ; compilé de façon bloquante il occupe le
+  // processus GPU et GÈLE tout le splash (carte, texte, indicateur) pendant ce temps. Avec KHR_parallel_shader_compile, la
+  // compilation se fait en tâche de fond et on ne dessine qu'une fois terminée : la sphère arrive quand elle est prête.
+  var parallel = gl.getExtension('KHR_parallel_shader_compile');
+  function whenCompiled(go) {
+    if (!parallel || gl.getProgramParameter(p, parallel.COMPLETION_STATUS_KHR)) { go(); return; }
+    setTimeout(function () { whenCompiled(go); }, 30);
+  }
+  whenCompiled(start);
+  function start() {
+  gl.useProgram(p);
+  var buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+  var loc = gl.getAttribLocation(p, 'a'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  var uTime = gl.getUniformLocation(p, 'uTime'), uPower = gl.getUniformLocation(p, 'uPower');
+  gl.uniform1f(uPower, 1.0);
+  gl.viewport(0, 0, c.width, c.height);
+  gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); // prémultiplié, comme dans apex-prez
+  var t0 = performance.now();
+  function frame(now) {
+    gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.uniform1f(uTime, (now - t0) / 1000);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    window.__sphereDrawn = true;  // lu par splash-sphere.cjs : la sphère a sa première image (le son part à ce moment)
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  }
+})();
+</script>
+</body>
+</html>

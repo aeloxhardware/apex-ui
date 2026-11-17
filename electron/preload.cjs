@@ -20,12 +20,13 @@ contextBridge.exposeInMainWorld('apexDesktop', {
   shutdownStep: (name) => ipcRenderer.invoke('apex:shutdown-step', String(name)),
   shutdownFinish: () => ipcRenderer.send('apex:shutdown-finish'),
   shutdownForce: () => ipcRenderer.send('apex:shutdown-force'),
+  // « Relancer l'app » : même fermeture propre (rideau), puis nouveau lancement avec son écran de démarrage.
+  relaunch: () => ipcRenderer.send('apex:relaunch'),
   // Échelle de l'interface (Paramètres) : zoom natif, le canvas et le pointeur restent justes.
   setZoomFactor: (factor) => webFrame.setZoomFactor(factor),
   // Bandeau Apex dessiné par la page (barre de titre native masquée, boutons natifs conservés) : cf. components/TitleBar.tsx.
   customTitleBar: true,
   // Mode dev (Paramètres) : désactivé, le process principal bloque les raccourcis du navigateur.
-  setDevMode: (enabled) => ipcRenderer.send('apex:set-dev-mode', Boolean(enabled)),
   // Desinstallation (application installee par l'installateur seulement).
   canUninstall: () => ipcRenderer.invoke('apex:can-uninstall'),
   uninstall: () => ipcRenderer.invoke('apex:uninstall'),
@@ -54,6 +55,13 @@ contextBridge.exposeInMainWorld('apexDesktop', {
       return null;
     }
   },
+  saveProject: (request) => ipcRenderer.invoke('apex:save-project', request),
+  listProjects: (limit) => ipcRenderer.invoke('apex:projects-list', limit),
+  readProject: (file) => ipcRenderer.invoke('apex:projects-read', String(file)),
+  // Réserve de fichiers temporaires pour les espaces quittés (RAM libérée, données gardées).
+  stashWrite: (key, bytes) => ipcRenderer.invoke('apex:stash-write', String(key), bytes),
+  stashRead: (key) => ipcRenderer.invoke('apex:stash-read', String(key)),
+  stashDrop: (key) => ipcRenderer.invoke('apex:stash-drop', String(key)),
   scanProfiles: () => ipcRenderer.invoke('apex:profiles-scan'),
   readProfile: (path) => ipcRenderer.invoke('apex:profiles-read', path),
   openEditChannel: () => ipcRenderer.send('apex:edit-open'),

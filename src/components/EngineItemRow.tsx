@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { menuItemEnterVariants } from './categoryMenuMotion';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown } from '@/lib/icons';
 import clsx from 'clsx';
 import { ApexNumberField } from './ApexNumberField';
 import { CustomTooltip } from './CustomTooltip';

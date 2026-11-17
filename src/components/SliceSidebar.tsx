@@ -4,7 +4,7 @@ import { useGlassReaction } from './edit-node/glassReaction';
 import { createPortal } from 'react-dom';
 import { useTopRightSlot } from './topRightSlot';
 import clsx from 'clsx';
-import { Play, Download } from 'lucide-react';
+import { Play, Download } from '@/lib/icons';
 import styles from './SliceSidebar.module.scss';
 import { CustomTooltip } from './CustomTooltip';
 

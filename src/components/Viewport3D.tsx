@@ -18,6 +18,7 @@ import { setupViewportExtrude } from './viewport/viewportExtrude';
 import { setupViewportPointer } from './viewport/viewportPointer';
 import { setupViewportModels } from './viewport/viewportModels';
 import { setupViewportArrange } from './viewport/viewportArrange';
+import { setupViewportCut } from './viewport/viewportCut';
 import { setupViewportLifecycle } from './viewport/viewportLifecycle';
 import { setupViewportCleanup } from './viewport/viewportCleanup';
 import { createViewportState } from './viewport/viewportState';
@@ -90,7 +91,6 @@ export const Viewport3D = () => {
   // les modèles, posés à la racine de la scène, reposent dessus et non sur y = 0 (fond quadrillé).
   const PLATE_SURFACE_Y = HEIGHT * 0.5 + 0.1;
 
-
   useLayoutEffect(() => {
     if (!canvasRef.current) return;
     const st = createViewportState({
@@ -120,6 +120,7 @@ export const Viewport3D = () => {
     setupViewportPointer(st);
     setupViewportModels(st);
     setupViewportArrange(st);
+    setupViewportCut(st);
     setupViewportLifecycle(st);
     return setupViewportCleanup(st);
   }, []);
@@ -145,7 +146,7 @@ export const Viewport3D = () => {
       <ViewportOverlays
         selectionBox={selectionBox} plateActionHint={plateActionHint} sketchDimsShown={sketchDimsShown}
         sketchDimInputs={sketchDimInputs} sketchDimsApi={sketchDimsApi} sketchCursor={sketchCursor}
-        sketchPlaneHint={sketchPlaneHint} scaleBar={scaleBar}
+        sketchPlaneHint={sketchPlaneHint} scaleBar={scaleBar} engineRef={engineRef} cameraRef={cameraRef}
       />
 
 

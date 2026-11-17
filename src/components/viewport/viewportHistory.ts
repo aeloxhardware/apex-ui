@@ -1,7 +1,8 @@
 // Historique des modèles du plateau (Ctrl+Z / Ctrl+Y) et SEUL point de passage de leur création et
 // de leur suppression : plateau, arborescence et bouton SLICE se tiennent ainsi toujours d'accord.
 //
-// Trois sortes d'entrées : création, suppression, et déplacement/rotation/échelle/unité (« pose »).
+// Quatre sortes d'entrées : création, suppression, remplacement (coupe : le modèle cède la place à ses morceaux, en un
+// seul Ctrl+Z) et déplacement/rotation/échelle/unité (« pose »).
 //
 // Un modèle supprimé n'est pas détruit tout de suite : il est retiré du plateau (`modelsRef`),
 // masqué, et annoncé à l'interface (`apex-mesh-deleted` → arborescence). Ctrl+Z le remet et
@@ -12,6 +13,7 @@
 // ne bouge (la chute d'un modèle lâché dure un moment) puis on compare à la dernière pose connue.
 import type * as BABYLON from 'babylonjs';
 import { emitApex, onApex } from '@/events/apexEvents';
+import { markProjectDirty } from '@/utils/projectSave';
 import { isPreviewSpace } from '@/utils/previewSpace';
 import { applyPose, capturePose, poseChanged, type Pose } from './viewportPoses';
 import { clearSelection, describeSubMeshes } from './viewportSelectionActions';
@@ -21,7 +23,16 @@ const HISTORY_LIMIT = 30;
 const SETTLE_TICK_MS = 150;
 const SETTLE_MAX_TICKS = 20;
 
-type HistoryEntry = { kind: 'create' | 'delete'; meshes: BABYLON.AbstractMesh[] } | { kind: 'transform'; before: Pose[]; after: Pose[] };
+type HistoryEntry =
+  | { kind: 'create' | 'delete'; meshes: BABYLON.AbstractMesh[] }
+  | { kind: 'replace'; removed: BABYLON.AbstractMesh[]; added: BABYLON.AbstractMesh[] }
+  | { kind: 'transform'; before: Pose[]; after: Pose[] };
+
+/** Modèles concernés par une entrée. */
+function entryMeshes(entry: HistoryEntry): BABYLON.AbstractMesh[] {
+  if (entry.kind === 'transform') return entry.before.map((p) => p.mesh);
+  return entry.kind === 'replace' ? [...entry.removed, ...entry.added] : entry.meshes;
+}
 
 export interface ModelHistory {
   undo: HistoryEntry[];
@@ -38,12 +49,13 @@ function createModelHistory(): ModelHistory {
 /** Détruit pour de bon les modèles d'une entrée qui sont encore retirés du plateau. */
 function discardEntry(st: ViewportState, entry: HistoryEntry) {
   if (entry.kind === 'transform') return;
-  entry.meshes.forEach((mesh) => {
+  entryMeshes(entry).forEach((mesh) => {
     if (!st.modelsRef.current.has(mesh) && !mesh.isDisposed()) mesh.dispose();
   });
 }
 
 function pushEntry(st: ViewportState, entry: HistoryEntry) {
+  markProjectDirty();
   const { redo, undo } = st.modelHistory;
   redo.splice(0).forEach((e) => discardEntry(st, e));
   undo.push(entry);
@@ -176,11 +188,29 @@ export function removeModels(st: ViewportState, meshes: BABYLON.AbstractMesh[]) 
   pushEntry(st, { kind: 'delete', meshes: present });
 }
 
+/**
+ * Remplace des modèles du plateau par d'autres, pas encore posés (morceaux d'une coupe) : un seul Ctrl+Z remet les
+ * premiers. Les nouveaux sont sélectionnés.
+ */
+export function replaceModels(st: ViewportState, removed: BABYLON.AbstractMesh[], added: BABYLON.AbstractMesh[]) {
+  commitTransforms(st);
+  const present = removed.filter((mesh) => st.modelsRef.current.has(mesh));
+  hide(st, present);
+  show(st, added);
+  pushEntry(st, { kind: 'replace', removed: present, added });
+}
+
 /** Historique d'un ou plusieurs modèles déjà posés sur le plateau (import, collage) : Ctrl+Z les retire. */
 export function recordCreatedModels(st: ViewportState, meshes: BABYLON.AbstractMesh[]) {
   commitTransforms(st);
   syncBaseline(st);
   pushEntry(st, { kind: 'create', meshes });
+}
+
+/** Modèles remis sur le plateau au montage du viewport : suivis pour les poses, sans entrée d'historique (rien à annuler). */
+export function registerRestoredModels(st: ViewportState) {
+  syncBaseline(st);
+  syncModelList();
 }
 
 /** Enregistre un modèle fraîchement créé (primitive) : plateau, arborescence, SLICE et historique. */
@@ -209,14 +239,18 @@ function applyEntry(st: ViewportState, entry: HistoryEntry, direction: 'undo' | 
     applyPoses(st, direction === 'undo' ? entry.before : entry.after);
     return;
   }
+  if (entry.kind === 'replace') {
+    hide(st, direction === 'undo' ? entry.added : entry.removed);
+    show(st, direction === 'undo' ? entry.removed : entry.added);
+    return;
+  }
   const removing = (entry.kind === 'create') === (direction === 'undo');
   if (removing) hide(st, entry.meshes);
   else show(st, entry.meshes);
 }
 
 function isGone(entry: HistoryEntry): boolean {
-  const meshes = entry.kind === 'transform' ? entry.before.map((p) => p.mesh) : entry.meshes;
-  return meshes.every((m) => m.isDisposed());
+  return entryMeshes(entry).every((m) => m.isDisposed());
 }
 
 function step(st: ViewportState, direction: 'undo' | 'redo') {

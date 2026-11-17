@@ -3,7 +3,7 @@
 import React from 'react';
 import * as BABYLON from 'babylonjs';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { Upload, BoxSelect, LayoutGrid, Trash2 } from 'lucide-react';
+import { Upload, BoxSelect, LayoutGrid, Trash2 } from '@/lib/icons';
 import type { ViewportState } from './viewportState';
 
 function setupPlateActions(st: ViewportState) {

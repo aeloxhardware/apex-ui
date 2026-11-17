@@ -66,8 +66,16 @@ export function setStoredInterfaceMode(mode: InterfaceMode) {
   }
 }
 
-/** Recharge l'interface pour appliquer le réglage mémorisé. */
+/**
+ * Relance l'application, toujours de la même façon : fermeture propre (rideau de fermeture), écran de démarrage,
+ * rechargement. Dans l'application de bureau c'est le processus principal qui relance ; dans un navigateur
+ * (serveur de développement) il n'y a ni fermeture ni écran de démarrage, la page est simplement rechargée.
+ */
 export function relaunchApp() {
+  if (window.apexDesktop?.relaunch) {
+    window.apexDesktop.relaunch();
+    return;
+  }
   // Un `--ui=` / `?ui=` explicite l'emporterait sur le réglage : on le retire de l'adresse avant de recharger.
   try {
     const url = new URL(window.location.href);

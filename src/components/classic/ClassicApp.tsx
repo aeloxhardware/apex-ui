@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Viewport3D } from '@/components/Viewport3D';
 import { usePreviewTab } from '@/components/PreviewUpperTabs';
 import { useGCodePreview } from '@/hooks/use-gcode-preview';
-import { APP_TAGLINE_DEV, APP_TAGLINE_PREVIEW, setDevModeEnabled, useDevMode } from '@/utils/devModePrefs';
+import { APP_TAGLINE } from '@/utils/devModePrefs';
 import { isEditJournalEnabled, setEditJournalEnabled, subscribeEditJournal } from '@/utils/editJournalPrefs';
 import { getLaunchInterfaceMode, getStoredInterfaceMode, relaunchApp, setStoredInterfaceMode } from '@/utils/interfaceMode';
 import { getStartPage } from '@/utils/startPagePrefs';
@@ -22,20 +22,20 @@ import styles from './ClassicApp.module.scss';
 
 type Tab = 'home' | 'prep' | 'preview' | 'modeling' | 'dev' | 'params';
 
-const ALL_TABS: { id: Tab; label: string; devOnly?: boolean }[] = [
+const ALL_TABS: { id: Tab; label: string }[] = [
   { id: 'home', label: 'Accueil' },
   { id: 'prep', label: 'Préparation' },
   { id: 'preview', label: 'Prévisualisation' },
-  { id: 'modeling', label: 'Modélisation', devOnly: true },
-  { id: 'dev', label: 'Dev', devOnly: true },
+  { id: 'modeling', label: 'Modélisation' },
+  { id: 'dev', label: 'Dev' },
   { id: 'params', label: 'Paramètres' },
 ];
 
 /** Accueil : présentation et promesse. */
-const HomePage: React.FC<{ devMode: boolean }> = ({ devMode }) => (
+const HomePage: React.FC = () => (
     <div className={styles.page}>
       <Section title="Apex Studio">
-        <p>{devMode ? APP_TAGLINE_DEV : APP_TAGLINE_PREVIEW}</p>
+        <p>{APP_TAGLINE}</p>
         <p>Aelox Hardware</p>
       </Section>
       <Section title="Promesse">
@@ -48,7 +48,7 @@ const HomePage: React.FC<{ devMode: boolean }> = ({ devMode }) => (
 );
 
 /** Paramètres : interface au prochain lancement, journal des modifications, mode dev. */
-const ParamsPage: React.FC<{ devMode: boolean; editJournal: boolean }> = ({ devMode, editJournal }) => {
+const ParamsPage: React.FC<{ editJournal: boolean }> = ({ editJournal }) => {
   const [classicNext, setClassicNext] = useState(() => getStoredInterfaceMode() === 'classic');
   return (
     <div className={styles.page}>
@@ -63,14 +63,12 @@ const ParamsPage: React.FC<{ devMode: boolean; editJournal: boolean }> = ({ devM
       </Section>
       <Section title="Prévisualisation G-code">
         <Check checked={editJournal} onChange={setEditJournalEnabled}>Enregistrer l&apos;historique des modifications dans le G-code</Check>
-        <Check checked={devMode} onChange={setDevModeEnabled}>Mode dev (onglets Préparation, Modélisation et Dev, raccourcis du navigateur)</Check>
       </Section>
     </div>
   );
 };
 
 const ClassicApp: React.FC = () => {
-  const devMode = useDevMode();
   // Page de démarrage (Paramètres) ; l'effet plus bas ramène à l'Accueil un espace indisponible.
   const [tab, setTab] = useState<Tab>(() => {
     const page = getStartPage();
@@ -102,11 +100,7 @@ const ClassicApp: React.FC = () => {
     return () => window.removeEventListener('apex-mesh-selected', onSelected);
   }, []);
 
-  // Sans mode dev, seuls Accueil, Préparation, Prévisualisation et Paramètres existent (cf. CLAUDE.md, « Dev value »).
-  const tabs = ALL_TABS.filter((t) => devMode || !t.devOnly);
-  useEffect(() => {
-    if (!tabs.some((t) => t.id === tab)) setTab('home');
-  }, [tabs, tab]);
+  const tabs = ALL_TABS;
 
   const showViewport = tab === 'prep' || tab === 'preview';
   // Le viewport reste monté une fois ouvert (il ne retrouve pas un G-code chargé après un démontage) ; masqué, hors écran.
@@ -142,9 +136,9 @@ const ClassicApp: React.FC = () => {
       </header>
 
       <div className={styles.body}>
-        {tab === 'home' && <HomePage devMode={devMode} />}
+        {tab === 'home' && <HomePage />}
 
-        {tab === 'params' && <ParamsPage devMode={devMode} editJournal={editJournal} />}
+        {tab === 'params' && <ParamsPage editJournal={editJournal} />}
 
         {(tab === 'modeling' || tab === 'dev') && (
           <div className={styles.page}>

@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usePortalRoot } from '@/components/GpuWarningFrame';
 import clsx from 'clsx';
+import { AxesRelative, AxesAbsolute } from '@/lib/icons';
+import { type GizmoOrientation, setGizmoOrientation, useGizmoOrientation } from '@/utils/gizmoOrientationPrefs';
 import { ApexNumberField } from './ApexNumberField';
 import { bottomTip } from './edit-node/bottomTooltip';
 import styles from './TransformBox.module.scss';
@@ -61,6 +63,35 @@ const Row: React.FC<RowProps> = ({ letters, values, unit, title, desc, step, min
   </div>
 );
 
+// Textes à valider par l'utilisateur (règle des infobulles : la formulation vient de lui).
+const ORIENTATIONS: { id: GizmoOrientation; Icon: React.ComponentType<{ size?: number }>; title: string; desc: string }[] = [
+  { id: 'relative', Icon: AxesRelative, title: 'Flèches relatives', desc: 'Les flèches de déplacement suivent l’orientation du modèle.' },
+  { id: 'absolute', Icon: AxesAbsolute, title: 'Flèches absolues', desc: 'Les flèches de déplacement restent alignées sur les axes X, Y et Z.' },
+];
+
+/** Sélecteur de l'orientation des flèches de l'outil Déplacer : relative (axes du modèle) ou absolue (axes X, Y, Z). */
+const OrientationSwitch: React.FC = () => {
+  const orientation = useGizmoOrientation();
+  return (
+    <div className={styles.switch} role="radiogroup" aria-label="Orientation des flèches de déplacement">
+      {ORIENTATIONS.map(({ id, Icon, title, desc }) => (
+        <button
+          key={id}
+          type="button"
+          role="radio"
+          aria-checked={orientation === id}
+          aria-label={title}
+          className={clsx(styles.switchOption, orientation === id && styles.switchActive)}
+          onClick={() => setGizmoOrientation(id)}
+          {...bottomTip(title, desc)}
+        >
+          <Icon size={17} />
+        </button>
+      ))}
+    </div>
+  );
+};
+
 /** Écart entre le bas de la barre d'outils et la boîte : le même que le menu d'auto-disposition (ArrangeMenu). */
 const BOX_GAP = 8;
 
@@ -118,8 +149,11 @@ const TransformBox: React.FC<{ tool: TransformTool; anchorRef: React.RefObject<H
       hasModel ? 'Saisissez les valeurs exactes du modèle sélectionné.' : 'Sélectionnez un modèle pour saisir ses valeurs.',
     )}>
       {tool === 'move' && (
-        <Row letters={['X', 'Y', 'Z']} values={state.position} unit="mm" step={1} onChange={send('position')}
-          title="Position" desc="Position du modèle sur le plateau, en mm : X, Y, et Z pour la hauteur de sa base." />
+        <div className={styles.line}>
+          <Row letters={['X', 'Y', 'Z']} values={state.position} unit="mm" step={1} onChange={send('position')}
+            title="Position" desc="Position du modèle sur le plateau, en mm : X, Y, et Z pour la hauteur de sa base." />
+          <OrientationSwitch />
+        </div>
       )}
       {tool === 'rotate' && (
         <Row letters={['A', 'B', 'C']} values={state.rotation} unit="°" step={1} onChange={send('rotation')}

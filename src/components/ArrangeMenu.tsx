@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import clsx from 'clsx';
-import { RectangleGroupIcon } from '@heroicons/react/24/outline';
+import { Arrange } from '@/lib/icons';
 import { ApexNumberField } from './ApexNumberField';
 import { usePortalRoot } from '@/components/GpuWarningFrame';
 import { emitApex, onApex } from '@/events/apexEvents';
@@ -47,9 +47,6 @@ const ArrangeMenuBody: React.FC<{ hasSelection: boolean; onRun: () => void }> = 
   const prefs = useArrangePrefs();
   return (
     <>
-      <button type="button" className={clsx(styles.row, styles.action)} onClick={onRun} {...tip(arrangeTipFor(hasSelection))}>
-        Organiser
-      </button>
       <div className={styles.row} {...tip(SPACING_TIP)}>
         <span>Écart entre les modèles</span>
         <ApexNumberField
@@ -81,6 +78,9 @@ const ArrangeMenuBody: React.FC<{ hasSelection: boolean; onRun: () => void }> = 
         onChange={(v) => setArrangePrefs({ arrangeOnImport: v })}
         tipText={ON_IMPORT_TIP}
       />
+      <button type="button" className={styles.action} onClick={onRun} {...tip(arrangeTipFor(hasSelection))}>
+        Organiser
+      </button>
     </>
   );
 };
@@ -151,7 +151,7 @@ export const ArrangeMenu: React.FC<ArrangeMenuProps> = ({ open, onOpenChange, ta
         aria-label="Auto-disposition"
         {...tip(ARRANGE_BUTTON_TIP)}
       >
-        <RectangleGroupIcon width={iconSize} height={iconSize} />
+        <Arrange size={iconSize} />
       </button>
       {open &&
         createPortal(

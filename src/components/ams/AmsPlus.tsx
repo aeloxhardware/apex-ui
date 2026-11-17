@@ -1,11 +1,12 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Plus } from 'lucide-react';
+import clsx from 'clsx';
+import { Plus, Trash2 } from '@/lib/icons';
 import { SLOT_HIDDEN, SLOT_TRANSITION } from './amsMotion';
 import type { AmsLayout } from './amsLayout';
 import { AmsSpoolFace, type GhostSpool } from './AmsSpoolFace';
 import { bottomTip } from '@/components/edit-node/bottomTooltip';
-import { ADD_MATERIAL_TIP } from '@/utils/amsTooltips';
+import { ADD_MATERIAL_TIP, REMOVE_MATERIAL_TIP } from '@/utils/amsTooltips';
 import styles from './AmsBox.module.scss';
 
 /** Une bobine voisine du bouton et la position (px, depuis le CENTRE du bouton) de son bord le plus proche. */
@@ -54,7 +55,14 @@ export const AmsPlusButton: React.FC<AmsPlusButtonProps> = ({ size, left, right,
  * « + » de fin de rangée : un EMPLACEMENT de bobine vide, avec juste un « + » blanc. Il compte comme une bobine dans la
  * mise en page (largeur, fondu du bout, développement au survol) ; seul son contenu diffère.
  */
-export const AmsAddSlot: React.FC<{ layout: AmsLayout; onAdd: (anchor: HTMLElement) => void }> = ({ layout, onAdd }) => (
+export const AmsAddSlot: React.FC<{
+  layout: AmsLayout;
+  onAdd: (anchor: HTMLElement) => void;
+  /** Une bobine est en train d'être glissée : le « + » devient une poubelle (`near` : la bobine en est assez proche pour être attirée). */
+  dragging: boolean;
+  near: boolean;
+  buttonRef: React.RefObject<HTMLButtonElement>;
+}> = ({ layout, onAdd, dragging, near, buttonRef }) => (
   <motion.div
     className={styles.addSlot}
     initial={SLOT_HIDDEN}
@@ -63,13 +71,14 @@ export const AmsAddSlot: React.FC<{ layout: AmsLayout; onAdd: (anchor: HTMLEleme
     transition={SLOT_TRANSITION}
   >
     <button
+      ref={buttonRef}
       type="button"
-      className={styles.addSlotButton}
-      aria-label="Ajouter un matériau"
-      {...bottomTip('Ajouter un matériau', ADD_MATERIAL_TIP)}
+      className={clsx(styles.addSlotButton, dragging && styles.trash, near && styles.trashNear)}
+      aria-label={dragging ? 'Retirer la bobine' : 'Ajouter un matériau'}
+      {...(dragging ? bottomTip('Retirer', REMOVE_MATERIAL_TIP) : bottomTip('Ajouter un matériau', ADD_MATERIAL_TIP))}
       onClick={(e) => onAdd(e.currentTarget)}
     >
-      <Plus size={26} strokeWidth={2.2} />
+      {dragging ? <Trash2 size={26} strokeWidth={2.2} /> : <Plus size={26} strokeWidth={2.2} />}
     </button>
   </motion.div>
 );

@@ -41,22 +41,6 @@ describe('modes de tranchage disponibles', () => {
   });
 });
 
-describe('sans mode dev', () => {
-  beforeEach(() => store.clear());
-
-  it('seul Element Aeolis reste sélectionnable en 3 axes ; les 5 axes ne changent pas', async () => {
-    const { setDevModeEnabled } = await import('./devModePrefs');
-    setDevModeEnabled(false);
-    expect(isSlicingModeAvailable(AEOLIS, '3-axes')).toBe(true);
-    expect(isSlicingModeAvailable(ARDOR, '3-axes')).toBe(false);
-    expect(isSlicingModeAvailable(ARDOR, '5-axes')).toBe(true);
-    store.set('apex-slicing-mode:3-axes', ARDOR);
-    expect(getSlicingMode('3-axes')).toBe(AEOLIS);
-    setDevModeEnabled(true);
-    expect(isSlicingModeAvailable(ARDOR, '3-axes')).toBe(true);
-  });
-});
-
 describe('seuil de sécurité en triangles', () => {
   it('200 000 pour Element Ardor, 800 000 pour Element Aeolis', async () => {
     const { triangleSafetyThreshold } = await import('./slicingMode');

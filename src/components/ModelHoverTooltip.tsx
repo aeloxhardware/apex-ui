@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import styles from './ModelHoverTooltip.module.scss';
-import { Box, Route } from 'lucide-react';
+import { Box, Route } from '@/lib/icons';
 
 /** Propriétés du mouvement G-code sous le curseur (cf. Viewport3D, survol en Prévisualisation). */
 interface GCodeHover {

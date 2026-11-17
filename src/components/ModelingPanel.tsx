@@ -1,7 +1,7 @@
 import React from 'react';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
-import { Box } from 'lucide-react';
+import { Box } from '@/lib/icons';
 import styles from './ModelingSidebar.module.scss';
 import { CustomTooltip } from './CustomTooltip';
 import { ModelTree } from './ModelingTree';

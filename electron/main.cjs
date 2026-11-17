@@ -1,79 +1,112 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, utilityProcess, MessageChannelMain } = require('electron');
+// Processus de l'écran de démarrage (relancé par createSplash ci-dessous) : il n'exécute que son propre script.
+if (process.argv.includes('--apex-splash')) {
+  require('./splash-process.cjs');
+  return;
+}
+
+const { app, BrowserWindow, ipcMain, dialog, shell, utilityProcess, MessageChannelMain, nativeImage } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const { spawn } = require('node:child_process');
-const { convertGCode } = require('./python-runner.cjs');
-const engineRunner = require('./engine-runner.cjs');
-const backdrop = require('./backdrop.cjs');
-const { detectLowGpuPower } = require('./gpu-tier.cjs');
 const prefsStore = require('./prefs-store.cjs');
-const shutdown = require('./shutdown.cjs');
-const { scanProfiles, readProfile } = require('./profiles.cjs');
 
 const isDev = process.env.ELECTRON_START_URL !== undefined;
 
 // Écran de démarrage : fenêtre sans bordure affichée tout de suite, fermée quand l'interface annonce
 // (`apex:app-ready`, premier rendu du viewport 3D) qu'elle est prête — la fenêtre principale reste
 // cachée pendant tout le chargement au lieu de s'afficher à moitié construite.
-// Icône d'Apex (fenêtres et barre des tâches) : sans elle, Electron affiche la sienne en développement.
-const APP_ICON = path.join(__dirname, 'icon-256.png');
+// Lancé dès les toutes premières lignes de ce fichier (cf. `pendingSplash` plus bas), avant les autres modules, avant
+// `app.whenReady()`, la mise à jour automatique et la détection du GPU : l'utilisateur voit tout de suite qu'Apex démarre.
 const SPLASH_MIN_MS = 1200;
 const SPLASH_TIMEOUT_MS = 30000;
+const SPLASH_SHOWN_WAIT_MS = 6000;  // au plus tard : le splash est annoncé affiché (processus lent à démarrer ou absent)
 
-function createSplash() {
-  const splash = new BrowserWindow({
-    width: 520,
-    height: 300,
-    frame: false,
-    icon: APP_ICON,
-    transparent: true,
-    hasShadow: false,
-    resizable: false,
-    maximizable: false,
-    minimizable: false,
-    fullscreenable: false,
-    center: true,
-    show: false,
-    alwaysOnTop: true,
-    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
-  });
-  // Verre liquide : le bureau Windows derrière la carte est capturé et réfracté (backdrop.cjs).
-  // La carte n'apparaît qu'avec son verre : invisible (opacité 0) jusqu'au premier verre dessiné, puis la page
-  // devient transparente derrière son texte et la fenêtre visible d'un coup. Sans verre (pas d'addon, échec, ou
-  // rien après SPLASH_GLASS_WAIT_MS), elle apparaît avec son dégradé de repli.
-  const SPLASH_GLASS_WAIT_MS = 1500;
-  let revealed = false;
-  const revealSplash = (glass) => {
-    if (revealed || splash.isDestroyed()) return;
-    revealed = true;
-    const reveal = () => { if (!splash.isDestroyed()) splash.setOpacity(1); };
-    if (!glass) { reveal(); return; }
-    splash.webContents.executeJavaScript("document.querySelector('.card').classList.add('glass')").then(reveal, reveal);
-  };
-  // Verre lancé dès maintenant, pendant que la page charge : périphérique GPU et capture du bureau sont prêts
-  // quand la fenêtre s'affiche (le premier verre est dessiné à son apparition).
-  splash.setOpacity(0);
-  // `force` : le verre de l'écran de démarrage est toujours actif, même sur un GPU jugé faible (décision de l'utilisateur, 2026-10-27).
-  const glass = backdrop.follow(splash, { force: true }, () => revealSplash(true));
-  const systemGlass = !glass && backdrop.systemGlass(splash);  // macOS : vibrance native
-  // Pas d'encre adaptative sur le splash : texte blanc fixe sur un verre fumé légèrement sombre.
-  splash.once('ready-to-show', () => {
-    splash.show();
-    if (glass) setTimeout(() => revealSplash(false), SPLASH_GLASS_WAIT_MS);
-    else revealSplash(systemGlass);
-  });
-  splash.webContents.once('did-finish-load', () => {
-    void splash.webContents.executeJavaScript(
-      `document.getElementById('version').textContent = ${JSON.stringify(require('../package.json').apexVersion || `v${app.getVersion()}`)}`,
-    ).catch(() => undefined);
-  });
-  splash.loadFile(path.join(__dirname, 'splash.html'));
-  return splash;
+/** Interface de ce lancement : même priorité que src/utils/interfaceMode.ts (ligne de commande, environnement, réglage mémorisé). */
+function isFlatLaunch() {
+  const [arg] = launchUiArgument();
+  const mode = arg ? arg.slice('--apex-ui='.length) : prefsStore.get('apex-interface-mode');
+  return mode === 'classic';
 }
 
-// Mode dev (réglage de l'interface, relayé par `apex:set-dev-mode`). Désactivé : les raccourcis
-// du navigateur (rechargement, outils de développement, zoom, impression…) ne font rien.
-let devMode = isDev;
+/**
+ * Tube nommé (socket Unix hors Windows) vers le splash : une ligne JSON par message. Ouvert AVANT le lancement du splash ;
+ * les messages envoyés avant sa connexion sont gardés puis livrés. Pas stdin : Electron le voit fermé dès le départ sous
+ * Windows (cf. splash-process.cjs). Fermer le tube (`dispose`) fait aussi fermer le splash.
+ */
+function openSplashPipe() {
+  const name = `apex-splash-${process.pid}-${Date.now()}`;
+  const pipePath = process.platform === 'win32' ? `\\\\.\\pipe\\${name}` : path.join(require('node:os').tmpdir(), `${name}.sock`);
+  const queue = [];
+  let socket = null;
+  const server = require('node:net').createServer((connection) => {
+    socket = connection;
+    connection.on('error', () => undefined);
+    for (const line of queue.splice(0)) connection.write(line);
+  });
+  server.on('error', () => undefined);
+  server.listen(pipePath);
+  const send = (message) => {
+    const line = `${JSON.stringify(message)}${String.fromCharCode(10)}`;
+    if (socket && socket.writable) socket.write(line); else if (!socket) queue.push(line);
+  };
+  const dispose = () => { try { socket?.destroy(); server.close(); } catch { /* déjà fermé */ } };
+  return { path: pipePath, send, dispose };
+}
+
+/**
+ * Écran de démarrage : un PROCESSUS ELECTRON À PART (electron/splash-process.cjs, relancé avec `--apex-splash`), avec son
+ * propre processus principal et son propre processus GPU. Le chargement de l'interface (ce processus et son GPU) ne peut
+ * donc plus le figer. Pilotage par un tube nommé (une ligne JSON par message), retour par stdout (`shown`, `closed`).
+ * Renvoie une poignée : `setStatus(text)`, `close()` (le son joue jusqu'au bout avant l'arrêt du processus),
+ * `isDestroyed()`, `whenShown()` (résolue à l'affichage, au plus tard après un délai) et `shownAt`.
+ */
+function createSplash() {
+  const pipe = openSplashPipe();
+  const args = app.isPackaged ? [] : [app.getAppPath()];
+  args.push('--apex-splash', `--apex-splash-pipe=${pipe.path}`, `--apex-splash-version=${encodeURIComponent(require('../package.json').apexVersion || `v${app.getVersion()}`)}`);
+  if (isFlatLaunch()) args.push('--apex-splash-flat');
+  const env = { ...process.env };
+  delete env.ELECTRON_RUN_AS_NODE;  // sinon le binaire démarre en pur Node.js (cf. scripts/run-electron.cjs)
+  const child = spawn(process.execPath, args, { env, stdio: ['ignore', 'pipe', 'ignore'], windowsHide: false });
+  const handle = { shownAt: 0, startedAt: Date.now(), exited: false };
+  let onShown;
+  const shown = new Promise((resolve) => { onShown = resolve; });
+  child.on('error', () => { handle.exited = true; pipe.dispose(); onShown(); });
+  child.on('exit', () => { handle.exited = true; pipe.dispose(); onShown(); });
+  let buffer = '';
+  child.stdout.on('data', (chunk) => {
+    buffer += chunk;
+    const lines = buffer.split(String.fromCharCode(10));
+    buffer = lines.pop();
+    if (lines.includes('shown')) { handle.shownAt = Date.now(); onShown(); }
+  });
+  const post = (message) => { if (!handle.exited) pipe.send(message); };
+  handle.setStatus = (text) => post({ t: 'status', text });
+  handle.close = () => post({ t: 'close' });
+  handle.isDestroyed = () => handle.exited;
+  handle.whenShown = () => Promise.race([shown, new Promise((r) => setTimeout(r, SPLASH_SHOWN_WAIT_MS))]);
+  // L'application quitte : le splash n'attend plus rien (il finit son son puis s'arrête de lui-même).
+  app.once('before-quit', () => handle.close());
+  return handle;
+}
+
+// Splash lancé AVANT tout le reste (modules lourds ci-dessous, `app.whenReady()`, mise à jour, détection du GPU) : son
+// processus démarre en parallèle pendant qu'Apex se charge. `createWindow` le reprend ; sans lui (réactivation macOS), il en crée un.
+let pendingSplash = createSplash();
+
+const { convertGCode } = require('./python-runner.cjs');
+const engineRunner = require('./engine-runner.cjs');
+const { detectLowGpuPower } = require('./gpu-tier.cjs');
+const shutdown = require('./shutdown.cjs');
+const stash = require('./stash.cjs');
+const { scanProfiles, readProfile } = require('./profiles.cjs');
+
+// Icône d'Apex (fenêtres et barre des tâches) : sans elle, Electron affiche la sienne en développement.
+const APP_ICON = nativeImage.createFromPath(path.join(__dirname, 'icon-256.png'));
+
+// Raccourcis du navigateur (rechargement, outils de développement, zoom, impression…) : sans effet dans
+// l'application livrée, actifs en développement. Indépendant de la variable « dev » de l'interface.
+const devMode = isDev;
 const BROWSER_KEYS_CTRL = new Set(['r', 'u', 'p', 's', 'f', 'g', 'o', 'w', 'n', 't', 'h', 'j', '+', '-', '=', '0']);
 function isBrowserShortcut(input) {
   const key = String(input.key || '').toLowerCase();
@@ -101,11 +134,6 @@ ipcMain.handle('apex:uninstall', () => {
     { detached: true, stdio: 'ignore', windowsHide: true },
   ).unref();
   return true;
-});
-
-ipcMain.on('apex:set-dev-mode', (event, enabled) => {
-  devMode = Boolean(enabled);
-  if (!devMode && !event.sender.isDestroyed()) event.sender.closeDevTools();
 });
 
 // Interface au lancement : « liquid » ou « classic » (cf. src/utils/interfaceMode.ts). Priorité à la ligne de
@@ -149,10 +177,7 @@ function newMainWindow() {
 /** Splash : étapes affichées, révélation de la fenêtre quand l'interface est prête, fermeture jamais directe. */
 function wireSplash(win, splash, splashShownAt) {
   // Étape affichée sur la carte de démarrage.
-  const setStatus = (text) => {
-    if (splash.isDestroyed()) return;
-    void splash.webContents.executeJavaScript(`document.getElementById('status').textContent = ${JSON.stringify(text)}`).catch(() => undefined);
-  };
+  const setStatus = (text) => splash.setStatus(text);
   win.webContents.once('dom-ready', () => setStatus("Chargement de l'interface…"));
   win.webContents.once('did-finish-load', () => setStatus("Préparation de l'interface…"));
   // Étapes annoncées par l'interface elle-même (ex. ouverture du viewport 3D quand on démarre en Préparation).
@@ -166,7 +191,7 @@ function wireSplash(win, splash, splashShownAt) {
     clearTimeout(failsafe);
     ipcMain.removeListener('apex:app-ready', onReady);
     ipcMain.removeListener('apex:app-status', onStatus);
-    if (win.isDestroyed()) { if (!splash.isDestroyed()) splash.close(); return; }
+    if (win.isDestroyed()) { splash.close(); return; }
     // Une fenêtre cachée ne présente aucune image : la montrer d'un coup en fermant le splash laisse un
     // écran noir le temps du premier affichage. On la montre donc invisible (opacité 0), on attend que le
     // compositeur ait présenté des images, puis on l'opacifie et on ferme le splash dans la foulée.
@@ -175,7 +200,7 @@ function wireSplash(win, splash, splashShownAt) {
     win.show();
     const present = () => {
       if (!win.isDestroyed()) win.setOpacity(1);
-      if (!splash.isDestroyed()) splash.close();
+      splash.close();
     };
     win.webContents
       .executeJavaScript('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 250))))')
@@ -184,7 +209,8 @@ function wireSplash(win, splash, splashShownAt) {
   const onReady = (event) => {
     if (event.sender !== win.webContents) return;
     setStatus('Prêt');
-    setTimeout(reveal, Math.max(0, SPLASH_MIN_MS - (Date.now() - splashShownAt)));
+    // Durée minimale comptée depuis l'affichage réel du splash (le processus à part met un instant à démarrer).
+    void splash.whenShown().then(() => setTimeout(reveal, Math.max(0, SPLASH_MIN_MS - (Date.now() - (splash.shownAt || splashShownAt)))));
   };
   ipcMain.on('apex:app-ready', onReady);
   // Garde-fou : un chargement qui n'annoncerait jamais sa fin ne doit pas laisser l'écran de démarrage
@@ -198,14 +224,16 @@ function wireSplash(win, splash, splashShownAt) {
     clearTimeout(failsafe);
     ipcMain.removeListener('apex:app-ready', onReady);
     ipcMain.removeListener('apex:app-status', onStatus);
-    if (!splash.isDestroyed()) splash.close();
+    splash.close();
   });
 }
 
 function createWindow() {
-  const splash = createSplash();
-  const splashShownAt = Date.now();
+  const splash = pendingSplash ?? createSplash();
+  pendingSplash = null;
+  const splashShownAt = splash.startedAt;
   const win = newMainWindow();
+  win.setIcon(APP_ICON);  // explicite : le bouton de la barre des tâches reprend l'icône d'Apex, pas celle d'Electron
 
   // Lancement agrandi (animations natives de Windows pour agrandir / restaurer ensuite) : la maximisation est faite
   // à la révélation (cf. wireSplash). `maximize()` AFFICHE la fenêtre sous Windows, même créée avec `show: false` :
@@ -275,6 +303,50 @@ ipcMain.handle('apex:slice', (event, request) => {
 });
 ipcMain.handle('apex:slice-cancel', () => engineRunner.cancelSlice());
 app.on('before-quit', () => { engineRunner.cancelSlice(); });
+app.on('will-quit', () => { stash.purge(); });
+
+// Projet (3MF : modèles + G-code) : répertoire dédié Documents/Apex/Projets, un fichier horodaté par enregistrement.
+ipcMain.handle('apex:save-project', async (_event, request) => {
+  const { name, bytes } = request ?? {};
+  if (!(bytes instanceof Uint8Array) || bytes.length === 0) throw new Error("Requête d'enregistrement de projet invalide.");
+  const dir = path.join(app.getPath('documents'), 'Apex', 'Projets');
+  await fs.promises.mkdir(dir, { recursive: true });
+  const stamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19);
+  const base = (typeof name === 'string' ? name : 'Projet').replace(/[^\p{L}\p{N} _.-]/gu, '_').slice(0, 80) || 'Projet';
+  const target = path.join(dir, `${base}_${stamp}.3mf`);
+  await fs.promises.writeFile(target, bytes);
+  return { path: target };
+});
+
+// Projets récents : les .3mf du répertoire dédié, du plus récent au plus ancien. La lecture est bornée à ce répertoire.
+const projectsDir = () => path.join(app.getPath('documents'), 'Apex', 'Projets');
+ipcMain.handle('apex:projects-list', async (_event, limit) => {
+  const dir = projectsDir();
+  const count = Math.min(Math.max(Number(limit) || 12, 1), 50);
+  let names;
+  try {
+    names = (await fs.promises.readdir(dir)).filter((n) => n.toLowerCase().endsWith('.3mf'));
+  } catch {
+    return [];
+  }
+  const stats = await Promise.all(
+    names.map(async (name) => ({ name, path: path.join(dir, name), modified: (await fs.promises.stat(path.join(dir, name))).mtimeMs })),
+  );
+  return stats.sort((a, b) => b.modified - a.modified).slice(0, count);
+});
+ipcMain.handle('apex:projects-read', async (_event, file) => {
+  const target = path.resolve(String(file ?? ''));
+  const inside = path.relative(projectsDir(), target);
+  if (inside.startsWith('..') || path.isAbsolute(inside) || !target.toLowerCase().endsWith('.3mf')) {
+    throw new Error('Projet hors du répertoire dédié.');
+  }
+  return new Uint8Array(await fs.promises.readFile(target));
+});
+
+// Réserve temporaire des espaces quittés (cf. stash.cjs, src/utils/spaceStash.ts).
+ipcMain.handle('apex:stash-write', (_event, key, bytes) => stash.write(key, bytes));
+ipcMain.handle('apex:stash-read', (_event, key) => stash.read(key));
+ipcMain.handle('apex:stash-drop', (_event, key) => stash.drop(key));
 
 // Profils d'imprimantes : dossier `profiles/` du dépôt, copié dans les ressources à l'empaquetage.
 const profilesRoot = () =>
@@ -362,11 +434,12 @@ function registerUninstallTask() {
 }
 
 app.whenReady().then(async () => {
+  pendingSplash?.setStatus('Lancement des dépendances logicielles…');
   prefsStore.register();
   shutdown.register({ stopEditProcess: () => { try { editProcess?.kill(); } catch { /* déjà arrêté */ } editProcess = null; } });
   registerUninstallTask();
   // Mise à jour automatique à chaque lancement (installation seulement) : si elle s'applique, l'application relance.
-  if (await require('./update-flow.cjs').runStartupUpdate()) return;
+  if (await require('./update-flow.cjs').runStartupUpdate()) { pendingSplash?.close(); return; }
   await detectLowGpuPower();  // renseigne low_gpu_pwr avant le splash (verre liquide désactivé si GPU < RTX 3080)
   createWindow();
 

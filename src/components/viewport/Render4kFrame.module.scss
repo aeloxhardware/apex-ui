@@ -1,0 +1,57 @@
+@use '../../styles/apex-ui' as ui;
+
+// Cadre de rendu 4K (Ctrl + Maj + 4). Tout y est neutre (blanc translucide) ; l'orange de mise en valeur n'apparaît que sur
+// l'action principale, « Rendre et exporter ».
+.layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 40;
+}
+
+.frame {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px solid ui.$ink;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45);
+}
+
+.move {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  cursor: move;
+}
+
+.handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: ui.$ink-strong;
+  pointer-events: auto;
+}
+
+.actions {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -52px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+
+  > * {
+    pointer-events: auto;
+  }
+}
+
+.error {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -30px;
+  text-align: center;
+  color: #fca5a5;
+  font-size: 12px;
+}

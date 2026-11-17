@@ -1,12 +1,12 @@
-
 /**
- * Icônes des outils à gizmo (translation, rotation, redimensionnement). Les tracés sont ceux des icônes Lucide
- * `Move3d`, `Rotate3d` et `Scale3d`, découpés par axe : actif, chaque axe prend la couleur de son gizmo (X rouge,
- * vertical bleu, profondeur vert) ; au repos, tout suit la couleur du texte.
+ * Icônes des outils à gizmo (translation, rotation, redimensionnement), dessinées à la charte du jeu `@/lib/icons`
+ * (grille 24, trait de 2, extrémités coupées net, angles adoucis) et découpées par axe : actif, chaque axe prend la
+ * couleur de son gizmo (X rouge, vertical bleu, profondeur vert) ; au repos, tout suit la couleur du texte.
  */
 const AXIS_ICON_COLORS = { x: '#ff5a5a', y: '#5a9bff', z: '#4fe08a' } as const;
 
 type AxisTool = 'move' | 'rotate' | 'scale';
+type Axis = keyof typeof AXIS_ICON_COLORS;
 
 interface ToolAxisIconProps {
   tool: AxisTool;
@@ -14,10 +14,26 @@ interface ToolAxisIconProps {
   size?: number;
 }
 
+/** Un tracé par axe : les tracés d'un même outil ne se recouvrent pas (aucune surépaisseur en transparence). */
+const AXIS_PATHS: Record<AxisTool, Partial<Record<Axis, string>>> = {
+  move: {
+    y: 'M6 17V4M2.5 7.5 6 4l3.5 3.5',
+    x: 'M7 18h13M16.5 14.5 20 18l-3.5 3.5',
+    z: 'M7.5 16.5 12 12',
+  },
+  rotate: {
+    y: 'M14 21c-.6.3-1.3.5-2 .5-2.8 0-5-4.25-5-9.5S9.2 2.5 12 2.5c2 0 3.7 2.2 4.5 5.4',
+    x: 'M21.3 10.5C20 8.4 16.3 7 12 7 6.75 7 2.5 9.2 2.5 12s4.25 5 9.5 5c2.4 0 4.6-.5 6.3-1.2M15 13.5l3.6 2.2-2 3.6',
+  },
+  scale: {
+    y: 'M6 17V8.5M4 3.5h4v4H4z',
+    x: 'M7 18h8.5M16.5 16h4v4h-4z',
+    z: 'M7.5 16.5 12 12',
+  },
+};
+
 export default function ToolAxisIcon({ tool, active, size = 16 }: ToolAxisIconProps) {
-  const x = active ? AXIS_ICON_COLORS.x : 'currentColor';
-  const y = active ? AXIS_ICON_COLORS.y : 'currentColor';
-  const z = active ? AXIS_ICON_COLORS.z : 'currentColor';
+  const paths = AXIS_PATHS[tool];
   return (
     <svg
       width={size}
@@ -25,35 +41,14 @@ export default function ToolAxisIcon({ tool, active, size = 16 }: ToolAxisIconPr
       viewBox="0 0 24 24"
       fill="none"
       strokeWidth={2}
-      strokeLinecap="round"
+      strokeLinecap="butt"
       strokeLinejoin="round"
       aria-hidden="true"
+      className={`apex-icon apex-icon-axis-${tool}`}
     >
-      {tool === 'move' && (
-        <>
-          <path d="M5 3v16" stroke={y} />
-          <path d="m2 6 3-3 3 3" stroke={y} />
-          <path d="M5 19h16" stroke={x} />
-          <path d="m18 16 3 3-3 3" stroke={x} />
-          <path d="m5 19 6-6" stroke={z} />
-        </>
-      )}
-      {tool === 'rotate' && (
-        <>
-          <path d="M16.466 7.5C15.643 4.237 13.952 2 12 2 9.239 2 7 6.477 7 12s2.239 10 5 10c.342 0 .677-.069 1-.2" stroke={y} />
-          <path d="M19 15.57c-1.804.885-4.274 1.43-7 1.43-5.523 0-10-2.239-10-5s4.477-5 10-5c4.838 0 8.873 1.718 9.8 4" stroke={x} />
-          <path d="m15.194 13.707 3.814 1.86-1.86 3.814" stroke={x} />
-        </>
-      )}
-      {tool === 'scale' && (
-        <>
-          <path d="M5 7v11a1 1 0 0 0 1 1" stroke={y} />
-          <circle cx="5" cy="5" r="2" stroke={y} />
-          <path d="M6 19h11" stroke={x} />
-          <circle cx="19" cy="19" r="2" stroke={x} />
-          <path d="M5.293 18.707 11 13" stroke={z} />
-        </>
-      )}
+      {(Object.keys(paths) as Axis[]).map((axis) => (
+        <path key={axis} d={paths[axis]} stroke={active ? AXIS_ICON_COLORS[axis] : 'currentColor'} />
+      ))}
     </svg>
   );
 }

@@ -1,9 +1,10 @@
 import { DEFAULT_PRINTER_NAME } from '@/utils/machineProfile';
 import React from 'react';
 import clsx from 'clsx';
-import { FolderOpen, Save, Printer, Volume2, VolumeX } from 'lucide-react';
+import { Save, Printer, Volume2, VolumeX } from '@/lib/icons';
 import styles from './FileSidebar.module.scss';
 import { CustomTooltip } from './CustomTooltip';
+import { FileMenu } from './FileMenu';
 import { useUiSoundMuted } from '@/hooks/use-ui-sounds';
 
 interface FileSidebarProps {
@@ -32,16 +33,10 @@ export const FileSidebar: React.FC<FileSidebarProps> = ({
     <div className={styles.container} data-apex-chrome-panel>
       <div
         className={styles.toolbar}
+        data-apex-toolbar-bar
         data-apex-tooltip="Barre de fichiers : ouvrir ou enregistrer un projet, et régler le son de l'interface."
       >
-        <CustomTooltip content="Ouvrir un Projet" description="Chargez un projet 3D enregistré précédemment avec ses configurations complètes.">
-          <button
-            className={clsx(styles.button)}
-            onClick={onOpenModel}
-          >
-            <FolderOpen size={18} />
-          </button>
-        </CustomTooltip>
+        <FileMenu onOpenProject={onOpenModel} onSaveProject={onSaveProject} />
 
         <CustomTooltip content="Sauvegarder le Projet" description="Enregistrez l'état actuel de votre plateau et vos réglages dans un fichier de projet.">
           <button

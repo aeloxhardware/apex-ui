@@ -1,0 +1,111 @@
+// Style commun des menus déroulants d'Apex : verre sombre (éclairci dans l'Accueil, où le fond est chargé),
+// apparition en glissement + fondu vers la droite, puis contenu en cascade, lui aussi vers la droite.
+// Usage : `@include dropdown.keyframes;` une fois à la racine du module, puis
+// `@include dropdown.glass;` sur le menu et `@include dropdown.cascade;` sur son conteneur d'entrées.
+// Seuls des glissements de quelques pixels et des fondus : aucun flash (cf. pnpm check:photosensitivity).
+
+$glass-bg: rgba(10, 15, 26, 0.25);
+$glass-bg-home: rgba(214, 226, 255, 0.3); // filtre clair dans l'Accueil (data-apex-space posé par Index)
+
+@mixin keyframes {
+  @keyframes dropdownIn {
+    // `translate` (et non `transform`) : le menu garde son propre `transform` (centrage).
+    from { opacity: 0; translate: -14px 0; }
+    to { opacity: 1; translate: 0 0; }
+  }
+}
+
+// `$force` : '!important' pour les menus dont un composant généré (shadcn) pose ses propres styles.
+@mixin glass($force: null) {
+  background: $glass-bg $force;
+  backdrop-filter: blur(4px) $force;
+  -webkit-backdrop-filter: blur(4px) $force;
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.35), 0 4px 16px 0 rgba(0, 0, 0, 0.25) $force;
+  animation: dropdownIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) both $force;
+
+  @include home-filter($force);
+}
+
+// Filtre clair de l'Accueil seul : aussi posé sur les deux barres du haut (fichiers et espaces).
+@mixin home-filter($force: null) {
+  :global(html[data-apex-space='home']) & {
+    background: $glass-bg-home $force;
+    backdrop-filter: blur(10px) brightness(1.25) $force;
+    -webkit-backdrop-filter: blur(10px) brightness(1.25) $force;
+  }
+}
+
+/// Entrées du menu : chacune apparaît un peu après la précédente.
+@mixin cascade($children: '> *') {
+  #{$children} {
+    animation: dropdownIn 0.26s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  @for $i from 1 through 14 {
+    #{$children}:nth-child(#{$i}) {
+      animation-delay: #{0.04 + $i * 0.03}s;
+    }
+  }
+}
+
+// --- Référence : le menu Fichier ---------------------------------------------------------------
+// Tout menu déroulant reprend ses cotes : panneau (marge 6 px, rayon 14 px), entrées plates de
+// 10,7 px (hover = voile blanc 10 %, transition 0,15 s), séparateurs, raccourcis en gris.
+
+/// Panneau du menu : verre + apparition + cascade des entrées.
+@mixin panel($force: null) {
+  padding: 6px $force;
+  border-radius: 14px $force;
+  @include glass($force);
+}
+
+/// Entrée de menu (bouton ou ligne) : style plat du menu Fichier.
+@mixin item($force: null) {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  font-family: inherit;
+  font-size: 10.7px;
+  text-align: left;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  user-select: none;
+  box-shadow: none;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover:not(:disabled) {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  &:disabled {
+    color: rgba(255, 255, 255, 0.3);
+    cursor: default;
+  }
+}
+
+/// Entrée du choix actif : seule couleur d'accent d'un menu.
+@mixin item-active {
+  color: #f59e0b;
+
+  &:hover:not(:disabled) {
+    color: #f59e0b;
+    background: rgba(245, 158, 11, 0.14);
+  }
+}
+
+@mixin separator {
+  height: 1px;
+  margin: 5px 8px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/// Texte secondaire d'une entrée (raccourci, flèche de sous-menu).
+@mixin hint {
+  font-size: 9.3px;
+  color: rgba(255, 255, 255, 0.45);
+}

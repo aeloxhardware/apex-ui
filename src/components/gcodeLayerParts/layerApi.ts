@@ -167,6 +167,7 @@ function sceneApi(st: GCodeLayerState): ApiPart<'setEnabled' | 'getPlateRotation
       if (st.deferredColorByRaf) cancelAnimationFrame(st.deferredColorByRaf);
       if (st.offPlateBlinkObserver) scene.onBeforeRenderObservable.remove(st.offPlateBlinkObserver);
       disposeAll();
+      st.lighting.dispose();
       root.dispose(false, true);
     },
   };

@@ -7,7 +7,6 @@ import arva from '@/assets/elements/element-arva.svg';
 import ardor from '@/assets/elements/element-ardor.svg';
 import aeolis from '@/assets/elements/element-aeolis.svg';
 import aequor from '@/assets/elements/element-aequor.svg';
-import { isDevModeEnabled, subscribeDevMode } from '@/utils/devModePrefs';
 
 export type AxisMode = '3-axes' | '5-axes';
 
@@ -58,12 +57,11 @@ export function slicingAlgorithmName(mode: string): string {
   return mode.split(' - ')[1]?.replace(/^Algorithme /, '') ?? mode;
 }
 
-/** Vrai si le moteur sait lancer l'algorithme du mode ; sinon le mode est inactif dans le sélecteur. Sans mode dev,
- *  seul Element Aeolis reste sélectionnable en 3 axes (demande de l'utilisateur, 2026-10-31). */
-export function isSlicingModeAvailable(mode: string, axis: AxisMode = axisMode): boolean {
+/** Vrai si le moteur sait lancer l'algorithme du mode ; sinon le mode est inactif dans le sélecteur. */
+export function isSlicingModeAvailable(mode: string): boolean {
   const algorithm = ENGINE_ALGORITHM[mode];
   if (!algorithm || !RUNNABLE_ALGORITHMS.has(algorithm)) return false;
-  return isDevModeEnabled() || axis !== '3-axes' || mode === DEFAULT_SLICING_MODE['3-axes'];
+  return true;
 }
 
 // Anciens libellés mémorisés avant le renommage (2026-10-30) : migrés vers les nouveaux.
@@ -80,7 +78,6 @@ const storageKey = (axis: AxisMode) => `apex-slicing-mode:${axis}`;
 // n'existe). 5 axes au départ, comme AxisSidebar.
 let axisMode: AxisMode = '5-axes';
 const listeners = new Set<() => void>();
-subscribeDevMode(() => listeners.forEach((l) => l()));
 window.addEventListener('apex-axis-changed', (e) => {
   const mode = (e as CustomEvent<{ mode?: AxisMode }>).detail?.mode;
   if (mode !== '3-axes' && mode !== '5-axes') return;
@@ -93,13 +90,13 @@ export function getSlicingMode(axis: AxisMode = axisMode): string {
     const stored = localStorage.getItem(storageKey(axis));
     // Un choix mémorisé pour un mode devenu (ou resté) inactif est ignoré : retour au défaut.
     const chosen = stored && SLICING_MODES.includes(stored) ? stored : stored ? LEGACY_MODES[stored] : undefined;
-    if (chosen && isSlicingModeAvailable(chosen, axis)) return chosen;
+    if (chosen && isSlicingModeAvailable(chosen)) return chosen;
   } catch { /* localStorage indisponible */ }
   return DEFAULT_SLICING_MODE[axis];
 }
 
 export function setSlicingMode(mode: string, axis: AxisMode = axisMode) {
-  if (!SLICING_MODES.includes(mode) || !isSlicingModeAvailable(mode, axis)) return;
+  if (!SLICING_MODES.includes(mode) || !isSlicingModeAvailable(mode)) return;
   try { localStorage.setItem(storageKey(axis), mode); } catch { /* localStorage indisponible */ }
   listeners.forEach((l) => l());
 }

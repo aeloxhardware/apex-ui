@@ -116,42 +116,10 @@ $control-bg: rgba(0, 0, 0, 0.28);
   }
 }
 
-// Liste déroulante (Radix Select, shadcn) : le style par défaut est repris aux couleurs d'Apex.
+// Liste déroulante : ApexSelect porte son style ; seule la largeur est fixée ici.
 .select {
+  width: 100%;
   height: 32px;
-  padding: 0 10px 0 12px;
-  background: $control-bg !important;
-  border: none !important;
-  border-radius: 10px !important;
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 12px;
-  font-weight: 600;
-  box-shadow: none !important;
-  outline: none;
-
-  &:hover { background: rgba(255, 255, 255, 0.1) !important; }
-  &:focus { box-shadow: 0 0 0 1px rgba(245,158,11, 0.5) !important; }
-}
-
-.selectContent {
-  background: rgba(14, 18, 30, 0.92);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: none;
-  border-radius: 12px;
-  box-shadow: $panel-shadow;
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.selectItem {
-  font-size: 12px;
-  border-radius: 8px;
-
-  &:focus,
-  &[data-highlighted] {
-    background: rgba(245,158,11, 0.14);
-    color: $accent;
-  }
 }
 
 .distance {

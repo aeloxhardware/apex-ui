@@ -47,8 +47,10 @@ function setupPasteClipboard(st: ViewportState) {
   const pasteClipboard = () => {
     const names = clipboardMeshNamesRef.current;
     if (names.length === 0) return;
+    // Un modèle coupé (Ctrl+X) ou supprimé n'est plus sur le plateau mais reste dans la scène,
+    // masqué, tant que l'historique le garde : on peut donc encore le coller.
     const sources = names
-      .map((name) => Array.from(modelsRef.current).find((m) => m.name === name))
+      .map((name) => Array.from(modelsRef.current).find((m) => m.name === name) ?? st.scene.getMeshByName(name))
       .filter((m): m is BABYLON.AbstractMesh => !!m && !m.isDisposed());
     if (sources.length === 0) return;
 

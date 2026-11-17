@@ -146,6 +146,23 @@
   }
 }
 
+.actionButton {
+  width: fit-content;
+  padding: 8px 16px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(245, 158, 11, 0.18);
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+
+  &:hover {
+    background: rgba(245, 158, 11, 0.3);
+    border-color: rgba(245, 158, 11, 0.8);
+  }
+}
+
 // Sélecteur segmenté à pastille coulissante : même rendu que celui Corps / Face / Arête / Sommet
 // de ModelingSidebar (cf. ModelingSidebar.module.scss).
 .segmented {

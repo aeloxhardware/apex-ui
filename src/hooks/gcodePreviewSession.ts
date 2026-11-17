@@ -119,7 +119,7 @@ async function applyParsed(s: GCodeSession, parsed: ParsedGCode, text: string, n
 
 /** Parse (worker) et affiche un G-code ; renvoie le résultat, ou null (erreur déjà signalée, ou
  * chargement supplanté par un plus récent). */
-async function loadGCodeText(s: GCodeSession, text: string, name: string): Promise<ParsedGCode | null> {
+export async function loadGCodeText(s: GCodeSession, text: string, name: string): Promise<ParsedGCode | null> {
   const seq = ++s.loadSeqRef.current;
   const heavy = text.length > HEAVY_GCODE_CHARS;
   if (heavy) setLoadingCurtain(true);

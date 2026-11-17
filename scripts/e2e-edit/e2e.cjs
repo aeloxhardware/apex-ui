@@ -65,7 +65,7 @@ async function openEditTab() {
   })()`);
   await waitFor(`!!window.__apexEdit && !!window.__apexEdit.debugParsed()`, 'g-code charge', 60000);
   await sleep(2500);
-  await ev(`(document.querySelector('svg.lucide-pencil')?.closest('button') ?? document.querySelector('svg.lucide-pencil')?.parentElement)?.click()`);
+  await ev(`(document.querySelector('svg.apex-icon-node-edit')?.closest('button') ?? document.querySelector('svg.apex-icon-node-edit')?.parentElement)?.click()`);
   await sleep(1500);
   await sleep(1000);
   log('onglet courant :', await ev(`import('/src/components/PreviewUpperTabs.tsx').then((m) => m.getPreviewTab())`));
@@ -231,14 +231,14 @@ const scenarios = {
     })()`);
     await waitFor(`!!window.__apexEdit && !!window.__apexEdit.debugParsed()`, 'g-code charge', 60000);
     await sleep(3500);
-    const clickIcon = (name) => ev(`(() => { const all = [...document.querySelectorAll('svg.lucide-${name}')]; const el = all[all.length - 1]; (el?.closest('button') ?? el?.parentElement)?.click(); return all.length; })()`);
+    const clickIcon = (name) => ev(`(() => { const all = [...document.querySelectorAll('svg.apex-icon-${name}')]; const el = all[all.length - 1]; (el?.closest('button') ?? el?.parentElement)?.click(); return all.length; })()`);
     const burst = async (prefix, n) => {
       const t0 = Date.now();
       const times = [];
       for (let i = 0; i < n; i++) { await shot(prefix + String(i).padStart(2, '0'), { x: 0, y: 180, width: 620, height: 820 }); times.push(Date.now() - t0); }
       log(prefix, 'instants (ms) :', times.join(' '));
     };
-    await clickIcon('pencil');
+    await clickIcon('node-edit');
     await burst('fw', 24);
     await sleep(800);
     await clickIcon('palette');
@@ -258,8 +258,8 @@ const scenarios = {
     await waitFor(`!!window.__apexEdit && !!window.__apexEdit.debugParsed()`, 'g-code charge', 60000);
     await sleep(3500);
     await shot('tab0_coloration');
-    const clickIcon = (name) => ev(`(() => { const all = [...document.querySelectorAll('svg.lucide-${name}')]; const el = all[all.length - 1]; (el?.closest('button') ?? el?.parentElement)?.click(); return all.length; })()`);
-    await clickIcon('pencil');
+    const clickIcon = (name) => ev(`(() => { const all = [...document.querySelectorAll('svg.apex-icon-${name}')]; const el = all[all.length - 1]; (el?.closest('button') ?? el?.parentElement)?.click(); return all.length; })()`);
+    await clickIcon('node-edit');
     const marks = [250, 500, 800, 1100, 1450, 1800, 2300, 3000];
     let t = 0;
     for (const m of marks) { await sleep(m - t); t = m; await shot('tab1_' + m); }

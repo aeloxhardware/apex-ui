@@ -1,11 +1,9 @@
 import React from 'react';
 
 /**
- * Icônes custom pour les features CAD Congé (Fillet) et Chanfrein (Chamfer) de
- * ModelingSidebar : les icônes lucide-react génériques (Spline, Triangle) ne représentent
- * pas clairement l'opération. Dessinées au même gabarit que lucide-react (viewBox 24×24,
- * stroke `currentColor`, coins arrondis) pour rester interchangeables avec les icônes
- * lucide utilisées à côté (mêmes props `className`/taille, cf. Icon.js de lucide-react).
+ * Pictogrammes de modélisation repris des références fournies par l'utilisateur (Congé, Chanfrein, Extrusion,
+ * « Terminer l'esquisse ») : leur dessin est imposé, ils ne font donc pas partie du jeu `@/lib/icons`, mais en
+ * partagent le gabarit (grille 24 × 24, trait `currentColor`) pour rester interchangeables avec lui.
  */
 type ModelingIconProps = React.SVGProps<SVGSVGElement>;
 
@@ -68,25 +66,6 @@ export const ExtrudeIcon: React.FC<ModelingIconProps> = ({ className, ...props }
     {/* Barre large, puis barre plus courte en dessous. */}
     <path d="M4 18.5h16" />
     <path d="M8 22h8" />
-  </svg>
-);
-
-/** Briques (outil Texture) : le BrickWall de lucide, mais en UN SEUL tracé. Les boutons ont une couleur à 85 %
- * d'opacité : avec plusieurs éléments, la transparence se cumulait là où les traits se recouvrent (points
- * plus clairs aux jonctions) ; un seul tracé est peint d'un bloc, sans cumul. */
-export const BricksIcon: React.FC<ModelingIconProps> = ({ className, ...props }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth={2}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-    {...props}
-  >
-    <path d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2ZM3 9h18M3 15h18M8 3v6M16 3v6M12 9v6M8 15v6M16 15v6" />
   </svg>
 );
 

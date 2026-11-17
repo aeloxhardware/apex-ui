@@ -1,6 +1,6 @@
 import React, { useCallback, useLayoutEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Play, Pause } from 'lucide-react';
+import { Play, Pause } from '@/lib/icons';
 import { type GCodeFileInfo } from '@/hooks/use-gcode-preview';
 import styles from './GCodePreviewBar.module.scss';
 

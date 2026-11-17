@@ -1,7 +1,9 @@
 import React, { createContext, useContext, useState } from 'react';
-import { X } from 'lucide-react';
+import { X } from '@/lib/icons';
 import { TitleBar } from '@/components/TitleBar';
 import { isFlatUi } from '@/utils/interfaceMode';
+import { DEV_MODE } from '@/utils/devModePrefs';
+import { BetaBannerBottom, BetaBannerTop } from '@/components/BetaBanners';
 
 /**
  * Bandeau orange en bas de l'application quand le GPU est moins puissant qu'une RTX 3080 (variable low_gpu_pwr, cf.
@@ -69,14 +71,17 @@ export const GpuWarningFrame: React.FC<{ children: React.ReactNode }> = ({ child
   const [dismissed, setDismissed] = useState(false);
   const customTitleBar = Boolean(window.apexDesktop?.customTitleBar);
   const lowGpu = Boolean(window.apexDesktop?.lowGpuPower);
-  if (!lowGpu && !customTitleBar) return <>{children}</>;
+  const beta = !DEV_MODE;
+  if (!lowGpu && !customTitleBar && !beta) return <>{children}</>;
   return (
     <div style={{ position: 'fixed', inset: 0, display: 'flex', flexDirection: 'column' }}>
+      {beta && <BetaBannerTop />}
       {customTitleBar && <TitleBar />}
       <div ref={setZone} className="apex-gpu-frame" style={{ flex: '1 1 0', minHeight: 0, position: 'relative', overflow: 'hidden', contain: 'layout' }}>
         <PortalRootContext.Provider value={zone}>{children}</PortalRootContext.Provider>
       </div>
       {lowGpu && !dismissed && <GpuWarningBanner onClose={() => setDismissed(true)} />}
+      {beta && <BetaBannerBottom />}
     </div>
   );
 };

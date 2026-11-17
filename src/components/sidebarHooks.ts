@@ -2,14 +2,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { MODEL_FILE_EXT, importModelsOneByOne } from '@/utils/importModels';
 import { LOGO_PAD_X, LOGO_PAD_Y } from '@/utils/indicatorShapes';
 import { GCODE_FILE_EXT } from '@/hooks/use-gcode-preview';
-import { isDevModeEnabled } from '@/utils/devModePrefs';
 import { getStartPage } from '@/utils/startPagePrefs';
 import {
   VIEWCUBE_RIGHT, VIEWCUBE_BOTTOM, PREVIEW_TOOLBAR_TOP_GAP, PREVIEW_TOOLBAR_WIDTH, BOTTOM_TOOLBAR_REST_TOP,
 } from './sidebarData';
 
-import { emitApex } from '@/events/apexEvents';
-export type SidebarTool = 'select' | 'move' | 'rotate' | 'scale' | 'texture' | 'layers';
+import { emitApex, onApex } from '@/events/apexEvents';
+export type SidebarTool = 'select' | 'move' | 'rotate' | 'scale' | 'texture' | 'cut' | 'layers';
 export type TabName = 'box' | 'settings' | 'developer' | 'params' | 'home';
 
 type Geometry = { x: number; y: number; width: number; height: number; borderRadius: number };
@@ -123,9 +122,16 @@ export function useTabIndicator(activeTab: string, activeTool: SidebarTool) {
   return { topToolbarRef, buttonRefs, indicatorStyle, indicatorOnLogo };
 }
 
-const SHORTCUT_TOOLS = { m: 'move', r: 'rotate', s: 'scale', t: 'texture' } as const;
+const SHORTCUT_TOOLS = { m: 'move', r: 'rotate', s: 'scale', t: 'texture', c: 'cut' } as const;
 
-/** Raccourcis M / R / S / T (bascule de l'outil) et Échap (retour à la sélection). */
+/** Touche seule (sans Ctrl / Alt / Cmd), hors d'un champ de saisie. */
+function isBareToolKey(e: KeyboardEvent): boolean {
+  const target = e.target as HTMLElement | null;
+  if (target && (['INPUT', 'TEXTAREA'].includes(target.tagName) || target.isContentEditable)) return false;
+  return !(e.ctrlKey || e.metaKey || e.altKey);
+}
+
+/** Raccourcis M / R / S / T / C (bascule de l'outil) et Échap (retour à la sélection). Pas avec Ctrl / Alt : Ctrl+C copie, Ctrl+S enregistre. */
 export function useToolShortcuts(
   activeTool: SidebarTool,
   isPreviewActive: boolean,
@@ -134,10 +140,9 @@ export function useToolShortcuts(
 ) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (target && (['INPUT', 'TEXTAREA'].includes(target.tagName) || target.isContentEditable)) return;
+      if (!isBareToolKey(e)) return;
       const key = e.key.toLowerCase();
-      // Prévisualisation : M / R / S / T (outils de Préparation) ne doivent rien faire.
+      // Prévisualisation : M / R / S / T / C (outils de Préparation) ne doivent rien faire.
       if (isPreviewActive && key in SHORTCUT_TOOLS) return;
       if (key in SHORTCUT_TOOLS) {
         const tool = SHORTCUT_TOOLS[key as keyof typeof SHORTCUT_TOOLS];
@@ -151,6 +156,20 @@ export function useToolShortcuts(
     return () => window.removeEventListener('keydown', handleKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- dépendances volontairement limitées : effet à déclenchement ciblé
   }, [activeTool, isPreviewActive]);
+}
+
+/**
+ * Le viewport ramène lui-même l'outil à la sélection quand il n'a plus d'objet (modèle supprimé, coupe faite) : la barre
+ * suit, sinon le bouton resterait allumé et le panneau de l'outil ouvert. Prévisualisation (« layers ») n'est pas touchée.
+ */
+export function useViewportToolReset(setActiveTool: React.Dispatch<React.SetStateAction<SidebarTool>>) {
+  useEffect(
+    () =>
+      onApex('apex-tool-changed', ({ tool }) => {
+        if (tool === 'select') setActiveTool((current) => (current === 'layers' ? current : 'select'));
+      }),
+    [setActiveTool],
+  );
 }
 
 interface StartEvents {
@@ -175,7 +194,7 @@ function useStartPage({ handleTopTabClick, enterPreview }: StartEvents) {
       timer = window.setTimeout(() => {
         if (page === 'prepare') handleTopTabClick('box');
         else if (page === 'preview') enterPreview();
-        else if (page === 'modeling' && isDevModeEnabled()) handleTopTabClick('settings');
+        else if (page === 'modeling') handleTopTabClick('settings');
       }, 1200);
     };
     window.addEventListener('apex-home-ready', go, { once: true });
@@ -240,5 +259,7 @@ export function useSpaceEntryEvents(o: StartEvents) {
     window.addEventListener('apex-open-sliced-gcode', onOpen);
     return () => window.removeEventListener('apex-open-sliced-gcode', onOpen);
   });
+  // Accueil : « Nouveau projet » et l'import d'un projet ouvrent Préparation par le même chemin que son onglet.
+  useEffect(() => onApex('apex-go-prepare', () => o.handleTopTabClick('box')));
   useFileDropRouting(o);
 }

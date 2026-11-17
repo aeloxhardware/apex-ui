@@ -1,14 +1,30 @@
 .container {
-  position: fixed;
-  top: 70px;
+  // Sous la barre des axes (top 12 px + 44 px de haut, AxisSidebar.module.scss) avec 8 px de marge.
+  top: 64px;
   right: 12px;
-  width: 130px;
+  width: 168px;
   height: 130px;
   z-index: 1000;
-  pointer-events: auto;
-  display: flex;
+}
+
+// Contenu du panneau : colonne du bouton d'orbite, puis le gizmo (même centre qu'avant : 77 px du bord droit).
+.container .content {
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 0 15px;
+  height: 100%;
+  box-sizing: border-box;
+  max-height: none;
+  overflow: visible;
+}
+
+.buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .gizmo {

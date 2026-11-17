@@ -5,6 +5,7 @@ import type * as BABYLON from 'babylonjs';
 import { showError } from '@/utils/toast';
 import { ApexSlider } from '../ApexSlider';
 import { PracticalModelsGrid, fetchPracticalModelFile, prewarmPracticalModels } from '../PracticalModelsGrid';
+import styles from './ViewportContextMenu.module.scss';
 import { DEFAULT_BLUR_LEVEL } from './viewportConstants';
 
 import { emitApex } from '@/events/apexEvents';
@@ -92,36 +93,10 @@ interface ViewportContextMenuProps {
   suppressNextBackdropContextMenuRef: React.MutableRefObject<boolean>;
 }
 
-/** Menu contextuel du viewport (clic droit), porté dans le body ; son contenu dépend de l'espace courant. */
-const menuItemStyle: React.CSSProperties = {
-  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-  padding: '8px 14px', fontSize: 13, color: 'rgba(255,255,255,0.9)',
-  cursor: 'pointer', whiteSpace: 'nowrap', borderRadius: 8,
-};
-
-/** Apparition du menu : fondu + léger glissement, puis les entrées en cascade. */
-const MENU_ANIMATION_CSS = `
-@keyframes apex-ctx-item-in { from { opacity: 0; transform: translateX(-3px); } to { opacity: 1; transform: none; } }
-.apex-ctx-menu { animation: apex-ctx-menu-in 100ms ease-out both; }
-.apex-ctx-menu > * { animation: apex-ctx-item-in 120ms ease-out both; }
-.apex-ctx-menu > *:nth-child(1) { animation-delay: 30ms; }
-.apex-ctx-menu > *:nth-child(2) { animation-delay: 50ms; }
-.apex-ctx-menu > *:nth-child(3) { animation-delay: 70ms; }
-.apex-ctx-menu > *:nth-child(4) { animation-delay: 90ms; }
-.apex-ctx-menu > *:nth-child(5) { animation-delay: 110ms; }
-.apex-ctx-menu > *:nth-child(6) { animation-delay: 130ms; }
-.apex-ctx-menu > *:nth-child(7) { animation-delay: 150ms; }
-.apex-ctx-menu > *:nth-child(8) { animation-delay: 170ms; }
-.apex-ctx-menu > *:nth-child(9) { animation-delay: 190ms; }
-@media (prefers-reduced-motion: reduce) {
-  .apex-ctx-menu, .apex-ctx-menu > * { animation: none; }
-}
-`;
-
 /** Échelle du modèle sous le clic : le fond bleu glisse d'une option à l'autre (layoutId). */
 const UnitRow: React.FC<{ contextModel: ContextModel; setContextModel: (model: ContextModel | null) => void }> = ({ contextModel, setContextModel }) => (
   <>
-              <div style={{ ...menuItemStyle, cursor: 'default', gap: 18, padding: '10px 14px' }} {...menuTooltip(SCALE_TOOLTIP)}>
+              <div className={`${styles.item} ${styles.static}`} {...menuTooltip(SCALE_TOOLTIP)}>
                 <span style={{ fontWeight: 500 }}>Échelle</span>
                 {/* Le fond bleu glisse d'une option à l'autre (layoutId) : la bascule suit la courbe de l'app. */}
                 <span style={{ display: 'flex', gap: 2, padding: 3, borderRadius: 9, background: 'rgba(255,255,255,0.08)' }}>
@@ -136,7 +111,7 @@ const UnitRow: React.FC<{ contextModel: ContextModel; setContextModel: (model: C
                           setContextModel({ ...contextModel, unit });
                         }}
                         style={{
-                          position: 'relative', padding: '5px 12px', borderRadius: 7, fontSize: 12, cursor: 'pointer',
+                          position: 'relative', padding: '5px 12px', borderRadius: 7, fontSize: 10.7, cursor: 'pointer',
                           textAlign: 'center', userSelect: 'none', whiteSpace: 'nowrap',
                           color: active ? '#f59e0b' : 'rgba(255,255,255,0.8)',
                         }}
@@ -155,7 +130,7 @@ const UnitRow: React.FC<{ contextModel: ContextModel; setContextModel: (model: C
                   })}
                 </span>
               </div>
-              <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '6px 4px' }} />
+              <div className={styles.separator} />
   </>
 );
 
@@ -175,11 +150,11 @@ const PrimitiveItem: React.FC<{ runAction: (fn: () => void) => void }> = ({ runA
   return (
             <div
               ref={primitiveItemRef}
-              style={{ ...menuItemStyle, position: 'relative' }}
+              className={styles.item}
               onMouseEnter={() => { openPrimitiveSubmenu(); showTooltip(PRIMITIVE_TOOLTIP); }}
               onMouseLeave={() => { closePrimitiveSubmenuDelayed(); hideTooltip(); }}
             >
-              <span>Ajouter une primitive</span><span style={{ opacity: 0.6 }}>›</span>
+              <span>Ajouter une primitive</span><span className={styles.arrow}>›</span>
 
               {primitiveSubmenuOpen && primitiveItemRef.current && createPortal(
                 <div
@@ -197,21 +172,16 @@ const PrimitiveItem: React.FC<{ runAction: (fn: () => void) => void }> = ({ runA
                   }}
                 >
                   <div
-                    style={{
-                      minWidth: 160, padding: 6, borderRadius: 14,
-                      background: 'rgba(20,22,30,0.55)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
-                      boxShadow: '0 12px 40px 0 rgba(0,0,0,0.45), 0 4px 16px 0 rgba(0,0,0,0.35)',
-                      border: 'none',
-                    }}
+                    className={styles.submenu}
                   >
                     <div
-                      style={menuItemStyle}
+                      className={styles.item}
                       onClick={() => runAction(() => emitApex('apex-primitive-box-start'))} {...menuTooltip(BOX_TOOLTIP)}
                     >
                       Boîte
                     </div>
                     <div
-                      style={menuItemStyle}
+                      className={styles.item}
                       onClick={() => runAction(() => emitApex('apex-primitive-pyramid-start'))} {...menuTooltip(PYRAMID_TOOLTIP)}
                     >
                       Pyramide 4 côtés
@@ -244,11 +214,11 @@ const ModelsItem: React.FC<{
   return (
             <div
               ref={modelsItemRef}
-              style={{ ...menuItemStyle, position: 'relative' }}
+              className={styles.item}
               onMouseEnter={() => { openModelsSubmenu(); showTooltip(MODELS_TOOLTIP); }}
               onMouseLeave={() => { closeModelsSubmenuDelayed(); hideTooltip(); }}
             >
-              <span>Ajouter des modèles pratiques</span><span style={{ opacity: 0.6 }}>›</span>
+              <span>Ajouter des modèles pratiques</span><span className={styles.arrow}>›</span>
 
               {modelsSubmenuOpen && modelsItemRef.current && createPortal(
                 <div
@@ -263,12 +233,7 @@ const ModelsItem: React.FC<{
                   }}
                 >
                   <div
-                    style={{
-                      padding: 6, borderRadius: 14,
-                      background: 'rgba(20,22,30,0.55)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
-                      boxShadow: '0 12px 40px 0 rgba(0,0,0,0.45), 0 4px 16px 0 rgba(0,0,0,0.35)',
-                      border: 'none',
-                    }}
+                    className={styles.submenu}
                   >
                     <PracticalModelsGrid
                       onHover={(model) => (model
@@ -300,7 +265,7 @@ const ModelsItem: React.FC<{
 /** Réglage du flou sous le plateau. */
 const BlurSlider: React.FC<{ blurLevel: number; setBlurLevel: (level: number) => void }> = ({ blurLevel, setBlurLevel }) => (
             <div style={{ padding: '8px 14px 4px' }}>
-              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', marginBottom: 6 }}>Niveau de flou sous le plateau</div>
+              <div className={styles.label}>Niveau de flou sous le plateau</div>
               <ApexSlider
                 tooltip={BLUR_TOOLTIP}
                 value={blurLevel}
@@ -389,7 +354,6 @@ export const ViewportContextMenu: React.FC<ViewportContextMenuProps> = ({
   return createPortal(
         <>
           {/* Apparition du menu : fondu + léger glissement, puis les entrées en cascade. */}
-          <style>{MENU_ANIMATION_CSS}</style>
           <div
             style={{ position: 'fixed', inset: 0, zIndex: 9999 }}
             onClick={() => setContextMenu(null)}
@@ -409,37 +373,33 @@ export const ViewportContextMenu: React.FC<ViewportContextMenuProps> = ({
           <div
             key={`${contextMenu.x}_${contextMenu.y}`}
             ref={menuRef}
-            className="apex-ctx-menu"
+            className={styles.menu}
             style={{
               position: 'fixed', top: (menuPos ?? contextMenu).y, left: (menuPos ?? contextMenu).x, zIndex: 10000,
               visibility: menuPos ? 'visible' : 'hidden',
-              minWidth: 220, padding: 6, borderRadius: 14,
-              background: 'rgba(20,22,30,0.55)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
-              boxShadow: '0 12px 40px 0 rgba(0,0,0,0.45), 0 4px 16px 0 rgba(0,0,0,0.35)',
-              border: 'none',
-            }}
+                          }}
           >
             {contextSpace === 'preparation' && contextModel && (<>
               <UnitRow contextModel={contextModel} setContextModel={setContextModel} />
             </>)}
             {contextSpace === 'preparation' && (<>
-            <div style={menuItemStyle} onClick={() => runAction(() => emitApex('apex-select-all-models'))} {...menuTooltip(SELECT_ALL_TOOLTIP)}>Tout sélectionner</div>
-            <div style={menuItemStyle} onClick={() => runAction(() => emitApex('apex-delete-all-models'))} {...menuTooltip(DELETE_ALL_TOOLTIP)}>Tout Supprimer</div>
-            <div style={menuItemStyle} onClick={() => runAction(() => emitApex('apex-arrange-models'))} {...menuTooltip(ARRANGE_ALL_TIP)}>Disposer automatiquement</div>
-            <div style={menuItemStyle} onClick={() => runAction(() => emitApex('apex-arrange-selection'))} {...menuTooltip(ARRANGE_SELECTION_TIP)}>Disposer la sélection</div>
-            <div style={menuItemStyle} onClick={() => runAction(() => emitApex('apex-toggle-lock-models'))} {...menuTooltip(LOCK_TIP)}>Verrouiller / déverrouiller la sélection</div>
-            <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '6px 4px' }} />
+            <div className={styles.item} onClick={() => runAction(() => emitApex('apex-select-all-models'))} {...menuTooltip(SELECT_ALL_TOOLTIP)}>Tout sélectionner</div>
+            <div className={styles.item} onClick={() => runAction(() => emitApex('apex-delete-all-models'))} {...menuTooltip(DELETE_ALL_TOOLTIP)}>Tout Supprimer</div>
+            <div className={styles.item} onClick={() => runAction(() => emitApex('apex-arrange-models'))} {...menuTooltip(ARRANGE_ALL_TIP)}>Disposer automatiquement</div>
+            <div className={styles.item} onClick={() => runAction(() => emitApex('apex-arrange-selection'))} {...menuTooltip(ARRANGE_SELECTION_TIP)}>Disposer la sélection</div>
+            <div className={styles.item} onClick={() => runAction(() => emitApex('apex-toggle-lock-models'))} {...menuTooltip(LOCK_TIP)}>Verrouiller / déverrouiller la sélection</div>
+            <div className={styles.separator} />
             <PrimitiveItem runAction={runAction} />
             <ModelsItem modelsRef={modelsRef} onPicked={() => setContextMenu(null)} />
-            <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '6px 4px' }} />
+            <div className={styles.separator} />
             </>)}
             {contextSpace !== 'preparation' && (<>
               {SPACE_MENU_ITEMS[contextSpace].labels.map((label) => (
-                <div key={label} style={{ ...menuItemStyle, color: 'rgba(255,255,255,0.35)', cursor: 'default' }} {...menuTooltip(SOON_TOOLTIP)}>
+                <div key={label} className={`${styles.item} ${styles.itemInert}`} {...menuTooltip(SOON_TOOLTIP)}>
                   {label}
                 </div>
               ))}
-              <div style={{ height: 1, background: 'rgba(255,255,255,0.08)', margin: '6px 4px' }} />
+              <div className={styles.separator} />
             </>)}
             {(contextSpace === 'preparation' || SPACE_MENU_ITEMS[contextSpace].plateBlur) && (
             <BlurSlider blurLevel={blurLevel} setBlurLevel={setBlurLevel} />

@@ -43,4 +43,10 @@ function register() {
   });
 }
 
-module.exports = { register };
+/** Valeur mémorisée d'un réglage `apex-*` (lue côté processus principal, ex. interface du prochain lancement). */
+function get(key) {
+  const value = load()[key];
+  return typeof value === 'string' ? value : null;
+}
+
+module.exports = { register, get };

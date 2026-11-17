@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import clsx from 'clsx';
 import styles from './AxisSidebar.module.scss';
 import { CustomTooltip } from './CustomTooltip';
+import { ApexToggle } from './apex-ui';
 import { PAN_PERSPECTIVE_EVENT, readPanPerspective, setPanPerspective } from '@/utils/panPerspectivePrefs';
 import { hideBottomTip, showBottomTip } from './edit-node/bottomTooltip';
 import type { ParsedGCode } from './gcodeLayer';
@@ -90,13 +91,12 @@ export const AxisSidebar: React.FC = () => {
       {/* Emplacement du bouton « Découper le plateau » (SliceSidebar, par portail) : il rejoint la rangée, donc le même
           écart (gap) et le même centrage vertical que l'interrupteur et la barre des axes. */}
       <div id={TOP_RIGHT_SLOT_ID} className={styles.slot} />
-      <button
-        type="button"
-        role="switch"
-        aria-checked={panPerspective}
+      <ApexToggle
+        glass
+        vertical
+        checked={panPerspective}
+        onChange={togglePanPerspective}
         aria-label="Perspective en translation"
-        className={clsx(styles.perspectiveSwitch, panPerspective && styles.perspectiveOn)}
-        onClick={togglePanPerspective}
         onPointerEnter={() => {
           switchHovered.current = true;
           showBottomTip(switchTip);
@@ -105,9 +105,7 @@ export const AxisSidebar: React.FC = () => {
           switchHovered.current = false;
           hideBottomTip();
         }}
-      >
-        <span className={styles.perspectiveKnob} />
-      </button>
+      />
       <div
         ref={toolbarRef}
         className={styles.toolbar}

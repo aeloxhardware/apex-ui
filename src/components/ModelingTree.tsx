@@ -1,7 +1,7 @@
 import React from 'react';
 import clsx from 'clsx';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Box, ChevronRight, Eye, EyeOff, Trash2 } from 'lucide-react';
+import { Box, ChevronRight, Eye, EyeOff, Trash2 } from '@/lib/icons';
 import styles from './ModelingSidebar.module.scss';
 import { ExternalScrollArea } from './ExternalScrollArea';
 import { CustomTooltip } from './CustomTooltip';

@@ -4,6 +4,8 @@ import * as BABYLON from 'babylonjs';
 import { OrcaRotateGizmo } from '../orcaRotateGizmo';
 import { OrcaScaleGizmo } from '../orcaScaleGizmo';
 import { localPointOf, scaleKeepingPoint } from '@/utils/meshScale';
+import { getGizmoOrientation } from '@/utils/gizmoOrientationPrefs';
+import { keepPositionDragExact } from './positionGizmoDrag';
 import type { GizmoAxisInternal, InspectableMaterial } from './viewportTypes';
 import type { ViewportState } from './viewportState';
 
@@ -308,6 +310,13 @@ function setupOnToolChanged(st: ViewportState) {
     keepCameraControlsDuringGizmoDrag(gizmos.positionGizmo);
     keepCameraControlsDuringGizmoDrag(gizmos.rotationGizmo);
     keepCameraControlsDuringGizmoDrag(gizmos.scaleGizmo);
+    keepPositionDragExact(gizmos.positionGizmo);
+    // Flèches de déplacement : selon les axes du modèle (relatif) ou ceux de la machine (absolu), au choix du
+    // sélecteur de TransformBox. Lu à chaque image : le gizmo n'existe qu'à partir de son premier affichage.
+    const followMesh = getGizmoOrientation() === 'relative';
+    if (gizmos.positionGizmo && gizmos.positionGizmo.updateGizmoRotationToMatchAttachedMesh !== followMesh) {
+      gizmos.positionGizmo.updateGizmoRotationToMatchAttachedMesh = followMesh;
+    }
     const rg = gizmos.rotationGizmo;
     if (!rg || rg === st.rotationGizmoWired) return;
     st.rotationGizmoWired = rg;

@@ -1,0 +1,129 @@
+// Bloc « Projets » de l'Accueil : même verre que les autres panneaux (HomePanel.module.scss .panel).
+.heading {
+  font-size: 18px;
+  font-weight: 700;
+  color: #f4f4f5;
+  margin: 0 0 12px;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+// Même bouton que la validation des boîtes de dialogue (SliceModal .confirmBtn).
+.action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(245, 158, 11, 0.25);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: none;
+  color: #f59e0b;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 9px 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+
+  &:hover {
+    background: rgba(245, 158, 11, 0.35);
+    filter: brightness(1.15);
+  }
+}
+
+.sub {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #a1a1aa;
+  margin: 14px 0 8px;
+}
+
+.empty {
+  font-size: 14px;
+  color: #a1a1aa;
+  margin: 0;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  max-height: 252px; // 200 px de cartes + le rembourrage ci-dessous
+  overflow-y: auto;
+  // Le halo (au survol : 0 8px 22px, soit 14 px au-dessus, 22 sur les côtés, 30 en dessous) et le soulèvement des
+  // cartes ne doivent pas être rognés par le défilement : le rembourrage les contient, les marges le compensent.
+  padding: 18px 24px 34px;
+  margin: -18px -24px -34px;
+}
+
+// Carte d'un projet récent : sans contour, teinte claire, ombre portée lumineuse ; au survol la teinte
+// s'accentue et la carte se soulève en 3D, en perspective (le halo s'élargit avec elle).
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 6px;
+  border: none;
+  border-radius: 14px;
+  background: rgba(186, 214, 255, 0.14);
+  box-shadow: 0 4px 16px rgba(120, 170, 255, 0.22);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transform: perspective(600px) translateZ(0) rotateX(0deg);
+  transform-origin: 50% 100%;
+  transition: background 0.25s, box-shadow 0.25s, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+
+  &:hover {
+    background: rgba(186, 214, 255, 0.26);
+    box-shadow: 0 8px 22px rgba(140, 190, 255, 0.42);
+    // Soulèvement en perspective : la carte avance vers l'œil et se penche, bord bas en pivot.
+    transform: perspective(600px) translateZ(26px) rotateX(9deg);
+  }
+
+  &:active {
+    transform: perspective(600px) translateZ(10px) rotateX(4deg);
+  }
+}
+
+.thumb {
+  display: block;
+  aspect-ratio: 3 / 2;
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.28);
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+}
+
+.placeholder {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #f4f4f5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.date {
+  font-size: 11px;
+  color: #a1a1aa;
+}

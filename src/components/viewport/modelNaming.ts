@@ -16,3 +16,10 @@ export function uniqueModelName(fileName: string, existing: ReadonlySet<string>)
   }
   return uniqueName;
 }
+
+/** Nom d'un morceau de coupe : « pièce (haut).stl », unique sur le plateau. */
+export function cutPartName(sourceName: string, label: string, existing: ReadonlySet<string>): string {
+  const dot = sourceName.lastIndexOf('.');
+  const named = dot > 0 ? `${sourceName.slice(0, dot)} (${label})${sourceName.slice(dot)}` : `${sourceName} (${label})`;
+  return uniqueModelName(named, existing);
+}

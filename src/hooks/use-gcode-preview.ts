@@ -26,8 +26,10 @@ import {
   GCODE_ACCEPT, GCODE_FILE_EXT, IDLE_CONVERSION, convertSource, currentGCodeText, exportCurrentGCode, loadGCodeFile,
   publishEditFileInfo, removeAirContoursFromCurrent, saveEditedGCode, setOffPlateHighlight, type GCodeSession,
 } from './gcodePreviewSession';
+import { gcodeForProject, reshowGCode, restoreGCode, suspendGCode, type GCodeStashMeta } from './gcodeStash';
 
 import { emitApex } from '@/events/apexEvents';
+import { setProjectGCodeProvider } from '@/utils/projectSave';
 /** Fichier écrit par Aeolis (signature Apex) : son mode 3 axes est un choix du tranchage, pas un
  * fichier étranger à convertir — pas de carte de conversion, export direct. */
 const isApexGenerated = (text: string) => hasApexSignature(text);
@@ -146,7 +148,7 @@ function useColorByState(fileInfo: GCodeFileInfo | null) {
 /** Types de ligne affichés et tête complète : diffusés au viewport à chaque changement. */
 function useDisplayOptions() {
   const [lineVisibility, setLineVisibility] = useState<LineTypeVisibility>(DEFAULT_LINE_VISIBILITY);
-  const [showFullHead, setShowFullHead] = useState(true);
+  const [showFullHead, setShowFullHead] = useState(false);
   useEffect(() => {
     emitApex('apex-gcode-line-visibility', { visibility: lineVisibility });
   }, [lineVisibility]);
@@ -364,8 +366,42 @@ function conversionView(fileInfo: GCodeFileInfo | null, source: GCodeSession['so
   };
 }
 
-/** @param active Espace Prévisualisation affiché (active le dépôt de fichier, coupe la lecture sinon). */
-export function useGCodePreview(active: boolean) {
+/**
+ * Espace sans 3D (Accueil, Paramètres) : le G-code part dans un fichier temporaire (RAM libérée) et revient,
+ * tracé reconstruit, à la sortie. Les opérations s'enchaînent : un retour rapide attend la fin du dépôt.
+ */
+function useGCodeSuspension(suspended: boolean, session: GCodeSession, display: ReturnType<typeof useDisplayOptions>) {
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
+  const displayRef = useRef(display);
+  displayRef.current = display;
+  const metaRef = useRef<GCodeStashMeta | null>(null);
+  const chainRef = useRef<Promise<void>>(Promise.resolve());
+  useEffect(() => {
+    setProjectGCodeProvider(() => chainRef.current.then(() => gcodeForProject(sessionRef.current, metaRef.current)));
+    return () => setProjectGCodeProvider(null);
+  }, []);
+  useEffect(() => {
+    chainRef.current = chainRef.current.then(async () => {
+      const s = sessionRef.current;
+      if (suspended) {
+        metaRef.current = await suspendGCode(s);
+        return;
+      }
+      const meta = metaRef.current;
+      metaRef.current = null;
+      if (meta) await restoreGCode(s, meta);
+      else await reshowGCode(s);
+      // Le viewport remonté repart des réglages d'affichage par défaut : on lui rend ceux de l'interface.
+      emitApex('apex-gcode-line-visibility', { visibility: displayRef.current.lineVisibility });
+      emitApex('apex-gcode-show-full-head', { show: displayRef.current.showFullHead });
+    }).catch(() => undefined);
+  }, [suspended]);
+}
+
+/** @param active Espace Prévisualisation affiché (active le dépôt de fichier, coupe la lecture sinon).
+ * @param suspended Espace sans viewport 3D (Accueil, Paramètres) : le G-code est mis en réserve sur disque. */
+export function useGCodePreview(active: boolean, suspended = false) {
   const parsedRef = useRef<ParsedGCode | null>(null);
   const loadSeqRef = useRef(0);
   const [fileInfo, setFileInfo] = useState<GCodeFileInfo | null>(null);
@@ -384,6 +420,7 @@ export function useGCodePreview(active: boolean) {
     getConversionStatus: () => conversion.status,
     setIsPlaying, setT, resetColor: color.resetColor, setFileInfo, setIsLoading, setConversion,
   };
+  useGCodeSuspension(suspended, session, display);
   const loadFile = (file: File) => loadGCodeFile(session, file);
   const loadFileRef = useRef(loadFile);
   loadFileRef.current = loadFile;

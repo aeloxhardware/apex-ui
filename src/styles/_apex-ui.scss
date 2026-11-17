@@ -1,0 +1,97 @@
+// Standard visuel des contrôles d'Apex (ADR 0006). Chaque valeur est relevée sur l'interface existante : verre de la
+// barre des axes, champs d'ApexNumberField, case d'ApexCheckbox, liste déroulante, ambre des états actifs.
+// Un contrôle n'invente aucune couleur, ombre ni rayon : il les prend ici (jetons) ou via les mixins.
+//
+// Usage : `@use '../../styles/apex-ui' as ui;` puis `@include ui.control;`, `@include ui.selected;`, etc.
+
+// --- Jetons -------------------------------------------------------------------------------------------------------
+$amber: #f59e0b;
+$amber-fill: rgba(245, 158, 11, 0.18);
+$amber-fill-soft: rgba(245, 158, 11, 0.14);
+$amber-glow: 0 0 12px rgba(245, 158, 11, 0.25);
+$focus-ring: 0 0 0 1px rgba(245, 158, 11, 0.6);
+
+$ink: rgba(255, 255, 255, 0.65); // texte et icône au repos
+$ink-strong: rgba(255, 255, 255, 0.92);
+$ink-faint: rgba(255, 255, 255, 0.45);
+$ink-hover: #fff;
+
+$surface: rgba(255, 255, 255, 0.08); // fond d'un champ
+$surface-hover: rgba(255, 255, 255, 0.12);
+$surface-ghost-hover: rgba(255, 255, 255, 0.08); // fond d'un bouton sans fond, au survol
+
+$glass: rgba(10, 15, 26, 0.25);
+$glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 2px 8px 0 rgba(0, 0, 0, 0.3);
+$element-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), 0 1px 2px rgba(0, 0, 0, 0.25);
+
+$radius-panel: 16px;
+$radius-control: 10px; // bouton
+$radius-field: 8px; // champ, liste
+$radius-small: 6px; // contrôle compact
+$radius-check: 5px;
+
+$transition: all 0.2s ease;
+$transition-fast: all 0.15s ease;
+
+// --- Mixins -------------------------------------------------------------------------------------------------------
+/// Remise à zéro d'un contrôle natif : aucun contour, aucune apparence système.
+@mixin reset {
+  appearance: none;
+  border: none;
+  outline: none;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+}
+
+/// Verre d'un contrôle posé seul sur la scène (hors d'un panneau qui porte déjà son verre).
+@mixin glass-surface {
+  background: $glass;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  box-shadow: $glass-shadow;
+}
+
+/// Contrôle cliquable : couleur d'encre, survol, anneau de focus clavier, état désactivé.
+@mixin control($hover-bg: $surface-ghost-hover) {
+  color: $ink;
+  cursor: pointer;
+  transition: $transition;
+
+  &:hover:not(:disabled) {
+    color: $ink-hover;
+    background: $hover-bg;
+  }
+
+  &:focus-visible {
+    box-shadow: $focus-ring;
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+/// État actif / choisi / coché : teinte et halo ambre.
+@mixin selected {
+  color: $amber;
+  background: $amber-fill;
+  box-shadow: $amber-glow;
+}
+
+/// Champ de saisie : fond de champ, survol plus clair, focus en ambre doux.
+@mixin field {
+  background: $surface;
+  border-radius: $radius-field;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+
+  &:hover {
+    background: $surface-hover;
+  }
+
+  &:focus-within {
+    background: linear-gradient($amber-fill-soft, $amber-fill-soft), rgba(255, 255, 255, 0.1);
+    box-shadow: 0 0 14px rgba(245, 158, 11, 0.22), inset 0 0 10px rgba(245, 158, 11, 0.12);
+  }
+}

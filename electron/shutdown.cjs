@@ -23,10 +23,20 @@ function osDisplayName() {
 }
 
 
+// Relance demandée (bouton « Relancer l'app ») : la fermeture est la même, suivie d'un nouveau lancement.
+let relaunching = false;
+
+/** Programme le nouveau lancement. `--ui=` / APEX_UI sont retirés : ils l'emporteraient sur le réglage d'interface mémorisé. */
+function scheduleRelaunch() {
+  delete process.env.APEX_UI;
+  app.relaunch({ args: process.argv.slice(1).filter((a) => !a.startsWith('--ui=')) });
+}
+
 function finish() {
   if (state === 'done') return;
   state = 'done';
   clearTimeout(failsafe);
+  if (relaunching) scheduleRelaunch();
   for (const w of BrowserWindow.getAllWindows()) { if (!w.isDestroyed()) w.destroy(); }
   app.quit();
   setTimeout(() => app.exit(0), 3000);  // dernier recours si quelque chose retient la sortie
@@ -133,6 +143,12 @@ function register(options) {
   });
   ipcMain.on('apex:shutdown-finish', finish);
   ipcMain.on('apex:shutdown-force', forceFinish);
+  ipcMain.on('apex:relaunch', (event) => {
+    if (state !== 'idle') return;
+    relaunching = true;
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win) ask(win); else finish();
+  });
   // Quitter autrement que par la croix (menu, macOS Cmd+Q, arrêt système) : même rideau.
   app.on('before-quit', (event) => {
     if (state === 'done') return;

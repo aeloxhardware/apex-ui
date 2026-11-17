@@ -3,14 +3,22 @@ import React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   MousePointerSquareDashed,
-} from 'lucide-react';
+} from '@/lib/icons';
 import styles from './ModelingSidebar.module.scss';
 import { ApexNumberField } from './ApexNumberField';
+import { ApexSelect } from './apex-ui/ApexSelect';
 import {
   type Feature,
   type SketchPlane,
 } from '@/modeling/types';
 
+
+// Repère Babylon, Y vertical : XZ est le plan du sol (dessus).
+const PLANE_OPTIONS: { value: SketchPlane; label: string }[] = [
+  { value: 'XZ', label: 'XZ (dessus)' },
+  { value: 'XY', label: 'XY (face)' },
+  { value: 'YZ', label: 'YZ (côté)' },
+];
 
 export interface FeatureParamsProps {
   selectedFeature: Feature | null;
@@ -34,20 +42,16 @@ export const FeatureParams: React.FC<FeatureParamsProps> = ({ selectedFeature, t
                 {selectedFeature.kind === 'sketch' && selectedFeature.planeRef.kind === 'axis' && (
                   <div className={styles.paramRow}>
                     <span className={styles.paramLabel}>Plan</span>
-                    <select
-                      className={styles.paramSelect}
+                    <ApexSelect<SketchPlane>
                       value={selectedFeature.planeRef.plane}
-                      onChange={(e) =>
+                      ariaLabel="Plan"
+                      options={PLANE_OPTIONS}
+                      onChange={(plane) =>
                         updateFeature(targetModel.id, selectedFeature.id, {
-                          planeRef: { kind: 'axis', plane: e.target.value as SketchPlane },
+                          planeRef: { kind: 'axis', plane },
                         })
                       }
-                    >
-                      {/* Repère Babylon, Y vertical : XZ est le plan du sol (dessus). */}
-                      <option value="XZ">XZ (dessus)</option>
-                      <option value="XY">XY (face)</option>
-                      <option value="YZ">YZ (côté)</option>
-                    </select>
+                    />
                   </div>
                 )}
 

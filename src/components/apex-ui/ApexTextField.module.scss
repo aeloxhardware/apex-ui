@@ -1,0 +1,35 @@
+@use '../../styles/apex-ui' as ui;
+
+// Champ de texte unique d'Apex : même fond, même survol et même focus ambre que ApexNumberField.
+.root {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  min-height: 32px;
+  @include ui.field;
+}
+
+.input {
+  @include ui.reset;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0 10px;
+  background: transparent;
+  color: ui.$ink-strong;
+  font-size: 12.5px;
+
+  &::placeholder {
+    color: rgba(255, 255, 255, 0.35);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
+
+.multiline {
+  padding: 8px 10px;
+  resize: vertical;
+  min-height: 64px;
+}

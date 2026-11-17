@@ -7,7 +7,6 @@ import {
   setColorByDeferred,
   subscribeColorByDeferred,
 } from '@/utils/gcodeColorByPrefs';
-import { isDevModeEnabled, setDevModeEnabled, subscribeDevMode } from '@/utils/devModePrefs';
 import { isEditJournalEnabled, setEditJournalEnabled, subscribeEditJournal } from '@/utils/editJournalPrefs';
 import {
   UI_SCALE_MAX,
@@ -19,7 +18,7 @@ import {
   setUiScale,
   subscribeUiScale,
 } from '@/utils/uiScalePrefs';
-import { getLaunchInterfaceMode, getStoredInterfaceMode, setStoredInterfaceMode } from '@/utils/interfaceMode';
+import { getLaunchInterfaceMode, getStoredInterfaceMode, relaunchApp, setStoredInterfaceMode } from '@/utils/interfaceMode';
 import { START_PAGES, setStartPage, useStartPage } from '@/utils/startPagePrefs';
 import clsx from 'clsx';
 import styles from './ParamsPanel.module.scss';
@@ -90,7 +89,12 @@ const DisplaySection: React.FC = () => {
       <span>Interface à plat au prochain lancement (noir et blanc, sans verre, flou, transparence, sons ni animations)</span>
     </label>
     {(classicNext ? 'classic' : 'liquid') !== getLaunchInterfaceMode() && (
-      <p className={styles.subtitle}>Pris en compte au prochain lancement de l'application.</p>
+      <>
+        <p className={styles.subtitle}>Pris en compte au prochain lancement de l'application.</p>
+        <button type="button" className={styles.actionButton} onClick={relaunchApp}>
+          Relancer l'app
+        </button>
+      </>
     )}
   </section>
   );
@@ -127,16 +131,12 @@ const StartPageSection: React.FC = () => {
     <div ref={startBarRef} className={styles.segmented}>
       <div className={styles.segmentIndicator} style={startIndicator} />
       {START_PAGES.map(({ id, label }) => {
-        // Modélisation n'existe qu'avec la valeur « dev » (cf. CLAUDE.md) : proposée grisée sinon.
-        const unavailable = id === 'modeling' && !isDevModeEnabled();
         return (
           <button
             key={id}
             type="button"
             ref={(el) => { if (el) startButtonRefs.current.set(id, el); }}
             className={clsx(styles.segmentButton, { [styles.active]: startPage === id })}
-            disabled={unavailable}
-            title={unavailable ? 'Arrive bientôt' : undefined}
             onClick={() => setStartPage(id)}
           >
             {label}
@@ -156,8 +156,6 @@ const PreviewSection: React.FC = () => {
   // modifier l'état partagé, que gcodeLayer.ts lit directement au moment de recolorer.
   const [colorByDeferred, setColorByDeferredState] = useState(isColorByDeferred);
   useEffect(() => subscribeColorByDeferred(setColorByDeferredState), []);
-  const [devMode, setDevModeState] = useState(isDevModeEnabled);
-  useEffect(() => subscribeDevMode(setDevModeState), []);
   const [editJournal, setEditJournalState] = useState(isEditJournalEnabled);
   useEffect(() => subscribeEditJournal(setEditJournalState), []);
   return (
@@ -188,15 +186,6 @@ const PreviewSection: React.FC = () => {
         onChange={(e) => setEditJournalEnabled(e.target.checked)}
       />
       <span>Enregistrer l'historique des modifications dans le G-code</span>
-    </label>
-    <label className={styles.checkboxRow}>
-      <input
-        type="checkbox"
-        className={styles.checkbox}
-        checked={devMode}
-        onChange={(e) => setDevModeEnabled(e.target.checked)}
-      />
-      <span>Mode dev (onglet Dev et raccourcis du navigateur : Ctrl+R, F5, F12…)</span>
     </label>
   </section>
   );

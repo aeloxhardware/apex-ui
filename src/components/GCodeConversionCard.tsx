@@ -1,7 +1,7 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import clsx from 'clsx';
-import { TriangleAlert, CircleCheck, CircleX, X } from 'lucide-react';
+import { TriangleAlert, CircleCheck, CircleX, X } from '@/lib/icons';
 import type { ConversionMode } from './gcodeLayer';
 import type { ConversionState } from '@/hooks/use-gcode-preview';
 import styles from './GCodeConversionCard.module.scss';

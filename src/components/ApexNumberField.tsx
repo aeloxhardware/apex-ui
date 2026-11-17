@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp } from '@/lib/icons';
 import clsx from 'clsx';
 import styles from './ApexNumberField.module.scss';
 

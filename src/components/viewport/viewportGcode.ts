@@ -10,6 +10,17 @@ import { isPreviewSpace } from '@/utils/previewSpace';
 import type { ViewportState } from './viewportState';
 
 import { emitApex } from '@/events/apexEvents';
+/**
+ * Suréchantillonnage de l'aperçu G-code : les cordons font 0,3 mm de haut et des centaines de
+ * couches s'empilent sur quelques pixels, ce que le MSAA et le FXAA ne suffisent pas à lisser
+ * (escaliers sur les arêtes, moiré sur les bords du modèle). Dans l'espace Prévisualisation, la
+ * scène est donc dessinée à plus haute résolution puis réduite à l'affichage. Écrans déjà denses
+ * (ratio ≥ 2) : un facteur plus faible suffit, pour ne pas multiplier le coût par quatre.
+ */
+function gcodeSupersampling(): number {
+  return window.devicePixelRatio >= 2 ? 1.5 : 2;
+}
+
 function setupSyncGCodePicking(st: ViewportState) {
   const { camera, canvas, engine, glassDisc, modelsRef, originAxesRoot, scene, setEditController, volumeRoot } = st;
   // Espace Prévisualisation : trajectoire G-code polaire (cf. gcodeLayer.ts) posée sur le
@@ -21,6 +32,7 @@ function setupSyncGCodePicking(st: ViewportState) {
   gcodeAnchor.position.y = glassDisc.position.y + 0.05; // Z = 0 du G-code : juste sur le disque
   st.gcodePreviewActive = false;
   st.syncGCodePicking = () => {};
+  const baseScalingLevel = engine.getHardwareScalingLevel();
   const gcodeLayer = createGCodeLayer(scene, gcodeAnchor, (rotationY) => {
     if (st.gcodePreviewActive) originAxesRoot.rotation.y = rotationY;
   });
@@ -36,6 +48,7 @@ function setupSyncGCodePicking(st: ViewportState) {
   const onGCodePreviewToggled = (e: Event) => {
     const active = !!(e as CustomEvent<{ active: boolean }>).detail?.active;
     st.gcodePreviewActive = active;
+    engine.setHardwareScalingLevel(active ? baseScalingLevel / gcodeSupersampling() : baseScalingLevel);
     st.syncGCodePicking();
     // L'infobulle d'un espace ne doit pas survivre au passage dans l'autre.
     emitApex('apex-model-hover', { visible: false, x: 0, y: 0, modelName: '', hasTexture: false });

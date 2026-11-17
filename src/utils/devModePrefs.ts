@@ -1,66 +1,15 @@
 /**
- * Mode « dev » : désactivé, l'onglet Dev disparaît de la barre d'outils et les raccourcis du
- * navigateur (Ctrl+R, Ctrl+Maj+R, F5, F12…) sont sans effet (bloqués par le process principal
- * d'Electron). Activé par défaut en développement (vite serve / build de développement) ; DÉSACTIVÉ par défaut dans
- * l'application installée (build de production, ordre de l'utilisateur 2026-10-08) : le réglage reste accessible dans
- * Paramètres et mémorisé ensuite.
- * Même patron que editJournalPrefs.ts (singleton + localStorage).
+ * Variable « dev » de l'application (et non un réglage de l'utilisateur : rien dans Paramètres). Désactivée, elle
+ * n'affiche que les deux bandeaux rouges de préversion (haut, français ; bas, anglais) et ne change rien d'autre
+ * (ordre de l'utilisateur, 2026-11-17). Par défaut : activée en développement (vite serve / build de développement),
+ * désactivée dans l'application livrée (build de production). Forçable au démarrage ou à la compilation par
+ * `VITE_APEX_DEV=false` (ou `true`), p. ex. `cross-env VITE_APEX_DEV=false pnpm electron:dev`.
  */
 
-import { useEffect, useState } from 'react';
+const forced = import.meta.env.VITE_APEX_DEV;
 
-const STORAGE_KEY = 'apex-dev-mode';
+export const DEV_MODE: boolean = forced === undefined || forced === '' ? import.meta.env.DEV : forced !== 'false';
 
-function readStored(): boolean {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored !== null) return stored === 'true';
-  } catch {
-    // no-op : localStorage indisponible.
-  }
-  return import.meta.env.DEV;
-}
-
-let enabled = readStored();
-const listeners = new Set<(enabled: boolean) => void>();
-
-function syncDesktop() {
-  try {
-    window.apexDesktop?.setDevMode?.(enabled);
-  } catch {
-    // no-op : hors Electron.
-  }
-}
-syncDesktop();
-
-export function isDevModeEnabled() {
-  return enabled;
-}
-
-export function setDevModeEnabled(next: boolean) {
-  enabled = next;
-  try {
-    localStorage.setItem(STORAGE_KEY, String(next));
-  } catch {
-    // no-op : localStorage indisponible.
-  }
-  syncDesktop();
-  listeners.forEach((listener) => listener(enabled));
-}
-
-export function subscribeDevMode(listener: (enabled: boolean) => void) {
-  listeners.add(listener);
-  return () => { listeners.delete(listener); };
-}
-
-export function useDevMode() {
-  const [value, setValue] = useState(isDevModeEnabled);
-  useEffect(() => subscribeDevMode(setValue), []);
-  return value;
-}
-
-/** Texte de présentation (Accueil, infobulle du logo) : version préversion quand le mode dev est désactivé. */
-export const APP_TAGLINE_DEV =
+/** Texte de présentation (Accueil, infobulle du logo). */
+export const APP_TAGLINE =
   'Openware de tranchage de modèles 3D destiné à la fabrication additive non-planaire à plan de construction dynamique.';
-export const APP_TAGLINE_PREVIEW =
-  "Openware de traitement de modèle 3D en préversion. Ce logiciel ne peut pas encore générer de G-Code ni modéliser des objets en 3D et ne permet pour l'instant que l'édition de G-Code. Rendez-vous dans l'Espace Prévisualisation, puis cliquez sur l'icône de Modification à droite pour en savoir plus.";

@@ -61,7 +61,7 @@ let nativeChecked = null;
 function requireNative({ command, args, cwd }) {
   if (nativeChecked) return nativeChecked;
   nativeChecked = new Promise((resolve, reject) => {
-    const code = "import sys; sys.path.insert(0, '.'); from core import _cpp; from core.runtime import configure_from_environment; configure_from_environment(); print('NATIVE' if _cpp.enabled() else 'OFF:' + str(_cpp.load_error()))";
+    const code = "import sys; sys.path.insert(0, '.'); from core import _cpp; print('NATIVE' if _cpp.available() else 'OFF:' + str(_cpp.load_error()))";
     const py = args.length ? [command, ['-c', code]] : null;  // exécutable natif livré : le noyau y est intégré
     if (!py) return resolve(true);
     execFile(py[0], py[1], { cwd, env: childEnv(cwd), windowsHide: true }, (err, stdout, stderr) => {
@@ -162,7 +162,7 @@ async function runSlice(request, { packagedExe, onEvent }) {
           if (!line) continue;
           let event = null;
           if (line.startsWith('{')) { try { event = JSON.parse(line); } catch { /* journal libre */ } }
-          if (event && (event.type === 'step' || event.type === 'log')) onEvent?.(event);
+          if (event && (event.type === 'step' || event.type === 'substep' || event.type === 'log')) onEvent?.(event);
           else { tailLines.push(line); if (tailLines.length > 20) tailLines.shift(); }
         }
       });

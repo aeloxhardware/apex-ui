@@ -1,4 +1,5 @@
 import type { ParsedGCode } from '@/components/gcodeTypes';
+import type { CutPlaneParams, PartPlacement } from '@/utils/cutPlane';
 
 /**
  * Bus d'événements d'Apex : le SEUL endroit où existent les noms `apex-*` et le type de leur `detail`.
@@ -29,6 +30,8 @@ export interface ApexEventMap {
   'apex-mode-changed': { mode: 'modeling' | 'slicer' };
   'apex-home-ready': void;
   'apex-viewport-ready': void;
+  /** Demande d'ouvrir l'espace Préparation (comme un clic sur son onglet, rideau compris) : boutons de l'Accueil. */
+  'apex-go-prepare': void;
   'apex-render-pause': { paused: boolean };
   'apex-gcode-loading': { active: boolean; label?: string };
   'apex-shutdown-begin': void;
@@ -47,6 +50,20 @@ export interface ApexEventMap {
   'apex-arrange-finished': void;
   /** Verrouille la sélection (la disposition automatique la laisse en place) ou la déverrouille si elle l'est déjà. */
   'apex-toggle-lock-models': void;
+  /** Outil Couper : le panneau demande le modèle visé (réponse : `apex-cut-target`). */
+  'apex-cut-target-request': void;
+  /** Outil Couper : modèle visé (null : aucun), sa base et son sommet en mm au-dessus du plateau. */
+  'apex-cut-target': { name: string | null; bottom: number; top: number };
+  /** Outil Couper : nouvelle position du plan (aperçu dans la scène). */
+  'apex-cut-plane': CutPlaneParams;
+  /** Outil Couper : plan déplacé ou incliné au gizmo de la scène (le panneau reprend ces réglages). */
+  'apex-cut-plane-dragged': CutPlaneParams;
+  /** Outil Couper : coupe le modèle visé ; chaque partie est gardée ou non, et mise en place. */
+  'apex-cut-perform': {
+    plane: CutPlaneParams;
+    upper: { keep: boolean; placement: PartPlacement };
+    lower: { keep: boolean; placement: PartPlacement };
+  };
   'apex-select-all-models': void;
   'apex-delete-all-models': void;
   'apex-select-model': { name: string; additive?: boolean };
@@ -65,6 +82,7 @@ export interface ApexEventMap {
   'apex-camera-updated': { alpha: number; beta: number };
   'apex-set-camera-view': { view: string };
   'apex-set-camera-custom': { alpha: number; beta: number };
+  'apex-orbit-view-mode': { enabled: boolean };
   'apex-reset-camera': void;
   'apex-fit-screen': void;
   'apex-axis-changed': { mode: string };
@@ -92,10 +110,14 @@ export interface ApexEventMap {
   'apex-model-tree-resized': { overflow: number };
   // --- Tranchage ---
   'apex-request-slice-models': void;
+  /** Une arborescence tout juste montée demande au viewport de ré-annoncer les modèles déjà sur le plateau. */
+  'apex-request-mesh-list': void;
   'apex-slice-models': { names: string[]; triangles: number };
   'apex-slice-all-models': void;
   'apex-slicing-started': { names: string[] };
   'apex-export-plate-stl': { resolve: (stl: Uint8Array | null) => void };
+  /** Plateau en 3MF (enregistrement du projet) : le viewport répond (une promesse) s'il est monté, sinon personne. */
+  'apex-export-plate-3mf': { resolve: (threeMf: Promise<Uint8Array | null>) => void };
   'apex-open-sliced-gcode': { file: File };
   // --- Aperçu G-code ---
   'apex-gcode-loaded': { parsed: ParsedGCode; handled: boolean; onBuilt: () => void };

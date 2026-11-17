@@ -2,16 +2,15 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import ToolAxisIcon from './ToolAxisIcons';
-import { IconCubePlus } from '@tabler/icons-react';
-import { FileSliders, Box, MousePointer2, Code, Maximize2, Eye, Layers, Settings } from 'lucide-react';
+import { Bricks, CubePlus, Cut, Eye, Maximize2, MousePointer2, SpaceDev, SpaceModel, SpacePrepare, SpacePreview, SpaceSettings } from '@/lib/icons';
 import { PILL_CLIP, TRIANGLE_CLIP } from '@/utils/indicatorShapes';
 import styles from './Sidebar.module.scss';
 import { CustomTooltip } from './CustomTooltip';
-import { BricksIcon } from './ModelingIcons';
 import { ArrangeMenu } from './ArrangeMenu';
 import { PREVIEW_TABS, setPreviewTab } from './PreviewUpperTabs';
-import { APP_TAGLINE_DEV, APP_TAGLINE_PREVIEW } from '@/utils/devModePrefs';
+import { APP_TAGLINE } from '@/utils/devModePrefs';
 import { iconVariants } from './sidebarData';
+import { CUT_TOOL_TIP } from '@/utils/cutTooltips';
 import type { SidebarTool, TabName } from './sidebarHooks';
 
 import { emitApex } from '@/events/apexEvents';
@@ -20,7 +19,6 @@ interface TopTabsProps {
   buttonRefs: React.MutableRefObject<Map<string, HTMLButtonElement>>;
   indicatorStyle: React.CSSProperties;
   indicatorOnLogo: boolean;
-  devMode: boolean;
   activeTab: TabName | '3d-view';
   isPreviewActive: boolean;
   onTabClick: (tab: TabName) => void;
@@ -29,7 +27,7 @@ interface TopTabsProps {
 
 /** Barre d'onglets des espaces de travail (Accueil, Préparation, Prévisualisation, Modélisation, Dev, Paramètres). */
 export const TopTabs: React.FC<TopTabsProps> = ({
-  topToolbarRef, buttonRefs, indicatorStyle, indicatorOnLogo, devMode, activeTab, isPreviewActive, onTabClick, onLayerClick,
+  topToolbarRef, buttonRefs, indicatorStyle, indicatorOnLogo, activeTab, isPreviewActive, onTabClick, onLayerClick,
 }) => (
       <div
         ref={topToolbarRef}
@@ -40,7 +38,7 @@ export const TopTabs: React.FC<TopTabsProps> = ({
           <div className={styles.activeIndicatorShape} style={{ clipPath: indicatorOnLogo ? TRIANGLE_CLIP : PILL_CLIP }} />
         </div>
 
-        <CustomTooltip content="Apex Studio" description={devMode ? APP_TAGLINE_DEV : APP_TAGLINE_PREVIEW}>
+        <CustomTooltip content="Apex Studio" description={APP_TAGLINE}>
           <button
             ref={(el) => { if (el) buttonRefs.current.set('home', el); }}
             className={styles.logoContainer}
@@ -61,7 +59,7 @@ export const TopTabs: React.FC<TopTabsProps> = ({
             })}
             onClick={() => onTabClick('box')}
           >
-            <FileSliders size={22} />
+            <SpacePrepare size={22} />
             <span className={styles.topButtonLabel}>Préparation</span>
           </button>
         </CustomTooltip>
@@ -74,12 +72,14 @@ export const TopTabs: React.FC<TopTabsProps> = ({
             })}
             onClick={onLayerClick}
           >
-            <Layers size={22} />
+            <SpacePreview size={22} />
             <span className={styles.topButtonLabel}>Prévisualisation</span>
           </button>
         </CustomTooltip>
 
-        {devMode && (
+        <div className={styles.topSeparator} />
+
+        {(
           <CustomTooltip content="Modélisation" description="Accédez aux outils de modélisation et de préparation de votre modèle.">
             <button
               ref={(el) => { if (el) buttonRefs.current.set('settings', el); }}
@@ -88,13 +88,15 @@ export const TopTabs: React.FC<TopTabsProps> = ({
               })}
               onClick={() => onTabClick('settings')}
             >
-              <Box size={22} />
+              <SpaceModel size={22} />
               <span className={styles.topButtonLabel}>Modélisation</span>
             </button>
           </CustomTooltip>
         )}
 
-        {devMode && (
+        <div className={styles.topSeparator} />
+
+        {(
           <CustomTooltip content="Console Développeur" description="Inspectez les flux G-code générés en temps réel et les journaux de diagnostic système.">
             <button
               ref={(el) => { if (el) buttonRefs.current.set('developer', el); }}
@@ -103,7 +105,7 @@ export const TopTabs: React.FC<TopTabsProps> = ({
               })}
               onClick={() => onTabClick('developer')}
             >
-              <Code size={22} />
+              <SpaceDev size={22} />
               <span className={styles.topButtonLabel}>Dev</span>
             </button>
           </CustomTooltip>
@@ -117,7 +119,7 @@ export const TopTabs: React.FC<TopTabsProps> = ({
             })}
             onClick={() => onTabClick('params')}
           >
-            <Settings size={22} />
+            <SpaceSettings size={22} />
             <span className={styles.topButtonLabel}>Paramètres</span>
           </button>
         </CustomTooltip>
@@ -129,7 +131,7 @@ export const SlicerIcons: React.FC<{
   hidden: boolean;
   /** Outil actif ; null quand le menu d'auto-disposition (outil exclusif lui aussi) est ouvert. */
   activeTool: SidebarTool | null;
-  onToolClick: (tool: 'select' | 'move' | 'rotate' | 'scale' | 'texture') => void;
+  onToolClick: (tool: 'select' | 'move' | 'rotate' | 'scale' | 'texture' | 'cut') => void;
   onUploadClick: () => void;
   arrangeOpen: boolean;
   onArrangeOpenChange: (open: boolean) => void;
@@ -141,7 +143,7 @@ export const SlicerIcons: React.FC<{
               className={clsx(styles.button, styles.bottomButton, styles.uploadActionButton)}
               onClick={onUploadClick}
             >
-              <IconCubePlus size={16} stroke={2} />
+              <CubePlus size={16} strokeWidth={2} />
             </button>
           </CustomTooltip>
         </motion.div>
@@ -210,12 +212,26 @@ export const SlicerIcons: React.FC<{
               })}
               onClick={() => onToolClick('texture')}
             >
-              <BricksIcon width={16} height={16} />
+              <Bricks size={16} />
             </button>
           </CustomTooltip>
         </motion.div>
 
         <motion.div custom={7} variants={iconVariants} animate={hidden ? "hidden" : "visible"} initial="visible" className="flex items-center">
+          <CustomTooltip content={CUT_TOOL_TIP.title} description={CUT_TOOL_TIP.desc}>
+            <button
+              className={clsx(styles.button, styles.bottomButton, {
+                [styles.active]: activeTool === 'cut',
+              })}
+              onClick={() => onToolClick('cut')}
+              aria-label="Couper"
+            >
+              <Cut size={16} />
+            </button>
+          </CustomTooltip>
+        </motion.div>
+
+        <motion.div custom={8} variants={iconVariants} animate={hidden ? "hidden" : "visible"} initial="visible" className="flex items-center">
           <ArrangeMenu
             open={arrangeOpen}
             onOpenChange={onArrangeOpenChange}
@@ -225,11 +241,11 @@ export const SlicerIcons: React.FC<{
           />
         </motion.div>
 
-        <motion.div custom={8} variants={iconVariants} animate={hidden ? "hidden" : "visible"} initial="visible" className="flex items-center">
+        <motion.div custom={9} variants={iconVariants} animate={hidden ? "hidden" : "visible"} initial="visible" className="flex items-center">
           <div className={styles.separator} />
         </motion.div>
 
-        <motion.div custom={9} variants={iconVariants} animate={hidden ? "hidden" : "visible"} initial="visible" className="flex items-center">
+        <motion.div custom={10} variants={iconVariants} animate={hidden ? "hidden" : "visible"} initial="visible" className="flex items-center">
           <CustomTooltip content="Réinitialiser la Caméra" description="Remettez la caméra dans sa position isométrique par défaut face au plateau.">
             <button
               className={clsx(styles.button, styles.bottomButton)}
@@ -240,7 +256,7 @@ export const SlicerIcons: React.FC<{
           </CustomTooltip>
         </motion.div>
 
-        <motion.div custom={10} variants={iconVariants} animate={hidden ? "hidden" : "visible"} initial="visible" className="flex items-center">
+        <motion.div custom={11} variants={iconVariants} animate={hidden ? "hidden" : "visible"} initial="visible" className="flex items-center">
           <CustomTooltip content="Ajuster à l'Écran (Fit)" description="Zoomez et recentrez la vue automatiquement sur le modèle sélectionné.">
             <button
               className={clsx(styles.button, styles.bottomButton)}
@@ -254,7 +270,7 @@ export const SlicerIcons: React.FC<{
 );
 
 /** Mode Prévisualisation : icônes qui basculent le contenu du panneau du haut (cf. PreviewUpperTabs). */
-export const PreviewTabsSlot: React.FC<{ visible: boolean; devMode: boolean; previewTab: string }> = ({ visible, devMode, previewTab }) => (
+export const PreviewTabsSlot: React.FC<{ visible: boolean; previewTab: string }> = ({ visible, previewTab }) => (
         <div
           className={styles.previewSlot}
           style={{ pointerEvents: visible ? 'auto' : 'none' }}
@@ -270,15 +286,13 @@ export const PreviewTabsSlot: React.FC<{ visible: boolean; devMode: boolean; pre
             >
               <CustomTooltip
                 content={t.label}
-                description={!devMode && t.id === 'fonction' ? 'Arrive bientôt' : t.description}
+                description={t.description}
               >
                 <button
                   className={clsx(styles.button, styles.bottomButton, { [styles.active]: previewTab === t.id })}
-                  style={!devMode && t.id === 'fonction' ? { opacity: 0.35, filter: 'grayscale(1)', cursor: 'not-allowed' } : undefined}
                   aria-label={t.label}
                   aria-pressed={previewTab === t.id}
-                  aria-disabled={!devMode && t.id === 'fonction'}
-                  onClick={() => { if (devMode || t.id !== 'fonction') setPreviewTab(t.id); }}
+                  onClick={() => setPreviewTab(t.id)}
                 >
                   {t.icon}
                 </button>
